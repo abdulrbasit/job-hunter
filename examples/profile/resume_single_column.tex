@@ -1,0 +1,195 @@
+% Example Resume — John Doe (fictional)
+% Single-column article layout
+% All names, companies, and metrics are invented.
+
+\documentclass[a4,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{tikz}
+\input{glyphtounicode}
+
+%----------FONT OPTIONS----------
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+\usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace*{-2pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace*{-2pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{{#1 \vspace*{4pt}}}
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace*{-1pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \vspace*{2pt} \textbf{\normalsize#1} & \normalsize#2 \\
+      \textit{\normalsize#3} & \textit{\normalsize #4} \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \normalsize#1 & #2 \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace*{-1pt}}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-1pt}}
+
+\begin{document}
+
+%----------HEADING----------
+% TWO-COLUMN HEADER (default — no photo)
+\begin{minipage}[c]{0.62\textwidth}
+    \raggedright
+    \textbf{\Huge \scshape John Doe} \\[10pt]
+    \textbf{\Large \scshape Senior Backend Engineer}
+\end{minipage}%
+\begin{minipage}[c]{0.38\textwidth}
+    \raggedleft
+    \small Hamburg, Germany\\ [3pt]
+    \small +49 160 0000000 \\ [3pt]
+    \href{mailto:john.doe@example.com}{\small john.doe@example.com}\\ [3pt]
+    \href{https://www.linkedin.com/in/john-doe-eng/}{\small \underline{linkedin.com/in/john-doe-eng}}
+\end{minipage} \vspace*{-15pt}
+
+% THREE-COLUMN HEADER WITH PHOTO
+% To use: comment out the two-column block above and uncomment this block.
+%
+% \begin{minipage}[c]{0.50\textwidth}
+%     \raggedright
+%     \textbf{\Huge \scshape John Doe} \\[10pt]
+%     \textbf{\Large \scshape Senior Backend Engineer}
+% \end{minipage}%
+% \begin{minipage}[c]{0.14\textwidth}
+%     \centering
+%     \includegraphics[width=2.2cm,height=2.2cm,keepaspectratio,clip]{profile.png}
+% \end{minipage}%
+% \begin{minipage}[c]{0.36\textwidth}
+%     \raggedleft
+%     \small Hamburg, Germany\\ [3pt]
+%     \small +49 160 0000000 \\ [3pt]
+%     \href{mailto:john.doe@example.com}{\small john.doe@example.com}\\ [3pt]
+%     \href{https://www.linkedin.com/in/john-doe-eng/}{\small \underline{linkedin.com/in/john-doe-eng}}
+% \end{minipage} \vspace*{-15pt}
+
+%-----------SUMMARY-----------
+\section{Summary}
+    \leftskip=0.15in \small Backend engineer with 8 years in fintech and payments infrastructure. Redesigned a core ledger service to handle 10x traffic growth and reduced settlement pipeline P99 latency from 800ms to under 120ms. Seeking a Staff or Senior Backend role where distributed systems depth is the job, not a side concern.
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Senior Backend Engineer}{Jan 2020 -- Present}
+      {\href{https://example.com}{\underline{FinFlow GmbH}}}{Hamburg, Germany}
+      \resumeItemListStart
+        \resumeItem{Redesigned the core ledger service to handle 10x traffic growth with no additional infrastructure, replacing a synchronous write path with an event-sourced model backed by Kafka.}
+        \resumeItem{Reduced settlement pipeline P99 latency from 800ms to under 120ms by profiling the hot path, eliminating redundant DB round-trips, and introducing read replicas for non-critical queries.}
+        \resumeItem{Led migration of 6 services out of a monolith over 18 months, coordinating 4 engineers and maintaining zero downtime throughout.}
+        \resumeItem{Introduced OpenTelemetry-based distributed tracing across the payment stack; reduced mean time to diagnose production incidents from hours to under 15 minutes.}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Backend Engineer}{Mar 2018 -- Dec 2019}
+      {\href{https://example.com}{\underline{ClearPay Technologies}}}{Hamburg, Germany}
+      \resumeItemListStart
+        \resumeItem{Owned the reconciliation service processing nightly settlement files from 12 banking partners; rewrote the parser in Go, halving processing time.}
+        \resumeItem{Built an idempotency layer for the external payment API that eliminated duplicate charges during network retry storms.}
+        \resumeItem{Migrated the team's deployment pipeline from manual scripts to Kubernetes-based CD; reduced deployment time from 45 minutes to under 5.}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Junior Backend Developer}{Sep 2016 -- Feb 2018}
+      {\href{https://example.com}{\underline{Nordcloud AG}}}{Hamburg, Germany}
+      \resumeItemListStart
+        \resumeItem{Maintained and extended a Java-based billing system for a managed cloud services provider.}
+        \resumeItem{Wrote the first automated integration test suite for the billing API; covered 80\% of the critical payment paths within 3 months.}
+        \resumeItem{Participated in on-call rotation; documented 15 recurring incident types and built runbooks that reduced escalations.}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {BSc Computer Science}{Hamburg, Germany}
+      {\href{https://www.uni-hamburg.de/en/}{\underline{University of Hamburg}}}{Oct 2012 -- Sep 2016}
+      \resumeItemListStart
+        \resumeItem{Thesis: Optimising lock contention in concurrent key-value stores.}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Go, Rust, Python, Java, SQL} \vspace*{5pt} \\
+     \textbf{Infrastructure}{: Kafka, PostgreSQL, Kubernetes, Redis, gRPC} \vspace*{5pt} \\
+     \textbf{Observability}{: OpenTelemetry, Prometheus, Grafana, Jaeger} \vspace*{5pt} \\
+     \textbf{Certifications}{: \href{https://example.com/cert}{\underline{Certified Kubernetes Administrator (CNCF)}}, \href{https://example.com/cert}{\underline{AWS Solutions Architect}}}
+    }}
+ \end{itemize}
+
+%-----------LANGUAGES-----------
+\section{Languages}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+          \textbf{English --- C2 Level (Native)} \vspace*{4pt} \\
+          \textbf{German --- B1 Level (Conversational)} \vspace*{4pt} \\
+    }}
+ \end{itemize}
+
+\end{document}

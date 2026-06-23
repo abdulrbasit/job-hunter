@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -40,14 +40,6 @@ def doctor(root: Path) -> dict[str, Any]:
     )
     checks.append(
         _check(
-            "playwright_package",
-            _module_available("playwright"),
-            "Python playwright import",
-            "Run: python -m pip install -e . && playwright install chromium",
-        )
-    )
-    checks.append(
-        _check(
             "docker",
             shutil.which("docker") is not None,
             "Docker CLI",
@@ -66,14 +58,6 @@ def doctor(root: Path) -> dict[str, Any]:
             _workflow_schedule_configured(root),
             "find-jobs.yml schedule",
             "Uncomment schedule lines when ready for automatic scraping.",
-        )
-    )
-    checks.append(
-        _check(
-            "api_keys",
-            _any_api_key_present(root),
-            "At least one provider key or SEARXNG_BASE_URL",
-            "Set at least one job/search provider key locally or in GitHub secrets.",
         )
     )
     outputs = root / "outputs"
@@ -133,27 +117,6 @@ def _workflow_schedule_configured(root: Path) -> bool:
     return False
 
 
-def _any_api_key_present(root: Path) -> bool:
-    keys = (
-        "BRAVE_API_KEY",
-        "TAVILY_API_KEY",
-        "EXA_API_KEY",
-        "SEARXNG_BASE_URL",
-        "ADZUNA_APP_ID",
-        "ADZUNA_API_KEY",
-        "REED_API_KEY",
-        "RAPIDAPI_KEY",
-        "JOOBLE_API_KEY",
-    )
-    if any(os.environ.get(key) for key in keys):
-        return True
-    env_file = root / ".env"
-    if not env_file.exists():
-        return False
-    text = env_file.read_text(encoding="utf-8", errors="replace")
-    return any(f"{key}=" in text for key in keys)
-
-
 def onboarding_status(root: Path, checks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Return first-run setup state for agent onboarding."""
     missing: list[str] = []
@@ -166,16 +129,23 @@ def onboarding_status(root: Path, checks: list[dict[str, Any]] | None = None) ->
         missing.append("config/job_hunter.yml:regions")
 
     resume_rel = _configured_profile_rel(job_hunter_cfg, "resume_tex", "profile/resume_double_column.tex")
-    if not (root / resume_rel).exists():
+    resume_path = root / resume_rel
+    if not resume_path.exists():
         missing.append(resume_rel)
+    elif not _resume_filled(resume_path):
+        missing.append(f"{resume_rel}:filled")
+
+    career_rel = _configured_profile_rel(job_hunter_cfg, "career_context", "profile/career_context.md")
+    career_path = root / career_rel
+    if not career_path.exists():
+        missing.append(career_rel)
+    elif not _career_context_filled(career_path):
+        missing.append(f"{career_rel}:filled")
 
     story_rel = _configured_profile_rel(job_hunter_cfg, "story_bank", "profile/story_bank.md")
     story_path = root / story_rel
     if not story_path.exists() or not _has_final_story(story_path):
         missing.append(f"{story_rel}:final_stories")
-
-    if not _any_api_key_present(root):
-        missing.append("api_keys")
 
     if checks is None:
         workflow_configured = _workflow_schedule_configured(root)
@@ -206,7 +176,30 @@ def _has_enabled_region(data: dict[str, Any]) -> bool:
     regions = data.get("regions")
     if not isinstance(regions, dict) or not regions:
         return False
-    return any(isinstance(region, dict) and region.get("enabled", True) for region in regions.values())
+    _placeholder = "your city"
+    return any(
+        isinstance(region, dict)
+        and region.get("enabled", True)
+        and str(region.get("location", "")).strip().lower() != _placeholder
+        for region in regions.values()
+    )
+
+
+def _resume_filled(path: Path) -> bool:
+    """Return True if the resume .tex has been personalised beyond template placeholders."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\\name\s*\{\s*Name\s*\}", text):
+        return False
+    if re.search(r"\\scshape\s+Name\b", text):
+        return False
+    return True
+
+
+def _career_context_filled(path: Path) -> bool:
+    """Return True if career_context.md has content beyond empty template fields."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    filled = sum(1 for line in text.splitlines() if re.match(r"^-\s+[^:]+:\s+\S", line))
+    return filled >= 3
 
 
 def _has_final_story(path: Path) -> bool:

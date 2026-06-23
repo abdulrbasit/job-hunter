@@ -14,16 +14,19 @@ Single responsibility: run `job-hunter doctor` and surface the results in a clea
    ```
    System Check  ── <date>
    ──────────────────────────────────────────
-   ✓  python_version         3.12.x
-   ✓  editable_package       installed
-   ✓  playwright_package     ok
-   ✓  docker                 Docker CLI
+   ✓  python_version                  3.12.x
+   ✓  editable_package                installed
+   ✓  docker                          Docker CLI
    ✓  config/job_hunter.yml
    ...
-   ✗  profile/story_bank.md        → Create profile/story_bank.md
+   ✗  profile/resume.tex:filled       → Run /setup resume to populate
+   ✗  profile/career_context.md       → Run /setup context to fill
+   ✗  profile/story_bank.md:final_stories → Run /setup stories
    ──────────────────────────────────────────
    Status: READY  (or SETUP NEEDED)
    ```
+
+   The `:filled` suffix means the file exists but still has template placeholder values. The `:final_stories` suffix means the story bank has no approved stories yet.
 
    Print PASS (✓) rows first, grouped, then FAIL (✗) rows with their fix hint.
 

@@ -69,9 +69,6 @@ scoring:
   #   bypass_max_years_experience: true
   #   reason: "Strategic target"
 
-linkedin:
-  enabled: false
-
 llm:
   default_provider: anthropic
   providers:
@@ -80,7 +77,6 @@ llm:
     tailoring: anthropic
     cover_letter: anthropic
     research: anthropic
-    linkedin: anthropic
     jd_extraction: anthropic
     ai_web_search: anthropic
   models:
@@ -89,7 +85,6 @@ llm:
     tailoring: "claude-sonnet-4-6"
     cover_letter: "claude-sonnet-4-6"
     research: "claude-haiku-4-5-20251001"
-    linkedin: "claude-sonnet-4-6"
     jd_extraction: "claude-haiku-4-5-20251001"
     ai_web_search: "claude-haiku-4-5-20251001"
   max_tokens:
@@ -98,7 +93,6 @@ llm:
     tailoring: 4000
     cover_letter: 800
     research: 800
-    linkedin: 6000
     jd_extraction: 1500
     ai_web_search: 1200
   max_workers: 5

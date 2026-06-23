@@ -29,7 +29,7 @@ _CANONICAL_FILES = (
 # Files/dirs that only exist in the bundled template (no canonical root counterpart).
 # .gitignore: workspace version differs from the dev repo .gitignore.
 _RESOURCE_ONLY_FILES: frozenset[str] = frozenset({".gitignore"})
-_RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", "outputs/", "profile/")
+_RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/", "outputs/", "profile/")
 
 # Dev-only skills — excluded from the user workspace template.
 _DEV_SKILL_DIRS: frozenset[str] = frozenset({"code", "commit", "dev-skills", "dev-tools", "refactor", "test"})

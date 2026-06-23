@@ -2,7 +2,7 @@
 
 Job hunting is repetitive work. Job Hunter automates the parts that don't need you: scraping listings across major job boards, scoring each one against your profile, tailoring your resume per application, and drafting cover letters. You handle the conversations.
 
-Works interactively inside Claude Code or Codex, or runs fully autonomous via LLM API for unattended pipelines and GitHub Actions.
+Works interactively inside Claude Code, Codex, Gemini CLI, or GitHub Copilot, or runs fully autonomous via LLM API for unattended pipelines and GitHub Actions.
 
 ## What It Does
 
@@ -35,7 +35,7 @@ Edit `config/job_hunter.yml` with your titles, regions, exclusions, profile path
 
 | Mode | What runs | When to use |
 |---|---|---|
-| `agent` | Python prepares context; Claude/Codex skills handle scoring, tailoring, and writing | Interactive daily review |
+| `agent` | Python prepares context; Claude Code, Codex, Gemini CLI, or Copilot skills handle scoring, tailoring, and writing | Interactive daily review |
 | `llm-api` | Full autonomous pipeline; LLM APIs called inside Python | Unattended runs and GitHub Actions |
 
 Set `mode:` in `config/job_hunter.yml`. Default is `agent`.
@@ -48,7 +48,7 @@ job-hunter brief
 job-hunter dashboard --no-interactive
 ```
 
-In `agent` mode, open the workspace in Claude Code or Codex and use:
+In `agent` mode, open the workspace in Claude Code, Codex, Gemini CLI, or GitHub Copilot and use:
 
 ```text
 /job-hunter brief

@@ -101,11 +101,7 @@
 \begin{document}
 
 %----------HEADING----------
-% \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
-%   \textbf{\href{http://sourabhbajaj.com/}{\Large Sourabh Bajaj}} & Email : \href{mailto:sourabh@sourabhbajaj.com}{sourabh@sourabhbajaj.com}\\
-%   \href{http://sourabhbajaj.com/}{http://www.sourabhbajaj.com} & Mobile : +1-123-456-7890 \\
-% \end{tabular*}
-
+% TWO-COLUMN HEADER (default — no photo)
 \begin{minipage}[c]{0.62\textwidth}
     \raggedright
     \textbf{\Huge \scshape Name} \\[10pt]
@@ -116,8 +112,30 @@
     \small City, Country\\ [3pt]
     \small +49 \\ [3pt]
     \href{mailto:email@gmail.com}{\small email@gmail.com}\\ [3pt]
-    \href{https://www.linkedin.com/in/username/}{\small \underline{linkedin.com/in/usernamet}} 
+    \href{https://www.linkedin.com/in/username/}{\small \underline{linkedin.com/in/username}}
 \end{minipage} \vspace*{-15pt}
+
+% THREE-COLUMN HEADER WITH PHOTO
+% To use: comment out the two-column block above and uncomment this block.
+% Place your photo (e.g. profile.png) in the same folder as this .tex file.
+% Adjust column widths (must sum to 1.0) and image size as needed.
+%
+% \begin{minipage}[c]{0.50\textwidth}
+%     \raggedright
+%     \textbf{\Huge \scshape Name} \\[10pt]
+%     \textbf{\Large \scshape Title}
+% \end{minipage}%
+% \begin{minipage}[c]{0.14\textwidth}
+%     \centering
+%     \includegraphics[width=2.2cm,height=2.2cm,keepaspectratio,clip]{profile.png}
+% \end{minipage}%
+% \begin{minipage}[c]{0.36\textwidth}
+%     \raggedleft
+%     \small City, Country\\ [3pt]
+%     \small +49 \\ [3pt]
+%     \href{mailto:email@gmail.com}{\small email@gmail.com}\\ [3pt]
+%     \href{https://www.linkedin.com/in/username/}{\small \underline{linkedin.com/in/username}}
+% \end{minipage} \vspace*{-15pt}
 
 %-----------SUMMARY-----------
 \section{Summary}
