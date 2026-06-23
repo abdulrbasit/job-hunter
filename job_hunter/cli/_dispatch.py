@@ -17,6 +17,11 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _tailor_snapshot_path(root: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
+    return root / "outputs" / "candidates" / f"{timestamp}_tailor_candidates.json"
+
+
 def dispatch_hunt(
     region_key: str | None = None,
     *,
@@ -112,9 +117,10 @@ def dispatch_tailor(
             load_api_config(),
             get_config("job_hunter"),
             UrlLivenessCache(),
+            use_llm=False,
         )
         today = datetime.today().strftime("%Y-%m-%d")
-        path = ROOT / "outputs" / "candidates" / f"{today}_tailor_candidates.json"
+        path = _tailor_snapshot_path(ROOT)
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "date": today,
