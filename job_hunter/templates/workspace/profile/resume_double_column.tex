@@ -15,6 +15,19 @@
 \usepackage{paracol}
 \usepackage{enumitem}
 
+%----------FONT OPTIONS----------
+% Uncomment exactly one font block (or leave all commented for LaTeX default).
+% sans-serif
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{lato}
+% \usepackage[sfdefault]{sourcesanspro}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[sfdefault]{FiraSans}
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+% \usepackage{lmodern}
+
 % --- Colors ---
 % Dark navy as the dominant brand color; lighter slate for accents.
 \definecolor{PrimaryColor}{HTML}{1B2A4E}     % Dark navy (headings, name)
@@ -70,11 +83,10 @@
     draw=accent,
     rounded corners,
     inner xsep=0.9ex,
-    inner ysep=0.6ex,
-    text height=1.6ex,
+    inner ysep=0.75ex,
+    text height=1.5ex,
     text depth=.25ex
-  ] {\small #1};%
-  \raisebox{0pt}[0pt][1.0em]{} % <-- vertical spacing between wrapped rows
+  ] {\small #1}%
 }
 
 \begin{document}

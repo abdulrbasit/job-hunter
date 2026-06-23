@@ -31,7 +31,7 @@ def test_workspace_template_config_is_valid_yaml() -> None:
 
     assert config["profile"]["resume_tex"] == "profile/resume_double_column.tex"
     assert "career_context" in config["profile"]
-    assert set(config["linkedin"]) == {"enabled"}
+    assert "linkedin" not in config
     assert "tailoring" not in config
     assert "cover_letter" not in config
 

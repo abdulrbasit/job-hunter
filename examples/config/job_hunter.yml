@@ -1,6 +1,5 @@
-# Job Hunter configuration.
-# YAML is for deterministic machine settings. Personal positioning, writing
-# style, and career preferences belong in profile/career_context.md.
+# Job Hunter configuration — example workspace (fictional persona: John Doe)
+# All values below are examples. Replace with your own.
 
 mode: agent
 
@@ -12,24 +11,26 @@ profile:
   profile_image: "profile/profile.png"
 
 job_titles:
-  - "Product Manager"
-  - "Product Owner"
+  - "Staff Engineer"
+  - "Staff Backend Engineer"
+  - "Senior Backend Engineer"
+  - "Principal Engineer"
+  - "Senior Software Engineer"
 
 regions:
-  primary:
+  hamburg:
     enabled: true
     primary: true
     country: "DE"
     search_lang: "en"
-    location: "Your City"
-    description: "Primary search region"
-
-  # Additional regions can be added here. Country-specific sources are
-  # automatically skipped when their country is not enabled.
-  # singapore:
-  #   enabled: false
-  #   country: "SG"
-  #   location: "Singapore"
+    location: "Hamburg"
+    description: "Hamburg and greater area"
+  remote:
+    enabled: true
+    country: "DE"
+    search_lang: "en"
+    location: "Remote"
+    description: "Remote-first roles open to Germany"
 
 exclusions:
   companies: []
@@ -40,9 +41,11 @@ exclusions:
     - working student
     - werkstudent
     - junior
-    - principal
-    - expert
-    - chief product
+    - associate
+    - lead developer
+    - engineering manager
+    - vp engineering
+    - cto
   languages:
     - german
   industries: []
@@ -50,24 +53,22 @@ exclusions:
 search:
   llm_search:
     enabled: false
-    # Run AI web search only when normal sources find fewer than this many candidates.
     trigger_threshold: 15
-    # Hard cap for AI web-search candidates added in one run.
     max_results_per_run: 20
 
 scoring:
   min_fit_score: 70
-  max_years_experience_required: 5
-  # Shared run batch size. Agent mode freezes this many candidates per batch;
-  # LLM API mode tailors this many top-scored matches per run. Request
-  # concurrency is controlled separately by llm.max_workers.
+  max_years_experience_required: 10
   batch_size: 15
-  strategic_overrides: []
-  # Example:
-  # - company: "Dream Company"
-  #   min_score_override: 60
-  #   bypass_max_years_experience: true
-  #   reason: "Strategic target"
+  strategic_overrides:
+    - company: "NordPay Systems"
+      min_score_override: 55
+      bypass_max_years_experience: true
+      reason: "Former colleague now CTO — genuine technical fit"
+    - company: "Tributary"
+      min_score_override: 60
+      bypass_max_years_experience: false
+      reason: "Open-source Kafka tooling — strong mission alignment"
 
 llm:
   default_provider: anthropic

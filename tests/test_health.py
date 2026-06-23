@@ -62,8 +62,9 @@ def test_onboarding_status_reports_missing_items(tmp_path: Path, monkeypatch) ->
     assert payload["onboardingNeeded"] is True
     assert "config/job_hunter.yml:regions" in payload["missing"]
     assert "profile/resume_double_column.tex" in payload["missing"]
+    assert "profile/career_context.md" in payload["missing"]
     assert "profile/story_bank.md:final_stories" in payload["missing"]
-    assert "api_keys" in payload["missing"]
+    assert "api_keys" not in payload["missing"]
 
 
 def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: Path, monkeypatch) -> None:
@@ -89,7 +90,16 @@ def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: P
         ),
         encoding="utf-8",
     )
-    (tmp_path / "profile" / "resume_double_column.tex").write_text("resume", encoding="utf-8")
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(
+        "\\name{Alex Rivera}\n\\tagline{Senior Product Manager}",
+        encoding="utf-8",
+    )
+    (tmp_path / "profile" / "career_context.md").write_text(
+        "## About Me\n\n- Current role: Senior PM at Example Corp\n"
+        "- Experience summary: 5 years in B2B SaaS product management\n"
+        "- Strongest proof points: Led product from 0 to 10k users\n",
+        encoding="utf-8",
+    )
     (tmp_path / "profile" / "story_bank.md").write_text(
         "# Story Bank\n\n# Final - refined STAR stories\n\n## PM-01\nStory.\n",
         encoding="utf-8",

@@ -3,7 +3,7 @@
   "title": "job_hunter config",
   "type": "object",
   "additionalProperties": false,
-  "required": ["mode", "profile", "job_titles", "regions", "exclusions", "search", "scoring", "linkedin", "llm"],
+  "required": ["mode", "profile", "job_titles", "regions", "exclusions", "search", "scoring", "llm"],
   "properties": {
     "mode": {
       "type": "string",
@@ -95,14 +95,6 @@
             "additionalProperties": false
           }
         }
-      },
-      "additionalProperties": false
-    },
-    "linkedin": {
-      "type": "object",
-      "required": ["enabled"],
-      "properties": {
-        "enabled": {"type": "boolean"}
       },
       "additionalProperties": false
     },

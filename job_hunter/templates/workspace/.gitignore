@@ -3,16 +3,25 @@
 # Secrets (never commit)
 .env
 
-# Generated outputs (large binary files)
+# Generated outputs — PDFs (compiled from LaTeX, can be regenerated)
 outputs/jobs/**/*.pdf
-outputs/jobs/**/*.aux
-outputs/jobs/**/*.log
-outputs/jobs/**/*.out
-outputs/jobs/**/*.synctex.gz
+
+# LaTeX build artifacts (generated during compilation, safe to delete)
+*.aux
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.xdv
 
 # Caches and state (rebuilt on next run)
 outputs/state/discovery_cache.yml
-job_hunt.log
 __pycache__/
 *.pyc
 .DS_Store

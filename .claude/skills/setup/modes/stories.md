@@ -31,3 +31,9 @@ Drafts: N | Strong: N | Needs work: N
 ```
 
 When called from a workflow, control returns to the calling workflow after printing this output; the caller must immediately continue the next step in the same assistant turn.
+
+When run standalone (not from a workflow), after printing the output tell the user:
+
+> Stories saved to `profile/story_bank.md` as drafts. Review them and promote the ones you're happy with to the Final section — move each story block up under the `# Final` heading for its role.
+>
+> Next: run `/setup resume` to build your base resume from your career context and these stories.

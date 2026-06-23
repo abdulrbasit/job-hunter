@@ -1,0 +1,187 @@
+%%%%%%%%%%%%%%%%%
+% Example Resume — John Doe (fictional)
+% Double-column AltaCV layout
+% All names, companies, and metrics are invented.
+%%%%%%%%%%%%%%%%%
+
+\documentclass[9pt,a4paper,ragged2e,withhyper]{altacv}
+
+\geometry{left=1.25cm,right=1.25cm,top=1cm,bottom=1cm,columnsep=0.8cm}
+
+\usepackage[T1]{fontenc}
+\usepackage{paracol}
+\usepackage{enumitem}
+
+%----------FONT OPTIONS----------
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{lato}
+% \usepackage[sfdefault]{sourcesanspro}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+% \usepackage{lmodern}
+
+% --- Colors ---
+\definecolor{PrimaryColor}{HTML}{1A3A2A}
+\definecolor{SecondaryColor}{HTML}{1A3A2A}
+\definecolor{ThirdColor}{HTML}{1A3A2A}
+\definecolor{BodyColor}{HTML}{1A1A1A}
+\definecolor{EmphasisColor}{HTML}{1A3A2A}
+\definecolor{AccentColor}{HTML}{4A7C5F}
+
+\colorlet{name}{PrimaryColor}
+\colorlet{tagline}{PrimaryColor}
+\colorlet{heading}{PrimaryColor}
+\colorlet{headingrule}{PrimaryColor}
+\colorlet{subheading}{PrimaryColor}
+\colorlet{accent}{AccentColor}
+\colorlet{emphasis}{EmphasisColor}
+\colorlet{body}{BodyColor}
+
+\renewcommand{\cvevent}[4]{%
+  {\large\color{emphasis}#1\par}%
+  \smallskip\normalsize
+  \ifstrequal{#2}{}{}{\textbf{\color{accent}#2}\par\smallskip}%
+  \ifstrequal{#3}{}{}{%
+    {\small%
+      \BeginAccSupp{method=pdfstringdef,ActualText={\datename:}}\cvDateMarker\EndAccSupp{}~#3%
+      \ifstrequal{#4}{}{}{%
+        \hfill%
+        \BeginAccSupp{method=pdfstringdef,ActualText={\locationname:}}\cvLocationMarker\EndAccSupp{}~#4%
+      }%
+      \par%
+    }%
+  }%
+  \medskip%
+}
+
+\renewcommand{\cvItemMarker}{{\small\textbullet}}
+\renewcommand{\cvRatingMarker}{\faCircle}
+\renewcommand{\locationname}{Location}
+\renewcommand{\datename}{Date}
+
+\renewcommand{\personalinfofont}{\raisebox{0pt}[0pt][1.0em]{}}
+\renewcommand{\cvtag}[1]{%
+  \tikz[baseline]\node[
+    anchor=base,
+    draw=accent,
+    rounded corners,
+    inner xsep=0.9ex,
+    inner ysep=0.75ex,
+    text height=1.5ex,
+    text depth=.25ex
+  ] {\small #1}%
+}
+
+\begin{document}
+
+\name{John Doe}
+\tagline{Senior Backend Engineer}
+
+% \photoR{2.8cm}{profile.png}
+
+\personalinfo{%
+  \location{Hamburg, Germany}
+  \phone{+49 160 0000000}
+  \email{john.doe@example.com}
+  \linkedin{john-doe-eng}
+}
+
+\makecvheader
+
+\cvsection{Summary}
+
+Backend engineer with 8 years in fintech and payments infrastructure. Redesigned a core ledger service to handle 10x traffic growth and reduced settlement pipeline P99 latency from 800ms to under 120ms. Seeking a Staff or Senior Backend role where distributed systems depth is the job, not a side concern.
+
+\columnratio{0.70}
+\setlength{\columnsep}{1.0cm}
+\begin{paracol}{2}
+
+\cvsection{Experience}
+
+\cvevent{Senior Backend Engineer}{\href{https://example.com/}{FinFlow GmbH}}{Jan 2020 -- Present}{Hamburg, Germany}
+\begin{itemize}
+  \item Redesigned the core ledger service to handle 10x traffic growth with no additional infrastructure, replacing a synchronous write path with an event-sourced model backed by Kafka.
+  \item Reduced settlement pipeline P99 latency from 800ms to under 120ms by profiling the hot path, eliminating redundant DB round-trips, and introducing read replicas for non-critical queries.
+  \item Led migration of 6 services out of a monolith over 18 months, coordinating 4 engineers and maintaining zero downtime throughout — all services now independently deployable.
+  \item Introduced OpenTelemetry-based distributed tracing across the payment stack; reduced mean time to diagnose production incidents from hours to under 15 minutes.
+\end{itemize}
+
+\divider
+
+\cvevent{Backend Engineer}{\href{https://example.com/}{ClearPay Technologies}}{Mar 2018 -- Dec 2019}{Hamburg, Germany}
+\begin{itemize}
+  \item Owned the reconciliation service processing nightly settlement files from 12 banking partners; rewrote the parser in Go, halving processing time.
+  \item Built an idempotency layer for the external payment API that eliminated duplicate charges during network retry storms.
+  \item Migrated the team's deployment pipeline from manual scripts to Kubernetes-based CD; reduced deployment time from 45 minutes to under 5.
+\end{itemize}
+
+\divider
+
+\cvevent{Junior Backend Developer}{\href{https://example.com/}{Nordcloud AG}}{Sep 2016 -- Feb 2018}{Hamburg, Germany}
+\begin{itemize}
+  \item Maintained and extended a Java-based billing system for a managed cloud services provider.
+  \item Wrote the first automated integration test suite for the billing API; covered 80\% of the critical payment paths within 3 months.
+  \item Participated in on-call rotation; documented 15 recurring incident types and built runbooks that reduced escalations.
+\end{itemize}
+
+\cvsection{Education}
+
+\cvevent{BSc Computer Science}{\href{https://www.uni-hamburg.de/en/}{University of Hamburg}}{Oct 2012 -- Sep 2016}{Hamburg, Germany}
+\begin{itemize}
+  \item Thesis: Optimising lock contention in concurrent key-value stores.
+\end{itemize}
+
+\switchcolumn
+
+\begin{adjustwidth}{0pt}{0.6em}
+
+\cvsection{Skills}
+
+\cvsubsection{Languages}
+\cvtag{Go}
+\cvtag{Rust}
+\cvtag{Python}
+\cvtag{Java}
+\cvtag{SQL}
+
+\vspace{0.8em}
+
+\cvsubsection{Infrastructure}
+\cvtag{Kafka}
+\cvtag{PostgreSQL}
+\cvtag{Kubernetes}
+\cvtag{Redis}
+\cvtag{gRPC}
+
+\vspace{0.8em}
+
+\cvsubsection{Observability}
+\cvtag{OpenTelemetry}
+\cvtag{Prometheus}
+\cvtag{Grafana}
+\cvtag{Jaeger}
+
+\vspace{0.6em}
+
+\cvsection{Languages}
+
+{\textbf{English --- C2 (Native)}}\\
+\vspace{0.6em}
+{\textbf{German --- B1 (Conversational)}}\\
+
+\vspace{0.6em}
+
+\cvsection{Certifications}
+
+\href{https://example.com/cert}{\textbf{Certified Kubernetes Administrator}}\\
+{\small CNCF}\\[6pt]
+\href{https://example.com/cert}{\textbf{AWS Solutions Architect}}\\
+{\small Amazon Web Services}
+
+\end{adjustwidth}
+
+\end{paracol}
+
+\end{document}

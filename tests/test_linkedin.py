@@ -104,13 +104,10 @@ def test_linkedin_yaml_files_parse() -> None:
             assert yaml.safe_load(path.read_text(encoding="utf-8")) is not None
 
 
-def test_template_linkedin_is_disabled_by_default() -> None:
-    config = yaml.safe_load((Path(__file__).parent.parent / "config/job_hunter.yml").read_text(encoding="utf-8"))[
-        "linkedin"
-    ]
+def test_template_linkedin_not_in_config() -> None:
+    config = yaml.safe_load((Path(__file__).parent.parent / "config/job_hunter.yml").read_text(encoding="utf-8"))
 
-    assert config["enabled"] is False
-    assert set(config) == {"enabled"}
+    assert "linkedin" not in config
 
 
 def test_linkedin_internal_defaults_are_packaged_and_parse() -> None:

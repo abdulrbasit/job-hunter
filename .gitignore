@@ -29,13 +29,24 @@ job_hunt.log*
 
 # User-owned workspace state and generated artifacts
 outputs/jobs/**/*.pdf
-outputs/jobs/**/*.aux
-outputs/jobs/**/*.log
-outputs/jobs/**/*.out
-outputs/jobs/**/*.synctex.gz
 outputs/state/discovery_cache.yml
 .env
 writing-samples/
+
+# LaTeX build artifacts (profile/template-files and examples)
+profile/template-files/*.aux
+profile/template-files/*.fls
+profile/template-files/*.fdb_latexmk
+profile/template-files/*.out
+profile/template-files/*.synctex.gz
+profile/template-files/*.toc
+profile/template-files/*.pdf
+examples/profile/*.aux
+examples/profile/*.fls
+examples/profile/*.fdb_latexmk
+examples/profile/*.out
+examples/profile/*.synctex.gz
+examples/profile/*.pdf
 
 # IDE
 .vscode/
