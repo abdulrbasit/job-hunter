@@ -1,9 +1,16 @@
 from __future__ import annotations
 
-from job_hunter.models import JobPosting
+import subprocess
+import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from job_hunter.models import JobPosting
 
 
 def _sample_posting() -> JobPosting:
+    from job_hunter.models import JobPosting
+
     return JobPosting(
         title="Software Engineer",
         company="Acme Corp",
@@ -28,5 +35,16 @@ def test_extra_keys_dropped() -> None:
     jp = _sample_posting()
     d = jp.to_dict()
     d["unknown_field"] = "should be dropped"
-    result = JobPosting.from_dict(d)
+    result = type(jp).from_dict(d)
     assert result == jp
+
+
+def test_models_import_cleanly_in_fresh_process() -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", "from job_hunter.models import LLMRequest, StoryBlock"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
