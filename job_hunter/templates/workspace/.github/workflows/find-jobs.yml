@@ -44,7 +44,7 @@ jobs:
 
       - name: Install Python package and browser extra
         run: |
-          uv pip install --system "job-hunter-kit[browser]"
+          uv pip install "job-hunter-kit[browser]"
           playwright install --with-deps chromium
 
       - name: Read execution mode
