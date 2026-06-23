@@ -1,0 +1,354 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_TEMPLATE = ROOT / "job_hunter" / "templates" / "workspace"
+
+
+def _is_upstream_repo_context(root: Path = ROOT) -> bool:
+    github_repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if github_repository:
+        return github_repository == "JobHunterPath/job-hunter"
+    return root.name == "job-hunter"
+
+
+def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONUTF8"] = "1"
+    return subprocess.run(
+        [sys.executable, "-m", "job_hunter.cli", *args],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+
+def test_help_loads() -> None:
+    result = run_cli("--help")
+    assert result.returncode == 0
+    assert "job-hunter" in result.stdout
+    assert "brief" in result.stdout
+
+
+def test_hunt_command_exists_in_help() -> None:
+    result = run_cli("--help")
+    assert result.returncode == 0
+    assert "hunt" in result.stdout
+
+
+def test_user_contract_commands_run(tmp_path: Path) -> None:
+    result = run_cli("config", "check")
+    assert result.returncode == 0
+    assert "config/job_hunter.yml ok" in result.stdout
+
+    workspace = tmp_path / "workspace"
+    result = run_cli("init", str(workspace))
+    assert result.returncode == 0
+    assert (workspace / "config" / "job_hunter.yml").exists()
+
+    result = run_cli("doctor", "--workspace", str(workspace), "--json")
+    assert result.returncode in (0, 1)
+    assert "checks" in result.stdout
+
+
+def test_find_jobs_workflow_splits_scrape_and_briefing() -> None:
+    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "find-jobs.yml").read_text(encoding="utf-8")
+
+    assert "name: Scrape jobs" in workflow
+    assert "id: scrape" in workflow
+    assert "timeout-minutes: 55" in workflow
+    assert "job-hunter hunt ${{ steps.region.outputs.arg }}" in workflow
+    assert "name: Build briefing" in workflow
+    assert "job-hunter brief" in workflow
+    assert "always() && steps.region.outputs.should_run == 'true'" in workflow
+
+
+def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "abdul/Abdul.Basit_Resume")
+    assert _is_upstream_repo_context(Path("job-hunter")) is False
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "JobHunterPath/job-hunter")
+    assert _is_upstream_repo_context(Path("Abdul.Basit_Resume")) is True
+
+
+def test_upstream_repo_context_falls_back_to_checkout_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+
+    assert _is_upstream_repo_context(Path("job-hunter")) is True
+    assert _is_upstream_repo_context(Path("Abdul.Basit_Resume")) is False
+
+
+def test_removed_commands_not_in_help() -> None:
+    result = run_cli("--help")
+    assert result.returncode == 0
+    for removed in (
+        "workflow",
+        "validate-claims",
+        "benchmark",
+        "adapters",
+        "score",
+        "retro",
+        "sync",
+        "migrate",
+    ):
+        assert removed not in result.stdout, f"removed command still present in help: {removed}"
+    assert "update-skills" in result.stdout
+
+
+def test_agent_context_help_loads() -> None:
+    result = run_cli("agent-context", "--help")
+    assert result.returncode == 0
+    assert "story-index" in result.stdout
+    assert "stories-final" in result.stdout
+    assert "lifecycle" in result.stdout
+
+
+def test_commit_job_marks_url_as_processed() -> None:
+    import shutil
+
+    import job_hunter.cli as cli_module
+    from job_hunter.tracker import import_job_artifact
+    from job_hunter.tracking.tracker import load_processed, save_processed
+
+    folder = import_job_artifact(
+        title="Product Manager",
+        company="TrackerTestCo",
+        url="https://example.com/jobs/tracker-test-unit",
+    )
+    try:
+        with patch("subprocess.run", return_value=MagicMock(returncode=1)):
+            from typer.testing import CliRunner
+
+            runner = CliRunner()
+            runner.invoke(cli_module.app, ["commit-job", folder.name])
+
+        urls = load_processed()
+        assert "https://example.com/jobs/tracker-test-unit" in urls
+    finally:
+        urls = load_processed()
+        urls.discard("https://example.com/jobs/tracker-test-unit")
+        save_processed(urls)
+        if folder.exists():
+            shutil.rmtree(folder)
+
+
+def test_mark_processed_from_candidates() -> None:
+    import tempfile
+
+    import yaml
+
+    from job_hunter.tracking.tracker import load_processed, save_processed
+
+    candidates = [
+        {
+            "url": "https://example.com/mark-test-1",
+            "company": "MarkCo",
+            "title": "PM",
+        },
+    ]
+    with tempfile.NamedTemporaryFile(suffix=".yml", mode="w", delete=False, encoding="utf-8") as f:
+        yaml.safe_dump(candidates, f)
+        tmp = f.name
+    try:
+        result = run_cli("mark-processed", "--from-candidates", tmp)
+        assert result.returncode == 0
+        urls = load_processed()
+        assert "https://example.com/mark-test-1" in urls
+    finally:
+        urls = load_processed()
+        urls.discard("https://example.com/mark-test-1")
+        save_processed(urls)
+        Path(tmp).unlink(missing_ok=True)
+
+
+def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
+    result = run_cli("applications", "list")
+    assert result.returncode == 0
+    assert "Status" in result.stdout
+
+    result = run_cli("dashboard", "--no-interactive")
+    assert result.returncode == 0
+    assert "Job Hunter Dashboard" in result.stdout
+
+    result = run_cli("analytics", "--json")
+    assert result.returncode == 0
+    assert "by_status" in result.stdout
+
+    result = run_cli("update-safety", "classify", "job_hunter/cli/__init__.py", "--json")
+    assert result.returncode == 0
+    assert "system" in result.stdout
+
+    result = run_cli("doctor", "--json")
+    assert result.returncode in (0, 1)
+    assert "checks" in result.stdout
+
+    result = run_cli("verify", "--json")
+    assert result.returncode in (0, 1)
+    assert "errors" in result.stdout
+
+
+def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> None:
+    import yaml
+
+    import job_hunter.cli as cli_module
+
+    job_dir = tmp_path / "outputs" / "jobs" / "2026-06-04_toast_product-manager-reporting-platform"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "company": "Toast",
+                "title": "Product Manager, Reporting Platform",
+                "url": "https://careers.toasttab.com/jobs?gh_jid=7814998",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    added = cli_module._sync_processed_from_job_outputs(tmp_path)
+
+    state = yaml.safe_load((tmp_path / "outputs" / "state" / "discovered_urls.yml").read_text(encoding="utf-8"))
+    assert added == 1
+    assert state["discovered"] == ["https://careers.toasttab.com/jobs?gh_jid=7814998"]
+    assert "applied_titles" not in state
+
+
+def test_finalize_validation_blocks_excluded_apply_and_broken_readme_link(
+    tmp_path: Path,
+) -> None:
+    from datetime import date
+
+    import yaml
+
+    import job_hunter.cli as cli_module
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"exclusions": {"companies": ["Delivery Hero"]}}),
+        encoding="utf-8",
+    )
+    job_dir = tmp_path / "outputs" / "jobs" / f"{date.today().isoformat()}_excluded"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "company": "Delivery Hero SE",
+                "title": "Product Manager",
+                "url": "https://example.com/dh",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (job_dir / "score.yml").write_text(
+        yaml.safe_dump(
+            {
+                "score": 80,
+                "decision": "APPLY",
+                "role_summary": "Product role.",
+                "score_rationale": "Strong match.",
+                "recommendation": "Apply.",
+                "matched_story_ids": ["ST-01"],
+                "matched": ["product"],
+                "gaps": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text(
+        "[Files](outputs/jobs/missing/)",
+        encoding="utf-8",
+    )
+
+    errors = cli_module._validate_run_artifacts(tmp_path)
+
+    assert any("excluded company" in error for error in errors)
+    assert any("broken Files link" in error for error in errors)
+
+
+def test_discard_job_removes_folder_and_tracks() -> None:
+    import shutil
+
+    from job_hunter.tracker import import_job_artifact
+    from job_hunter.tracking.tracker import load_processed, save_processed
+    from job_hunter.ux.applications import applications_path, load_applications, save_applications
+
+    folder = import_job_artifact(
+        title="Product Owner",
+        company="DiscardTestCo",
+        url="https://example.com/discard-test",
+    )
+    app_path = applications_path()
+    original_applications = app_path.read_bytes() if app_path.exists() else None
+    save_applications({"applications": []})
+    try:
+        result = run_cli("discard-job", folder.name)
+        assert result.returncode == 0
+        assert not folder.exists()
+        urls = load_processed()
+        assert "https://example.com/discard-test" in urls
+        assert load_applications()["applications"] == []
+    finally:
+        urls = load_processed()
+        urls.discard("https://example.com/discard-test")
+        save_processed(urls)
+        if original_applications is None:
+            save_applications({"applications": []})
+            app_path.unlink(missing_ok=True)
+        else:
+            app_path.write_bytes(original_applications)
+        if folder.exists():
+            shutil.rmtree(folder)
+
+
+def test_cleanup_transient_removes_batch_scratch_files(tmp_path: Path, monkeypatch) -> None:
+    import job_hunter.cli as cli_module
+
+    monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
+    for rel in cli_module.TRANSIENT_STATE_PATHS:
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+
+    cleaned = cli_module._cleanup_transient_state(tmp_path, label="test")
+
+    assert cleaned == len(cli_module.TRANSIENT_STATE_PATHS)
+    assert all(not (tmp_path / rel).exists() for rel in cli_module.TRANSIENT_STATE_PATHS)
+
+
+# --- version / update-info ---
+
+
+def test_version_command_runs() -> None:
+    from typer.testing import CliRunner
+
+    from job_hunter.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["version"])
+    assert result.exit_code == 0
+    assert "job-hunter" in result.output
+
+
+def test_update_info_command_runs() -> None:
+    from typer.testing import CliRunner
+
+    from job_hunter.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["update-info"])
+    assert result.exit_code == 0
+    assert "uv tool upgrade" in result.output

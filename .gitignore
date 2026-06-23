@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+.python-version
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Logs
+*.log
+job_hunt.log*
+
+# User-owned workspace state and generated artifacts
+outputs/jobs/**/*.pdf
+outputs/jobs/**/*.aux
+outputs/jobs/**/*.log
+outputs/jobs/**/*.out
+outputs/jobs/**/*.synctex.gz
+outputs/state/discovery_cache.yml
+.env
+writing-samples/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

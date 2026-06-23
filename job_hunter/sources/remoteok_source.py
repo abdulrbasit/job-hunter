@@ -1,0 +1,87 @@
+"""RemoteOK job feed source — no key required.
+
+Public JSON feed: https://remoteok.com/api
+Returns all remote jobs; first element is metadata — skip it.
+Filter locally by title and region location.
+"""
+
+from __future__ import annotations
+
+import logging
+
+import requests
+
+from job_hunter.core.config import get_timeout, load_api_config
+from job_hunter.core.utils import location_matches, strip_html, title_matches
+from job_hunter.models import JobPosting, SearchParams
+from job_hunter.sources._base import JobSourceAdapter
+
+logger = logging.getLogger(__name__)
+
+_API_URL = "https://remoteok.com/api"
+_HEADERS = {"User-Agent": "job-hunter/1.0"}
+
+
+class RemoteOKSource(JobSourceAdapter):
+    @property
+    def source_name(self) -> str:
+        return "remoteok"
+
+    def is_enabled(self, api_cfg: dict) -> bool:
+        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
+        return bool(cfg.get("enabled", True))
+
+    def _fetch(self, params: SearchParams) -> list[JobPosting]:
+        """Fetch remote jobs from RemoteOK's public JSON feed."""
+        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
+        if not source_cfg.get("enabled", True):
+            return []
+
+        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+
+        logger.info("[remoteok] Fetching job feed")
+        try:
+            resp = requests.get(_API_URL, headers=_HEADERS, timeout=timeout)
+            resp.raise_for_status()
+            raw = resp.json()
+        except Exception as exc:
+            logger.warning("[remoteok] request failed: %s", exc)
+            return []
+
+        if not isinstance(raw, list) or len(raw) < 2:
+            return []
+
+        # First element is legal/metadata dict — skip it
+        items = raw[1:]
+
+        jobs: list[JobPosting] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            job_title = str(item.get("position") or "")
+            if not title_matches(job_title, params.job_titles, []):
+                continue
+            job_location = str(item.get("location") or "Remote")
+            # Accept worldwide/remote postings; otherwise check against region location
+            if params.location and job_location and job_location.lower() not in ("", "remote", "worldwide", "anywhere"):
+                if not location_matches(job_location, params.location):
+                    continue
+            tags = item.get("tags") or []
+            description = strip_html(str(item.get("description") or ""))
+            snippet = description or ", ".join(str(t) for t in tags)
+            jobs.append(
+                JobPosting(
+                    title=job_title,
+                    company=str(item.get("company") or ""),
+                    url=str(item.get("url") or ""),
+                    posted=str(item.get("date") or "")[:10],
+                    location=job_location,
+                    snippet=snippet[:3000],
+                    source="RemoteOK",
+                    query=job_title,
+                    region=params.region_key,
+                )
+            )
+
+        logger.info("[remoteok] %d jobs matched after filtering", len(jobs))
+        return jobs

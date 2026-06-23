@@ -1,0 +1,5 @@
+# URL-only dedup state. Each entry is a canonical job URL.
+# Dedup is URL-only: the same company with a different URL is never blocked.
+# Managed automatically by the job-hunter CLI.
+
+discovered: []

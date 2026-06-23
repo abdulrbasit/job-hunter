@@ -1,0 +1,137 @@
+---
+name: job-hunter
+description: "Primary job search command center. Routes to individual skills for all job search work."
+when_to_use: "Use for all job search work: running hunts, processing candidates, tailoring, researching, and managing the pipeline."
+argument-hint: "[brief|batch|one <url>|search|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
+disable-model-invocation: true
+allowed-tools: Bash Read Edit Write
+author: "Abdul Basit (@abdulrbasit)"
+category: workflow
+---
+
+# Job Hunter Command Center
+
+One entry point for all job search work. Keep output compact — no raw candidate snapshots, full logs, PDFs, or Draft/raw story-bank sections.
+
+Arguments: `$ARGUMENTS`
+
+## Key Paths
+
+| What | Path |
+|---|---|
+| Story bank | `profile/story_bank.md` |
+| Candidate queue | `outputs/state/agent_candidate_queue.json` |
+| Job outputs | `outputs/jobs/<slug>/` |
+| Processed log | `outputs/state/discovered_urls.yml` |
+| Config | `config/job_hunter.yml` |
+
+## Safety Rules
+
+- Never fabricate resume facts, employers, dates, metrics, skills, or job history.
+- Never submit applications, send messages, connect, follow, like, comment, or post automatically.
+- Never overwrite user-owned files: `profile/`, `outputs/`, `config/job_hunter.yml`, `.env`.
+- Leave generated changes uncommitted unless `finalize` is explicitly invoked.
+
+## Routing
+
+Normalize the first argument to lowercase. Empty argument → `help`.
+
+**Daily workflow**
+- `brief`, `today`, `status`: execute `.claude/skills/job-hunter/modes/brief.md` inline.
+- `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
+- `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
+- `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
+- `search`: execute `.claude/skills/job-hunter/modes/search.md` inline.
+- `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.
+- `screen`: execute `.claude/skills/job-hunter/modes/screen.md` inline.
+
+**Per-job actions** — second token is the job slug
+- `tailor <job>`: execute `.claude/skills/job-hunter/modes/tailor.md` inline.
+- `outreach <job>`: execute `.claude/skills/job-hunter/modes/outreach.md` inline.
+- `interview <job>`: execute `.claude/skills/job-hunter/modes/interview.md` inline.
+- `score <job>`: execute `.claude/skills/job-hunter/modes/score.md` inline.
+- `research <company>`: execute `.claude/skills/job-hunter/modes/research.md` inline.
+- `stories`: execute `.claude/skills/job-hunter/modes/stories.md` inline.
+
+**LinkedIn sub-router** — second token selects the LinkedIn mode
+- `ideas`, `post`, `content` → execute `.claude/skills/linkedin/modes/ideas.md` inline.
+- `draft`, `write` → execute `.claude/skills/linkedin/modes/draft.md` inline.
+- `engage`, `comments` → execute `.claude/skills/linkedin/modes/engage.md` inline.
+- `network`, `connect` → execute `.claude/skills/linkedin/modes/network.md` inline.
+- `linkedin` alone → print the LinkedIn sub-menu and stop.
+
+**Setup sub-router** — second token selects the setup mode
+- `setup`, `init`, `onboard` → execute `.claude/skills/setup/modes/onboard.md` inline.
+- `doctor`, `health`, `check` → execute `.claude/skills/setup/modes/doctor.md` inline.
+- `add-region`, `region` → execute `.claude/skills/setup/modes/region.md` inline with remaining arguments.
+- `style` → execute `.claude/skills/setup/modes/style.md` inline.
+
+Unknown mode → print the command menu and ask the user to choose a listed mode.
+
+## Command Registry
+
+| Mode | Aliases | What it does |
+|---|---|---|
+| `brief` | `today`, `status` | Pull latest and show today's candidate brief |
+| `dashboard` | `apps`, `applications` | Show the application tracker dashboard |
+| `batch` | `process`, `queue` | Process the next frozen candidate batch |
+| `one <url>` | `url <url>`, pasted URL | Process one job URL end-to-end |
+| `search` | — | Search for more jobs when candidates are thin |
+| `finalize` | — | Commit durable reviewed outputs |
+| `screen` | — | Pre-screen a frozen candidate batch against config exclusion rules |
+| `tailor <job>` | — | Tailor resume + cover letter for a job |
+| `outreach <job>` | — | Draft LinkedIn connection + follow-up for a job |
+| `interview <job>` | — | Generate predicted interview questions for a job |
+| `score <job>` | — | Score one job 0–100 vs. resume and story bank |
+| `research <company>` | — | Web-search a company and write research notes |
+| `stories` | — | Refine raw work notes into rated STAR stories |
+| `linkedin ideas` | `linkedin post`, `linkedin content` | Generate weekly LinkedIn post ideas |
+| `linkedin draft` | `linkedin write` | Write one ready-to-post LinkedIn draft |
+| `linkedin engage` | `linkedin comments` | Draft comments for posts in your feed |
+| `linkedin network` | `linkedin connect` | Build a weekly connection queue |
+| `add-region` | — | Add or remove a search region |
+| `style` | — | Change resume color scheme or font |
+| `setup` | — | One-time onboarding for a fresh workspace |
+| `doctor` | `health`, `check` | Run the health checker and show setup status |
+| `help` | `menu`, empty | Show this command menu |
+
+## Command Menu
+
+```text
+Job Hunter Command Center
+
+── Daily Workflow ──────────────────────────────────────────────────────
+/job-hunter brief              Pull latest and show today's candidate brief
+/job-hunter dashboard          Show the application tracker dashboard
+/job-hunter batch              Process the next frozen candidate batch
+/job-hunter one <url>          Process one job URL end-to-end
+/job-hunter search             Search for more jobs when candidates are thin
+/job-hunter finalize           Commit durable reviewed outputs
+/job-hunter screen             Pre-screen a frozen batch against config exclusion rules
+
+── Per-Job Actions ─────────────────────────────────────────────────────
+/job-hunter tailor <job>       Tailor resume + cover letter for a job
+/job-hunter outreach <job>     Draft LinkedIn connection + follow-up
+/job-hunter interview <job>    Generate predicted interview questions
+/job-hunter score <job>        Score one job 0-100 vs. resume and story bank
+/job-hunter research <company> Web-search a company and write research notes
+/job-hunter stories            Refine raw work notes into rated STAR stories
+
+── LinkedIn ────────────────────────────────────────────────────────────
+/job-hunter linkedin ideas     Generate weekly LinkedIn post ideas
+/job-hunter linkedin draft     Write one ready-to-post LinkedIn draft
+/job-hunter linkedin engage    Draft comments for posts in your feed
+/job-hunter linkedin network   Build a weekly connection queue
+
+── Tools ───────────────────────────────────────────────────────────────
+/job-hunter add-region [add|remove] <name>   Add or remove a search region
+/job-hunter style              Change resume color scheme or font
+/job-hunter setup              One-time onboarding for a fresh workspace
+/job-hunter doctor             Run the health checker and show setup status
+```
+
+## Output Rules
+
+- Execute child skills inline from their `SKILL.md`; do not print a slash command as a handoff.
+- Print only paths, counts, short decisions, and next actions.
+- Leave generated changes uncommitted unless `finalize` is explicitly invoked.
