@@ -100,3 +100,15 @@ def test_enabled_regions_do_not_require_company_lists() -> None:
     )
 
     assert [name for name, _region in resolver.enabled_regions(config)] == ["berlin"]
+
+
+def test_schedules_are_read_from_github_workflow(monkeypatch, tmp_path) -> None:
+    workflow = tmp_path / ".github" / "workflows" / "find-jobs.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        'on:\n  schedule:\n    - cron: "0 4 * * *"\n    - cron: "30 5 * * *"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    assert resolver._schedules_from_workflow() == ["0 4 * * *", "30 5 * * *"]
