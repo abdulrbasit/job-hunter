@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "job-hunter-kit"
-version = "0.1"
-description = "Job search automation with LLM API pipeline mode and Claude Code agent mode."
+version = "0.2"
+description = "Job search automation with LLM API pipeline mode and AI agent mode."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
