@@ -100,7 +100,11 @@ def import_job_artifact(
     if source_path:
         text = read_optional(source_path)
         fetch_status = "source_file"
-    if url and not text:
+    if url and not text and not url.lower().startswith(("http://", "https://")):
+        if fallback_text:
+            text = fallback_text
+            fetch_status = "fallback_snippet"
+    elif url and not text:
         try:
             from job_hunter.sources.jd_fetcher import fetch_jd
 

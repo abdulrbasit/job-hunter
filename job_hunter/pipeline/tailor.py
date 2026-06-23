@@ -39,6 +39,10 @@ def _jobs_from_links(
     raw: str,
     force: bool,
     existing_urls: set[str],
+    *,
+    use_llm: bool = True,
+    title: str | None = None,
+    company: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Fetch job descriptions from a list of direct URLs.
@@ -51,8 +55,10 @@ def _jobs_from_links(
         if not force and url in existing_urls:
             logger.info("  [skip] Already processed (use --force to re-tailor): %s", url)
             continue
-        job = fetch_jd(url)
+        job = fetch_jd(url, use_llm=use_llm)
         if job:
+            job["title"] = title or job.get("title", "")
+            job["company"] = company or job.get("company", "")
             if not title_matches(job.get("title", ""), title_filters, excluded_title_terms):
                 logger.info(
                     "  [skip] Irrelevant title after JD extraction: %s @ %s",
@@ -91,6 +97,8 @@ def run_tailor(
     api_cfg: dict[str, Any],
     scoring_cfg: dict[str, Any],
     url_liveness: UrlLivenessCache,
+    *,
+    use_llm: bool = True,
 ) -> tuple[list[dict[str, Any]], set[str], set[str]]:
     """
     Execute tailor-links or tailor-raw mode: fetch/parse JDs.
@@ -108,7 +116,14 @@ def run_tailor(
     if args["mode"] == "tailor-links":
         raw_links = args["links"] or os.environ.get("TAILOR_LINKS", "")
         logger.info("[pipeline] Step 1: Fetching job descriptions from links...")
-        jobs = _jobs_from_links(raw_links, args["force"], existing_urls)
+        jobs = _jobs_from_links(
+            raw_links,
+            args["force"],
+            existing_urls,
+            use_llm=use_llm,
+            title=args.get("title"),
+            company=args.get("company"),
+        )
 
     else:  # tailor-raw
         raw_jd = args["jd"]
