@@ -6,12 +6,23 @@ boundaries — callers must construct the appropriate model.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from job_hunter.agent_context._types import StoryBlock
+
+@dataclass(frozen=True)
+class StoryBlock:
+    story_id: str
+    title: str
+    role: str
+    rating: str
+    tags: list[str]
+    summary: str
+    text: str
+
 
 # ---------------------------------------------------------------------------
 # Job discovery

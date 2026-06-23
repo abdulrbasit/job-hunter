@@ -28,7 +28,7 @@ def _sample_posting() -> JobPosting:
 
 def test_round_trip() -> None:
     jp = _sample_posting()
-    assert JobPosting.from_dict(jp.to_dict()) == jp
+    assert type(jp).from_dict(jp.to_dict()) == jp
 
 
 def test_extra_keys_dropped() -> None:

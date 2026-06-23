@@ -100,13 +100,29 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, Any]:
         return yaml.safe_load(fh) or {}
 
 
+def _schedules_from_workflow() -> list[str]:
+    """Read cron expressions directly from the local find-jobs.yml workflow file."""
+    wf = Path(".github/workflows/find-jobs.yml")
+    if not wf.exists():
+        return []
+    try:
+        data = yaml.safe_load(wf.read_text(encoding="utf-8")) or {}
+        triggers = data.get("on") or data.get(True) or {}
+        return [s["cron"].strip() for s in (triggers.get("schedule") or []) if s.get("cron")]
+    except Exception:
+        return []
+
+
 def main() -> int:
+    env_schedules = os.environ.get("HUNT_SCHEDULES", "").strip()
+    schedules = hunt_schedules(env_schedules) if env_schedules else _schedules_from_workflow()
+
     status, outputs = resolve_hunt_region(
         load_config(),
         os.environ.get("EVENT_NAME", ""),
         os.environ.get("EVENT_SCHEDULE", ""),
         os.environ.get("INPUT_REGION") or "all",
-        hunt_schedules(os.environ.get("HUNT_SCHEDULES", "")),
+        schedules,
     )
 
     if status:
