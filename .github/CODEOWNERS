@@ -1,0 +1,12 @@
+# All files — maintainer review required on every PR
+* @abdulrbasit
+
+# Workspace template — changes here affect every new user workspace
+job_hunter/templates/ @abdulrbasit
+
+# Data contract — breaking changes need explicit sign-off
+DATA_CONTRACT.md @abdulrbasit
+
+# CI and release workflows
+.github/workflows/ @abdulrbasit
+pyproject.toml @abdulrbasit
