@@ -1,0 +1,18 @@
+# Job Hunter workspace — what to ignore in version control
+
+# Secrets (never commit)
+.env
+
+# Generated outputs (large binary files)
+outputs/jobs/**/*.pdf
+outputs/jobs/**/*.aux
+outputs/jobs/**/*.log
+outputs/jobs/**/*.out
+outputs/jobs/**/*.synctex.gz
+
+# Caches and state (rebuilt on next run)
+outputs/state/discovery_cache.yml
+job_hunt.log
+__pycache__/
+*.pyc
+.DS_Store

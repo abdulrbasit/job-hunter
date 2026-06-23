@@ -1,0 +1,81 @@
+state_file: "state.yml"
+
+strategy:
+  people_query_count: 5
+  people_region_query_limit: 5
+  recruiter_query_count: 5
+  target_company_count: 8
+  search_context_title_limit: 12
+  search_context_region_limit: 12
+  search_context_company_limit: 40
+  recruiter_region_query_limit: 12
+  recruiter_company_query_limit: 4
+  fallback_recruiter_query_templates:
+    - "technical recruiter"
+    - "talent acquisition"
+    - "recruiter {title}"
+
+quality:
+  min_person_score: 35
+  min_recruiter_score: 45
+
+llm_caps:
+  max_people_to_rank: 5
+  max_recruiters_to_message: 5
+
+scoring:
+  enough_evidence_words: 18
+  enough_evidence_points: 15
+  theme_match_points: 20
+  role_match_points: 15
+  target_company_points: 15
+  recruiter_role_points: 30
+  recruiter_context_points: 15
+  senior_professional_points: 10
+  creator_points: 5
+
+terms:
+  login_wall_phrases:
+    - agree & join linkedin
+    - sign in to linkedin
+    - join linkedin
+    - by clicking continue
+    - by clicking agree
+  recruiter_terms:
+    - recruiter
+    - talent acquisition
+    - sourcer
+    - talent partner
+    - people partner
+    - hiring partner
+  role_terms:
+    - product manager
+    - product owner
+    - engineer
+    - designer
+    - data scientist
+    - analyst
+    - product lead
+    - technical lead
+  senior_terms:
+    - head of
+    - director
+    - vp
+    - chief
+    - principal
+    - lead
+  theme_terms:
+    - product
+    - platform
+    - technical
+    - ai
+    - data
+    - operations
+    - leadership
+  recruiter_context_terms:
+    - product
+    - engineering
+    - design
+    - data
+    - technical
+    - analyst

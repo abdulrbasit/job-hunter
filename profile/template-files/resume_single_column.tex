@@ -1,0 +1,220 @@
+\documentclass[a4,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{tikz}
+\input{glyphtounicode}
+
+
+%----------FONT OPTIONS----------
+% sans-serif
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+\usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{} 
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace*{-2pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace*{-2pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace*{4pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace*{-1pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \vspace*{2pt} \textbf{\normalsize#1} & \normalsize#2 \\ 
+      \textit{\normalsize#3} & \textit{\normalsize #4} \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \normalsize#1 & #2 \\
+    \end{tabular*}\vspace*{-1pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace*{-1pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-1pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+%----------HEADING----------
+% \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+%   \textbf{\href{http://sourabhbajaj.com/}{\Large Sourabh Bajaj}} & Email : \href{mailto:sourabh@sourabhbajaj.com}{sourabh@sourabhbajaj.com}\\
+%   \href{http://sourabhbajaj.com/}{http://www.sourabhbajaj.com} & Mobile : +1-123-456-7890 \\
+% \end{tabular*}
+
+\begin{minipage}[c]{0.62\textwidth}
+    \raggedright
+    \textbf{\Huge \scshape Name} \\[10pt]
+    \textbf{\Large \scshape Title}
+\end{minipage}%
+\begin{minipage}[c]{0.38\textwidth}
+    \raggedleft
+    \small City, Country\\ [3pt]
+    \small +49 \\ [3pt]
+    \href{mailto:email@gmail.com}{\small email@gmail.com}\\ [3pt]
+    \href{https://www.linkedin.com/in/username/}{\small \underline{linkedin.com/in/usernamet}} 
+\end{minipage} \vspace*{-15pt}
+
+%-----------SUMMARY-----------
+\section{Summary}
+    \leftskip=0.15in \small Summary
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  
+  \resumeSubHeadingListStart
+      
+    \resumeSubheading
+      {Title}{October 2023 -- Present}
+      {\href{https://companylink.com}{\underline{Company}}}{City, Country}
+      \resumeItemListStart
+        \resumeItem{Bulletpoint 1}
+        \resumeItem{Bulletpoint 2}        
+        \resumeItem{Bulletpoint 3}
+        \resumeItem{Bulletpoint 4}
+      \resumeItemListEnd
+
+      \resumeSubheading
+      {Title}{October 2023 -- Present}
+      {\href{https://companylink.com}{\underline{Company}}}{City, Country}
+      \resumeItemListStart
+        \resumeItem{Bulletpoint 1}
+        \resumeItem{Bulletpoint 2}        
+        \resumeItem{Bulletpoint 3}
+        \resumeItem{Bulletpoint 4}
+      \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Degree Title}{City, Country}
+      {\href{https://www.universitylink.com}{\underline{University Name}}}{September 2025 -- August 2027}
+      \resumeItemListStart
+        \resumeItem{Bulletpoint 1}
+        \resumeItem{Bulletpoint 2}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Degree Title}{City, Country}
+      {\href{https://www.universitylink.com}{\underline{University Name}}}{September 2025 -- August 2027}
+      \resumeItemListStart
+        \resumeItem{Bulletpoint 1}
+        \resumeItem{Bulletpoint 2}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Product}{: Add here} \vspace*{5pt} \\
+     \textbf{AI / Technical}{: Add here} \vspace*{5pt} \\
+     \textbf{Tools}{: Add here} \vspace*{5pt} \\
+     \textbf{Certifications}{: \href{link for certification}{\underline{Certification Name}}, \href{link for certification}{\underline{Certification Name}}}
+    }}
+ \end{itemize}
+
+%-----------PROJECTS-----------
+% Optional. Leave commented out if you do not want project tailoring.
+% The automated tailorer may only use this section when it is uncommented.
+% Keep at most 4 projects, 3-5 bullets per project, and do not let the resume
+% exceed its intended page limit.
+% \section{Projects}
+%     \resumeSubHeadingListStart
+%       \resumeProjectHeading
+%           {\textbf{Project Name}}{Date Range}
+%           \resumeItemListStart
+%             \resumeItem{Outcome-first bullet describing what you shipped and why it mattered}
+%             \resumeItem{PM/PO-relevant bullet on requirements, users, workflow, KPIs, or prioritization}
+%             \resumeItem{Technical trade-off, validation, integration, or delivery bullet}
+%           \resumeItemListEnd
+%       \resumeProjectHeading
+%           {\textbf{Linked Project Name} $|$ \emph{Optional public link / tech stack}}{Date Range}
+%           \resumeItemListStart
+%             \resumeItem{Use a subheading only when it adds useful public context}
+%             \resumeItem{Outcome-first bullet}
+%             \resumeItem{Scope or validation bullet}
+%           \resumeItemListEnd
+%     \resumeSubHeadingListEnd
+
+%
+
+%-----------Languages-----------
+\section{Languages}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+          \textbf{English --- C2 Level } \vspace*{4pt} \\
+          \textbf{German --- B1 Level } \vspace*{4pt} \\ 
+    }}
+ \end{itemize}
+
+%-------------------------------------------
+
+\end{document}

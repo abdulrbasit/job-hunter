@@ -1,0 +1,91 @@
+name: Development Checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Format check
+        run: uv run ruff format --check job_hunter tests scripts
+      - name: Lint
+        run: uv run ruff check job_hunter tests scripts
+      - name: Type check
+        run: uv run ty check job_hunter tests
+
+  tests:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Run tests
+        run: uv run pytest tests/ -q --tb=short
+
+  validate-config:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Validate config schema
+        run: uv run python scripts/validate_config.py
+
+  build:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    needs: [lint, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Check workspace template is in sync
+        run: python scripts/sync_workspace_template.py --check
+      - name: Build package
+        run: uv build
+
+  security:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Audit dependencies
+        run: uv audit
+
+  sbom:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          artifact-name: sbom.spdx.json
+          output-file: sbom.spdx.json
