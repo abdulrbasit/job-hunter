@@ -55,6 +55,7 @@ include = ["job_hunter", "job_hunter.*"]
 
 [tool.setuptools.package-data]
 "job_hunter.templates" = [
+  "workspace/SETUP.md",
   "workspace/AGENTS.md",
   "workspace/CLAUDE.md",
   "workspace/GEMINI.md",

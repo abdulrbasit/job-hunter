@@ -2,6 +2,8 @@
 
 Personal workspace for the `job-hunter` Python package.
 
+First time? See [SETUP.md](SETUP.md) for installation and onboarding steps.
+
 ## Start
 
 ```bash

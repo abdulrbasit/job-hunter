@@ -26,7 +26,7 @@ Product updates may replace these paths:
 | `.claude/skills/` | Agent workflow instructions |
 | `.github/workflows/`, `.github/scripts/`, `.github/ISSUE_TEMPLATE/` | Product automation |
 | `config/schemas/` | Validation schemas for user config |
-| `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Product documentation |
+| `README.md`, `SETUP.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Product documentation |
 | `pyproject.toml` | Package metadata and dependencies |
 | `DATA_CONTRACT.md` | This contract |
 
