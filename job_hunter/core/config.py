@@ -61,6 +61,6 @@ def package_version() -> str:
     from importlib.metadata import PackageNotFoundError, version
 
     try:
-        return version("job-hunter")
+        return version("job-hunter-kit")
     except PackageNotFoundError:
         return "unknown"
