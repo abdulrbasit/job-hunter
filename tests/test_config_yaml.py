@@ -28,6 +28,14 @@ def test_workspace_template_tailor_job_workflow_present() -> None:
     yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def test_workspace_template_searxng_config_supports_json() -> None:
+    path = WORKSPACE_TEMPLATE / ".github" / "searxng" / "settings.yml"
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert config["use_default_settings"] is True
+    assert "json" in config["search"]["formats"]
+
+
 def test_generated_job_latex_assets_are_trackable() -> None:
     if not Path(".git").exists() or not Path(".gitignore").exists():
         return

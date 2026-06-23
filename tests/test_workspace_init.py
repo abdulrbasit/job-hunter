@@ -16,6 +16,7 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
 
     assert "config/job_hunter.yml" in paths
     assert ".github/workflows/find-jobs.yml" in paths
+    assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
     assert ".agents/skills/setup/SKILL.md" in paths
     assert ".gemini/skills/setup/SKILL.md" in paths
@@ -43,6 +44,7 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
 
     assert (workspace / "config" / "job_hunter.yml").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
+    assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
     assert (workspace / ".agents" / "skills" / "setup" / "SKILL.md").exists()
     assert (workspace / ".gemini" / "skills" / "setup" / "SKILL.md").exists()
