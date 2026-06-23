@@ -100,6 +100,6 @@ def _package_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("job-hunter")
+        return version("job-hunter-kit")
     except Exception:
         return "unknown"

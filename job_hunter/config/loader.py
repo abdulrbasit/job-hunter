@@ -157,7 +157,7 @@ def get_secret(env_var: str | None, *, required: bool = True) -> str:
     except Exception as exc:
         if not required:
             return ""
-        raise RuntimeError(f"keyring unavailable: {exc}. Install with: pip install 'job-hunter[secrets]'") from exc
+        raise RuntimeError(f"keyring unavailable: {exc}. Install with: pip install 'job-hunter-kit[secrets]'") from exc
 
     if not required:
         return ""

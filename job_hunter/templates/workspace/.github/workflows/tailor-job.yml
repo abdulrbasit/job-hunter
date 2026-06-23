@@ -3,22 +3,30 @@ name: Tailor Job
 on:
   workflow_dispatch:
     inputs:
-      links:
-        description: One or more job URLs (comma-separated)
+      url1:
+        description: Job URL 1
         required: true
+      url2:
+        description: Job URL 2 (optional)
+        required: false
+        default: ""
+      url3:
+        description: Job URL 3 (optional)
+        required: false
+        default: ""
+      url4:
+        description: Job URL 4 (optional)
+        required: false
+        default: ""
+      url5:
+        description: Job URL 5 (optional)
+        required: false
+        default: ""
       force:
         description: Reprocess already-tracked jobs
         type: boolean
         required: false
         default: false
-      execution_mode:
-        description: agent writes a candidate snapshot; llm-api tailors and writes cover letter
-        type: choice
-        options:
-          - agent
-          - llm-api
-        required: true
-        default: agent
 
 permissions:
   contents: write
@@ -48,27 +56,16 @@ jobs:
 
       - name: Install package and browser extra
         run: |
-          uv pip install --system "job-hunter[browser]"
+          uv pip install --system "job-hunter-kit[browser]"
           playwright install --with-deps chromium
-
-      - name: Configure execution mode
-        env:
-          EXECUTION_MODE: ${{ inputs.execution_mode }}
-        run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          import yaml
-
-          path = Path("config/job_hunter.yml")
-          data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-          data["mode"] = os.environ["EXECUTION_MODE"]
-          path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
-          PY
 
       - name: Process links
         run: |
-          args=(tailor --links "${{ inputs.links }}")
+          links="${{ inputs.url1 }}"
+          for extra in "${{ inputs.url2 }}" "${{ inputs.url3 }}" "${{ inputs.url4 }}" "${{ inputs.url5 }}"; do
+            [ -n "$extra" ] && links="$links,$extra"
+          done
+          args=(tailor --links "$links")
           if [ "${{ inputs.force }}" = "true" ]; then args+=(--force); fi
           job-hunter "${args[@]}"
 

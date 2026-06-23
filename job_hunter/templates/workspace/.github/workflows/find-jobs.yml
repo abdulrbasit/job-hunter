@@ -8,17 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       region:
-        description: Region key from config/job_hunter.yml (leave blank for auto-resolve)
+        description: Region key from config/job_hunter.yml (leave blank for all regions)
         required: false
         default: ""
-      execution_mode:
-        description: agent writes candidate snapshots; llm-api runs full autonomous tailoring
-        type: choice
-        options:
-          - agent
-          - llm-api
-        required: true
-        default: agent
 
 permissions:
   contents: write
@@ -52,22 +44,16 @@ jobs:
 
       - name: Install Python package and browser extra
         run: |
-          uv pip install --system "job-hunter[browser]"
+          uv pip install --system "job-hunter-kit[browser]"
           playwright install --with-deps chromium
 
-      - name: Configure execution mode
-        env:
-          EXECUTION_MODE: ${{ inputs.execution_mode }}
+      - name: Read execution mode
+        id: mode
         run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
+          python - <<'PY' >> $GITHUB_OUTPUT
           import yaml
-
-          path = Path("config/job_hunter.yml")
-          data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-          data["mode"] = os.environ["EXECUTION_MODE"]
-          path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+          d = yaml.safe_load(open("config/job_hunter.yml", encoding="utf-8")) or {}
+          print("mode=" + d.get("mode", "agent"))
           PY
 
       - name: Install Lightpanda
@@ -148,7 +134,7 @@ jobs:
           echo "has_candidates=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Build briefing
-        if: inputs.execution_mode == 'agent' && steps.region.outputs.should_run == 'true' && steps.scrape.outputs.has_candidates == 'true'
+        if: steps.mode.outputs.mode == 'agent' && steps.region.outputs.should_run == 'true' && steps.scrape.outputs.has_candidates == 'true'
         run: job-hunter brief
 
       - name: Commit results

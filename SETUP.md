@@ -352,15 +352,19 @@ uv tool upgrade job-hunter-kit
 pip install --upgrade job-hunter-kit
 ```
 
-**Then update your workspace skills** (run this inside your workspace directory):
+**Then update your workspace** (run inside your workspace directory):
 
 ```bash
-job-hunter update-skills
+job-hunter update
 ```
 
-This pulls the latest versions of all agent skills (`/setup`, `/job-hunter`, `/linkedin`) into your workspace. It will overwrite skill files — if you have customised any skills, back them up first.
+This updates both agent skills (`.claude/skills/`) and GitHub Actions workflows (`.github/workflows/`) in one step. Your cron schedule, config, resume, story bank, and career context are never touched.
 
-Skills are the only thing `update-skills` touches. Your `config/job_hunter.yml`, `.gitignore`, resume files, and career context are never modified by the package.
+You can also run each part individually if needed:
+```bash
+job-hunter update-skills     # skills only
+job-hunter update-workflows  # workflows only
+```
 
 ---
 

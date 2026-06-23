@@ -230,6 +230,29 @@ def update_skills(
     run_update_skills(Path(workspace))
 
 
+@app.command(name="update-workflows")
+def update_workflows(
+    workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
+) -> None:
+    """Update only `.github/` workflow files from the installed package."""
+    from job_hunter.workspace.workflows import update_workflows as run_update_workflows
+
+    run_update_workflows(Path(workspace))
+
+
+@app.command()
+def update(
+    workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
+) -> None:
+    """Update skills and workflows from the installed package (run after pip upgrade)."""
+    from job_hunter.workspace.skills import update_skills as run_update_skills
+    from job_hunter.workspace.workflows import update_workflows as run_update_workflows
+
+    ws = Path(workspace)
+    run_update_skills(ws)
+    run_update_workflows(ws)
+
+
 @app.command()
 def version() -> None:
     """Show installed package version and workspace version."""
@@ -255,13 +278,13 @@ def update_info() -> None:
     """Show how to update job-hunter to the latest version."""
     typer.echo(
         "\nUpdate flow:\n"
-        "  uv tool upgrade job-hunter\n"
-        "    or: pip install --upgrade job-hunter\n"
+        "  uv tool upgrade job-hunter-kit\n"
+        "    or: pip install --upgrade job-hunter-kit\n"
         "\n  Then, in your workspace:\n"
-        "  job-hunter update-skills\n"
+        "  job-hunter update\n"
         "  job-hunter doctor\n"
         "\nInstall from latest GitHub commit:\n"
-        '  uv tool install --force "job-hunter @ git+https://github.com/your-org/job-hunter.git"\n'
+        '  uv tool install --force "job-hunter-kit @ git+https://github.com/abdulrbasit/job-hunter.git"\n'
     )
 
 
