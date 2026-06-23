@@ -10,9 +10,9 @@ The default mode is `agent`.
 ## Install
 
 ```bash
-pip install job-hunter
+pip install job-hunter-kit
 # or
-uv tool install job-hunter
+uv tool install job-hunter-kit
 ```
 
 ## Create a Workspace

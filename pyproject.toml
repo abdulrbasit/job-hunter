@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "job-hunter"
+name = "job-hunter-kit"
 version = "0.1"
 description = "Job search automation with LLM API pipeline mode and Claude Code agent mode."
 readme = "README.md"
@@ -39,7 +39,7 @@ dependencies = [
 browser = ["playwright>=1.40.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "pytest-cov", "ty>=0.0.1a20"]
 secrets = ["keyring>=24.0.0"]
-all = ["job-hunter[browser,secrets]"]
+all = ["job-hunter-kit[browser,secrets]"]
 
 [project.scripts]
 job-hunter = "job_hunter.cli:app"
