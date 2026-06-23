@@ -96,7 +96,6 @@ def test_removed_commands_not_in_help() -> None:
     result = run_cli("--help")
     assert result.returncode == 0
     for removed in (
-        "workflow",
         "validate-claims",
         "benchmark",
         "adapters",
@@ -107,6 +106,7 @@ def test_removed_commands_not_in_help() -> None:
     ):
         assert removed not in result.stdout, f"removed command still present in help: {removed}"
     assert "update-skills" in result.stdout
+    assert "update-workflows" in result.stdout
 
 
 def test_agent_context_help_loads() -> None:
