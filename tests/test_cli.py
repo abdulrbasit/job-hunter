@@ -146,6 +146,29 @@ def test_commit_job_marks_url_as_processed() -> None:
             shutil.rmtree(folder)
 
 
+def test_import_raw_job_uses_fallback_without_fetching() -> None:
+    import shutil
+
+    from job_hunter.tracker import import_job_artifact
+
+    fallback = "Responsibilities and requirements for a product management role. " * 10
+    with patch("job_hunter.sources.jd_fetcher.fetch_jd") as fetch:
+        folder = import_job_artifact(
+            title="Product Manager",
+            company="Simulation Labs",
+            url="raw://simulation",
+            fallback_text=fallback,
+        )
+    try:
+        fetch.assert_not_called()
+        meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))
+        assert meta["fetch_status"] == "fallback_snippet"
+        assert fallback.strip() in (folder / "jd.md").read_text(encoding="utf-8")
+    finally:
+        if folder.exists():
+            shutil.rmtree(folder)
+
+
 def test_mark_processed_from_candidates() -> None:
     import tempfile
 
