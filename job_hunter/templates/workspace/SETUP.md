@@ -14,11 +14,33 @@ Install these before anything else.
 | **Git** | Saves and syncs your workspace to GitHub | [git-scm.com/downloads](https://git-scm.com/downloads) |
 | **GitHub Desktop** (optional) | Easier git for non-technical users | [desktop.github.com](https://desktop.github.com/) |
 
-**VS Code extensions to install** (open VS Code → Extensions sidebar → search each name):
-- **Claude Code** — runs the `/setup`, `/job-hunter`, and `/linkedin` skills
+**VS Code extension to install** (open VS Code → Extensions sidebar → search):
 - **LaTeX Workshop** — compiles your resume PDF inside VS Code via Docker
 
 Once Docker Desktop is running and LaTeX Workshop is installed, your workspace already has a `.vscode/settings.json` that configures it to use Docker automatically — no LaTeX installation needed.
+
+### AI coding assistant (agent mode only — pick one)
+
+You need one AI coding tool to run the interactive review workflow. **You only need one.**
+
+| Tool | Cost | Slash skills | How it works |
+|---|---|---|---|
+| **Gemini CLI** | **Free** (Google account, generous daily quota) | ✓ Full | VS Code panel + slash commands |
+| **Claude Code** | Paid (Claude Pro ~$20/mo or API credits) | ✓ Full | VS Code extension + slash commands |
+| **Codex CLI** | Paid (OpenAI API, pay-per-use) | ✓ Full | CLI + slash commands |
+| **GitHub Copilot app** | Free tier / Paid ($10/mo) | ✗ No custom skills | Standalone desktop app, agent mode |
+
+**Recommendation:** Start with Gemini CLI — it's free, supports the full skill workflow, and you can switch later.
+
+**Gemini CLI:** Install [Node.js 20+](https://nodejs.org/en/download/) (includes npm), restart your terminal, then `npm install -g @google/gemini-cli`. Run `gemini` to sign in with your Google account.
+
+**Claude Code:** VS Code → Extensions sidebar → search **Claude Code** → Install. Sign in with your Anthropic account.
+
+**Codex CLI:** `npm install -g @openai/codex` — requires an OpenAI API key set as `OPENAI_API_KEY`.
+
+**GitHub Copilot app** (standalone desktop, released June 2026): Has built-in slash commands (`/model`, `/add-dir`, `/security-review`) with argument hints, but no custom workspace skills. Reads `AGENTS.md` and runs `job-hunter` CLI commands autonomously with approval. Download through GitHub settings.
+
+See [COMMANDS.md](COMMANDS.md) for the full skill reference across all tools.
 
 ---
 
@@ -57,11 +79,11 @@ python -m pip install job-hunter-kit
 
 If `job-hunter` is not found after install, your Python Scripts folder is not on PATH.
 
-**Windows:** Open Start → search "Environment Variables" → Edit the system environment variables → click Environment Variables → under User variables select Path → Edit → New → paste the path from the pip warning (e.g. `C:\Users\<you>\AppData\Local\...\Scripts`) → click OK → restart your terminal.
+**Windows:** Open Start → search "Environment Variables" → Edit system environment variables → Environment Variables → under User variables select **Path** → Edit → New → paste the path from the pip warning (e.g. `C:\Users\<you>\AppData\Local\...\Scripts`) → OK → restart your terminal.
 
-**macOS:** Add `export PATH="$HOME/Library/Python/3.12/bin:$PATH"` to `~/.zshrc`, then run `source ~/.zshrc`.
+**macOS:** Add `export PATH="$HOME/Library/Python/3.12/bin:$PATH"` to `~/.zshrc`, then `source ~/.zshrc`.
 
-**Linux:** Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`, then run `source ~/.bashrc`.
+**Linux:** Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`, then `source ~/.bashrc`.
 
 ---
 
@@ -78,7 +100,7 @@ Replace `FirstName.LastName-Resume` with your own name, e.g. `Abdul.Basit-Resume
 
 ## 3. Put your workspace on GitHub
 
-The daily job-hunting pipeline runs on GitHub Actions — a free automated service that runs on GitHub's servers instead of your computer. Your workspace needs to be a GitHub repository for this to work.
+The daily pipeline runs on GitHub Actions — a free service that runs on GitHub's servers instead of your computer. Your workspace needs to be a GitHub repository.
 
 **If you are not familiar with git, use GitHub Desktop.** It handles everything without the command line.
 
@@ -90,8 +112,6 @@ The daily job-hunting pipeline runs on GitHub Actions — a free automated servi
 4. GitHub Desktop will say "This directory does not appear to be a Git repository" — click **Create a Repository**
 5. Fill in the name, then click **Publish repository**
 6. Choose **Private** (your resume and job applications should stay private) → click **Publish**
-
-Done. Your workspace is now a private GitHub repository.
 
 ### Option B — Command line
 
@@ -108,14 +128,14 @@ If you don't have the `gh` CLI: [cli.github.com](https://cli.github.com)
 
 ## 4. Add your API keys
 
-You need two things: API keys in GitHub Secrets (for the automated pipeline) and in a local `.env` file (for running anything locally).
+You need API keys in GitHub Secrets (for the automated pipeline) and in a local `.env` file (for running anything locally).
 
 ### GitHub Secrets (required for the pipeline)
 
 GitHub Secrets store your keys securely on GitHub. The pipeline reads them automatically when it runs.
 
 1. Go to your repository on GitHub
-2. Click **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+2. Click **Settings → Secrets and variables → Actions → New repository secret**
 3. Add each key you have:
 
 | Secret name | Where to get it |
@@ -146,9 +166,11 @@ Open `.env` and fill in the same keys. This file is already in `.gitignore` — 
 
 ## 5a. Agent mode setup
 
-Agent mode is the interactive approach: the Python pipeline fetches and enriches job candidates, and you review and process them with Claude Code (or Codex, Gemini CLI, or GitHub Copilot).
+Agent mode is the interactive approach: the pipeline fetches job candidates, and you review and process them with your AI tool.
 
-Open the workspace in **Claude Code** (or your preferred AI coding tool), then run these skills in order.
+Open the workspace in your AI tool (Claude Code, Gemini CLI, Codex, or Copilot), then run these skills in order.
+
+> **GitHub Copilot app users:** Copilot can run setup through natural language — say "onboard me" or "set up my workspace" and it reads `AGENTS.md` and the skill files to guide you. Slash-command tools give a more structured step-by-step experience, but Copilot works for setup too.
 
 ---
 
@@ -158,7 +180,7 @@ Open the workspace in **Claude Code** (or your preferred AI coding tool), then r
 /setup onboard
 ```
 
-This walks you through everything needed in `config/job_hunter.yml`: your mode, job titles, resume layout (single or double column), search regions, exclusion rules, scoring thresholds, and LLM provider/model choices.
+Walks you through everything needed in `config/job_hunter.yml`: your mode, job titles, resume layout, search regions, exclusion rules, scoring thresholds, and LLM provider/model choices.
 
 See `examples/config/job_hunter.yml` for a filled reference.
 
@@ -170,9 +192,9 @@ See `examples/config/job_hunter.yml` for a filled reference.
 /setup context
 ```
 
-This creates `profile/career_context.md` — a structured document that tells the AI how to write for you: what you're targeting, how you write, your cover letter voice, your LinkedIn tone, interview prep notes, and which metrics you're allowed to use.
+Creates `profile/career_context.md` — a structured document that tells the AI how to write for you: what you're targeting, how you write, your cover letter voice, your LinkedIn tone, interview prep notes, and which metrics you're allowed to use.
 
-This file is the single most important input for tailoring quality. Spend time on it.
+**This is the single most important input for tailoring quality. Spend time on it.**
 
 See `examples/profile/career_context.md` for a fully filled reference.
 
@@ -194,7 +216,7 @@ Paste your raw work notes, existing CV bullets, or STAR-format stories into the 
 /setup resume
 ```
 
-This reads your career context and story bank, then guides you through building your base resume as a `.tex` file. Works for both single-column and double-column layouts.
+Reads your career context and story bank, then guides you through building your base resume as a `.tex` file. Works for both single-column and double-column layouts.
 
 See `examples/profile/resume_double_column.tex` and `examples/profile/resume_single_column.tex` for references.
 
@@ -202,16 +224,13 @@ See `examples/profile/resume_double_column.tex` and `examples/profile/resume_sin
 
 ### Step 4b — Compile to PDF
 
-Once the `.tex` file is written, compile it to check the layout.
-
 **In VS Code with LaTeX Workshop + Docker (recommended):**
 1. Open your resume `.tex` file in VS Code (`profile/resume_double_column.tex` or `resume_single_column.tex`)
 2. Make sure **Docker Desktop is running**
-3. Press `Ctrl+Alt+B` (Windows/Linux) or `Cmd+Alt+B` (macOS) — LaTeX Workshop compiles it automatically using the Docker image
-4. The PDF opens in the side panel. If it looks wrong, run `/setup style` to adjust
+3. Press `Ctrl+Alt+B` (Windows/Linux) or `Cmd+Alt+B` (macOS) — LaTeX Workshop compiles it automatically using Docker
+4. The PDF opens in the side panel. If it looks wrong, run `/setup style`
 
-**If you don't have LaTeX Workshop/Docker set up yet:**
-The `/setup resume` skill has a built-in compile step at the end — it will attempt `pdflatex` locally if available, and tell you what to install if not. You can also skip this and compile later once Docker Desktop is running.
+**If you don't have LaTeX Workshop/Docker set up yet:** The `/setup resume` skill has a built-in compile step — it will attempt `pdflatex` locally if available. You can also skip this and compile later once Docker Desktop is running.
 
 ---
 
@@ -221,7 +240,7 @@ The `/setup resume` skill has a built-in compile step at the end — it will att
 /setup style
 ```
 
-Adjust colours, font, font size, column ratio (double-column only), and paper format. Fully interactive with before/after preview.
+Adjust colours, font, font size, column ratio (double-column only), and paper format. Interactive with before/after preview.
 
 ---
 
@@ -231,7 +250,23 @@ Adjust colours, font, font size, column ratio (double-column only), and paper fo
 /setup doctor
 ```
 
-Checks that your config, resume, and career context are all filled — not just present, but actually containing real content. Fix anything flagged before continuing.
+Checks that your config, resume, and career context are all filled with real content. Fix anything flagged before continuing.
+
+---
+
+## 5a-ii. Reviewing results with your AI tool
+
+After the pipeline runs on GitHub Actions and you pull the latest changes, open your workspace in your AI tool.
+
+See [COMMANDS.md](COMMANDS.md) for the full skill reference. Quick loop:
+
+```
+/job-hunter brief     # read today's briefing — what was found and why
+/job-hunter batch     # score and tailor the candidate queue one by one
+/job-hunter finalize  # commit outputs and clean up the queue
+```
+
+**GitHub Copilot app:** describe the task in plain language — *"Run today's job review: check the briefing, help me go through the candidates, and finalise when done."* The app reads `AGENTS.md`, works out the command sequence, and runs each step with your approval.
 
 ---
 
@@ -241,9 +276,9 @@ LLM API mode runs the full pipeline autonomously: score, tailor, cover letter, P
 
 **Run `/setup onboard` first** (same as agent mode) and choose `llm-api` as your mode. Then:
 
-1. Fill in `profile/career_context.md` — run `/setup context` in Claude Code once, or edit the file directly following the format in `examples/profile/career_context.md`
-2. Build your story bank — run `/setup stories` in Claude Code once to populate `profile/story_bank.md`
-3. Build your resume — run `/setup resume` in Claude Code once (reads career context + stories, so do steps 1 and 2 first)
+1. Fill in `profile/career_context.md` — run `/setup context` in your AI tool once, or edit the file directly following `examples/profile/career_context.md`
+2. Build your story bank — run `/setup stories` once to populate `profile/story_bank.md`
+3. Build your resume — run `/setup resume` once (reads career context + stories, so do steps 1 and 2 first)
 4. Run a health check:
 
 ```bash
@@ -257,20 +292,17 @@ Both must pass before the pipeline will run cleanly.
 
 ## 6. Commit and push your workspace
 
-Once setup is done, save everything to GitHub. This is what triggers the automated pipeline and keeps your work backed up.
+Once setup is done, save everything to GitHub. This is what triggers the automated pipeline.
 
-If you have never used git before, think of it this way: **commit** = save a snapshot locally, **push** = send that snapshot to GitHub.
+If you have never used git before: **commit** = save a snapshot locally, **push** = send that snapshot to GitHub.
 
 ### Using GitHub Desktop (recommended)
 
 1. Open **GitHub Desktop**
-2. You will see a list of changed files on the left — these are everything you just set up (config, career context, resume, stories, skills)
-3. At the bottom left, there is a box that says **"Summary (required)"** — type a short note like:
-   `Initial setup — config, career context, resume, stories`
+2. You will see a list of changed files on the left
+3. In the **Summary** box at the bottom, type: `Initial setup — config, career context, resume, stories`
 4. Click **Commit to main**
-5. Click **Push origin** (top right button)
-
-That's it. Your workspace is now on GitHub.
+5. Click **Push origin** (top right)
 
 ### Using the command line
 
@@ -280,7 +312,7 @@ git commit -m "Initial setup — config, career context, resume, stories"
 git push
 ```
 
-> **Note:** Never add your `.env` file — it contains your API keys and is already excluded by `.gitignore`.
+> **Never add your `.env` file** — it contains your API keys and is already excluded by `.gitignore`.
 
 ---
 
@@ -289,9 +321,9 @@ git push
 Before relying on the automated pipeline, run it once manually to confirm everything is wired up.
 
 1. Go to your repository on **GitHub.com**
-2. Click the **Actions** tab at the top
+2. Click the **Actions** tab
 3. In the left sidebar, click **Find Jobs**
-4. Click **Run workflow** (top right of the workflow table) → **Run workflow**
+4. Click **Run workflow** → **Run workflow**
 5. Wait for it to finish (usually 2–5 minutes) — a green checkmark means it worked
 
 If it fails, click the failed run → click the failing step to read the error log. Common causes: a missing API key secret, a config validation error, or a region with no results.
@@ -300,51 +332,40 @@ If it fails, click the failed run → click the failing step to read the error l
 
 ## 8. Daily workflow
 
-The daily job-hunting loop is: push your workspace to GitHub, let the pipeline run overnight, pull the results in the morning, then review and process them in Claude Code.
+Push your workspace to GitHub, let the pipeline run overnight, pull the results in the morning, then review and process them with your AI tool.
 
 ### Push (triggers the pipeline)
 
 **GitHub Desktop:**
 1. Open GitHub Desktop
-2. Write a short note in the "Summary" box (e.g. "Add new story, update exclusions")
+2. Write a short note in the Summary box (e.g. "Add new story, update exclusions")
 3. Click **Commit to main**
 4. Click **Push origin**
 
 **Command line:**
 ```bash
-git add -p          # review what changed
+git add -p
 git commit -m "Update config: add Munich region"
 git push
 ```
 
-The `find-jobs.yml` workflow runs automatically on a schedule (check `.github/workflows/find-jobs.yml` for the cron time). You can also trigger it manually at any time from the Actions tab (see Section 7 above).
+The `find-jobs.yml` workflow runs on a schedule — check `.github/workflows/find-jobs.yml` for the cron time. You can also trigger it manually from the Actions tab.
 
 ### Pull (after the pipeline runs)
 
 **GitHub Desktop:** Click **Fetch origin** → **Pull origin**
 
-**Command line:**
-```bash
-git pull
-```
+**Command line:** `git pull`
 
-### Review and process (in Claude Code)
+### Review and process
 
-```
-/job-hunter brief     # read today's job briefing
-/job-hunter batch     # score and tailor the candidate queue
-/job-hunter finalize  # commit and clean up outputs
-```
-
-That's the full loop. Most days this takes 15–30 minutes.
+Open your workspace in your AI tool and run the daily loop — see [COMMANDS.md](COMMANDS.md) for the full skill reference. Most days 15–30 minutes.
 
 ---
 
-## 8. Upgrading
+## 9. Upgrading
 
-When a new version of job-hunter-kit is released, upgrade the package first, then update your workspace skills.
-
-**Upgrade the package:**
+When a new version of job-hunter-kit is released:
 
 ```bash
 uv tool upgrade job-hunter-kit
@@ -352,7 +373,7 @@ uv tool upgrade job-hunter-kit
 pip install --upgrade job-hunter-kit
 ```
 
-**Then update your workspace** (run inside your workspace directory):
+Then update your workspace (run inside your workspace directory):
 
 ```bash
 job-hunter update
@@ -360,7 +381,6 @@ job-hunter update
 
 This updates both agent skills (`.claude/skills/`) and GitHub Actions workflows (`.github/workflows/`) in one step. Your cron schedule, config, resume, story bank, and career context are never touched.
 
-You can also run each part individually if needed:
 ```bash
 job-hunter update-skills     # skills only
 job-hunter update-workflows  # workflows only
@@ -368,9 +388,9 @@ job-hunter update-workflows  # workflows only
 
 ---
 
-## 9. Local testing (optional)
+## 10. Local testing (optional)
 
-You don't need to run the pipeline locally — that's what GitHub Actions is for. But if you want to test locally before pushing:
+You don't need to run the pipeline locally — that's what GitHub Actions is for. But if you want to test locally:
 
 ```bash
 job-hunter hunt --region primary
@@ -378,12 +398,3 @@ job-hunter brief
 ```
 
 You need your `.env` file populated with API keys for local runs.
-
-**Run the test suite** (requires dev dependencies):
-
-```bash
-uv sync --extra dev
-uv run pytest tests/ -q --tb=short
-```
-
-All tests must pass before pushing if you've made config or code changes.
