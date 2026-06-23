@@ -1,0 +1,785 @@
+"""Tests for new job source modules — all HTTP calls are mocked."""
+
+from unittest.mock import MagicMock, patch
+
+from conftest import mk_params
+
+from job_hunter.models import JobPosting
+from job_hunter.sources.adzuna_source import AdzunaSource
+from job_hunter.sources.careerjet_source import CareerjetSource
+from job_hunter.sources.glints_source import GlintsSource
+from job_hunter.sources.gulftalent_source import GulfTalentSource
+from job_hunter.sources.jobbank_source import JobBankSource
+from job_hunter.sources.jobicy_source import JobicySource
+from job_hunter.sources.jobstreet_source import JobStreetSource
+from job_hunter.sources.jooble_source import JoobleSource
+from job_hunter.sources.mycareersfuture_source import MyCareersFutureSource
+from job_hunter.sources.reed_source import ReedSource
+from job_hunter.sources.remoteok_source import RemoteOKSource
+from job_hunter.sources.weworkremotely_source import WeWorkRemotelySource
+from job_hunter.sources.workingnomads_source import WorkingNomadsSource
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def _make_response(json_data=None, text=None, status_code=200, raise_error=False):
+    resp = MagicMock()
+    resp.status_code = status_code
+    if raise_error:
+        resp.raise_for_status.side_effect = Exception("HTTP error")
+    else:
+        resp.raise_for_status = MagicMock()
+    resp.json.return_value = json_data
+    resp.text = text
+    return resp
+
+
+def _mock_get_bytes(content: bytes, status=200):
+    resp = MagicMock()
+    resp.status_code = status
+    resp.raise_for_status = MagicMock()
+    resp.content = content
+    return resp
+
+
+_REGIONS = {"EU": {"location": "Europe", "country": "DE"}}
+_GB_REGIONS = {"GB": {"location": "London", "country": "GB"}}
+_EXCL = {"exclusions": {"title_terms": []}}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Jobicy
+# ═══════════════════════════════════════════════════════════════════════════
+
+_JOBICY_CFG = {"http": {"job_boards": {"jobicy": {"enabled": True, "timeout_seconds": 10}}}}
+
+_JOBICY_JOB = {
+    "jobTitle": "Software Engineer",
+    "companyName": "ACME",
+    "url": "https://example.com/1",
+    "pubDate": "2026-06-01T00:00:00Z",
+    "jobGeo": "Remote",
+    "jobDescription": "<p>An engineering role.</p>",
+}
+
+
+class TestJobicySource:
+    def test_name(self) -> None:
+        assert JobicySource().name == "jobicy"
+
+    def test_is_enabled_respects_config(self) -> None:
+        disabled = {"http": {"job_boards": {"jobicy": {"enabled": False}}}}
+        with patch("job_hunter.sources.jobicy_source.load_api_config", return_value=disabled):
+            assert JobicySource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        get_mock = MagicMock(return_value=_make_response(json_data={"jobs": [_JOBICY_JOB]}))
+        with (
+            patch(
+                "job_hunter.sources.jobicy_source.load_api_config",
+                return_value=_JOBICY_CFG,
+            ),
+            patch("job_hunter.sources.jobicy_source.reserve_api_call", return_value=True),
+            patch("job_hunter.sources.jobicy_source.requests.get", get_mock),
+        ):
+            jobs = JobicySource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].title == "Software Engineer"
+        assert jobs[0].source == "Jobicy"
+        assert get_mock.call_args.kwargs["params"]["geo"] == "germany"
+
+    def test_fetch_omits_invalid_iso_geo(self) -> None:
+        get_mock = MagicMock(return_value=_make_response(json_data={"jobs": [_JOBICY_JOB]}))
+        with (
+            patch(
+                "job_hunter.sources.jobicy_source.load_api_config",
+                return_value=_JOBICY_CFG,
+            ),
+            patch("job_hunter.sources.jobicy_source.reserve_api_call", return_value=True),
+            patch("job_hunter.sources.jobicy_source.requests.get", get_mock),
+        ):
+            jobs = JobicySource().fetch(
+                mk_params(["Software Engineer"], {"my": {"country": "MY", "location": "Kuala Lumpur"}})
+            )
+        assert len(jobs) == 1
+        assert "geo" not in get_mock.call_args.kwargs["params"]
+
+    def test_fetch_returns_empty_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"jobicy": {"enabled": False}}}}
+        with patch("job_hunter.sources.jobicy_source.load_api_config", return_value=disabled):
+            jobs = JobicySource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert jobs == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RemoteOK
+# ═══════════════════════════════════════════════════════════════════════════
+
+_REMOTEOK_CFG = {"http": {"job_boards": {"remoteok": {"enabled": True, "timeout_seconds": 10}}}}
+
+_REMOTEOK_METADATA = {"legal": "see remoteok.com"}
+
+_REMOTEOK_JOB = {
+    "position": "Software Engineer",
+    "company": "RemoteCo",
+    "url": "https://remoteok.com/1",
+    "date": "2026-06-01T00:00:00Z",
+    "location": "Remote",
+    "tags": ["python", "django"],
+    "description": "",
+}
+
+
+class TestRemoteOKSource:
+    def test_name(self) -> None:
+        assert RemoteOKSource().name == "remoteok"
+
+    def test_is_enabled_respects_config(self) -> None:
+        disabled = {"http": {"job_boards": {"remoteok": {"enabled": False}}}}
+        with patch("job_hunter.sources.remoteok_source.load_api_config", return_value=disabled):
+            assert RemoteOKSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        feed = [_REMOTEOK_METADATA, _REMOTEOK_JOB]
+        with (
+            patch(
+                "job_hunter.sources.remoteok_source.load_api_config",
+                return_value=_REMOTEOK_CFG,
+            ),
+            patch(
+                "job_hunter.sources.remoteok_source.requests.get",
+                return_value=_make_response(json_data=feed),
+            ),
+        ):
+            jobs = RemoteOKSource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].title == "Software Engineer"
+        assert jobs[0].source == "RemoteOK"
+
+    def test_fetch_returns_empty_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"remoteok": {"enabled": False}}}}
+        with patch("job_hunter.sources.remoteok_source.load_api_config", return_value=disabled):
+            jobs = RemoteOKSource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert jobs == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WeWorkRemotely
+# ═══════════════════════════════════════════════════════════════════════════
+
+_WWR_CFG = {"http": {"job_boards": {"weworkremotely": {"enabled": True, "timeout_seconds": 10}}}}
+
+_WWR_RSS_MATCHING = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>We Work Remotely</title>
+    <item>
+      <title>ACME Corp: Software Engineer</title>
+      <link>https://weworkremotely.com/job/1</link>
+      <pubDate>Mon, 01 Jun 2026 12:00:00 +0000</pubDate>
+      <description>Build great things.</description>
+    </item>
+    <item>
+      <title>OtherCo: Marketing Manager</title>
+      <link>https://weworkremotely.com/job/2</link>
+      <pubDate>Mon, 01 Jun 2026 12:00:00 +0000</pubDate>
+      <description>Market things.</description>
+    </item>
+  </channel>
+</rss>"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Jooble
+# ═══════════════════════════════════════════════════════════════════════════
+
+_JOOBLE_CFG = {"http": {"job_boards": {"jooble": {"enabled": True, "timeout_seconds": 10}}}}
+
+_JOOBLE_JOB = {
+    "title": "Software Engineer",
+    "company": "JoobleCo",
+    "link": "https://jooble.org/1",
+    "updated": "2026-06-01",
+    "location": "Berlin",
+    "snippet": "A great role.",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Adzuna — pagination
+# ═══════════════════════════════════════════════════════════════════════════
+
+_ADZUNA_CFG_PAGINATE = {"http": {"job_boards": {"adzuna": {"enabled": True, "results_per_page": 2}}}}
+
+_ADZUNA_JOB = lambda n: {  # noqa: E731
+    "title": "Software Engineer",
+    "company": {"display_name": f"Co{n}"},
+    "redirect_url": f"https://adzuna.com/{n}",
+    "created": "2026-06-01T00:00:00Z",
+    "location": {"display_name": "Berlin"},
+    "description": "A role.",
+}
+
+_ADZUNA_GB_REGIONS = {"GB": {"location": "", "country": "GB"}}
+
+_REED_CFG_PAGINATE = {"http": {"job_boards": {"reed": {"enabled": True, "results_wanted": 2}}}}
+
+_REED_JOB = lambda n: {  # noqa: E731
+    "jobTitle": "Software Engineer",
+    "employerName": f"Co{n}",
+    "jobUrl": f"https://reed.co.uk/{n}",
+    "date": "01/06/2026",
+    "locationName": "London",
+    "jobDescription": "A role.",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Regional sources — MyCareersFuture / JobBank / Glints / GulfTalent / JobStreet
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+_EMPTY_CFG = {"http": {"job_boards": {}}}
+_CONFIG = {"exclusions": {"title_terms": []}}
+
+
+def _disabled(board: str) -> dict:
+    return {"http": {"job_boards": {board: {"enabled": False}}}}
+
+
+# ── Region fixtures ──────────────────────────────────────────────────────────
+_SG = {"sg": {"country": "SG", "location": "Singapore"}}
+_NL = {"nl": {"country": "NL", "location": "Amsterdam"}}
+_CA = {"ca": {"country": "CA", "location": "Toronto"}}
+_FR = {"fr": {"country": "FR", "location": "Paris"}}
+_ID = {"id": {"country": "ID", "location": "Jakarta"}}
+_IE = {"ie": {"country": "IE", "location": "Dublin"}}
+_AE = {"ae": {"country": "AE", "location": "Dubai"}}
+_SA = {"sa": {"country": "SA", "location": "Riyadh"}}
+_MY = {"my": {"country": "MY", "location": "Kuala Lumpur"}}
+_DE = {"de": {"country": "DE", "location": "Berlin"}}
+_GB = {"gb": {"country": "GB", "location": "London"}}
+
+# ── Data fixtures used by class tests ────────────────────────────────────────
+
+_MCF_RESPONSE = {
+    "results": [
+        {
+            "uuid": "abc-123",
+            "title": "Product Manager",
+            "postedCompany": {"name": "GovTech"},
+            "description": "<p>Lead product strategy.</p>",
+            "metadata": {"dates": {"posting": "2026-06-01T00:00:00"}},
+            "salary": {"minimum": 6000, "maximum": 9000},
+            "address": {"street": "One North"},
+        }
+    ]
+}
+
+_JB_HTML = """<html><body>
+<article class="resultcount">
+  <h3><a href="/job-posting/12345">Product Manager</a></h3>
+  <span class="business-title">CanadaCorp</span>
+  <span class="location">Toronto, ON</span>
+  <span class="date">2026-06-01</span>
+</article></body></html>"""
+
+_GLINTS_RESPONSE = {
+    "data": {
+        "jobs": {
+            "data": [
+                {
+                    "id": "gl-101",
+                    "title": "Product Manager",
+                    "company": {"name": "GlintsCo"},
+                    "createdAt": "2026-06-01",
+                    "city": {"name": "Singapore"},
+                    "country": {"name": "Singapore"},
+                }
+            ]
+        }
+    }
+}
+
+_GT_HTML = """<html><body>
+<div class="job-listing">
+  <h2><a class="job-title" href="/jobs/456">Product Manager</a></h2>
+  <span class="company-name">GulfCorp</span>
+  <span class="location">Dubai, UAE</span>
+</div></body></html>"""
+
+_JS_RESPONSE = {
+    "data": {
+        "jobs": [
+            {
+                "id": "js-9001",
+                "title": "Product Manager",
+                "advertiser": {"description": "JobStreetCo"},
+                "teaser": "Drive product growth across SEA.",
+                "salary": {"min": 5000, "max": 8000},
+                "listingDate": "2026-06-01",
+            }
+        ]
+    }
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Class-level JobSourceAdapter tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestGlintsSource:
+    def test_name(self) -> None:
+        assert GlintsSource().name == "glints"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"glints": {"enabled": False}}}}
+        with patch("job_hunter.sources.glints_source.load_api_config", return_value=disabled):
+            assert GlintsSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch("job_hunter.sources.glints_source.load_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.glints_source.requests.get",
+                return_value=_make_response(json_data=_GLINTS_RESPONSE),
+            ),
+        ):
+            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Glints"
+
+    def test_fetch_accepts_list_response(self) -> None:
+        response = [
+            {
+                "title": "Product Manager",
+                "company": {"name": "GlintsCo"},
+                "id": "123",
+                "city": {"name": "Singapore"},
+                "country": {"name": "Singapore"},
+                "description": "<p>Own product delivery.</p>",
+                "createdAt": "2026-06-01T00:00:00Z",
+            }
+        ]
+        with (
+            patch("job_hunter.sources.glints_source.load_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.glints_source.requests.get",
+                return_value=_make_response(json_data=response),
+            ),
+        ):
+            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
+        assert len(jobs) == 1
+        assert jobs[0].company == "GlintsCo"
+
+    def test_fetch_stops_at_default_page_cap_when_pages_are_full(self) -> None:
+        full_page = [
+            {
+                "id": f"gl-{index}",
+                "title": "Product Manager",
+                "company": {"name": "GlintsCo"},
+                "createdAt": "2026-06-01",
+                "city": {"name": "Singapore"},
+                "country": {"name": "Singapore"},
+            }
+            for index in range(30)
+        ]
+        cfg = {"http": {"job_boards": {"glints": {"enabled": True}}}}
+        get_mock = MagicMock(return_value=_make_response(json_data={"data": {"jobs": {"data": full_page}}}))
+        with (
+            patch("job_hunter.sources.glints_source.load_api_config", return_value=cfg),
+            patch("job_hunter.sources.glints_source.requests.get", get_mock),
+        ):
+            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
+        assert len(jobs) == 90
+        assert get_mock.call_count == 3
+
+
+class TestGulfTalentSource:
+    def test_name(self) -> None:
+        assert GulfTalentSource().name == "gulftalent"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"gulftalent": {"enabled": False}}}}
+        with patch("job_hunter.sources.gulftalent_source.load_api_config", return_value=disabled):
+            assert GulfTalentSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.gulftalent_source.load_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.gulftalent_source.requests.get",
+                return_value=_make_response(text=_GT_HTML),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "GulfTalent"
+
+
+class TestJobBankSource:
+    def test_name(self) -> None:
+        assert JobBankSource().name == "jobbank"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"jobbank": {"enabled": False}}}}
+        with patch("job_hunter.sources.jobbank_source.load_api_config", return_value=disabled):
+            assert JobBankSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch("job_hunter.sources.jobbank_source.load_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.jobbank_source.requests.get",
+                return_value=_make_response(text=_JB_HTML),
+            ),
+        ):
+            jobs = JobBankSource().fetch(mk_params(["Product Manager"], _CA))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "JobBank Canada"
+
+
+class TestJobStreetSource:
+    def test_name(self) -> None:
+        assert JobStreetSource().name == "jobstreet"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"jobstreet": {"enabled": False}}}}
+        with patch("job_hunter.sources.jobstreet_source.load_api_config", return_value=disabled):
+            assert JobStreetSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.jobstreet_source.load_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.jobstreet_source.requests.get",
+                return_value=_make_response(json_data=_JS_RESPONSE),
+            ),
+        ):
+            jobs = JobStreetSource().fetch(mk_params(["Product Manager"], _MY))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "JobStreet"
+
+    def test_fetch_uses_same_page_for_playwright_fallback_after_block(self) -> None:
+        blocked = _make_response(json_data={}, status_code=403)
+        fallback_pages: list[int] = []
+
+        def fallback(_domain, _site_key, _title, page, _timeout_ms):
+            fallback_pages.append(page)
+            return [{"_stub": True, "_id": "js-1"}]
+
+        with (
+            patch(
+                "job_hunter.sources.jobstreet_source.load_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.jobstreet_source.requests.get",
+                return_value=blocked,
+            ),
+            patch(
+                "job_hunter.sources.jobstreet_source._fetch_page_playwright",
+                fallback,
+            ),
+        ):
+            jobs = JobStreetSource().fetch(mk_params(["Product Manager"], _MY))
+        assert len(jobs) == 1
+        assert fallback_pages == [1]
+
+
+class TestMyCareersFutureSource:
+    def test_name(self) -> None:
+        assert MyCareersFutureSource().name == "mycareersfuture"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"mycareersfuture": {"enabled": False}}}}
+        with patch(
+            "job_hunter.sources.mycareersfuture_source.load_api_config",
+            return_value=disabled,
+        ):
+            assert MyCareersFutureSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.mycareersfuture_source.load_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.mycareersfuture_source.requests.get",
+                return_value=_make_response(json_data=_MCF_RESPONSE),
+            ),
+        ):
+            jobs = MyCareersFutureSource().fetch(mk_params(["Product Manager"], _SG))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "MyCareersFuture"
+
+
+class TestWeWorkRemotelySource:
+    def test_name(self) -> None:
+        assert WeWorkRemotelySource().name == "weworkremotely"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"weworkremotely": {"enabled": False}}}}
+        with patch("job_hunter.sources.weworkremotely_source.load_api_config", return_value=disabled):
+            assert WeWorkRemotelySource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.weworkremotely_source.load_api_config",
+                return_value=_WWR_CFG,
+            ),
+            patch(
+                "job_hunter.sources.weworkremotely_source.requests.get",
+                return_value=_mock_get_bytes(_WWR_RSS_MATCHING),
+            ),
+        ):
+            jobs = WeWorkRemotelySource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "WeWorkRemotely"
+
+
+class TestReedSource:
+    def test_name(self) -> None:
+        src = ReedSource.__new__(ReedSource)
+        src._api_key = "test-key"
+        assert src.name == "reed"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        src = ReedSource.__new__(ReedSource)
+        src._api_key = "test-key"
+        disabled = {"http": {"job_boards": {"reed": {"enabled": False}}}}
+        with patch("job_hunter.sources.reed_source.load_api_config", return_value=disabled):
+            assert src.is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        src = ReedSource.__new__(ReedSource)
+        src._api_key = "test-key"
+        cfg = {"http": {"job_boards": {"reed": {"enabled": True, "results_wanted": 1}}}}
+        page_data = {"results": [_REED_JOB(1)]}
+        with (
+            patch("job_hunter.sources.reed_source.load_api_config", return_value=cfg),
+            patch("job_hunter.sources.reed_source.reserve_api_call", return_value=True),
+            patch(
+                "job_hunter.sources.reed_source.requests.get",
+                return_value=_make_response(json_data=page_data),
+            ),
+        ):
+            jobs = src.fetch(mk_params(["Software Engineer"], _GB_REGIONS))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Reed"
+
+
+class TestAdzunaSource:
+    def test_name(self) -> None:
+        src = AdzunaSource.__new__(AdzunaSource)
+        src._app_id = "app123"
+        src._api_key = "key123"
+        assert src.name == "adzuna"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        src = AdzunaSource.__new__(AdzunaSource)
+        src._app_id = "app123"
+        src._api_key = "key123"
+        disabled = {"http": {"job_boards": {"adzuna": {"enabled": False}}}}
+        with patch("job_hunter.sources.adzuna_source.load_api_config", return_value=disabled):
+            assert src.is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        src = AdzunaSource.__new__(AdzunaSource)
+        src._app_id = "app123"
+        src._api_key = "key123"
+        cfg = {"http": {"job_boards": {"adzuna": {"enabled": True, "results_per_page": 1}}}}
+        page_data = {"results": [_ADZUNA_JOB(1)]}
+        with (
+            patch("job_hunter.sources.adzuna_source.load_api_config", return_value=cfg),
+            patch("job_hunter.sources.adzuna_source.reserve_api_call", return_value=True),
+            patch(
+                "job_hunter.sources.adzuna_source.requests.get",
+                return_value=_make_response(json_data=page_data),
+            ),
+        ):
+            jobs = src.fetch(mk_params(["Software Engineer"], _ADZUNA_GB_REGIONS))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Adzuna"
+
+
+class TestJoobleSource:
+    def test_name(self) -> None:
+        src = JoobleSource.__new__(JoobleSource)
+        src._api_key = "test-key"
+        assert src.name == "jooble"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        src = JoobleSource.__new__(JoobleSource)
+        src._api_key = "test-key"
+        disabled = {"http": {"job_boards": {"jooble": {"enabled": False}}}}
+        with patch("job_hunter.sources.jooble_source.load_api_config", return_value=disabled):
+            assert src.is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        src = JoobleSource.__new__(JoobleSource)
+        src._api_key = "test-key"
+        with (
+            patch(
+                "job_hunter.sources.jooble_source.load_api_config",
+                return_value=_JOOBLE_CFG,
+            ),
+            patch("job_hunter.sources.jooble_source.reserve_api_call", return_value=True),
+            patch(
+                "job_hunter.sources.jooble_source.requests.post",
+                return_value=_make_response(json_data={"jobs": [_JOOBLE_JOB]}),
+            ),
+        ):
+            jobs = src.fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) >= 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Jooble"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Careerjet
+# ═══════════════════════════════════════════════════════════════════════════
+
+_CAREERJET_CFG = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": "test123", "timeout_seconds": 10}}}}
+
+_CAREERJET_JOB = {
+    "title": "Software Engineer",
+    "company": "TechCorp",
+    "url": "https://careerjet.com/job/1",
+    "date": "2026-06-01",
+    "locations": "Berlin, Germany",
+    "description": "Build great systems.",
+}
+
+
+class TestCareerjetSource:
+    def test_name(self) -> None:
+        assert CareerjetSource().name == "careerjet"
+
+    def test_is_enabled_false_when_no_affid(self) -> None:
+        cfg = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
+        with patch("job_hunter.sources.careerjet_source.load_api_config", return_value=cfg):
+            assert CareerjetSource().is_enabled({}) is False
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        cfg = {"http": {"job_boards": {"careerjet": {"enabled": False, "affid": "x"}}}}
+        with patch("job_hunter.sources.careerjet_source.load_api_config", return_value=cfg):
+            assert CareerjetSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        response = {"jobs": [_CAREERJET_JOB], "total": 1}
+        get_mock = MagicMock(return_value=_make_response(json_data=response))
+        with (
+            patch(
+                "job_hunter.sources.careerjet_source.load_api_config",
+                return_value=_CAREERJET_CFG,
+            ),
+            patch("job_hunter.sources.careerjet_source.requests.get", get_mock),
+        ):
+            jobs = CareerjetSource().fetch(mk_params(["Software Engineer"], _DE))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Careerjet"
+        assert jobs[0].title == "Software Engineer"
+        params = get_mock.call_args.kwargs["params"]
+        assert params["affid"] == "test123"
+        assert params["locale_code"] == "de_DE"
+
+    def test_fetch_uses_correct_locale_for_ireland(self) -> None:
+        response = {"jobs": [_CAREERJET_JOB], "total": 1}
+        get_mock = MagicMock(return_value=_make_response(json_data=response))
+        with (
+            patch(
+                "job_hunter.sources.careerjet_source.load_api_config",
+                return_value=_CAREERJET_CFG,
+            ),
+            patch("job_hunter.sources.careerjet_source.requests.get", get_mock),
+        ):
+            CareerjetSource().fetch(mk_params(["Software Engineer"], _IE))
+        assert get_mock.call_args.kwargs["params"]["locale_code"] == "en_IE"
+
+    def test_fetch_returns_empty_when_no_affid(self) -> None:
+        cfg = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
+        with patch("job_hunter.sources.careerjet_source.load_api_config", return_value=cfg):
+            jobs = CareerjetSource().fetch(mk_params(["Software Engineer"], _DE))
+        assert jobs == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Working Nomads
+# ═══════════════════════════════════════════════════════════════════════════
+
+_WN_CFG = {"http": {"job_boards": {"workingnomads": {"enabled": True, "timeout_seconds": 10}}}}
+
+_WN_JOB = {
+    "title": "Software Engineer",
+    "company_name": "NomadCo",
+    "url": "https://workingnomads.com/job/1",
+    "pub_date": "2026-06-01T00:00:00Z",
+    "region": "Worldwide",
+    "description": "Work from anywhere.",
+}
+
+
+class TestWorkingNomadsSource:
+    def test_name(self) -> None:
+        assert WorkingNomadsSource().name == "workingnomads"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        cfg = {"http": {"job_boards": {"workingnomads": {"enabled": False}}}}
+        with patch("job_hunter.sources.workingnomads_source.load_api_config", return_value=cfg):
+            assert WorkingNomadsSource().is_enabled({}) is False
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.workingnomads_source.load_api_config",
+                return_value=_WN_CFG,
+            ),
+            patch(
+                "job_hunter.sources.workingnomads_source.requests.get",
+                return_value=_make_response(json_data=[_WN_JOB]),
+            ),
+        ):
+            jobs = WorkingNomadsSource().fetch(mk_params(["Software Engineer"], _DE))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "WorkingNomads"
+        assert jobs[0].company == "NomadCo"
+
+    def test_fetch_filters_by_title(self) -> None:
+        jobs_data = [
+            {**_WN_JOB, "title": "Software Engineer"},
+            {**_WN_JOB, "title": "Marketing Manager", "url": "https://workingnomads.com/job/2"},
+        ]
+        with (
+            patch(
+                "job_hunter.sources.workingnomads_source.load_api_config",
+                return_value=_WN_CFG,
+            ),
+            patch(
+                "job_hunter.sources.workingnomads_source.requests.get",
+                return_value=_make_response(json_data=jobs_data),
+            ),
+        ):
+            jobs = WorkingNomadsSource().fetch(mk_params(["Software Engineer"], _DE))
+        assert len(jobs) == 1

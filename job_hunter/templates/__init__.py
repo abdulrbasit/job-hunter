@@ -1,0 +1,1 @@
+# Bundled workspace template files.

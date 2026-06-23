@@ -1,0 +1,130 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-hunter"
+version = "0.0"
+description = "Job search automation with LLM API pipeline mode and Claude Code agent mode."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+  {name = "Abdul Basit"},
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business",
+]
+requires-python = ">=3.12"
+dependencies = [
+  "typer>=0.12",
+  "anthropic>=0.50.0",
+  "openai>=1.68.0",
+  "google-genai>=1.0.0",
+  "requests>=2.31.0",
+  "beautifulsoup4>=4.12.0",
+  "pyyaml>=6.0",
+  "python-jobspy>=0.20.0",
+  "jsonschema>=4.0",
+  "headroom-ai>=0.1.0; sys_platform != 'win32'",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.40.0"]
+dev = ["pytest>=8.0", "ruff>=0.4", "pytest-cov", "ty>=0.0.1a20"]
+secrets = ["keyring>=24.0.0"]
+all = ["job-hunter[browser,secrets]"]
+
+[project.scripts]
+job-hunter = "job_hunter.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/abdulrbasit/job-hunter"
+Repository = "https://github.com/abdulrbasit/job-hunter"
+Issues = "https://github.com/abdulrbasit/job-hunter/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["job_hunter", "job_hunter.*"]
+
+[tool.setuptools.package-data]
+"job_hunter.templates" = [
+  "workspace/AGENTS.md",
+  "workspace/CLAUDE.md",
+  "workspace/GEMINI.md",
+  "workspace/README.md",
+  "workspace/.env.example",
+  "workspace/.gitignore",
+  "workspace/config/**/*",
+  "workspace/outputs/**/*",
+  "workspace/.github/**/*",
+  "workspace/profile/**/*",
+  "workspace/.claude/skills/job-hunter/**/*",
+  "workspace/.claude/skills/linkedin/**/*",
+  "workspace/.claude/skills/setup/**/*",
+]
+"job_hunter.linkedin" = ["defaults.yml"]
+
+[tool.uv]
+override-dependencies = [
+  "markdownify>=0.14.1",
+  "python-jobspy>=1.1.82",
+  "pandas>=2.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = ["notebooks", "**/generated/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "I", "TID251", "W", "S", "C901"]
+ignore = ["E501", "S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S603", "S607"]
+"job_hunter/**" = ["C901"]
+"job_hunter/cli/__init__.py" = ["B008", "S603", "S607"]
+"job_hunter/sources/ats/*.py" = ["S314"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "Depends"]
+
+[tool.ty.environment]
+python-version = "3.12"
+root = ["."]
+
+[tool.ty.analysis]
+replace-imports-with-any = [
+  "jobspy.**",
+  "playwright.**",
+  "google.**",
+  "keyring.**",
+  "headroom.**",
+]
+
+[tool.ty.rules]
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-return-type = "ignore"
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+not-subscriptable = "ignore"
+too-many-positional-arguments = "ignore"
+unknown-argument = "ignore"
+unresolved-attribute = "ignore"
+unresolved-import = "ignore"
+unsupported-operator = "ignore"
+
+[tool.ty.src]
+include = ["job_hunter", "tests"]
+exclude = ["notebooks", "**/generated/**"]
