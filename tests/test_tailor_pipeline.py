@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from job_hunter.cli._dispatch import _tailor_snapshot_path
 from job_hunter.pipeline.tailor import run_tailor
 
 
@@ -27,3 +28,13 @@ def test_agent_tailor_links_skips_llm_and_uses_cli_hints() -> None:
     fetch.assert_called_once_with(args["links"], use_llm=False)
     assert jobs[0]["title"] == "Product Manager"
     assert jobs[0]["company"] == "Simulation Labs"
+
+
+def test_agent_tailor_snapshots_do_not_overwrite_same_day(tmp_path) -> None:
+    first = _tailor_snapshot_path(tmp_path)
+    first.parent.mkdir(parents=True)
+    first.write_text("first", encoding="utf-8")
+
+    second = _tailor_snapshot_path(tmp_path)
+
+    assert second != first
