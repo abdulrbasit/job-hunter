@@ -208,7 +208,10 @@ def _expand_listing_candidate(url: str, company: str, location: str, title: str)
 
 @app.command()
 def init(
-    path: str = typer.Argument("job-hunter-workspace", help="Directory to create the workspace in"),
+    path: str = typer.Argument(
+        "job-hunter-workspace",
+        help="Directory to create the workspace in. Recommended: FirstName.LastName-Resume (e.g. Abdul.Basit-Resume)",
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Reinitialise even if directory is non-empty"),
 ) -> None:
     """Create a new job-hunter workspace with bundled assets."""

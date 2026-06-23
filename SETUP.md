@@ -10,6 +10,13 @@ uv tool install job-hunter-kit
 uv tool update-shell
 ```
 
+If `pip` itself is not on PATH, use:
+```bash
+python -m pip install uv
+python -m uv tool install job-hunter-kit
+python -m uv tool update-shell
+```
+
 Restart your terminal after `update-shell`, then verify:
 
 ```bash
@@ -22,6 +29,8 @@ job-hunter version
 
 ```bash
 pip install job-hunter-kit
+# or if pip is not on PATH:
+python -m pip install job-hunter-kit
 ```
 
 If `job-hunter` is not found after install, your Python Scripts folder is not on PATH. Fix it for your OS:
@@ -51,9 +60,11 @@ Then run `source ~/.bashrc` or open a new terminal.
 ## 2. Create a workspace
 
 ```bash
-job-hunter init my-workspace
-cd my-workspace
+job-hunter init FirstName.LastName-Resume
+cd FirstName.LastName-Resume
 ```
+
+Replace `FirstName.LastName-Resume` with your own name, e.g. `Abdul.Basit-Resume`. This becomes your personal workspace directory.
 
 ## 3. Add your API keys
 
@@ -71,10 +82,13 @@ Open `.env` and fill in your keys. You only need keys for providers you plan to 
 | `BRAVE_API_KEY` | Brave Search | Job discovery via web search |
 | `TAVILY_API_KEY` | Tavily | Job discovery via web search |
 | `EXA_API_KEY` | Exa | Job discovery via web search |
+| `FIRECRAWL_API_KEY` | Firecrawl | Job page scraping |
 | `RAPIDAPI_KEY` | RapidAPI | JSearch job board |
-| `ADZUNA_APP_ID` / `ADZUNA_API_KEY` | Adzuna | Adzuna job board |
+| `ADZUNA_APP_ID` + `ADZUNA_API_KEY` | Adzuna | Adzuna job board |
+| `JOOBLE_API_KEY` | Jooble | Jooble job board |
+| `REED_API_KEY` | Reed | Reed job board (UK) |
 
-For GitHub Actions runs, add these as repository secrets instead of in `.env`.
+You only need keys for providers you plan to use — leave the rest blank. For GitHub Actions runs, add these as repository secrets instead of in `.env`.
 
 ---
 
