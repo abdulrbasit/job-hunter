@@ -34,8 +34,7 @@ job-hunter dashboard --no-interactive
 /setup doctor
 ```
 
-Skills are in `.claude/skills/` (Claude Code), `.agents/skills/` (Codex), and
-`.gemini/skills/` (Gemini CLI). All three directories contain identical skill files.
+Skills are in `.claude/skills/`. Open the workspace in Claude Code or Gemini CLI to use them.
 
 ## Files To Edit
 

@@ -91,3 +91,7 @@ uv build
 ```
 
 MIT licensed. See `CONTRIBUTING.md`.
+
+## Lineage
+
+Job Hunter is the evolution of a single experiment: **[job-hunter-core](https://github.com/JobHunterPath/job-hunter-core)** and **[job-hunter-template](https://github.com/JobHunterPath/job-hunter-template)** worked as one system to prove the pipeline, the workspace model, and the agent skill layer — everything this package ships today.
