@@ -36,7 +36,11 @@ _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/
 
 # Dev-only skills — excluded from the user workspace template.
 _DEV_SKILL_DIRS: frozenset[str] = frozenset({"code", "commit", "dev-skills", "dev-tools", "refactor", "test"})
-_UPDATE_ASSETS = ("COMMANDS.md", "config/career_pages.yml")
+_UPDATE_ASSETS = ("README.md", "SETUP.md", "COMMANDS.md", "config/career_pages.yml")
+_README_BLOCKS = (
+    ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
+    ("<!-- JOBS_TABLE_START -->", "<!-- JOBS_TABLE_END -->"),
+)
 
 
 def workspace_assets_root() -> Traversable:
@@ -83,15 +87,31 @@ def _merge_yaml(existing: bytes, template: bytes) -> bytes:
     return yaml.dump(merged, default_flow_style=False, allow_unicode=True).encode()
 
 
+def _preserve_readme_blocks(existing: bytes, template: bytes) -> bytes:
+    """Return template README with generated stats/table copied from existing."""
+    old = existing.decode()
+    new = template.decode()
+    for start, end in _README_BLOCKS:
+        old_start, old_end = old.find(start), old.find(end)
+        new_start, new_end = new.find(start), new.find(end)
+        if min(old_start, old_end, new_start, new_end) < 0:
+            continue
+        block = old[old_start : old_end + len(end)]
+        new = new[:new_start] + block + new[new_end + len(end) :]
+    return new.encode()
+
+
 def update_workspace_assets(workspace: Path) -> list[str]:
     """Update workspace assets: system docs overwritten, YAML configs deep-merged."""
-    assets = dict(iter_managed_files())
+    assets = dict(iter_packaged_resource_files())
     written: list[str] = []
     for rel in _UPDATE_ASSETS:
         dest = workspace.resolve() / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         content = assets[rel]
-        if rel.endswith(".yml") and dest.exists():
+        if rel == "README.md" and dest.exists():
+            content = _preserve_readme_blocks(dest.read_bytes(), content)
+        elif rel.endswith(".yml") and dest.exists():
             content = _merge_yaml(dest.read_bytes(), content)
         dest.write_bytes(content)
         written.append(rel)
