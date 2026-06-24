@@ -153,8 +153,12 @@ jobs:
             git push && exit 0
             git fetch origin main
             git rebase origin/main || {
-              git checkout --theirs -- .github/ .gitignore AGENTS.md CLAUDE.md GEMINI.md README.md SETUP.md 2>/dev/null || true
-              git checkout --ours -- outputs/ 2>/dev/null || true
+              git diff --name-only --diff-filter=U | while IFS= read -r f; do
+                case "$f" in
+                  outputs/*) git checkout --ours -- "$f" ;;
+                  *) git checkout --theirs -- "$f" ;;
+                esac
+              done
               git add -u
               git rebase --continue || { git rebase --abort; exit 1; }
             }
