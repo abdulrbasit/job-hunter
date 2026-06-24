@@ -29,4 +29,10 @@ job-hunter dashboard --no-interactive
 In `agent` mode, use `/job-hunter` from Claude Code or Codex in this workspace.
 In `llm-api` mode, the CLI runs the full pipeline.
 
+## Optional browser hunt
+
+Add company career pages to `config/companies_browser.yml`, then run
+**Company Browser Hunt** from GitHub Actions. Results are committed to
+`outputs/browser_hunt/jobs.json`.
+
 Package docs/source: https://github.com/abdulrbasit/job-hunter

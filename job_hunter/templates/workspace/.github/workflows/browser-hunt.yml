@@ -1,0 +1,47 @@
+name: Company Browser Hunt
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  browser-hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+      LOG_LEVEL: INFO
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          ignore-nothing-to-cache: true
+
+      - name: Install job-hunter-kit with browser support
+        run: |
+          uv pip install "job-hunter-kit[browser]"
+          playwright install --with-deps chromium
+
+      - name: Install Lightpanda
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/lightpanda https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux
+          sudo install -m 0755 /tmp/lightpanda /usr/local/bin/lightpanda
+
+      - name: Run browser hunt
+        run: python -m job_hunter.pipeline.browser_hunt
+
+      - name: Commit results
+        if: always()
+        run: |
+          git config user.name "Job Hunter"
+          git config user.email "noreply@github.com"
+          git add outputs/browser_hunt/
+          git diff --staged --quiet && exit 0
+          git commit -m "chore(browser-hunt): $(date -u +%Y-%m-%d)"
+          git push

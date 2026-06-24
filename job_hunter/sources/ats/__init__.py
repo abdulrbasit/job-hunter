@@ -10,7 +10,7 @@ import requests  # noqa: F401 - kept for legacy tests/callers that patch ats.req
 _EXPORT_MODULES = {
     "detect_ats": "job_hunter.sources.ats_urls",
     "fetch_ats_jobs": "job_hunter.sources.ats.dispatch",
-    "_ADAPTERS": "job_hunter.sources.ats.dispatch",
+    "_FETCH_FNS": "job_hunter.sources.ats.dispatch",
     "fetch_greenhouse_jobs": "job_hunter.sources.ats.greenhouse",
     "fetch_lever_jobs": "job_hunter.sources.ats.lever",
     "fetch_bamboohr_jobs": "job_hunter.sources.ats.bamboohr",
@@ -20,7 +20,6 @@ _EXPORT_MODULES = {
     "fetch_hibob_jobs": "job_hunter.sources.ats.hibob",
     "fetch_personio_jobs": "job_hunter.sources.ats.personio",
     "fetch_recruitee_jobs": "job_hunter.sources.ats.recruitee",
-    "fetch_breezy_jobs": "job_hunter.sources.ats.breezy",
     "fetch_teamtailor_jobs": "job_hunter.sources.ats.teamtailor",
     "fetch_workday_jobs": "job_hunter.sources.ats.workday",
 }
@@ -28,7 +27,7 @@ _EXPORT_MODULES = {
 __all__ = [
     "detect_ats",
     "fetch_ats_jobs",
-    "_ADAPTERS",
+    "_FETCH_FNS",
     "fetch_greenhouse_jobs",
     "fetch_lever_jobs",
     "fetch_bamboohr_jobs",
@@ -38,7 +37,6 @@ __all__ = [
     "fetch_hibob_jobs",
     "fetch_personio_jobs",
     "fetch_recruitee_jobs",
-    "fetch_breezy_jobs",
     "fetch_teamtailor_jobs",
     "fetch_workday_jobs",
 ]

@@ -266,7 +266,8 @@ HTTP_DEFAULTS: dict[str, Any] = {
     "search_providers": {
         "timeout_seconds": 10,
         "max_consecutive_failures": 3,
-        "order": ["searxng", "brave", "tavily", "exa"],
+        "order": ["searxng", "brave"],
+        "ats_discovery_order": ["searxng", "brave", "exa"],
         "searxng_base_url": "",
         "ats_discovery": {"enabled": True, "sources": list(ATS_DISCOVERY_SOURCES)},
         "ai_web_search": {

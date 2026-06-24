@@ -10,6 +10,22 @@ from job_hunter.sources.ats._base import _SNIPPET_CHARS, _TIMEOUT
 
 logger = logging.getLogger(__name__)
 
+_BASES = ("https://api.lever.co", "https://api.eu.lever.co")
+
+
+def _get_postings(slug: str) -> list:
+    for base in _BASES:
+        try:
+            resp = requests.get(f"{base}/v0/postings/{slug}", params={"mode": "json"}, timeout=_TIMEOUT)
+            if resp.status_code == 404:
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, list) else data.get("postings", [])
+        except Exception as e:
+            logger.warning("[lever] %s via %s: %s", slug, base, e)
+    return []
+
 
 def fetch_lever_jobs(
     slug: str,
@@ -18,21 +34,8 @@ def fetch_lever_jobs(
     title_filters: list[str],
     excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
-    """Fetch jobs from Lever public API (no auth required)."""
-    try:
-        resp = requests.get(
-            f"https://api.lever.co/v0/postings/{slug}",
-            params={"mode": "json"},
-            timeout=_TIMEOUT,
-        )
-        resp.raise_for_status()
-        postings = resp.json()
-    except Exception as e:
-        logger.warning(f"[lever] {slug}: {e}")
-        return []
-
-    if isinstance(postings, dict):
-        postings = postings.get("postings", [])
+    """Fetch jobs from Lever public API (no auth required). Tries EU endpoint on 404."""
+    postings = _get_postings(slug)
 
     jobs = []
     for posting in postings:
@@ -50,7 +53,7 @@ def fetch_lever_jobs(
 
         if location_filter and all_locations:
             if not any(location_matches(loc, location_filter) for loc in all_locations):
-                logger.debug(f"[lever] skip wrong location: {title} ({all_locations})")
+                logger.debug("[lever] skip wrong location: %s (%s)", title, all_locations)
                 continue
         if not title_matches(title, title_filters, excluded_title_terms):
             continue
@@ -70,5 +73,5 @@ def fetch_lever_jobs(
             }
         )
 
-    logger.info(f"[lever] {slug}: {len(jobs)} matching jobs")
+    logger.info("[lever] %s: %d matching jobs", slug, len(jobs))
     return jobs

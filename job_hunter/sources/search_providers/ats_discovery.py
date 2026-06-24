@@ -16,7 +16,7 @@ from job_hunter.sources.search_providers._result import SearchResult
 from job_hunter.sources.search_providers._url_utils import canonicalize_url
 from job_hunter.sources.search_providers.router import (
     ProviderSearchRouter,
-    _provider_order,
+    _ats_discovery_provider_order,
     _search_cfg,
     all_providers_exhausted,
 )
@@ -334,7 +334,7 @@ def discover_ats_jobs_by_search(
     max_queries_per_region = int(cfg.get("max_queries_per_region", 0) or 0)
     max_total_queries = int(cfg.get("max_total_queries", 0) or 0)
     sources = cfg.get("sources") or list(_ATS_DISCOVERY_SITES)
-    router = ProviderSearchRouter(provider_order or _provider_order(), disabled=disabled)
+    router = ProviderSearchRouter(provider_order or _ats_discovery_provider_order(), disabled=disabled)
     jobs: list[dict] = []
     seen: set[str] = set()
     total_queries = 0

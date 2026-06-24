@@ -46,6 +46,12 @@ def _location_text(job: dict[str, Any]) -> str:
 
 
 class HimalayasSource(JobSourceAdapter):
+    # global_feed=True: orchestrator calls once with country="" (all remote jobs worldwide).
+    # For single-region configs this has no call-count benefit, but for multi-region it
+    # cuts calls from N_regions×N_titles to N_titles. Country filter is skipped by design
+    # — Himalayas is a global remote board so all-remote is the correct scope.
+    global_feed = True
+
     @property
     def source_name(self) -> str:
         return "himalayas"

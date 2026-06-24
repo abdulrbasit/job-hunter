@@ -44,8 +44,8 @@ New job board sources activate automatically when a region's `country` key match
 
 | Country | Sources activated |
 |---|---|
-| `SG` | MyCareersFuture, Glints, JobStreet |
-| `MY`, `ID`, `PH`, `VN` | Glints, JobStreet |
+| `SG` | MyCareersFuture, JobStreet |
+| `MY`, `ID`, `PH`, `VN` | JobStreet |
 | `CA` | Job Bank Canada |
 | `AE`, `SA`, `QA`, `KW`, `BH`, `OM` | GulfTalent |
 | Any | Careerjet (when affid configured), Working Nomads (remote-only) |

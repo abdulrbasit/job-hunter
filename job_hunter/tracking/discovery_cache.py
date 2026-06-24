@@ -23,10 +23,9 @@ from __future__ import annotations
 
 import os
 
-import yaml
-
 from job_hunter.core.config import ROOT as REPO_ROOT
 from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.tracking._io import _read_state, _write_state
 
 ROOT = str(REPO_ROOT)
 CACHE_FILE = os.path.join(ROOT, "outputs", "state", "discovered_urls.yml")
@@ -39,10 +38,7 @@ def _iter_cache_entries(data: dict) -> list:
 
 def load_cached_candidate_urls() -> set[str]:
     """Return the set of canonicalized URLs already seen by broad discovery."""
-    if not os.path.exists(CACHE_FILE):
-        return set()
-    with open(CACHE_FILE, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    data = _read_state(CACHE_FILE)
     result = set()
     for entry in _iter_cache_entries(data):
         if isinstance(entry, str):
@@ -65,10 +61,7 @@ def load_cached_candidate_urls_with_metadata() -> dict[str, dict]:
     Used by the cache revalidation fallback so it can reconstruct a minimal
     job dict without re-fetching every cached URL.
     """
-    if not os.path.exists(CACHE_FILE):
-        return {}
-    with open(CACHE_FILE, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    data = _read_state(CACHE_FILE)
     result: dict[str, dict] = {}
     for entry in _iter_cache_entries(data):
         if isinstance(entry, str):
@@ -86,25 +79,6 @@ def load_cached_candidate_urls_with_metadata() -> dict[str, dict]:
 
 
 def save_cached_candidate_urls(urls: set[str]) -> None:
-    header = (
-        "# URL-only dedup state. Each entry is a canonical job URL.\n"
-        "# discovered: jobs already surfaced/processed by Job Hunter.\n"
-        "# candidate_urls: broad-discovery URLs already seen by search/AI discovery.\n\n"
-    )
-    os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-    existing_discovered: list[str] = []
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        existing_discovered = list(data.get("discovered", []) or [])
-    with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        f.write(header)
-        yaml.dump(
-            {
-                "discovered": sorted(canonicalize_url(u) for u in existing_discovered if u),
-                "candidate_urls": sorted(canonicalize_url(u) for u in urls if u),
-            },
-            f,
-            default_flow_style=False,
-            allow_unicode=True,
-        )
+    existing = _read_state(CACHE_FILE)
+    discovered = set(existing.get("discovered", []) or [])
+    _write_state(CACHE_FILE, discovered, urls)

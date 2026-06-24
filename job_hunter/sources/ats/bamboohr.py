@@ -13,8 +13,9 @@ _CAREERS_URL = "https://{slug}.bamboohr.com/careers/list"
 _JOB_URL = "https://{slug}.bamboohr.com/careers/{job_id}"
 
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; JobHunterBot/1.0)",
-    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 
@@ -26,10 +27,11 @@ def fetch_bamboohr_jobs(
     excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     """Fetch jobs from BambooHR public careers API (no auth required)."""
+    headers = {**_HEADERS, "Referer": f"https://{slug}.bamboohr.com/careers", "Origin": f"https://{slug}.bamboohr.com"}
     try:
         resp = requests.get(
             _CAREERS_URL.format(slug=slug),
-            headers=_HEADERS,
+            headers=headers,
             timeout=_TIMEOUT,
         )
         resp.raise_for_status()
