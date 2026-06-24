@@ -15,7 +15,7 @@ def _write_config(root: Path, companies: list[dict]) -> None:
         yaml.safe_dump({"job_titles": ["Product Manager"], "exclusions": {"title_terms": ["intern"]}}),
         encoding="utf-8",
     )
-    (config / "companies_browser.yml").write_text(
+    (config / "career_pages.yml").write_text(
         yaml.safe_dump({"companies": companies}),
         encoding="utf-8",
     )

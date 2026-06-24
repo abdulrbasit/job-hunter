@@ -12,6 +12,9 @@ from collections.abc import Iterator
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 _CANONICAL_DIRS = (
     ".claude",
@@ -33,6 +36,7 @@ _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/
 
 # Dev-only skills — excluded from the user workspace template.
 _DEV_SKILL_DIRS: frozenset[str] = frozenset({"code", "commit", "dev-skills", "dev-tools", "refactor", "test"})
+_UPDATE_ASSETS = ("COMMANDS.md", "config/career_pages.yml")
 
 
 def workspace_assets_root() -> Traversable:
@@ -61,6 +65,37 @@ def iter_managed_files() -> Iterator[tuple[str, bytes]]:
             suffix = path[len(".claude/") :]  # "skills/job-hunter/SKILL.md"
             for cli in _AGENT_SKILL_CLI_PREFIXES:
                 yield f"{cli}/{suffix}", content
+
+
+def _deep_merge(base: Any, override: Any) -> Any:
+    """Merge two YAML-loaded values; override (user) wins on conflicts."""
+    if isinstance(base, dict) and isinstance(override, dict):
+        result = dict(base)
+        for k, v in override.items():
+            result[k] = _deep_merge(result[k], v) if k in result else v
+        return result
+    return override  # lists and scalars: user wins entirely
+
+
+def _merge_yaml(existing: bytes, template: bytes) -> bytes:
+    """Return template merged with existing; existing values take precedence."""
+    merged = _deep_merge(yaml.safe_load(template) or {}, yaml.safe_load(existing) or {})
+    return yaml.dump(merged, default_flow_style=False, allow_unicode=True).encode()
+
+
+def update_workspace_assets(workspace: Path) -> list[str]:
+    """Update workspace assets: system docs overwritten, YAML configs deep-merged."""
+    assets = dict(iter_managed_files())
+    written: list[str] = []
+    for rel in _UPDATE_ASSETS:
+        dest = workspace.resolve() / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = assets[rel]
+        if rel.endswith(".yml") and dest.exists():
+            content = _merge_yaml(dest.read_bytes(), content)
+        dest.write_bytes(content)
+        written.append(rel)
+    return written
 
 
 def iter_packaged_resource_files() -> Iterator[tuple[str, bytes]]:

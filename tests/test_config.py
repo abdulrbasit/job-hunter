@@ -155,7 +155,7 @@ def test_deterministic_scraping_functions_exist() -> None:
 def test_config_directory_has_only_expected_files() -> None:
     config_dir = ROOT / "config"
     yml_files = {p.name for p in config_dir.glob("*.yml")}
-    expected = {"companies_browser.yml", "job_hunter.yml"}
+    expected = {"career_pages.yml", "job_hunter.yml"}
     unexpected = yml_files - expected
     assert not unexpected, f"Unexpected files in config/: {unexpected}"
 

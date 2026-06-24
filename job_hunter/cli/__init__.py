@@ -244,11 +244,14 @@ def update_workflows(
 def update(
     workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
 ) -> None:
-    """Update skills and workflows from the installed package (run after pip upgrade)."""
+    """Update workspace assets, skills, and workflows after a package upgrade."""
+    from job_hunter.workspace._assets import update_workspace_assets
     from job_hunter.workspace.skills import update_skills as run_update_skills
     from job_hunter.workspace.workflows import update_workflows as run_update_workflows
 
     ws = Path(workspace)
+    written = update_workspace_assets(ws)
+    typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
     run_update_skills(ws)
     run_update_workflows(ws)
 

@@ -1,4 +1,4 @@
-"""Company browser hunt: runs the career-page extraction ladder per company in companies_browser.yml."""
+"""Company browser hunt: runs the career-page extraction ladder per company in career_pages.yml."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def run() -> int:
     root = Path(ROOT)
-    companies_path = root / "config" / "companies_browser.yml"
+    companies_path = root / "config" / "career_pages.yml"
     config_path = root / "config" / "job_hunter.yml"
 
     if not companies_path.exists():

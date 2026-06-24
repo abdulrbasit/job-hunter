@@ -375,3 +375,21 @@ def test_update_info_command_runs() -> None:
     result = runner.invoke(app, ["update-info"])
     assert result.exit_code == 0
     assert "uv tool upgrade" in result.output
+
+
+def test_update_command_adds_workspace_assets(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from job_hunter.cli import app
+
+    companies = tmp_path / "config" / "career_pages.yml"
+    companies.parent.mkdir()
+    companies.write_text("companies:\n  - name: Keep Me\n", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["update", "--workspace", str(tmp_path)])
+
+    import yaml
+
+    assert result.exit_code == 0
+    assert (tmp_path / "COMMANDS.md").exists()
+    assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "Keep Me"}]

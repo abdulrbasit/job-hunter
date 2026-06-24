@@ -1,41 +1,38 @@
 # Data Contract
 
-Two layers. Product updates may replace system-owned files; they must never overwrite user job-search data.
+Product updates may replace system-owned files. They must never overwrite user data.
 
-## User Layer
+## User Layer — never modified by updates
 
-Automated product updates must not modify these paths:
-
-| Path | Purpose |
+| Path | What it holds |
 |---|---|
-| `config/*.yml` | Deterministic machine choices: profile paths, search regions, exclusions, scoring thresholds, LLM search gate, provider/model choices, mode |
-| `profile/` | Resume sources, story bank, career and writing context, LaTeX assets, optional profile photo |
-| `outputs/` | Candidates, jobs, applications tracker, briefings, state |
-| `.env` | Local secrets and provider keys |
+| `config/*.yml` | Your settings: profile paths, regions, titles, scoring, LLM choices |
+| `profile/` | Resume files, story bank, career context, LaTeX assets |
+| `outputs/` | Job candidates, applications, briefings, state |
+| `.env` | API keys and secrets |
 
-Config schemas under `config/schemas/` are system-owned; live config values are user-owned.
+`config/schemas/` is system-owned. The values inside `config/*.yml` are yours.
 
-## System Layer
+## System Layer — replaced by updates
 
-Product updates may replace these paths:
-
-| Path | Purpose |
+| Path | What it holds |
 |---|---|
-| `job_hunter/` | Python package and deterministic automation |
-| `tests/` | Product test suite |
-| `.claude/skills/` | Agent workflow instructions |
-| `.github/workflows/`, `.github/scripts/`, `.github/ISSUE_TEMPLATE/` | Product automation |
-| `config/schemas/` | Validation schemas for user config |
-| `README.md`, `SETUP.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Product documentation |
-| `pyproject.toml` | Package metadata and dependencies |
-| `DATA_CONTRACT.md` | This contract |
+| `job_hunter/` | Python package |
+| `tests/` | Test suite |
+| `.claude/skills/` | Agent skills |
+| `.github/` | Workflows and automation |
+| `config/schemas/` | Config validation schemas |
+| `COMMANDS.md` | Command reference |
+| `README.md`, `SETUP.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Docs |
+| `pyproject.toml` | Package metadata |
+| `DATA_CONTRACT.md` | This file |
 
-## Rule
+## How updates work
 
-If a file is user-owned, update tooling may read it for migration checks but must
-not overwrite or delete it as part of a product update.
+`job-hunter update` runs three steps:
 
-Installed workspaces currently expose only one package-to-workspace update path:
-`job-hunter update-skills`, which writes `.claude/skills/` and nothing else.
-Config migration is intentionally deferred until it is designed as a separate,
-explicit feature.
+1. **Workspace assets** — controlled by `_UPDATE_ASSETS` in `job_hunter/workspace/_assets.py`:
+   - Non-YAML files (e.g. `COMMANDS.md`): always replaced.
+   - YAML config files: deep-merged — new template keys are added, your values are kept. Lists: your version wins.
+2. **Skills** — replaces `.claude/skills/` and the mirrored agent CLI trees.
+3. **Workflows** — replaces `.github/`. Your cron schedule in `find-jobs.yml` is preserved.

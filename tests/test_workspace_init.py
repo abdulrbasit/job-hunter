@@ -15,8 +15,8 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     paths = {path for path, _content in iter_managed_files()}
 
     assert "config/job_hunter.yml" in paths
-    assert "config/companies_browser.yml" in paths
-    assert ".github/workflows/browser-hunt.yml" in paths
+    assert "config/career_pages.yml" in paths
+    assert ".github/workflows/career-hunt.yml" in paths
     assert ".github/workflows/find-jobs.yml" in paths
     assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
@@ -46,8 +46,8 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     run_init(workspace)
 
     assert (workspace / "config" / "job_hunter.yml").exists()
-    assert (workspace / "config" / "companies_browser.yml").exists()
-    assert (workspace / ".github" / "workflows" / "browser-hunt.yml").exists()
+    assert (workspace / "config" / "career_pages.yml").exists()
+    assert (workspace / ".github" / "workflows" / "career-hunt.yml").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
@@ -106,7 +106,7 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
     root = Path(__file__).resolve().parents[1]
     packaged = dict(iter_packaged_resource_files())
 
-    canonical_files = ("config/companies_browser.yml", "config/job_hunter.yml")
+    canonical_files = ("config/career_pages.yml", "config/job_hunter.yml")
     for rel in canonical_files:
         assert packaged[rel] == (root / rel).read_bytes(), f"packaged workspace asset drifted: {rel}"
 
@@ -134,3 +134,60 @@ def test_packaged_workspace_context_is_user_workspace_focused() -> None:
     assert "@./AGENTS.md" in claude
     assert "job_hunter/" not in agents
     assert "uv sync --extra dev" not in readme
+
+
+def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path: Path) -> None:
+    from job_hunter.workspace._assets import update_workspace_assets
+
+    commands = tmp_path / "COMMANDS.md"
+    companies = tmp_path / "config" / "career_pages.yml"
+    commands.write_text("stale commands\n", encoding="utf-8")
+    companies.parent.mkdir(parents=True)
+    companies.write_text("companies:\n  - name: User Company\n", encoding="utf-8")
+
+    written = update_workspace_assets(tmp_path)
+
+    packaged = dict(iter_packaged_resource_files())
+    assert commands.read_bytes() == packaged["COMMANDS.md"]
+    # user list wins (template ships companies: [])
+    import yaml
+
+    assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "User Company"}]
+    assert written == ["COMMANDS.md", "config/career_pages.yml"]
+
+
+def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
+    from job_hunter.workspace._assets import update_workspace_assets
+
+    written = update_workspace_assets(tmp_path)
+
+    packaged = dict(iter_packaged_resource_files())
+    assert (tmp_path / "COMMANDS.md").read_bytes() == packaged["COMMANDS.md"]
+    assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
+    assert written == ["COMMANDS.md", "config/career_pages.yml"]
+
+
+def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(tmp_path: Path) -> None:
+    """New template key is added; existing user values survive."""
+    import yaml
+
+    from job_hunter.workspace._assets import _merge_yaml
+
+    existing = yaml.dump({"mode": "llm-api", "companies": [{"name": "ACME"}]}).encode()
+    template = yaml.dump({"mode": "agent", "companies": [], "new_feature": True}).encode()
+
+    result = yaml.safe_load(_merge_yaml(existing, template))
+
+    assert result["mode"] == "llm-api"  # user value preserved
+    assert result["companies"] == [{"name": "ACME"}]  # user list preserved
+    assert result["new_feature"] is True  # new template key injected
+
+
+def test_deep_merge_user_wins_on_scalar_and_list() -> None:
+    from job_hunter.workspace._assets import _deep_merge
+
+    base = {"a": 1, "b": [1, 2], "c": {"x": 10, "y": 20}}
+    override = {"a": 99, "b": [3], "c": {"x": 50}}
+    result = _deep_merge(base, override)
+
+    assert result == {"a": 99, "b": [3], "c": {"x": 50, "y": 20}}

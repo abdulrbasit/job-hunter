@@ -31,8 +31,19 @@ In `llm-api` mode, the CLI runs the full pipeline.
 
 ## Optional browser hunt
 
-Add company career pages to `config/companies_browser.yml`, then run
-**Company Browser Hunt** from GitHub Actions. Results are committed to
+Add company career pages to `config/career_pages.yml`, then run
+**Company Career Hunt** from GitHub Actions. Results are committed to
 `outputs/browser_hunt/jobs.json`.
 
 Package docs/source: https://github.com/abdulrbasit/job-hunter
+
+## Applications
+
+<!-- JOBS_STATS_START -->
+No jobs tracked yet.
+<!-- JOBS_STATS_END -->
+
+<!-- JOBS_TABLE_START -->
+| Date | Job | Location | Score | Files |
+|---|---|---|---|---|
+<!-- JOBS_TABLE_END -->

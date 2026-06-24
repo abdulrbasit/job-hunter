@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import sys
+from datetime import date
 from typing import Any
 
+from job_hunter.pipeline.readme_writer import update_readme_from_applications
 from job_hunter.ux.applications import render_applications_table, update_application_status
 
 
@@ -61,6 +63,7 @@ def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
                 )
                 current_apps[idx] = app
                 print(f"Updated {app['slug']} -> {app['status']}")
+                update_readme_from_applications(current_apps, root, date.today().isoformat())
 
 
 def _print_preview(app: dict[str, Any]) -> None:

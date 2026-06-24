@@ -1,0 +1,18 @@
+# Company career pages for the browser hunt workflow.
+# Add companies here, then run "Company Career Hunt" from GitHub Actions.
+#
+# Fields:
+#   name        Company name
+#   career_url  URL of the company's careers page
+#   location    Optional location hint, e.g. "Berlin"
+
+companies: []
+
+# Example:
+# companies:
+#   - name: "Stripe"
+#     career_url: "https://stripe.com/jobs"
+#     location: ""
+#   - name: "N26"
+#     career_url: "https://n26.com/en/careers"
+#     location: "Berlin"
