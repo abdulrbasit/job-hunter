@@ -48,10 +48,14 @@ if TYPE_CHECKING:
 
 logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
 
-TODAY = datetime.today().strftime("%Y-%m-%d")
+
+def _today() -> str:
+    return datetime.today().strftime("%Y-%m-%d")
+
+
 ROOT = str(REPO_ROOT)
-JOBS_DIR = profile_path("output_dir", "jobs")
-JOBS_DIR.mkdir(exist_ok=True)
+JOBS_DIR = profile_path("output_dir", "outputs/jobs")
+JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _enrich_snippets(jobs: list[dict[str, Any]], api_cfg: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -61,7 +65,7 @@ def _enrich_snippets(jobs: list[dict[str, Any]], api_cfg: dict[str, Any] | None 
 
 
 def update_readme(matches: list[dict[str, Any]]) -> None:
-    write_readme_table(matches, ROOT, TODAY)
+    write_readme_table(matches, ROOT, _today())
 
 
 def _copy_latex_assets(job_dir: Path) -> None:
@@ -171,12 +175,12 @@ def _process_match(match: dict[str, Any]) -> bool:
     PDF compilation is non-critical; failure there does not abort the job.
     """
     job = match["job"]
-    slug = f"{TODAY}_{slugify(job['company'])}_{slugify(job['title'])}"
+    slug = f"{_today()}_{slugify(job['company'])}_{slugify(job['title'])}"
     job_dir = JOBS_DIR / slug
     job_dir.mkdir(exist_ok=True)
 
     meta = {
-        "date": TODAY,
+        "date": _today(),
         "title": job["title"],
         "company": job["company"],
         "url": job["url"],
@@ -413,7 +417,7 @@ Examples:
 def run(args: dict) -> int:
     logger.info("\n%s", "=" * 60)
     region_label = args["region"] if args["mode"] == "hunt" and args["region"] else "all"
-    logger.info("Pipeline | mode=%s | region=%s | %s", args["mode"], region_label, TODAY)
+    logger.info("Pipeline | mode=%s | region=%s | %s", args["mode"], region_label, _today())
     logger.info("%s", "=" * 60)
 
     api_cfg = load_api_config()
@@ -428,6 +432,7 @@ def run(args: dict) -> int:
                 REPO_ROOT,
                 api_cfg,
                 url_liveness.is_alive,
+                depth=args.get("depth", "standard"),
             )
             print(f"snapshot_path={snapshot_path.as_posix()}")
             print(f"candidate_count={count}")

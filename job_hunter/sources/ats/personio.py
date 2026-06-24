@@ -22,7 +22,7 @@ def fetch_personio_jobs(
     try:
         resp = requests.get(f"https://{slug}.jobs.personio.de/xml", timeout=_TIMEOUT)
         resp.raise_for_status()
-        root = ElementTree.fromstring(resp.text)
+        root = ElementTree.fromstring(resp.content)
     except Exception as e:
         logger.warning(f"[personio] {slug}: {e}")
         return []

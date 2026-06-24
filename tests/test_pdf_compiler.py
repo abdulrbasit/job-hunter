@@ -121,6 +121,7 @@ def test_compile_tex_pulls_docker_image_once_when_reused(tmp_path) -> None:
             expected_pdf.write_bytes(b"%PDF-fake")
         result = MagicMock()
         result.stdout = ""
+        result.returncode = 0
         return result
 
     with (

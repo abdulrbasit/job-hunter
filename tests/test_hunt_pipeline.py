@@ -12,7 +12,7 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
     monkeypatch.setattr(
         hunt_pipeline,
         "_jobs_from_hunt",
-        lambda region: (jobs, {"https://example.com/old"}, set()),
+        lambda region, depth="standard": (jobs, {"https://example.com/old"}, set()),
     )
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: enriched)
@@ -36,7 +36,7 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
 
 
 def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region: ([], set(), set()))
+    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": ([], set(), set()))
 
     path, count = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 

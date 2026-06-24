@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.sources.ats._base import _TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -42,13 +42,20 @@ def fetch_teamtailor_jobs(
         title = " ".join((anchor.get_text(" ") or "").split())
         if not title or not title_matches(title, title_filters, excluded_title_terms):
             continue
+        parent = anchor.parent
+        location_tag = (
+            parent.find(["span", "p", "div"], class_=lambda c: c and "location" in c.lower()) if parent else None
+        )
+        location = " ".join((location_tag.get_text(" ") or "").split()) if location_tag else ""
+        if location_filter and location and not location_matches(location, location_filter):
+            continue
         jobs.append(
             {
                 "title": title,
                 "company": company_name,
                 "url": url,
                 "posted": "",
-                "location": "",
+                "location": location,
                 "snippet": "",
                 "source": "Teamtailor",
             }

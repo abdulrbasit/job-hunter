@@ -80,14 +80,16 @@ def test_score_requests_json_response_format(mock_llm_client) -> None:
 def test_score_repairs_malformed_json_once() -> None:
     mock = MagicMock()
     mock.complete.side_effect = [
-        '{"score": 85, "matched_keywords": ["Git',
-        json.dumps(
-            {
-                "score": 85,
-                "matched_keywords": ["Git"],
-                "gaps": [],
-                "years_exp_required": None,
-            }
+        MagicMock(content='{"score": 85, "matched_keywords": ["Git'),
+        MagicMock(
+            content=json.dumps(
+                {
+                    "score": 85,
+                    "matched_keywords": ["Git"],
+                    "gaps": [],
+                    "years_exp_required": None,
+                }
+            )
         ),
     ]
 
@@ -97,7 +99,7 @@ def test_score_repairs_malformed_json_once() -> None:
     assert result["score"] == 85
     assert result["matched_keywords"] == ["Git"]
     assert mock.complete.call_count == 2
-    assert "Convert this model response into valid JSON" in mock.complete.call_args.kwargs["user"]
+    assert "Convert this model response into valid JSON" in mock.complete.call_args.args[0].prompt
 
 
 def test_score_json_parse_error(mock_llm_client) -> None:
@@ -161,9 +163,10 @@ def test_score_uses_configured_resume_and_jd_context_caps(monkeypatch) -> None:
     )
     captured = {}
 
-    def complete(**kwargs):
-        captured.update(kwargs)
-        return payload
+    def complete(req, **kwargs):
+        captured["system"] = req.system or ""
+        captured["user"] = req.prompt
+        return MagicMock(content=payload)
 
     mock = MagicMock()
     mock.complete.side_effect = complete
@@ -177,13 +180,24 @@ def test_score_uses_configured_resume_and_jd_context_caps(monkeypatch) -> None:
         }
     }
 
-    monkeypatch.setattr(
-        scorer,
-        "BASE_RESUME",
-        r"\documentclass{article}\begin{document}Roadmapping and agile leadership\end{document}",
-    )
+    fake_resume = r"\documentclass{article}\begin{document}Roadmapping and agile leadership\end{document}"
 
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock):
+    import builtins
+
+    real_open = builtins.open
+
+    def patched_open(path, *args, **kwargs):
+        path_str = str(path)
+        if path_str.endswith(".tex"):
+            import io
+
+            return io.StringIO(fake_resume)
+        return real_open(path, *args, **kwargs)
+
+    with (
+        patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock),
+        patch("builtins.open", side_effect=patched_open),
+    ):
         result = scorer.score({**JOB, "snippet": "ABCDEFGHIJKLMNO"}, config)
 
     assert result["score"] == 85
@@ -263,9 +277,9 @@ def test_strategic_override_companies_respects_bypass_flag() -> None:
     assert "SAP" not in result
 
 
-def test_strategic_override_companies_defaults_to_bypass_when_key_absent() -> None:
+def test_strategic_override_companies_excluded_when_key_absent() -> None:
     cfg = {"scoring": {"strategic_overrides": [{"company": "Bosch", "reason": "x", "min_score_override": 70}]}}
-    assert "Bosch" in scorer.strategic_override_companies(cfg)
+    assert scorer.strategic_override_companies(cfg) == []
 
 
 @pytest.mark.parametrize(

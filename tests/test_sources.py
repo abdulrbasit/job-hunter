@@ -335,8 +335,7 @@ def test_detect_ats_for_direct_scrapers() -> None:
 def test_personio_fetcher_normalizes_public_xml(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class Response:
-        text = """
+    _xml_text = """
         <workzag-jobs>
           <position>
             <id>123</id>
@@ -348,6 +347,10 @@ def test_personio_fetcher_normalizes_public_xml(
           </position>
         </workzag-jobs>
         """
+
+    class Response:
+        text = _xml_text
+        content = _xml_text.encode("utf-8")
 
         def raise_for_status(self) -> None:
             return None

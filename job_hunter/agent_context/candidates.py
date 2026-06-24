@@ -136,9 +136,9 @@ def build_candidate_queue(
                 source_skipped_duplicate_title += 1
                 skipped_duplicate += 1
                 continue
-            seen_urls.add(url)
-            seen_titles.add(title_key)
             if len(queued) < limit:
+                seen_urls.add(url)
+                seen_titles.add(title_key)
                 canonical_url = canonicalize_url(url)
                 queued.append(
                     {

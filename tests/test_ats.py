@@ -455,6 +455,7 @@ def _make_playwright_mock(hrefs_and_texts: list[tuple[str, str]]):
         anchor = MagicMock()
         anchor.get_attribute.return_value = href
         anchor.text_content.return_value = text
+        anchor.query_selector.return_value = None  # no location sub-element
         anchors.append(anchor)
 
     mock_page = MagicMock()

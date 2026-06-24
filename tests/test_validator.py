@@ -221,8 +221,8 @@ def test_validate_repairs_malformed_json_once() -> None:
     }
     mock = MagicMock()
     mock.complete.side_effect = [
-        '{"is_active": tru',
-        '{"is_active": true, "over_experience": false, "reason": null}',
+        MagicMock(content='{"is_active": tru'),
+        MagicMock(content='{"is_active": true, "over_experience": false, "reason": null}'),
     ]
 
     with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock):
@@ -231,4 +231,4 @@ def test_validate_repairs_malformed_json_once() -> None:
     assert valid == jobs
     assert rejected == []
     assert mock.complete.call_count == 2
-    assert "Convert this model response into valid JSON" in mock.complete.call_args.kwargs["user"]
+    assert "Convert this model response into valid JSON" in mock.complete.call_args.args[0].prompt

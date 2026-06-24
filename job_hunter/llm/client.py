@@ -96,7 +96,13 @@ class LLMClient:
         raise ValueError(f"Unknown provider: {provider!r}. Supported: anthropic | openai | google | ollama")
 
     def complete(
-        self, req: LLMRequest, model: str, max_tokens: int, cache_system: bool = False, cache_ttl: str = "5m"
+        self,
+        req: LLMRequest,
+        model: str,
+        max_tokens: int,
+        cache_system: bool = False,
+        cache_ttl: str = "5m",
+        response_format: str | None = None,
     ) -> LLMResponse:
         """Send a request and return a structured LLMResponse."""
         logger.debug("[llm] provider=%s model=%s max_tokens=%d", self._provider, model, max_tokens)
@@ -106,7 +112,9 @@ class LLMClient:
         for attempt in range(1, 4):
             try:
                 self._throttle()
-                content, in_tok, out_tok, cached = self._call(req, model, max_tokens, cache_system, cache_ttl)
+                content, in_tok, out_tok, cached = self._call(
+                    req, model, max_tokens, cache_system, cache_ttl, response_format
+                )
                 return LLMResponse(
                     content=content,
                     provider=self._provider,
@@ -142,7 +150,13 @@ class LLMClient:
             time.sleep(max(wait, 0.1))
 
     def _call(
-        self, req: LLMRequest, model: str, max_tokens: int, cache_system: bool, cache_ttl: str
+        self,
+        req: LLMRequest,
+        model: str,
+        max_tokens: int,
+        cache_system: bool,
+        cache_ttl: str,
+        response_format: str | None = None,
     ) -> tuple[str, int, int, int]:
         system = req.system or ""
         user = req.prompt
@@ -169,14 +183,12 @@ class LLMClient:
             return resp.choices[0].message.content.strip(), usage.prompt_tokens, usage.completion_tokens, 0
 
         if self._provider == "google":
+            cfg_kwargs = google_generation_config_kwargs(system, max_tokens, response_format)
             from google.genai import types
 
-            cfg_kwargs: dict = {"max_output_tokens": max_tokens}
-            if system:
-                cfg_kwargs["system_instruction"] = system
             config = types.GenerateContentConfig(**cfg_kwargs)
             resp = self._raw.models.generate_content(model=model, contents=user, config=config)
-            return resp.text.strip(), 0, 0, 0
+            return (resp.text or "").strip(), 0, 0, 0
 
         raise RuntimeError(f"Unhandled provider: {self._provider}")
 

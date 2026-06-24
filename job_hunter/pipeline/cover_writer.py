@@ -10,25 +10,27 @@ import os
 import re
 from datetime import datetime
 
-from job_hunter.core.config import ROOT, get_config, profile_path
+from job_hunter.core.config import get_config, profile_path
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.pipeline.llm_stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
-ROOT = str(ROOT)
+_stories_cache: str | None = None
 
-# Load only the refined STAR stories section when present to avoid story-format
-# examples being echoed in generated letters.
-with open(profile_path("story_bank", "story_bank.md"), encoding="utf-8") as f:
-    _raw_stories = f.read()
 
-_FINAL_MARKER = "## Final — refined STAR stories"
-_marker_idx = _raw_stories.find(_FINAL_MARKER)
-if _marker_idx == -1:
-    _marker_idx = _raw_stories.find("## Final - refined STAR stories")
-STORIES = _raw_stories[_marker_idx:] if _marker_idx != -1 else _raw_stories
+def _load_stories() -> str:
+    global _stories_cache
+    if _stories_cache is None:
+        with open(profile_path("story_bank", "story_bank.md"), encoding="utf-8") as f:
+            _raw_stories = f.read()
+        _FINAL_MARKER = "## Final — refined STAR stories"
+        _marker_idx = _raw_stories.find(_FINAL_MARKER)
+        if _marker_idx == -1:
+            _marker_idx = _raw_stories.find("## Final - refined STAR stories")
+        _stories_cache = _raw_stories[_marker_idx:] if _marker_idx != -1 else _raw_stories
+    return _stories_cache
 
 
 def _config_section(config: dict, name: str, default: dict | None = None) -> dict:
@@ -82,7 +84,7 @@ def _build_system(cover_cfg: dict, candidate_background: str, story_limit: int) 
             f"Hard rules — no exceptions:\n" + "\n".join(rules_lines),
             f"LENGTH: target {target_words} words, hard maximum {max_words} words, {paragraphs} paragraphs.",
             f"CANDIDATE BACKGROUND:\n{candidate_background}",
-            f"STORY LIBRARY — use these facts and metrics exactly as stated, do not embellish:\n{STORIES[:story_limit]}",
+            f"STORY LIBRARY — use these facts and metrics exactly as stated, do not embellish:\n{_load_stories()[:story_limit]}",
         ]
     )
 

@@ -16,8 +16,16 @@ from job_hunter.pipeline.llm_stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
-with open(profile_path("resume_tex", "resume.tex"), encoding="utf-8") as f:
-    BASE_TEX = f.read()
+_base_tex_cache: str | None = None
+
+
+def _get_base_tex() -> str:
+    global _base_tex_cache
+    if _base_tex_cache is None:
+        with open(profile_path("resume_tex", "resume.tex"), encoding="utf-8") as f:
+            _base_tex_cache = f.read()
+    return _base_tex_cache
+
 
 _SYSTEM_BASE = """You are editing a LaTeX resume.
 Return ONLY the complete modified LaTeX file.
@@ -167,7 +175,7 @@ def tailor(match_result: dict) -> str:
         match_result: Scored match dict with job, matched_keywords, gaps.
 
     Returns:
-        Modified LaTeX resume text (falls back to BASE_TEX on error).
+        Modified LaTeX resume text (falls back to base resume on error).
     """
     job = match_result["job"]
     keywords = ", ".join(match_result.get("matched_keywords", []))
@@ -179,7 +187,7 @@ def tailor(match_result: dict) -> str:
     story_bank_limit = int(stories_cfg.get("max_chars_for_tailoring", 16000))
     tailoring_rules = _build_tailoring_rules(tailoring_cfg)
     positioning_rules = _build_positioning_rules(tailoring_cfg)
-    project_rules = _build_project_rules(tailoring_cfg, BASE_TEX, story_bank)
+    project_rules = _build_project_rules(tailoring_cfg, _get_base_tex(), story_bank)
 
     stage = LLMStage(
         "tailoring",
@@ -202,7 +210,7 @@ def tailor(match_result: dict) -> str:
 
     prompt = PROMPT.format(
         keywords=keywords,
-        tex=BASE_TEX,
+        tex=_get_base_tex(),
         jd=job["snippet"],
         gaps=gaps,
     )
@@ -220,4 +228,4 @@ def tailor(match_result: dict) -> str:
         return tailored_text
     except Exception as e:
         logger.error(f"[tailor] Error: {e} — returning base resume")
-        return BASE_TEX
+        return _get_base_tex()
