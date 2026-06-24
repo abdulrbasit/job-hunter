@@ -11,18 +11,42 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      discussions: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
-      - name: Read version from pyproject.toml
-        id: version
+      - name: Compute next version
+        id: next_version
         run: |
-          version=$(python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY' >> $GITHUB_OUTPUT
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              d = tomllib.load(f)
+          major, minor = d["project"]["version"].split(".")
+          major, minor = int(major), int(minor)
+          if minor >= 999:
+              major += 1
+              minor = 0
+          else:
+              minor += 1
+          print(f"version={major}.{minor}")
+          PY
+
+      - name: Bump version and commit
+        env:
+          VERSION: ${{ steps.next_version.outputs.version }}
+        run: |
+          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: v${VERSION}"
+          git push origin HEAD
 
       - name: Build
         run: uv build
@@ -31,8 +55,26 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Tag release
+        env:
+          VERSION: ${{ steps.next_version.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version.outputs.value }}"
-          git push origin "v${{ steps.version.outputs.value }}"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Announce release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.next_version.outputs.version }}
+        run: |
+          export PREV=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || echo "")
+          BODY=$(VERSION="$VERSION" PREV="$PREV" python3 scripts/release_notes.py)
+          REPO_ID=$(gh api graphql \
+            -f query='query{repository(owner:"abdulrbasit",name:"job-hunter"){id}}' \
+            --jq '.data.repository.id')
+          gh api graphql \
+            -f query='mutation($r:ID!,$c:ID!,$t:String!,$b:String!){createDiscussion(input:{repositoryId:$r,categoryId:$c,title:$t,body:$b}){discussion{url}}}' \
+            -f r="$REPO_ID" \
+            -f c="DIC_kwDOTCyYYs4C_yV4" \
+            -f t="job-hunter-kit v${VERSION} released" \
+            -f b="$BODY" \
+            --jq '.data.createDiscussion.discussion.url'

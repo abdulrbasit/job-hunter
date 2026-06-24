@@ -24,7 +24,7 @@ Single responsibility: safely add or remove one region from `config/job_hunter.y
 
 5. Append the new region block to `config/job_hunter.yml`.
 
-6. Print: `Region '<name>' added. Run job-hunter run-daily --region <name> to test.`
+6. Print: `Region '<name>' added. Run job-hunter hunt --region <name> to test.`
 
 ## Steps — Remove
 

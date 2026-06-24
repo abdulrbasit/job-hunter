@@ -10,7 +10,7 @@ from job_hunter.core.config import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,8 @@ _API_URL = "https://remotive.com/api/remote-jobs"
 
 
 class RemotiveSource(JobSourceAdapter):
+    global_feed = True
+
     @property
     def source_name(self) -> str:
         return "remotive"
@@ -54,6 +56,8 @@ class RemotiveSource(JobSourceAdapter):
                         page,
                         exc,
                     )
+                    if terminal_http_status(exc):
+                        return jobs
                     break
 
                 if not raw_jobs:

@@ -22,7 +22,11 @@ from job_hunter.core.config import JOOBLE_API_KEY, get_timeout, load_api_config
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_PAGED_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import (
+    DEFAULT_PAGED_SOURCE_CAP,
+    source_page_cap,
+    terminal_http_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,9 @@ class JoobleSource(JobSourceAdapter):
                 except Exception as exc:
                     if is_api_quota_exhausted(exc):
                         mark_api_exhausted("jooble", exc=exc)
+                        return jobs
+                    if terminal_http_status(exc):
+                        logger.warning("[jooble] stopping after terminal HTTP error: %s", exc)
                         return jobs
                     logger.warning(
                         "[jooble] request failed for %r in %r page %s: %s",

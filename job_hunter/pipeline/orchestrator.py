@@ -427,7 +427,7 @@ def run(args: dict) -> int:
 
     if args["mode"] == "hunt":
         if args["scrape_only"]:
-            snapshot_path, count = run_hunt_scrape_only(
+            snapshot_path, count, _stats = run_hunt_scrape_only(
                 args["region"],
                 REPO_ROOT,
                 api_cfg,

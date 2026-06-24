@@ -6,6 +6,8 @@ import logging
 import time
 from typing import Any
 
+from job_hunter.core.config import get_config
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_SINGLE_PAGE_SOURCE_CAP = 1
@@ -87,5 +89,27 @@ def jobicy_geo_slug(region_cfg: dict[str, Any]) -> str:
     country = str(region_cfg.get("country") or "").upper()
     slug = _JOBICY_GEO_BY_ISO.get(country, "")
     if not slug and country:
-        logger.debug("[jobicy] no geo slug for country=%s; querying all remote jobs", country)
+        logger.debug("[jobicy] no documented geo slug for country=%s; skipping", country)
     return slug
+
+
+def load_search_config() -> dict:
+    config = get_config("job_hunter")
+    logger.info("[sources] loaded config/job_hunter.yml")
+    return config
+
+
+def enabled_regions(config: dict, region: str | None = None) -> dict[str, dict]:
+    regions = config.get("regions", {}) or {}
+    if region:
+        selected = regions.get(region)
+        if not isinstance(selected, dict) or not selected.get("enabled", True):
+            return {}
+        return {region: selected}
+    return {name: value for name, value in regions.items() if isinstance(value, dict) and value.get("enabled", True)}
+
+
+def terminal_http_status(exc: BaseException) -> int | None:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    return status if status in {401, 402, 403, 429, 432} else None

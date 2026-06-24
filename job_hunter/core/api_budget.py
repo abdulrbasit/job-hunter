@@ -135,5 +135,5 @@ def is_api_quota_exhausted(exc: Exception) -> bool:
         return True
     if status == 429:
         body = str(getattr(response, "text", "") or "").lower()
-        return "quota" in body or "monthly" in body or "exceeded" in body or "limit" in body and "slow" not in body
+        return "monthly quota" in body or "monthly limit" in body or "quota exhausted" in body
     return False

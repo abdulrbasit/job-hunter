@@ -110,13 +110,12 @@ def enrich_snippets(
                 logger.info("    -> %s chars", len(new_snippet))
                 updated = {**job, "snippet": new_snippet, "jd_status": classify_jd_snippet(new_snippet)}
                 if full.get("source") and full["source"] != original_source:
-                    updated["source"] = full["source"]
-                    updated["original_source"] = original_source
+                    updated["enrichment_source"] = full["source"]
                 if original_snippet:
                     updated["search_snippet"] = original_snippet
-                # Merge any additional fields from fetched result (title, location, etc.)
                 for k in ("title", "company", "location"):
-                    if full.get(k):
+                    value = str(full.get(k) or "").strip()
+                    if value and value.lower() not in {"unknown role", "unknown company", "unknown"}:
                         updated[k] = full[k]
                 return job["url"], updated
         except Exception as e:

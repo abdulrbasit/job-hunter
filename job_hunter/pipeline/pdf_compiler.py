@@ -88,6 +88,13 @@ def compile_tex(tex_path: str, output_dir: str) -> str | None:
             cwd = None
             docker_workdir = "/workspace"
 
+        # pdfx package looks for pdfa.xmpi in the compile working directory.
+        # Copy it from profile/ so pdflatex finds it without TEXINPUTS tricks.
+        pdfa_src = repo_root / "profile" / "pdfa.xmpi"
+        pdfa_dst = output_path / "pdfa.xmpi"
+        if pdfa_src.exists() and not pdfa_dst.exists():
+            shutil.copy2(pdfa_src, pdfa_dst)
+
         cmd = [
             "docker",
             "run",
@@ -107,6 +114,7 @@ def compile_tex(tex_path: str, output_dir: str) -> str | None:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)  # noqa: S603
     if result.returncode != 0:
         logger.warning("[compile] pdflatex exited with code %d", result.returncode)
+        logger.debug("[compile] pdflatex output:\n%s", (result.stdout + result.stderr)[-2000:])
 
     expected_pdf = os.path.join(
         abs_output_dir,

@@ -75,7 +75,6 @@ JOB_BOARD_SOURCE_NAMES: tuple[str, ...] = (
     "adzuna",
     "reed",
     "mycareersfuture",
-    "glints",
     "jobstreet",
     "jobbank",
     "gulftalent",

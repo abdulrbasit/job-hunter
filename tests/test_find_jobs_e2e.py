@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 
 from job_hunter import agent_context
+from job_hunter.models import ScrapeStats
 from job_hunter.pipeline import hunt as hunt_pipeline
 
 _FAKE_JOBS = [
@@ -37,16 +38,28 @@ _FAKE_JOBS = [
 
 def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """run_hunt_scrape_only writes to outputs/candidates/{date}_{region}_candidates.json."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": (_FAKE_JOBS, set(), set()))
+    monkeypatch.setattr(
+        hunt_pipeline,
+        "_jobs_from_hunt",
+        lambda region, depth="standard": (
+            _FAKE_JOBS,
+            set(),
+            set(),
+            ScrapeStats(total_fetched=2, total_after_policy=2),
+        ),
+    )
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
+    monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
     today = date.today().isoformat()
-    path, count = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     assert count == 2
     assert path.parent == tmp_path / "outputs" / "candidates"
-    assert path.name == f"{today}_primary_candidates.json"
+    assert path.name.startswith(f"{today}T")
+    assert path.name.endswith("_primary_candidates.json")
     assert path.exists()
 
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -58,9 +71,20 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
 
 def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """After scrape, agent-context build_candidate_queue finds the candidates file."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": (_FAKE_JOBS, set(), set()))
+    monkeypatch.setattr(
+        hunt_pipeline,
+        "_jobs_from_hunt",
+        lambda region, depth="standard": (
+            _FAKE_JOBS,
+            set(),
+            set(),
+            ScrapeStats(total_fetched=2, total_after_policy=2),
+        ),
+    )
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
+    monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
     # Set up state file expected by _load_processed_for_root
     state_dir = tmp_path / "outputs" / "state"
@@ -77,9 +101,15 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
 
 def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: Path) -> None:
     """Even with 0 results, the candidates file is written so the workflow step can read count=0."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": ([], set(), set()))
+    monkeypatch.setattr(
+        hunt_pipeline,
+        "_jobs_from_hunt",
+        lambda region, depth="standard": ([], set(), set(), ScrapeStats()),
+    )
+    monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    path, count = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     assert count == 0
     assert path.exists()

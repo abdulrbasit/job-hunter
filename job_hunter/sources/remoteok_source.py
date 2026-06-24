@@ -23,6 +23,8 @@ _HEADERS = {"User-Agent": "job-hunter/1.0"}
 
 
 class RemoteOKSource(JobSourceAdapter):
+    global_feed = True
+
     @property
     def source_name(self) -> str:
         return "remoteok"

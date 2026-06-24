@@ -1,6 +1,5 @@
 """Job discovery orchestrator — canonical entry point for scraping.
 
-Replaces sources/scraper/_boards.py with a correct per-region SearchParams dispatch.
 Each JobSourceAdapter receives a proper SearchParams object (not raw config dicts).
 
 Flow:
@@ -15,12 +14,26 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-from job_hunter.models import JobPosting, SearchParams
+from job_hunter.models import JobPosting, ScrapeStats, SearchParams
+from job_hunter.sources._policy import JobPolicy
+from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search_providers.preflight import probe_search_providers
+from job_hunter.sources.search_providers.router import set_run_disabled
+from job_hunter.sources.source_config import enabled_regions as resolve_regions
+from job_hunter.sources.source_config import load_search_config
+from job_hunter.tracking.discovery_cache import load_cached_candidate_urls
 
 logger = logging.getLogger(__name__)
+
+
+def board_adapters() -> list[Any]:
+    from job_hunter.sources.boards import BOARD_REGISTRY
+
+    return [cls() for cls in BOARD_REGISTRY.values()]
 
 
 def _params_for_region(
@@ -39,14 +52,7 @@ def _params_for_region(
     )
 
 
-def scrape(region: str | None = None, *, depth: str = "standard") -> list[JobPosting]:
-    """Scrape all enabled sources for the given region and return URL-deduped JobPostings."""
-    from job_hunter.sources.boards import BOARD_REGISTRY
-    from job_hunter.sources.scraper._config import enabled_regions as resolve_regions
-    from job_hunter.sources.scraper._config import load_search_config
-    from job_hunter.sources.search_providers.preflight import probe_search_providers
-    from job_hunter.sources.search_providers.router import set_run_disabled
-
+def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> tuple[list[JobPosting], ScrapeStats]:
     cfg = load_search_config()
     job_titles: list[str] = cfg.get("job_titles", []) or []
     excluded_title_terms: list[str] = (cfg.get("exclusions", {}) or {}).get("title_terms", []) or []
@@ -54,38 +60,94 @@ def scrape(region: str | None = None, *, depth: str = "standard") -> list[JobPos
 
     if not job_titles:
         logger.warning("[orchestrator] job_titles is empty; no sources will run")
-        return []
+        return [], ScrapeStats()
     if not regions:
         logger.warning("[orchestrator] No enabled regions found in config/job_hunter.yml")
-        return []
+        return [], ScrapeStats()
 
     start = time.monotonic()
+    stats = ScrapeStats()
     run_disabled = probe_search_providers()
     set_run_disabled(run_disabled)
 
     seen_urls: set[str] = set()
+    cached_urls = load_cached_candidate_urls()
+    policy = JobPolicy(cfg)
     results: list[JobPosting] = []
+    rejected: Counter[str] = Counter()
 
-    def _add_unique(postings: list[JobPosting]) -> None:
+    def _add_unique(postings: list[JobPosting], source: str) -> None:
+        source_rejected: Counter[str] = Counter()
+
+        def reject(reason: str) -> None:
+            rejected[reason] += 1
+            source_rejected[reason] += 1
+
+        stats.total_fetched += len(postings)
+        stats.by_source[source] = stats.by_source.get(source, 0) + len(postings)
         for jp in postings:
-            url = jp.url or ""
-            if url and url in seen_urls:
+            url = canonicalize_url(jp.url or "")
+            if not url:
+                reject("missing_url")
                 continue
-            if url:
-                seen_urls.add(url)
-            results.append(jp)
+            if url in cached_urls:
+                reject("cached_candidate")
+                continue
+            if url in seen_urls:
+                reject("duplicate_url")
+                continue
+            stats.total_after_dedup += 1
+            if policy.is_excluded_url(jp.url) or not policy.is_valid_job_url(jp.url):
+                reject("invalid_url")
+                continue
+            reason = policy.rejection_reason(jp.model_dump(), job_titles)
+            if reason:
+                reject(reason)
+                continue
+            seen_urls.add(url)
+            results.append(jp.model_copy(update={"date_status": policy.posting_date_status(jp.posted)}))
+            stats.total_after_policy += 1
+            stats.accepted_by_source[source] = stats.accepted_by_source.get(source, 0) + 1
+        if source_rejected:
+            stats.rejected_by_source[source] = dict(source_rejected)
+
+    adapters = board_adapters()
+    global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
+    regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
+
+    if global_adapters:
+        global_params = SearchParams(
+            region_key="global_remote",
+            country="",
+            location="",
+            search_lang="en",
+            job_titles=job_titles,
+            excluded_title_terms=excluded_title_terms,
+        )
+        with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
+            futures = {pool.submit(adapter.fetch, global_params): adapter.source_name for adapter in global_adapters}
+            for future in as_completed(futures):
+                source = futures[future]
+                try:
+                    postings = [posting.model_copy(update={"region": "global_remote"}) for posting in future.result()]
+                    _add_unique(postings, source)
+                except Exception as exc:
+                    stats.failed_sources.append(source)
+                    logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     # Step 1: per-region board dispatch in parallel
-    adapters = [cls() for cls in BOARD_REGISTRY.values()]
-    for region_key, region_cfg in regions.items():
-        params = _params_for_region(region_key, region_cfg, job_titles, excluded_title_terms)
-        with ThreadPoolExecutor(max_workers=min(len(adapters), 8)) as pool:
-            futures = {pool.submit(a.fetch, params): a.source_name for a in adapters}
-            for future in as_completed(futures):
-                try:
-                    _add_unique(future.result())
-                except Exception as exc:
-                    logger.warning("[orchestrator] %s raised: %s", futures[future], exc)
+    if regional_adapters:
+        for region_key, region_cfg in regions.items():
+            params = _params_for_region(region_key, region_cfg, job_titles, excluded_title_terms)
+            with ThreadPoolExecutor(max_workers=min(len(regional_adapters), 8)) as pool:
+                futures = {pool.submit(a.fetch, params): a.source_name for a in regional_adapters}
+                for future in as_completed(futures):
+                    source = futures[future]
+                    try:
+                        _add_unique(future.result(), source)
+                    except Exception as exc:
+                        stats.failed_sources.append(source)
+                        logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     # Step 2: ATS discovery (once per run, not per region)
     if depth != "fast":
@@ -93,7 +155,7 @@ def scrape(region: str | None = None, *, depth: str = "standard") -> list[JobPos
             from job_hunter.sources.search_providers.ats_discovery import discover_ats_jobs_by_search
 
             ats_raw = discover_ats_jobs_by_search(job_titles, regions, excluded_title_terms, disabled=run_disabled)
-            _add_unique([JobPosting.from_dict(j) for j in ats_raw])
+            _add_unique([JobPosting.from_dict(j) for j in ats_raw], "ats_discovery")
         except Exception as exc:
             logger.warning("[orchestrator] ATS discovery failed: %s", exc)
 
@@ -106,9 +168,28 @@ def scrape(region: str | None = None, *, depth: str = "standard") -> list[JobPos
                 from job_hunter.sources.ai_web_search import fetch_ai_web_search_jobs
 
                 ai_raw = fetch_ai_web_search_jobs(job_titles, regions)
-                _add_unique([JobPosting.from_dict(j) for j in ai_raw])
+                _add_unique([JobPosting.from_dict(j) for j in ai_raw], "ai_web_search")
             except Exception as exc:
                 logger.warning("[orchestrator] LLM search failed: %s", exc)
 
-    logger.info("[orchestrator] complete: %d jobs in %.1fs", len(results), time.monotonic() - start)
+    stats.rejected = dict(rejected)
+    stats.duration_seconds = time.monotonic() - start
+    logger.info(
+        "[orchestrator] complete fetched=%d deduped=%d accepted=%d by_source=%s accepted_by_source=%s "
+        "rejected=%s rejected_by_source=%s failed=%s duration=%.1fs",
+        stats.total_fetched,
+        stats.total_after_dedup,
+        stats.total_after_policy,
+        stats.by_source,
+        stats.accepted_by_source,
+        stats.rejected,
+        stats.rejected_by_source,
+        stats.failed_sources,
+        stats.duration_seconds,
+    )
+    return results, stats
+
+
+def scrape(region: str | None = None, *, depth: str = "standard") -> list[JobPosting]:
+    results, _stats = scrape_with_stats(region, depth=depth)
     return results

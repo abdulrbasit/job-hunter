@@ -7,7 +7,6 @@ from conftest import mk_params
 from job_hunter.models import JobPosting
 from job_hunter.sources.adzuna_source import AdzunaSource
 from job_hunter.sources.careerjet_source import CareerjetSource
-from job_hunter.sources.glints_source import GlintsSource
 from job_hunter.sources.gulftalent_source import GulfTalentSource
 from job_hunter.sources.jobbank_source import JobBankSource
 from job_hunter.sources.jobicy_source import JobicySource
@@ -81,6 +80,8 @@ class TestJobicySource:
             ),
             patch("job_hunter.sources.jobicy_source.reserve_api_call", return_value=True),
             patch("job_hunter.sources.jobicy_source.requests.get", get_mock),
+            patch("job_hunter.sources.jobicy_source._read_cache", return_value=None),
+            patch("job_hunter.sources.jobicy_source._write_cache"),
         ):
             jobs = JobicySource().fetch(mk_params(["Software Engineer"], _REGIONS))
         assert len(jobs) == 1
@@ -89,7 +90,7 @@ class TestJobicySource:
         assert jobs[0].source == "Jobicy"
         assert get_mock.call_args.kwargs["params"]["geo"] == "germany"
 
-    def test_fetch_omits_invalid_iso_geo(self) -> None:
+    def test_fetch_skips_unsupported_geo(self) -> None:
         get_mock = MagicMock(return_value=_make_response(json_data={"jobs": [_JOBICY_JOB]}))
         with (
             patch(
@@ -102,8 +103,8 @@ class TestJobicySource:
             jobs = JobicySource().fetch(
                 mk_params(["Software Engineer"], {"my": {"country": "MY", "location": "Kuala Lumpur"}})
             )
-        assert len(jobs) == 1
-        assert "geo" not in get_mock.call_args.kwargs["params"]
+        assert jobs == []
+        get_mock.assert_not_called()
 
     def test_fetch_returns_empty_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"jobicy": {"enabled": False}}}}
@@ -237,7 +238,7 @@ _REED_JOB = lambda n: {  # noqa: E731
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Regional sources — MyCareersFuture / JobBank / Glints / GulfTalent / JobStreet
+# Regional sources — MyCareersFuture / JobBank / GulfTalent / JobStreet
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -286,23 +287,6 @@ _JB_HTML = """<html><body>
   <span class="date">2026-06-01</span>
 </article></body></html>"""
 
-_GLINTS_RESPONSE = {
-    "data": {
-        "jobs": {
-            "data": [
-                {
-                    "id": "gl-101",
-                    "title": "Product Manager",
-                    "company": {"name": "GlintsCo"},
-                    "createdAt": "2026-06-01",
-                    "city": {"name": "Singapore"},
-                    "country": {"name": "Singapore"},
-                }
-            ]
-        }
-    }
-}
-
 _GT_HTML = """<html><body>
 <div class="job-listing">
   <h2><a class="job-title" href="/jobs/456">Product Manager</a></h2>
@@ -329,74 +313,6 @@ _JS_RESPONSE = {
 # ═══════════════════════════════════════════════════════════════════════════
 # Class-level JobSourceAdapter tests
 # ═══════════════════════════════════════════════════════════════════════════
-
-
-class TestGlintsSource:
-    def test_name(self) -> None:
-        assert GlintsSource().name == "glints"
-
-    def test_is_enabled_false_when_disabled(self) -> None:
-        disabled = {"http": {"job_boards": {"glints": {"enabled": False}}}}
-        with patch("job_hunter.sources.glints_source.load_api_config", return_value=disabled):
-            assert GlintsSource().is_enabled({}) is False
-
-    def test_fetch_returns_job_postings(self) -> None:
-        with (
-            patch("job_hunter.sources.glints_source.load_api_config", return_value=_EMPTY_CFG),
-            patch(
-                "job_hunter.sources.glints_source.requests.get",
-                return_value=_make_response(json_data=_GLINTS_RESPONSE),
-            ),
-        ):
-            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
-        assert len(jobs) >= 1
-        assert isinstance(jobs[0], JobPosting)
-        assert jobs[0].source == "Glints"
-
-    def test_fetch_accepts_list_response(self) -> None:
-        response = [
-            {
-                "title": "Product Manager",
-                "company": {"name": "GlintsCo"},
-                "id": "123",
-                "city": {"name": "Singapore"},
-                "country": {"name": "Singapore"},
-                "description": "<p>Own product delivery.</p>",
-                "createdAt": "2026-06-01T00:00:00Z",
-            }
-        ]
-        with (
-            patch("job_hunter.sources.glints_source.load_api_config", return_value=_EMPTY_CFG),
-            patch(
-                "job_hunter.sources.glints_source.requests.get",
-                return_value=_make_response(json_data=response),
-            ),
-        ):
-            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
-        assert len(jobs) == 1
-        assert jobs[0].company == "GlintsCo"
-
-    def test_fetch_stops_at_default_page_cap_when_pages_are_full(self) -> None:
-        full_page = [
-            {
-                "id": f"gl-{index}",
-                "title": "Product Manager",
-                "company": {"name": "GlintsCo"},
-                "createdAt": "2026-06-01",
-                "city": {"name": "Singapore"},
-                "country": {"name": "Singapore"},
-            }
-            for index in range(30)
-        ]
-        cfg = {"http": {"job_boards": {"glints": {"enabled": True}}}}
-        get_mock = MagicMock(return_value=_make_response(json_data={"data": {"jobs": {"data": full_page}}}))
-        with (
-            patch("job_hunter.sources.glints_source.load_api_config", return_value=cfg),
-            patch("job_hunter.sources.glints_source.requests.get", get_mock),
-        ):
-            jobs = GlintsSource().fetch(mk_params(["Product Manager"], _SG))
-        assert len(jobs) == 90
-        assert get_mock.call_count == 3
 
 
 class TestGulfTalentSource:

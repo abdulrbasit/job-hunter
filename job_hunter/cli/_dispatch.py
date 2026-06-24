@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -34,9 +35,11 @@ def dispatch_hunt(
 ) -> None:
     """Entry point for `job-hunter hunt`. Reads mode from config and routes."""
     from job_hunter.config import get_mode
+    from job_hunter.core.config import setup_logging
     from job_hunter.models import HuntInput
     from job_hunter.pipeline.hunt import run
 
+    setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
     mode = get_mode()
     resolved_key = region_key or "all"
     logger.info("[dispatch] hunt — mode=%s region=%s", mode, resolved_key)
@@ -58,6 +61,9 @@ def dispatch_hunt(
     )
     if result.snapshot_path:
         print(f"[hunt] snapshot: {result.snapshot_path}")
+        print(f"snapshot_path={result.snapshot_path.as_posix()}")
+        print(f"candidate_count={result.stats.total_after_policy}")
+        print(f"has_candidates={str(result.stats.total_after_policy > 0).lower()}")
     if result.mode == "agent":
         print("[hunt] Ready for agent skills -> run /job-hunter batch or /job-hunter one <url>")
 

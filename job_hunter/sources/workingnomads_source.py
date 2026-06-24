@@ -21,6 +21,8 @@ _API_URL = "https://www.workingnomads.com/api/exposed_jobs/"
 
 
 class WorkingNomadsSource(JobSourceAdapter):
+    global_feed = True
+
     @property
     def source_name(self) -> str:
         return "workingnomads"

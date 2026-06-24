@@ -45,6 +45,8 @@ class JobPosting(BaseModel):
     source_url: str = ""
     ats_platform: str = ""
     full_jd: str = ""
+    enrichment_source: str = ""
+    date_status: str = ""
     fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
     # Set by score stage
     score: int | None = None
@@ -91,7 +93,10 @@ class ScrapeStats(BaseModel):
     total_after_dedup: int = 0
     total_after_policy: int = 0
     by_source: dict[str, int] = Field(default_factory=dict)
+    accepted_by_source: dict[str, int] = Field(default_factory=dict)
+    rejected_by_source: dict[str, dict[str, int]] = Field(default_factory=dict)
     failed_sources: list[str] = Field(default_factory=list)
+    rejected: dict[str, int] = Field(default_factory=dict)
     duration_seconds: float = 0.0
 
 

@@ -16,6 +16,7 @@ from job_hunter.core.config import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.source_config import terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -163,9 +164,15 @@ class GulfTalentSource(JobSourceAdapter):
                     headers=_HEADERS,
                     timeout=timeout,
                 )
+                if resp.status_code == 429:
+                    logger.warning("[gulftalent] rate limited; stopping source for this run")
+                    return jobs
                 if resp.status_code == 200 and len(resp.text) > 200:
                     html = resp.text
             except Exception as exc:
+                if terminal_http_status(exc):
+                    logger.warning("[gulftalent] stopping after terminal HTTP error: %s", exc)
+                    return jobs
                 logger.debug("[gulftalent] requests failed for %r in %s: %s", title, params.region_key, exc)
 
             if not html:
@@ -174,7 +181,7 @@ class GulfTalentSource(JobSourceAdapter):
 
             if not html:
                 logger.warning("[gulftalent] no HTML for %r in %s", title, params.region_key)
-                continue
+                return jobs
 
             before = len(jobs)
             raw_jobs = _parse_cards(html, params.job_titles, [], params.region_key, title)
