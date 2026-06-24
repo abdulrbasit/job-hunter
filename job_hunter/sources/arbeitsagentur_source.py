@@ -11,6 +11,7 @@ from job_hunter.core.config import get_timeout, load_api_config
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.source_config import terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,8 @@ class ArbeitsagenturSource(JobSourceAdapter):
                 postings = resp.json().get("stellenangebote", [])
             except Exception as exc:
                 logger.warning("[arbeitsagentur] failed for %r in %s: %s", title, params.region_key, exc)
+                if terminal_http_status(exc):
+                    return jobs
                 continue
 
             before = len(jobs)

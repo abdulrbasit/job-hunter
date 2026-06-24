@@ -14,4 +14,4 @@ Thin start-of-day orchestrator. Keep output compact; never read raw candidate sn
 Print only the compact brief from `agent-context` plus one next action:
 
 - `Run /job-hunter batch.` when candidates are available.
-- `Run job-hunter run-daily --region <region>.` when no candidates are available.
+- `Run job-hunter hunt --region primary.` when no candidates are available.

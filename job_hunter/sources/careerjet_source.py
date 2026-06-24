@@ -15,7 +15,7 @@ from job_hunter.core.config import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import source_page_cap
+from job_hunter.sources.source_config import source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +132,9 @@ class CareerjetSource(JobSourceAdapter):
                     resp.raise_for_status()
                     data = resp.json()
                 except Exception as exc:
+                    if terminal_http_status(exc):
+                        logger.warning("[careerjet] stopping after terminal HTTP error: %s", exc)
+                        return jobs
                     logger.warning(
                         "[careerjet] request failed for %r in %s: %s",
                         title,

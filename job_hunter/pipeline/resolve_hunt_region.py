@@ -36,7 +36,7 @@ def resolve_hunt_region(
     primary_region = primary_regions[0] if primary_regions else (region_names[0] if region_names else "")
     secondary_regions = [name for name in region_names if name != primary_region]
 
-    requested = (input_region or "all").strip()
+    requested = (input_region or "").strip()
 
     if event_name == "schedule":
         if event_schedule not in configured_schedules:
@@ -70,7 +70,15 @@ def resolve_hunt_region(
             "slot": str(slot),
         }
 
-    if requested.lower() in {"", "all", "*", "scheduled"}:
+    if requested.lower() in {"", "scheduled"}:
+        return 0, {
+            "should_run": "true",
+            "region": "",
+            "arg": "",
+            "label": "all",
+        }
+
+    if requested.lower() in {"all", "*"}:
         return 0, {
             "should_run": "true",
             "region": "",
@@ -121,7 +129,7 @@ def main() -> int:
         load_config(),
         os.environ.get("EVENT_NAME", ""),
         os.environ.get("EVENT_SCHEDULE", ""),
-        os.environ.get("INPUT_REGION") or "all",
+        os.environ.get("INPUT_REGION", ""),
         schedules,
     )
 

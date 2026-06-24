@@ -12,12 +12,12 @@ from job_hunter.ux.applications import active_application_count
 def _candidate_section() -> str:
     candidate_dir = repo_path("outputs", "candidates")
     if not candidate_dir.exists():
-        return "No candidate snapshots yet - run: `job-hunter run-daily --region primary`"
+        return "No candidate snapshots yet - run: `job-hunter hunt --region primary`"
 
     queue = build_candidate_queue(root=repo_path(), scope="briefing-backlog", limit=10000)
     reports = queue.get("source_reports", [])
     if not reports:
-        return "No candidate snapshots yet - run: `job-hunter run-daily --region primary`"
+        return "No candidate snapshots yet - run: `job-hunter hunt --region primary`"
 
     lines: list[str] = []
     hidden_processed = 0
@@ -48,7 +48,7 @@ def _candidate_section() -> str:
                 hidden_parts.append(f"{hidden_empty} empty file(s)")
             lines.append(f"Hidden from brief: {', '.join(hidden_parts)}.")
     else:
-        lines.append("All candidates processed. Run `job-hunter run-daily` to scrape new ones.")
+        lines.append("All candidates processed. Run `job-hunter hunt` to scrape new ones.")
 
     return "\n".join(lines)
 
@@ -71,4 +71,4 @@ def build_briefing() -> str:
 
 
 def write_today_briefing() -> object:
-    return write_artifact(today_path("briefings"), build_briefing())
+    return write_artifact(today_path("outputs/briefings"), build_briefing())

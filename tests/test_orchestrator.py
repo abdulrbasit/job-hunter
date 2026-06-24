@@ -1,6 +1,6 @@
 """Tests for pipeline/orchestrator.py orchestration safeguards."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -156,7 +156,7 @@ def test_hunt_scrape_only_emits_github_action_output_lines(tmp_path, capsys) -> 
         patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
         patch(
             "job_hunter.pipeline.orchestrator.run_hunt_scrape_only",
-            return_value=(snapshot, 2),
+            return_value=(snapshot, 2, MagicMock()),
         ),
     ):
         code = orchestrator.run(args)

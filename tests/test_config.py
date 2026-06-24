@@ -114,8 +114,8 @@ def test_no_legacy_module_commands_in_tracked_files() -> None:
 
 
 def test_deterministic_scraping_functions_exist() -> None:
-    boards = (ROOT / "job_hunter" / "sources" / "scraper" / "_boards.py").read_text(encoding="utf-8")
-    discovery = (ROOT / "job_hunter" / "sources" / "scraper" / "_discovery.py").read_text(encoding="utf-8")
+    orchestrator = (ROOT / "job_hunter" / "sources" / "orchestrator.py").read_text(encoding="utf-8")
+    boards = (ROOT / "job_hunter" / "sources" / "boards" / "__init__.py").read_text(encoding="utf-8")
     search = (ROOT / "job_hunter" / "sources" / "search_providers" / "__init__.py").read_text(encoding="utf-8")
     for symbol in (
         "JobSpySource",
@@ -124,9 +124,9 @@ def test_deterministic_scraping_functions_exist() -> None:
         "AdzunaSource",
         "ReedSource",
     ):
-        assert symbol in boards, f"{symbol} missing from scraper/_boards.py"
+        assert symbol in boards, f"{symbol} missing from source registry"
     for symbol in ("discover_ats_jobs_by_search",):
-        assert symbol in discovery, f"{symbol} missing from scraper/_discovery.py"
+        assert symbol in orchestrator, f"{symbol} missing from active orchestrator"
     for symbol in ("search_web",):
         assert symbol in search, f"{symbol} missing from search_providers"
 

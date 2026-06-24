@@ -27,6 +27,7 @@ class JobSourceAdapter(ABC):
     """
 
     tier: str = "free"  # override per adapter; used by --depth filtering
+    global_feed: bool = False
 
     @property
     @abstractmethod

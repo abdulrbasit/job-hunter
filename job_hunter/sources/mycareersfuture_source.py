@@ -17,6 +17,7 @@ from job_hunter.sources.source_config import (
     sleep_between_pages,
     source_page_cap,
     source_page_delay,
+    terminal_http_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,9 @@ class MyCareersFutureSource(JobSourceAdapter):
                     resp.raise_for_status()
                     data = resp.json()
                 except Exception as exc:
+                    if terminal_http_status(exc):
+                        logger.warning("[mycareersfuture] stopping after terminal HTTP error: %s", exc)
+                        return jobs
                     logger.warning(
                         "[mycareersfuture] failed for %r in %s page %d: %s",
                         title,

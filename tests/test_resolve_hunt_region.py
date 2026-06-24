@@ -75,6 +75,25 @@ def test_manual_all_preserves_all_region_behavior() -> None:
     }
 
 
+def test_manual_blank_defaults_to_all() -> None:
+    config = _config(
+        {
+            "berlin": {"enabled": True, "primary": True, "country": "DE"},
+            "dublin": {"enabled": True, "country": "IE"},
+        }
+    )
+
+    status, outputs = resolver.resolve_hunt_region(config, "workflow_dispatch", "", "", SCHEDULES)
+
+    assert status == 0
+    assert outputs == {
+        "should_run": "true",
+        "region": "",
+        "arg": "",
+        "label": "all",
+    }
+
+
 def test_manual_unknown_region_errors_with_enabled_regions() -> None:
     config = _config(
         {

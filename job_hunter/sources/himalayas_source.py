@@ -12,7 +12,7 @@ from job_hunter.core.config import get_timeout, load_api_config
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,8 @@ _SEARCH_URL = "https://himalayas.app/jobs/api/search"
 
 def _posted(value: Any) -> str:
     if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value / 1000, tz=UTC).date().isoformat()
+        timestamp = value / 1000 if value > 10_000_000_000 else value
+        return datetime.fromtimestamp(timestamp, tz=UTC).date().isoformat()
     if isinstance(value, str):
         return value[:10]
     return ""
@@ -83,6 +84,8 @@ class HimalayasSource(JobSourceAdapter):
                         page,
                         exc,
                     )
+                    if terminal_http_status(exc):
+                        return jobs
                     break
 
                 if not raw_jobs:

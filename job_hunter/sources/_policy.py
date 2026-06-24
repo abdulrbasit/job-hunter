@@ -6,6 +6,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -15,6 +16,7 @@ from job_hunter.models import JobPosting
 from job_hunter.sources.search_providers import canonicalize_url
 
 logger = logging.getLogger(__name__)
+MAX_POSTING_AGE_DAYS = 45
 
 _LISTING_ONLY_PATHS = {
     "/jobs",
@@ -149,6 +151,20 @@ class JobPolicy:
     def is_excluded_industry(self, snippet: str) -> bool:
         return any(kw in snippet.lower() for kw in self.excluded_industries)
 
+    def posting_date_status(self, posted: str) -> str:
+        if not posted:
+            return "missing"
+        try:
+            value = datetime.fromisoformat(str(posted)[:10]).replace(tzinfo=UTC)
+        except ValueError:
+            return "invalid_date"
+        today = datetime.now(UTC)
+        if value > today + timedelta(days=1):
+            return "future_date"
+        if value < today - timedelta(days=MAX_POSTING_AGE_DAYS):
+            return "stale_date"
+        return "current"
+
     def is_german(self, title: str, snippet: str) -> bool:
         return self.is_excluded_language(title, snippet, language="german")
 
@@ -175,26 +191,37 @@ class JobPolicy:
         return False
 
     def accepts_job_content(self, job: dict, title_filters: list[str]) -> bool:
+        return self.rejection_reason(job, title_filters) == ""
+
+    def rejection_reason(self, job: dict, title_filters: list[str]) -> str:
         title = job.get("title", "")
         company = job.get("company", "")
         snippet = job.get("snippet", "")
 
+        if not str(title).strip() or not str(company).strip():
+            return "missing_identity"
+        if str(title).strip().lower() == "unknown role" or str(company).strip().lower() == "unknown company":
+            return "missing_identity"
         if title_filters and not title_matches(title, title_filters, self.excluded_title_terms):
             logger.info("[skip] Title not in filters: %s", title[:60])
-            return False
+            return "excluded_title"
         if self.is_excluded_company(company):
             logger.info("[skip] Excluded company: %s", company[:60])
-            return False
+            return "excluded_company"
         if self.is_stale_posting(title, snippet):
             logger.info("[skip] Stale/closed posting: %s", title[:60])
-            return False
+            return "stale_content"
         if self.is_excluded_language(title, snippet):
             logger.info("[skip] Excluded-language posting: %s", title[:60])
-            return False
+            return "excluded_language"
         if self.is_excluded_industry(snippet):
             logger.info("[skip] Excluded industry: %s", title[:60])
-            return False
-        return True
+            return "excluded_industry"
+        date_status = self.posting_date_status(str(job.get("posted") or ""))
+        if date_status not in {"current", "missing"}:
+            logger.info("[skip] %s: %s", date_status, title[:60])
+            return date_status
+        return ""
 
     def has_wrong_location(self, job: dict, region_cfg: dict) -> bool:
         """Return True if job location doesn't match any allowed location in region_cfg."""
@@ -250,6 +277,9 @@ class JobAccumulator:
 
         if not allow_excluded_urls and self.policy.is_excluded_url(url):
             logger.info("[skip] Excluded URL pattern: %s", url[:80])
+            return False
+        if not self.policy.is_valid_job_url(url):
+            logger.info("[skip] Not a job posting URL: %s", url[:80])
             return False
         if not self.policy.accepts_job_content(jp.model_dump(), self.title_filters):
             return False

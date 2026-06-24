@@ -35,7 +35,9 @@ def title_matches(title: str, job_titles: list[str], excluded_terms: list[str] |
     if not title:
         return False
     lower = title.lower()
-    if excluded_terms and any(term.lower() in lower for term in (excluded_terms or [])):
+    if excluded_terms and any(
+        re.search(rf"(?<!\w){re.escape(term.strip().lower())}(?!\w)", lower) for term in excluded_terms if term.strip()
+    ):
         return False
     if not job_titles:
         return True

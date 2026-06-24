@@ -4,7 +4,6 @@ on:
   # Uncomment and adjust the cron lines below to enable automatic scraping.
   # schedule:
   #   - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri
-  #   - cron: "40 18 * * 0,2,4"  # second daily slot - Sun/Tue/Thu
   workflow_dispatch:
     inputs:
       region:
@@ -41,6 +40,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+          ignore-nothing-to-cache: true
 
       - name: Install Python package and browser extra
         run: |
@@ -63,6 +63,24 @@ jobs:
           sudo install -m 0755 /tmp/lightpanda /usr/local/bin/lightpanda
           command -v lightpanda
           echo "Lightpanda installed; nightly builds do not expose a stable --version command."
+
+      - name: Cache texlive image
+        if: steps.mode.outputs.mode == 'llm-api'
+        uses: actions/cache@v5
+        with:
+          path: /tmp/texlive.tar
+          key: texlive-latest
+
+      - name: Load or pull texlive image
+        if: steps.mode.outputs.mode == 'llm-api'
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/texlive.tar ]; then
+            docker load -i /tmp/texlive.tar
+          else
+            docker pull texlive/texlive:latest
+            docker save texlive/texlive:latest -o /tmp/texlive.tar
+          fi
 
       - name: Resolve region for this slot
         id: region
@@ -124,13 +142,18 @@ jobs:
         timeout-minutes: 55
         run: |
           set -euo pipefail
-          job-hunter hunt ${{ steps.region.outputs.arg }}
-          snapshot=$(find outputs/candidates -maxdepth 1 -type f -name '*_candidates.json' 2>/dev/null | sort | tail -n 1 || true)
-          count=0
-          if [ -n "$snapshot" ]; then
-            count=$(python -c "import json, sys; print(json.load(open(sys.argv[1], encoding='utf-8')).get('count', 0))" "$snapshot" 2>/dev/null || echo 0)
-          fi
+          job-hunter hunt ${{ steps.region.outputs.arg }} | tee hunt-output.txt
+          snapshot=$(sed -n 's/^snapshot_path=//p' hunt-output.txt | tail -n 1)
+          count=$(sed -n 's/^candidate_count=//p' hunt-output.txt | tail -n 1)
+          test -n "$snapshot"
+          test -f "$snapshot"
+          count=${count:-0}
+          echo "### Hunt summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Region: ${{ steps.region.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Candidates: $count" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Snapshot: \`$snapshot\`" >> "$GITHUB_STEP_SUMMARY"
           echo "candidate_count=$count" >> "$GITHUB_OUTPUT"
+          echo "snapshot_path=$snapshot" >> "$GITHUB_OUTPUT"
           echo "has_candidates=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Build briefing

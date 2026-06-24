@@ -25,7 +25,11 @@ from job_hunter.core.config import REED_API_KEY, get_timeout, load_api_config
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import (
+    DEFAULT_SINGLE_PAGE_SOURCE_CAP,
+    source_page_cap,
+    terminal_http_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +107,9 @@ class ReedSource(JobSourceAdapter):
                 except Exception as exc:
                     if is_api_quota_exhausted(exc):
                         mark_api_exhausted("reed", exc=exc)
+                        return jobs
+                    if terminal_http_status(exc):
+                        logger.warning("[reed] stopping after terminal HTTP error: %s", exc)
                         return jobs
                     logger.warning(
                         "[reed] request failed for %r in %r page %s: %s",

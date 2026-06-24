@@ -18,6 +18,7 @@ from job_hunter.sources.source_config import (
     sleep_between_pages,
     source_page_cap,
     source_page_delay,
+    terminal_http_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,7 +151,10 @@ class JobStreetSource(JobSourceAdapter):
                         headers=req_headers,
                         timeout=timeout,
                     )
-                    if resp.status_code in (403, 429, 503):
+                    if resp.status_code == 429:
+                        logger.warning("[jobstreet] rate limited; stopping source for this run")
+                        return jobs
+                    if resp.status_code in (403, 503):
                         logger.debug(
                             "[jobstreet] %d for %r in %s; switching to Playwright",
                             resp.status_code,
@@ -183,10 +187,15 @@ class JobStreetSource(JobSourceAdapter):
                             page,
                             max_pages,
                         )
+                        if not stubs:
+                            return jobs
                         break  # Playwright fallback is single-page only
                     resp.raise_for_status()
                     data = resp.json()
                 except Exception as exc:
+                    if terminal_http_status(exc):
+                        logger.warning("[jobstreet] stopping after terminal HTTP error: %s", exc)
+                        return jobs
                     logger.warning(
                         "[jobstreet] failed for %r in %s page %d: %s",
                         title,

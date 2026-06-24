@@ -33,6 +33,8 @@ def _parse_rfc2822(value: str) -> str:
 
 
 class WeWorkRemotelySource(JobSourceAdapter):
+    global_feed = True
+
     @property
     def source_name(self) -> str:
         return "weworkremotely"

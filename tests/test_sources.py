@@ -9,7 +9,6 @@ from job_hunter.core import api_budget, utils
 from job_hunter.sources import (
     adzuna_source,
     ats,
-    glints_source,
     jd_fetcher,
     job_boards,
     jobicy_source,
@@ -80,39 +79,6 @@ def test_reed_source_init_uses_config_secret(monkeypatch: pytest.MonkeyPatch) ->
     assert reed_source.ReedSource()._api_key == "config-key"
 
 
-def test_glints_accepts_list_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> list[dict]:
-            return [
-                {
-                    "title": "Product Manager",
-                    "company": {"name": "GlintsCo"},
-                    "id": "123",
-                    "city": {"name": "Singapore"},
-                    "country": {"name": "Singapore"},
-                    "description": "<p>Own product delivery.</p>",
-                    "createdAt": "2026-06-01T00:00:00Z",
-                }
-            ]
-
-    monkeypatch.setattr(
-        glints_source,
-        "load_api_config",
-        lambda: {"http": {"job_boards": {"glints": {"enabled": True}}}},
-    )
-    monkeypatch.setattr(glints_source.requests, "get", lambda *args, **kwargs: Response())
-
-    jobs = glints_source.GlintsSource().fetch(
-        mk_params(["Product Manager"], {"singapore": {"country": "SG", "location": "Singapore"}})
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0].company == "GlintsCo"
-
-
 def test_jobicy_maps_de_region_to_geo_slug(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict] = []
 
@@ -145,6 +111,8 @@ def test_jobicy_maps_de_region_to_geo_slug(monkeypatch: pytest.MonkeyPatch) -> N
     )
     monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _provider: True)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
+    monkeypatch.setattr(jobicy_source, "_read_cache", lambda _geo: None)
+    monkeypatch.setattr(jobicy_source, "_write_cache", lambda _geo, _jobs: None)
 
     jobs = jobicy_source.JobicySource().fetch(
         mk_params(["Software Engineer"], {"berlin": {"country": "DE", "location": "Berlin"}})
@@ -154,7 +122,7 @@ def test_jobicy_maps_de_region_to_geo_slug(monkeypatch: pytest.MonkeyPatch) -> N
     assert calls[0]["geo"] == "germany"
 
 
-def test_jobicy_omits_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_jobicy_skips_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict] = []
 
     class Response:
@@ -191,50 +159,8 @@ def test_jobicy_omits_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
         mk_params(["Software Engineer"], {"my": {"country": "MY", "location": "Kuala Lumpur"}})
     )
 
-    assert len(jobs) == 1
-    assert "geo" not in calls[0]
-
-
-def test_glints_stops_at_default_page_cap_when_pages_are_full(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: list[dict] = []
-    full_page = [
-        {
-            "id": f"gl-{index}",
-            "title": "Product Manager",
-            "company": {"name": "GlintsCo"},
-            "createdAt": "2026-06-01",
-            "city": {"name": "Singapore"},
-            "country": {"name": "Singapore"},
-        }
-        for index in range(30)
-    ]
-
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {"data": {"jobs": {"data": full_page}}}
-
-    def get(*args, **kwargs):
-        calls.append(kwargs["params"])
-        return Response()
-
-    monkeypatch.setattr(
-        glints_source,
-        "load_api_config",
-        lambda: {"http": {"job_boards": {"glints": {"enabled": True}}}},
-    )
-    monkeypatch.setattr(glints_source.requests, "get", get)
-
-    jobs = glints_source.GlintsSource().fetch(
-        mk_params(["Product Manager"], {"singapore": {"country": "SG", "location": "Singapore"}})
-    )
-
-    assert len(jobs) == 90
-    assert [call["page"] for call in calls] == [1, 2, 3]
+    assert jobs == []
+    assert calls == []
 
 
 def test_jobstreet_uses_same_page_for_playwright_fallback_after_block(

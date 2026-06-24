@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from job_hunter.models import ScrapeStats
 from job_hunter.pipeline import hunt as hunt_pipeline
 
 
@@ -12,12 +13,20 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
     monkeypatch.setattr(
         hunt_pipeline,
         "_jobs_from_hunt",
-        lambda region, depth="standard": (jobs, {"https://example.com/old"}, set()),
+        lambda region, depth="standard": (
+            jobs,
+            {"https://example.com/old"},
+            set(),
+            ScrapeStats(total_fetched=1, total_after_policy=1),
+        ),
     )
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: enriched)
 
-    path, count = hunt_pipeline.run_hunt_scrape_only(
+    monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
+
+    path, count, _stats = hunt_pipeline.run_hunt_scrape_only(
         "primary",
         tmp_path,
         api_cfg={},
@@ -36,9 +45,15 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
 
 
 def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": ([], set(), set()))
+    monkeypatch.setattr(
+        hunt_pipeline,
+        "_jobs_from_hunt",
+        lambda region, depth="standard": ([], set(), set(), ScrapeStats()),
+    )
+    monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    path, count = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert count == 0

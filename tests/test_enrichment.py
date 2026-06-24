@@ -50,8 +50,8 @@ def test_enrich_snippets_upgrades_web_search_candidate_and_preserves_search_snip
     enriched = enrich_snippets(jobs, {"http": {"jd_enrichment": {"max_workers": 1}}}, fetcher=fetcher)
 
     assert enriched[0]["jd_status"] == JD_STATUS_FULL
-    assert enriched[0]["source"] == "smartrecruiters_api"
-    assert enriched[0]["original_source"] == "web-search"
+    assert enriched[0]["source"] == "web-search"
+    assert enriched[0]["enrichment_source"] == "smartrecruiters_api"
     assert enriched[0]["search_snippet"] == "Short LLM-written summary."
     assert enriched[0]["title"] == "Senior Product Manager"
     assert "product discovery" in enriched[0]["snippet"]
