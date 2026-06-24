@@ -110,6 +110,7 @@ class HuntInput(BaseModel):
     skip_score: bool = False
     skip_validate: bool = False
     force: bool = False
+    depth: str = "standard"
 
 
 class HuntOutput(BaseModel):

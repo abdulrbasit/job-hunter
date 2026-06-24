@@ -27,9 +27,11 @@ from job_hunter.tracking.tracker import filter_new_jobs, load_processed
 logger = logging.getLogger(__name__)
 
 
-def _jobs_from_hunt(region: str | None = None) -> tuple[list[dict[str, Any]], set[str], set[str]]:
+def _jobs_from_hunt(
+    region: str | None = None, depth: str = "standard"
+) -> tuple[list[dict[str, Any]], set[str], set[str]]:
     """Scrape all enabled sources, then deduplicate against processed jobs."""
-    postings = scrape(region=region)
+    postings = scrape(region=region, depth=depth)
     jobs = [posting.to_dict() for posting in postings]
     if not jobs:
         return [], set(), set()
@@ -86,7 +88,7 @@ def run_hunt(
     or ([], set(), set()) when there is nothing to process.
     """
     logger.info("[pipeline] Step 1: Scraping and deduplicating jobs...")
-    jobs, existing_urls, existing_titles = _jobs_from_hunt(args["region"])
+    jobs, existing_urls, existing_titles = _jobs_from_hunt(args["region"], depth=args.get("depth", "standard"))
     if not jobs:
         logger.warning("[pipeline] No new jobs found. Exiting.")
         return [], set(), set()
@@ -113,10 +115,11 @@ def run_hunt_scrape_only(
     root: str | Path = REPO_ROOT,
     api_cfg: dict[str, Any] | None = None,
     url_checker: Any = None,
+    depth: str = "standard",
 ) -> tuple[Path, int]:
     """Run scrape, dedup, URL check, and enrichment, then write a handoff snapshot."""
     today = datetime.today().strftime("%Y-%m-%d")
-    jobs, existing_urls, existing_titles = _jobs_from_hunt(region)
+    jobs, existing_urls, existing_titles = _jobs_from_hunt(region, depth=depth)
 
     if jobs:
         jobs = _drop_dead_urls(jobs, api_cfg or {}, url_checker)
@@ -165,7 +168,7 @@ def run(inp: HuntInput) -> HuntOutput:
                 stats=ScrapeStats(total_fetched=len(jobs)),
                 mode=inp.mode,
             )
-        path, count = run_hunt_scrape_only(region)
+        path, count = run_hunt_scrape_only(region, depth=inp.depth)
         return HuntOutput(
             snapshot_path=path,
             stats=ScrapeStats(total_fetched=count),
@@ -178,7 +181,7 @@ def run(inp: HuntInput) -> HuntOutput:
     ns = {
         "mode": "hunt",
         "region": region,
-        "depth": "standard",
+        "depth": inp.depth,
         "scrape_only": inp.scrape_only,
         "from_snapshot": str(inp.from_snapshot) if inp.from_snapshot else None,
         "skip_score": inp.skip_score,

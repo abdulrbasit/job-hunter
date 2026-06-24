@@ -100,7 +100,7 @@ def mock_llm_client():
 
     def _factory(text: str) -> MagicMock:
         mock = MagicMock()
-        mock.complete.return_value = text
+        mock.complete.return_value = MagicMock(content=text)
         return mock
 
     return _factory

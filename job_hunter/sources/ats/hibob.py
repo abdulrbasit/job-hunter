@@ -4,7 +4,7 @@ import logging
 import re
 
 from job_hunter.core.config import load_api_config
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import location_matches, title_matches
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def fetch_hibob_jobs(
         re.IGNORECASE,
     )
 
-    raw_links: dict[str, str] = {}  # url -> title text
+    raw_links: dict[str, tuple[str, str]] = {}  # url -> (title text, location text)
     ats_cfg = load_api_config().get("http", {}).get("ats_scraper", {}) or {}
     playwright_timeout = int(ats_cfg.get("hibob_playwright_timeout_seconds", 25) * 1000)
     try:
@@ -53,7 +53,9 @@ def fetch_hibob_jobs(
                         href = f"https://{slug}.careers.hibob.com{href}"
                     title_text = (anchor.text_content() or "").strip()
                     if href not in raw_links and title_text:
-                        raw_links[href] = title_text
+                        loc_el = anchor.query_selector("[class*='location'], [class*='Location']")
+                        location_text = (loc_el.text_content() or "").strip() if loc_el else ""
+                        raw_links[href] = (title_text, location_text)
             finally:
                 browser.close()
     except Exception as e:
@@ -61,8 +63,10 @@ def fetch_hibob_jobs(
         return []
 
     jobs = []
-    for url, title in raw_links.items():
+    for url, (title, location) in raw_links.items():
         if not title_matches(title, title_filters, excluded_title_terms):
+            continue
+        if location_filter and location and not location_matches(location, location_filter):
             continue
         jobs.append(
             {
@@ -70,7 +74,7 @@ def fetch_hibob_jobs(
                 "company": company_name,
                 "url": url,
                 "posted": "",
-                "location": "",
+                "location": location,
                 # snippet intentionally empty - enriched by orchestrator._enrich_snippets
                 "snippet": "",
                 "source": "HiBob",

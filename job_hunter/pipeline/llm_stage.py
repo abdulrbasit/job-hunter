@@ -33,21 +33,22 @@ class LLMStage:
         cache_system: bool | None = None,
         cache_ttl: str | None = None,
     ) -> str:
+        from job_hunter.models import LLMRequest
+
         settings = self.settings(api_cfg)
-        kwargs: dict[str, Any] = {
-            "system": system,
-            "user": user,
-            "model": settings.model,
-            "max_tokens": settings.max_tokens,
-        }
         resolved_format = self.response_format if response_format is None else response_format
-        if resolved_format:
-            kwargs["response_format"] = resolved_format
         resolved_cache = self.cache_system if cache_system is None else cache_system
-        if resolved_cache:
-            kwargs["cache_system"] = True
-            kwargs["cache_ttl"] = self.cache_ttl if cache_ttl is None else cache_ttl
-        return self.client_factory(self.role).complete(**kwargs)
+        resolved_ttl = self.cache_ttl if cache_ttl is None else cache_ttl
+        req = LLMRequest(role=self.role, prompt=user, system=system or None)
+        response = self.client_factory(self.role).complete(
+            req,
+            model=settings.model,
+            max_tokens=settings.max_tokens,
+            cache_system=resolved_cache,
+            cache_ttl=resolved_ttl or "5m",
+            response_format=resolved_format,
+        )
+        return response.content
 
     @staticmethod
     def parse_json_object(raw: str, error_message: str) -> dict:

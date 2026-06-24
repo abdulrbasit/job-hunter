@@ -19,9 +19,6 @@ from job_hunter.pipeline.llm_stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
-with open(profile_path("resume_tex", "resume.tex"), encoding="utf-8") as f:
-    BASE_RESUME = f.read()
-
 
 def load_runtime_config() -> dict[str, object]:
     """Load canonical runtime config with code-owned scoring defaults."""
@@ -39,7 +36,9 @@ _SYSTEM_BASE = (
 
 def _build_system_with_resume(config: dict) -> str:
     """Build the system prompt with the resume embedded so Anthropic can cache the prefix."""
-    resume_context = build_scoring_resume_context(BASE_RESUME, config)
+    with open(profile_path("resume_tex", "resume.tex"), encoding="utf-8") as f:
+        base_resume = f.read()
+    resume_context = build_scoring_resume_context(base_resume, config)
     return f"{_SYSTEM_BASE}\n\nCANDIDATE RESUME:\n{resume_context}"
 
 
@@ -129,6 +128,7 @@ def score(job: dict, config: dict) -> dict:
     jd_context = build_scoring_job_context(job, config)
     prompt = _build_scoring_prompt(jd_context, config)
 
+    raw = ""
     try:
         raw = stage.complete(
             system=system,
@@ -175,7 +175,9 @@ def strategic_override(job: dict, config: dict) -> dict | None:
     for override in overrides:
         company = override.get("company", "").lower()
         if company and company in job_company:
-            logger.info(f"[scorer] Strategic override for {job['company']}: {override['reason']}")
+            logger.info(
+                f"[scorer] Strategic override for {job['company']}: {override.get('reason', 'strategic override')}"
+            )
             return override
 
     return None
@@ -197,7 +199,7 @@ def strategic_override_companies(config: dict) -> list[str]:
     return [
         str(override.get("company", "")).strip()
         for override in config.get("scoring", {}).get("strategic_overrides", [])
-        if str(override.get("company", "")).strip() and override.get("bypass_max_years_experience", True)
+        if str(override.get("company", "")).strip() and override.get("bypass_max_years_experience", False)
     ]
 
 
@@ -260,7 +262,7 @@ def filter_matches(
         if score_val < effective_min:
             logger.debug(f"{prefix}: skipped, score {score_val} below threshold {effective_min}")
             return None
-        bypass_max_years = bool(override and override.get("bypass_max_years_experience", True))
+        bypass_max_years = bool(override and override.get("bypass_max_years_experience", False))
         if yrs is not None and yrs > max_years and not bypass_max_years:
             logger.debug(f"{prefix}: skipped, years required ({yrs}) exceeds maximum ({max_years})")
             return None

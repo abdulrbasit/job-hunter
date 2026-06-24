@@ -230,7 +230,7 @@ def test_update_readme_includes_location_and_migrates_existing_rows(tmp_path) ->
 
     with (
         patch("job_hunter.pipeline.orchestrator.ROOT", str(tmp_path)),
-        patch("job_hunter.pipeline.orchestrator.TODAY", "2026-05-19"),
+        patch("job_hunter.pipeline.orchestrator._today", return_value="2026-05-19"),
     ):
         orchestrator.update_readme([match])
 
@@ -265,7 +265,7 @@ def test_update_readme_refreshes_existing_stats_block(tmp_path) -> None:
 
     with (
         patch("job_hunter.pipeline.orchestrator.ROOT", str(tmp_path)),
-        patch("job_hunter.pipeline.orchestrator.TODAY", "2026-05-25"),
+        patch("job_hunter.pipeline.orchestrator._today", return_value="2026-05-25"),
     ):
         orchestrator.update_readme([])
 

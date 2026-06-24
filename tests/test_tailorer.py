@@ -42,7 +42,7 @@ def test_tailor_falls_back_to_base_tex_on_api_error() -> None:
     mock.complete.side_effect = Exception("API down")
     with patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock):
         result = tailorer.tailor(MATCH)
-    assert result == tailorer.BASE_TEX
+    assert result == tailorer._get_base_tex()
 
 
 def test_tailor_returns_non_latex_response_unchanged(mock_llm_client) -> None:
@@ -57,9 +57,9 @@ def test_tailor_returns_non_latex_response_unchanged(mock_llm_client) -> None:
 def test_tailor_passes_keywords_and_gaps_in_prompt() -> None:
     captured = {}
 
-    def capture_complete(**kwargs):
-        captured["user"] = kwargs.get("user", "")
-        return SAMPLE_LATEX
+    def capture_complete(req, **kwargs):
+        captured["user"] = req.prompt
+        return MagicMock(content=SAMPLE_LATEX)
 
     mock = MagicMock()
     mock.complete.side_effect = capture_complete
@@ -74,10 +74,10 @@ def test_tailor_passes_keywords_and_gaps_in_prompt() -> None:
 def test_tailor_includes_project_rules_and_story_bank_for_active_projects() -> None:
     captured = {}
 
-    def capture_complete(**kwargs):
-        captured["user"] = kwargs.get("user", "")
-        captured["system"] = kwargs.get("system", "")
-        return SAMPLE_LATEX
+    def capture_complete(req, **kwargs):
+        captured["user"] = req.prompt
+        captured["system"] = req.system or ""
+        return MagicMock(content=SAMPLE_LATEX)
 
     tex_with_projects = r"""\documentclass{altacv}
 \begin{document}
@@ -92,7 +92,7 @@ def test_tailor_includes_project_rules_and_story_bank_for_active_projects() -> N
     mock.complete.side_effect = capture_complete
 
     with (
-        patch.object(tailorer, "BASE_TEX", tex_with_projects),
+        patch.object(tailorer, "_get_base_tex", return_value=tex_with_projects),
         patch.object(tailorer, "_load_story_bank", return_value="### MS-01 — Digital Factory story"),
         patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock),
     ):
@@ -108,10 +108,10 @@ def test_tailor_includes_project_rules_and_story_bank_for_active_projects() -> N
 def test_tailor_disables_project_tailoring_when_section_is_commented() -> None:
     captured = {}
 
-    def capture_complete(**kwargs):
-        captured["user"] = kwargs.get("user", "")
-        captured["system"] = kwargs.get("system", "")
-        return SAMPLE_LATEX
+    def capture_complete(req, **kwargs):
+        captured["user"] = req.prompt
+        captured["system"] = req.system or ""
+        return MagicMock(content=SAMPLE_LATEX)
 
     tex_with_commented_projects = r"""\documentclass{altacv}
 \begin{document}
@@ -123,7 +123,7 @@ def test_tailor_disables_project_tailoring_when_section_is_commented() -> None:
     mock.complete.side_effect = capture_complete
 
     with (
-        patch.object(tailorer, "BASE_TEX", tex_with_commented_projects),
+        patch.object(tailorer, "_get_base_tex", return_value=tex_with_commented_projects),
         patch.object(tailorer, "_load_story_bank", return_value="### MS-01 — Digital Factory story"),
         patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock),
     ):

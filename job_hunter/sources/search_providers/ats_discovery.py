@@ -218,6 +218,9 @@ def _process_ats_result(
         return
     seen.add(canonical)
     enriched = _enrich_ats_discovery_job(result.url)
+    if enriched and enriched.get("fetch_status") == "position_closed":
+        logger.info("  [skip] Position closed: %s", result.url)
+        return None
     job_title = enriched.get("title", "") if enriched else result.title
     if not title_matches(job_title, title_filters, excluded_title_terms):
         return

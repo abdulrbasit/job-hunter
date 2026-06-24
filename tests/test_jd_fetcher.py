@@ -40,13 +40,20 @@ class TestCompanyNameFromUrl:
         assert company_name_from_url(url) == expected
 
 
+def _jd_llm_client(text: str) -> MagicMock:
+    """jd_fetcher calls client.complete() with old-style kwargs; it expects a plain str back."""
+    mock = MagicMock()
+    mock.complete.return_value = text
+    return mock
+
+
 class TestFetchJd:
-    def test_returns_job_dict_on_success(self, mock_llm_client) -> None:
+    def test_returns_job_dict_on_success(self) -> None:
         with (
             patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(RICH_HTML, 200)),
             patch(
                 "job_hunter.sources.jd_fetcher.get_llm_client",
-                return_value=mock_llm_client(LLM_JSON),
+                return_value=_jd_llm_client(LLM_JSON),
             ),
         ):
             result = jd_fetcher.fetch_jd(SAMPLE_URL)
@@ -58,11 +65,11 @@ class TestFetchJd:
         assert result["snippet"] == "Full job description."
         assert result["source"] == "direct_link"
 
-    def test_accepts_fenced_json_with_preamble(self, mock_llm_client) -> None:
+    def test_accepts_fenced_json_with_preamble(self) -> None:
         raw = f"Parsed:\n```json\n{LLM_JSON}\n```"
         with (
             patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(RICH_HTML, 200)),
-            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=mock_llm_client(raw)),
+            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=_jd_llm_client(raw)),
         ):
             result = jd_fetcher.fetch_jd(SAMPLE_URL)
 
@@ -70,11 +77,11 @@ class TestFetchJd:
         assert result["title"] == "Senior Product Manager"
         assert result["company"] == "TestCorp"
 
-    def test_accepts_json_with_trailing_extra_data(self, mock_llm_client) -> None:
+    def test_accepts_json_with_trailing_extra_data(self) -> None:
         raw = f'{LLM_JSON}\n{{"note": "ignored trailing object"}}'
         with (
             patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(RICH_HTML, 200)),
-            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=mock_llm_client(raw)),
+            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=_jd_llm_client(raw)),
         ):
             result = jd_fetcher.fetch_jd(
                 "https://jobs.infineon.com/careers/job/563808970725337?domain=infineon.com&hl=en"
@@ -88,7 +95,7 @@ class TestFetchJd:
         with patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(None, None)):
             assert jd_fetcher.fetch_jd(SAMPLE_URL) is None
 
-    def test_playwright_called_on_sparse_html(self, mock_llm_client) -> None:
+    def test_playwright_called_on_sparse_html(self) -> None:
         pw_text = "Full rendered job description from JavaScript. " * 20
 
         with (
@@ -96,7 +103,7 @@ class TestFetchJd:
             patch("job_hunter.sources.jd_fetcher._fetch_playwright", return_value=pw_text) as mock_pw,
             patch(
                 "job_hunter.sources.jd_fetcher.get_llm_client",
-                return_value=mock_llm_client(LLM_JSON),
+                return_value=_jd_llm_client(LLM_JSON),
             ),
         ):
             result = jd_fetcher.fetch_jd(SAMPLE_URL)
@@ -105,24 +112,24 @@ class TestFetchJd:
         assert mock_pw.call_args[0][0] == SAMPLE_URL
         assert result is not None
 
-    def test_playwright_not_called_on_rich_html(self, mock_llm_client) -> None:
+    def test_playwright_not_called_on_rich_html(self) -> None:
         with (
             patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(RICH_HTML, 200)),
             patch("job_hunter.sources.jd_fetcher._fetch_playwright") as mock_pw,
             patch(
                 "job_hunter.sources.jd_fetcher.get_llm_client",
-                return_value=mock_llm_client(LLM_JSON),
+                return_value=_jd_llm_client(LLM_JSON),
             ),
         ):
             jd_fetcher.fetch_jd(SAMPLE_URL)
 
         mock_pw.assert_not_called()
 
-    def test_uses_plain_text_fallback_when_llm_returns_no_description(self, mock_llm_client) -> None:
+    def test_uses_plain_text_fallback_when_llm_returns_no_description(self) -> None:
         no_desc = '{"title": "PM", "company": "Corp", "description": null}'
         with (
             patch("job_hunter.sources.jd_fetcher._fetch_html", return_value=(RICH_HTML, 200)),
-            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=mock_llm_client(no_desc)),
+            patch("job_hunter.sources.jd_fetcher.get_llm_client", return_value=_jd_llm_client(no_desc)),
         ):
             result = jd_fetcher.fetch_jd(SAMPLE_URL)
 

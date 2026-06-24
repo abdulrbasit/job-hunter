@@ -7,6 +7,7 @@ Docker texlive container for local Windows runs.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -14,6 +15,8 @@ import threading
 from pathlib import Path
 
 from job_hunter.core.config import ROOT
+
+logger = logging.getLogger(__name__)
 
 _TEXLIVE_IMAGE = "texlive/texlive:latest"
 _DOCKER_PULL_LOCK = threading.Lock()
@@ -35,11 +38,12 @@ def _ensure_texlive_image() -> None:
             return
 
         print("  [compile] Pulling texlive Docker image (first run may take several minutes)...")
-        subprocess.run(  # noqa: S603
+        pull_result = subprocess.run(  # noqa: S603
             ["docker", "pull", _TEXLIVE_IMAGE],  # noqa: S607
             timeout=_DOCKER_PULL_TIMEOUT,
         )
-        _docker_image_pulled = True
+        if pull_result.returncode == 0:
+            _docker_image_pulled = True
 
 
 def compile_tex(tex_path: str, output_dir: str) -> str | None:
@@ -101,6 +105,8 @@ def compile_tex(tex_path: str, output_dir: str) -> str | None:
         timeout = _DOCKER_COMPILE_TIMEOUT
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)  # noqa: S603
+    if result.returncode != 0:
+        logger.warning("[compile] pdflatex exited with code %d", result.returncode)
 
     expected_pdf = os.path.join(
         abs_output_dir,

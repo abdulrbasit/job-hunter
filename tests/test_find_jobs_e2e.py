@@ -37,7 +37,7 @@ _FAKE_JOBS = [
 
 def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """run_hunt_scrape_only writes to outputs/candidates/{date}_{region}_candidates.json."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region: (_FAKE_JOBS, set(), set()))
+    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": (_FAKE_JOBS, set(), set()))
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
 
@@ -58,7 +58,7 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
 
 def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """After scrape, agent-context build_candidate_queue finds the candidates file."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region: (_FAKE_JOBS, set(), set()))
+    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": (_FAKE_JOBS, set(), set()))
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
 
@@ -77,7 +77,7 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
 
 def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: Path) -> None:
     """Even with 0 results, the candidates file is written so the workflow step can read count=0."""
-    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region: ([], set(), set()))
+    monkeypatch.setattr(hunt_pipeline, "_jobs_from_hunt", lambda region, depth="standard": ([], set(), set()))
 
     path, count = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
