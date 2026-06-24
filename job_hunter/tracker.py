@@ -6,6 +6,7 @@ import json
 import re
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def repo_path(*parts: str) -> Path:
@@ -48,7 +49,9 @@ def slugify(value: str) -> str:
 
 
 def _looks_like_generic_listing(url: str, text: str) -> bool:
-    if "greenhouse.io" in url.lower() and not re.search(r"/jobs/\d+", url, re.IGNORECASE):
+    _host = urlparse(url).hostname or ""
+    _is_greenhouse = _host == "greenhouse.io" or _host.endswith(".greenhouse.io")
+    if _is_greenhouse and not re.search(r"/jobs/\d+", url, re.IGNORECASE):
         return True
     normalized = re.sub(r"\s+", " ", text.lower())
     listing_markers = (

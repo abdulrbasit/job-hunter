@@ -330,7 +330,9 @@ def _fetch_greenhouse_api(
 
 def is_greenhouse_listing_url(url: str) -> bool:
     """Return True for Greenhouse board/listing URLs that are not direct job postings."""
-    return "greenhouse.io" in url.lower() and not re.search(r"/jobs/\d+", url, re.IGNORECASE)
+    host = urlparse(url).hostname or ""
+    is_greenhouse = host == "greenhouse.io" or host.endswith(".greenhouse.io")
+    return is_greenhouse and not re.search(r"/jobs/\d+", url, re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -646,11 +648,12 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
     title_min_chars = int(cfg_raw.get("title_min_chars", 8))
     title_max_chars = int(cfg_raw.get("title_max_chars", 100))
 
-    is_greenhouse = "greenhouse.io" in url.lower()
-    is_ashby = "jobs.ashbyhq.com" in url.lower()
-    is_lever = "jobs.lever.co" in url.lower()
-    is_smartrecruiters = "jobs.smartrecruiters.com" in url.lower()
-    is_workable = "apply.workable.com" in url.lower()
+    _host = urlparse(url).hostname or ""
+    is_greenhouse = _host == "greenhouse.io" or _host.endswith(".greenhouse.io")
+    is_ashby = _host == "jobs.ashbyhq.com"
+    is_lever = _host == "jobs.lever.co"
+    is_smartrecruiters = _host == "jobs.smartrecruiters.com"
+    is_workable = _host == "apply.workable.com"
 
     # Guard: reject Greenhouse listing pages before any fetch attempt
     if is_greenhouse_listing_url(url):
