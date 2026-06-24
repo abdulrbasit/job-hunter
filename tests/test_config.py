@@ -68,13 +68,34 @@ def test_schema_files_are_valid_json() -> None:
         json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_release_workflow_is_manual_only() -> None:
+def test_release_workflow_publishes_current_release_commit() -> None:
     workflow = yaml.safe_load((WORKFLOWS / "release.yml").read_text(encoding="utf-8"))
     # PyYAML parses `on:` as boolean True, not the string "on"
     triggers = workflow.get(True, {}) or {}
     assert "workflow_dispatch" in triggers, "release.yml must have workflow_dispatch trigger"
-    for auto_trigger in ("push", "pull_request", "schedule"):
-        assert auto_trigger not in triggers, f"release.yml must not have automatic trigger: {auto_trigger}"
+    assert set(triggers) == {"workflow_dispatch"}
+
+    jobs = workflow["jobs"]
+    assert set(jobs) == {"release"}
+    text = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
+    assert "git tag" in text
+    assert "git push origin" in text
+    assert "git commit" not in text
+    assert "git switch" not in text
+    assert "gh pr create" not in text
+    assert "pull-requests: write" not in text
+
+
+def test_development_checks_exposes_required_aggregate_job() -> None:
+    workflow = yaml.safe_load((WORKFLOWS / "development-checks.yml").read_text(encoding="utf-8"))
+    triggers = workflow.get(True, {}) or {}
+    jobs = workflow["jobs"]
+    aggregate = jobs["development-checks"]
+
+    assert triggers["push"]["branches"] == ["main"]
+    assert triggers["pull_request"]["branches"] == ["main"]
+    assert aggregate["name"] == "development-checks"
+    assert set(aggregate["needs"]) == {"lint", "tests", "validate-config", "build", "security", "sbom"}
 
 
 def test_workspace_template_find_jobs_exports_job_board_secrets() -> None:

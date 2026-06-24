@@ -2,9 +2,9 @@ name: Development Checks
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
-    branches: ["**"]
+    branches: [main]
 
 permissions:
   contents: read
@@ -92,3 +92,25 @@ jobs:
           format: spdx-json
           artifact-name: sbom.spdx.json
           output-file: sbom.spdx.json
+
+  development-checks:
+    name: development-checks
+    if: always()
+    needs: [lint, tests, validate-config, build, security, sbom]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all development checks passed
+        env:
+          LINT: ${{ needs.lint.result }}
+          TESTS: ${{ needs.tests.result }}
+          VALIDATE_CONFIG: ${{ needs.validate-config.result }}
+          BUILD: ${{ needs.build.result }}
+          SECURITY: ${{ needs.security.result }}
+          SBOM: ${{ needs.sbom.result }}
+        run: |
+          test "$LINT" = "success"
+          test "$TESTS" = "success"
+          test "$VALIDATE_CONFIG" = "success"
+          test "$BUILD" = "success"
+          test "$SECURITY" = "success"
+          test "$SBOM" = "success"

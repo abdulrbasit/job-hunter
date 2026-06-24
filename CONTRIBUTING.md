@@ -24,8 +24,8 @@ All four checks must pass before a PR. The PR template checklist reminds you, bu
 
 ```bash
 uv run pytest tests/ -q --tb=short
-uv run ruff format --check job_hunter tests
-uv run ruff check job_hunter tests
+uv run ruff format --check job_hunter tests scripts
+uv run ruff check job_hunter tests scripts
 uv run ty check job_hunter tests
 ```
 
@@ -54,7 +54,8 @@ No body, no bullet points, no `Co-authored-by` trailers.
 
 ## Project Rules
 
-- `config/job_hunter.yml` is the only durable user config file. Do not add new config files.
+- `config/job_hunter.yml` stores the main deterministic user settings.
+- `config/companies_browser.yml` stores optional browser-hunt company targets.
 - `outputs/state/discovered_urls.yml` is the persistent URL dedup store.
 - Treat `.claude/`, `config/`, and `profile/template-files/` as canonical workspace asset sources.
 - Mock external services in tests; no live network calls in the default suite.
