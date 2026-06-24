@@ -61,6 +61,10 @@ uv run ruff check job_hunter tests .github/scripts
 uv run ty check job_hunter tests
 ```
 
+## Rules
+
+- **Never bump the version (`pyproject.toml`) or publish to PyPI** (trigger `release.yml`, `gh workflow run release.yml`, `uv publish`, etc.) unless the user explicitly asks. Push commits freely; do not release as a follow-on step.
+
 ## Config And State
 
 Machine config lives in `config/job_hunter.yml`. Only deterministic choices
