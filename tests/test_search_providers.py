@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import Never
 
+from job_hunter.config.defaults import HTTP_DEFAULTS
 from job_hunter.sources import search_providers
 from job_hunter.sources.search_providers import (
     ats_discovery as _ats_mod,
@@ -58,6 +59,13 @@ class StaticProvider(search_providers.SearchProvider):
                 source="SearXNG",
             ),
         ]
+
+
+def test_default_provider_orders_reserve_semantic_search_for_ats_discovery() -> None:
+    config = HTTP_DEFAULTS["search_providers"]
+
+    assert config["order"] == ["searxng", "brave"]
+    assert config["ats_discovery_order"] == ["searxng", "brave", "exa"]
 
 
 def test_router_skips_provider_after_configured_consecutive_failures() -> None:
@@ -336,9 +344,10 @@ def _reset_exhaustion_state() -> None:
 
 
 def test_all_providers_exhausted_returns_false_with_budget(monkeypatch) -> None:
-    """Returns False when no paid providers are disabled."""
+    """Returns False when an ATS discovery provider is available."""
     _reset_exhaustion_state()
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
+    monkeypatch.setattr(search_providers.BraveProvider, "enabled", lambda self: True)
 
     result = search_providers.all_providers_exhausted()
     assert result is False
@@ -347,9 +356,9 @@ def test_all_providers_exhausted_returns_false_with_budget(monkeypatch) -> None:
 
 
 def test_all_providers_exhausted_returns_true_when_all_exhausted(monkeypatch) -> None:
-    """Returns True when all paid providers are disabled and SearXNG unavailable."""
+    """Returns True when ATS discovery providers are unavailable."""
     _reset_exhaustion_state()
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "tavily", "exa"})
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "exa"})
     monkeypatch.setattr(search_providers.SearxngProvider, "enabled", lambda self: False)
 
     result = search_providers.all_providers_exhausted()

@@ -316,18 +316,12 @@ def test_workable_returns_empty_on_api_error() -> None:
 # ── fetch_ats_jobs() dispatcher ──────────────────────────────────────────────
 
 
-def _recording_adapter(calls):
-    class RecordingAdapter:
-        def __init__(self, slug, company_name, excluded_title_terms=None) -> None:
-            self.slug = slug
-            self.company_name = company_name
-            self.excluded_title_terms = excluded_title_terms
+def _recording_fn(calls):
+    def fetch_fn(slug, company_name, location, titles, excluded=None):
+        calls.append((slug, company_name, location, titles))
+        return []
 
-        def fetch(self, params):
-            calls.append((self.slug, self.company_name, params.location, params.job_titles))
-            return []
-
-    return RecordingAdapter
+    return fetch_fn
 
 
 def test_dispatcher_routes_greenhouse() -> None:
@@ -337,7 +331,7 @@ def test_dispatcher_routes_greenhouse() -> None:
         "location": "Berlin",
     }
     calls = []
-    with patch.dict(ats._ADAPTERS, {"greenhouse": _recording_adapter(calls)}):
+    with patch.dict(ats._FETCH_FNS, {"greenhouse": _recording_fn(calls)}):
         ats.fetch_ats_jobs(company, "Berlin", ["Product Manager"])
     assert calls == [("deliveryhero", "Delivery Hero", "Berlin", ["Product Manager"])]
 
@@ -349,7 +343,7 @@ def test_dispatcher_routes_lever() -> None:
         "location": "Berlin",
     }
     calls = []
-    with patch.dict(ats._ADAPTERS, {"lever": _recording_adapter(calls)}):
+    with patch.dict(ats._FETCH_FNS, {"lever": _recording_fn(calls)}):
         ats.fetch_ats_jobs(company, "Berlin", [])
     assert calls == [("getyourguide", "GetYourGuide", "Berlin", [])]
 
@@ -363,7 +357,7 @@ def test_dispatcher_returns_none_for_unknown_url() -> None:
 def test_dispatcher_routes_ashby() -> None:
     company = {"name": "TestCo", "career_url": "jobs.ashbyhq.com/testco", "location": "Berlin"}
     calls = []
-    with patch.dict(ats._ADAPTERS, {"ashby": _recording_adapter(calls)}):
+    with patch.dict(ats._FETCH_FNS, {"ashby": _recording_fn(calls)}):
         ats.fetch_ats_jobs(company, "Berlin", ["Product Manager"])
     assert calls == [("testco", "TestCo", "Berlin", ["Product Manager"])]
 
@@ -371,7 +365,7 @@ def test_dispatcher_routes_ashby() -> None:
 def test_dispatcher_routes_hibob() -> None:
     company = {"name": "Example HiBob Company", "career_url": "examplehibob.careers.hibob.com"}
     calls = []
-    with patch.dict(ats._ADAPTERS, {"hibob": _recording_adapter(calls)}):
+    with patch.dict(ats._FETCH_FNS, {"hibob": _recording_fn(calls)}):
         ats.fetch_ats_jobs(company, "Berlin", ["Product Manager"])
     assert calls == [("examplehibob", "Example HiBob Company", "Berlin", ["Product Manager"])]
 
@@ -379,62 +373,60 @@ def test_dispatcher_routes_hibob() -> None:
 # ── fetch_ashby_jobs() ───────────────────────────────────────────────────────
 
 
-ASHBY_RESPONSE = {
-    "jobPostings": [
-        {
-            "id": "uuid-1",
-            "title": "Product Manager",
-            "locationName": "Berlin, Germany",
-            "jobUrl": "https://jobs.ashbyhq.com/testco/uuid-1",
-            "descriptionHtml": "<p>Great PM role in Berlin.</p>",
-            "publishedAt": "2026-04-01T10:00:00Z",
-        },
-        {
-            "id": "uuid-2",
-            "title": "Product Manager",
-            "locationName": "New York, USA",
-            "jobUrl": "https://jobs.ashbyhq.com/testco/uuid-2",
-            "descriptionHtml": "<p>US-based role.</p>",
-            "publishedAt": "2026-04-01T10:00:00Z",
-        },
-        {
-            "id": "uuid-3",
-            "title": "Engineering Manager",
-            "locationName": "Berlin, Germany",
-            "jobUrl": "https://jobs.ashbyhq.com/testco/uuid-3",
-            "descriptionHtml": "<p>Engineering role.</p>",
-            "publishedAt": "2026-04-01T10:00:00Z",
-        },
-    ]
+# Brief listing: only id, title, locationName available from jobBoardWithTeams.
+ASHBY_LIST_RESPONSE = {
+    "data": {
+        "board": {
+            "jobPostings": [
+                {"id": "uuid-1", "title": "Product Manager", "locationName": "Berlin, Germany"},
+                {"id": "uuid-2", "title": "Product Manager", "locationName": "New York, USA"},
+                {"id": "uuid-3", "title": "Engineering Manager", "locationName": "Berlin, Germany"},
+            ]
+        }
+    }
 }
+
+# Per-job detail: descriptionHtml from jobPosting query.
+ASHBY_DETAIL_RESPONSE = {"data": {"jobPosting": {"descriptionHtml": "<p>Great PM role in Berlin.</p>"}}}
+
+# Alias used in field/snippet tests — detail response for first matched job.
+ASHBY_RESPONSE = ASHBY_LIST_RESPONSE
+
+
+def _ashby_post_side_effect(*args, **kwargs):
+    """Return list response for the board query, detail response for per-job queries."""
+    body = kwargs.get("json", {})
+    if "board:" in (body.get("query") or ""):
+        return _mock_post(ASHBY_LIST_RESPONSE)
+    return _mock_post(ASHBY_DETAIL_RESPONSE)
 
 
 def test_ashby_filters_by_location() -> None:
-    with patch("job_hunter.sources.ats.requests.post", return_value=_mock_post(ASHBY_RESPONSE)):
+    with patch("job_hunter.sources.ats.requests.post", side_effect=_ashby_post_side_effect):
         jobs = ats.fetch_ashby_jobs("testco", "TestCo", "Berlin", [])
     assert len(jobs) == 2
     assert all("Berlin" in j["snippet"] for j in jobs)
 
 
 def test_ashby_filters_by_title() -> None:
-    with patch("job_hunter.sources.ats.requests.post", return_value=_mock_post(ASHBY_RESPONSE)):
+    with patch("job_hunter.sources.ats.requests.post", side_effect=_ashby_post_side_effect):
         jobs = ats.fetch_ashby_jobs("testco", "TestCo", "Berlin", ["Product Manager"])
     assert len(jobs) == 1
     assert jobs[0]["title"] == "Product Manager"
 
 
 def test_ashby_returns_correct_fields() -> None:
-    with patch("job_hunter.sources.ats.requests.post", return_value=_mock_post(ASHBY_RESPONSE)):
+    with patch("job_hunter.sources.ats.requests.post", side_effect=_ashby_post_side_effect):
         jobs = ats.fetch_ashby_jobs("testco", "TestCo", "Berlin", [])
     job = jobs[0]
     assert job["source"] == "Ashby API"
     assert job["url"] == "https://jobs.ashbyhq.com/testco/uuid-1"
     assert job["company"] == "TestCo"
-    assert job["posted"] == "2026-04-01"
+    assert job["posted"] == ""  # no date field in Ashby GraphQL API
 
 
 def test_ashby_strips_html_from_description() -> None:
-    with patch("job_hunter.sources.ats.requests.post", return_value=_mock_post(ASHBY_RESPONSE)):
+    with patch("job_hunter.sources.ats.requests.post", side_effect=_ashby_post_side_effect):
         jobs = ats.fetch_ashby_jobs("testco", "TestCo", "Berlin", [])
     assert "<p>" not in jobs[0]["snippet"]
 

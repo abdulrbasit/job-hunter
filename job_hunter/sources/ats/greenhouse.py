@@ -39,7 +39,7 @@ def fetch_greenhouse_jobs(
         content = strip_html(job.get("content", ""))
         posted = (job.get("updated_at") or "")[:10]
 
-        if not url or not re.search(r"/jobs/\d+", url):
+        if not url or not re.search(r"/jobs/\d+|[?&]gh_jid=\d+|/positions/\d+", url):
             logger.debug("[greenhouse] %s: skipping URL without numeric job ID: %s", slug, url)
             continue
         if not location_matches(location, location_filter):

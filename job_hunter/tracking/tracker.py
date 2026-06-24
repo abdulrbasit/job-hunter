@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import os
 
-import yaml
-
 from job_hunter.core.config import ROOT as REPO_ROOT
 from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.tracking._io import _read_state, _write_state
 
 ROOT = str(REPO_ROOT)
 TRACKER_FILE = os.path.join(ROOT, "outputs", "state", "discovered_urls.yml")
@@ -19,37 +18,15 @@ TRACKER_FILE = os.path.join(ROOT, "outputs", "state", "discovered_urls.yml")
 
 def load_processed() -> set[str]:
     """Load previously discovered job URLs."""
-    if not os.path.exists(TRACKER_FILE):
-        return set()
-    with open(TRACKER_FILE, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    data = _read_state(TRACKER_FILE)
     return {canonicalize_url(u) for u in data.get("discovered", []) if u}
 
 
 def save_processed(urls: set[str]) -> None:
     """Save updated discovered URLs back to file."""
-    os.makedirs(os.path.dirname(TRACKER_FILE), exist_ok=True)
-    candidate_urls: list[str] = []
-    if os.path.exists(TRACKER_FILE):
-        with open(TRACKER_FILE, encoding="utf-8") as f:
-            existing = yaml.safe_load(f) or {}
-        candidate_urls = list(existing.get("candidate_urls", []) or [])
-    header = (
-        "# URL-only dedup state. Each entry is a canonical job URL.\n"
-        "# Dedup is URL-only: the same company with a different URL is never blocked.\n"
-        "# Managed automatically by the job-hunter CLI.\n\n"
-    )
-    with open(TRACKER_FILE, "w", encoding="utf-8") as f:
-        f.write(header)
-        yaml.dump(
-            {
-                "discovered": sorted(canonicalize_url(u) for u in urls if u),
-                "candidate_urls": sorted(canonicalize_url(u) for u in candidate_urls if u),
-            },
-            f,
-            default_flow_style=False,
-            allow_unicode=True,
-        )
+    existing = _read_state(TRACKER_FILE)
+    candidate_urls = set(existing.get("candidate_urls", []) or [])
+    _write_state(TRACKER_FILE, urls, candidate_urls)
 
 
 def filter_new_jobs(jobs: list[dict]) -> tuple[list[dict], set[str]]:

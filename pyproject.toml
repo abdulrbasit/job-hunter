@@ -60,6 +60,7 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/CLAUDE.md",
   "workspace/GEMINI.md",
   "workspace/README.md",
+  "workspace/COMMANDS.md",
   "workspace/.env.example",
   "workspace/.gitignore",
   "workspace/config/**/*",

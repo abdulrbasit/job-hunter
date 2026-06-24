@@ -59,6 +59,12 @@ In `agent` mode, open the workspace in Claude Code, Codex, Gemini CLI, or GitHub
 
 In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover letter → PDF → tracker in one pipeline.
 
+## Optional Browser Hunt
+
+For company career pages that need a real browser, add targets to
+`config/companies_browser.yml`, then run the **Company Browser Hunt** workflow
+from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
+
 ## CLI Reference
 
 - `job-hunter init <workspace>` — create a workspace

@@ -23,6 +23,7 @@ from job_hunter.agent_context.candidates import (
 from job_hunter.agent_context.score_context import _read_job_folder
 from job_hunter.pipeline.enrichment import classify_jd_snippet
 from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.tracking._io import _read_state, _write_state
 
 
 def validate_score_file(path: Path) -> dict[str, Any]:
@@ -60,21 +61,9 @@ def _processed_state_path(root: Path) -> Path:
 
 def _save_processed_for_root(root: Path, urls: set[str], titles: set[str]) -> None:
     path = _processed_state_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    header = (
-        "# URL-only dedup state. Each entry is a canonical job URL.\n"
-        "# Automatically updated after each run.\n"
-        "# Remove a URL manually to rediscover or reprocess that job.\n\n"
-    )
-    path.write_text(
-        header
-        + yaml.safe_dump(
-            {"discovered": sorted(canonicalize_url(u) for u in urls if u)},
-            default_flow_style=False,
-            allow_unicode=True,
-        ),
-        encoding="utf-8",
-    )
+    existing = _read_state(path)
+    candidate_urls = set(existing.get("candidate_urls", []) or [])
+    _write_state(path, urls, candidate_urls)
 
 
 def _mark_candidate_processed(root: Path, candidate: dict[str, Any]) -> dict[str, int]:

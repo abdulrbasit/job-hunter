@@ -1440,8 +1440,9 @@ def _reset_exhaustion_state() -> None:
 def test_all_providers_exhausted_returns_false_with_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Returns False when no paid provider is disabled."""
+    """Returns False when an ATS discovery provider is available."""
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
+    monkeypatch.setattr(_sp.BraveProvider, "enabled", lambda self: True)
     _sp._PROVIDER_STATE.searxng_consecutive_zeros = 0
 
     result = _sp.all_providers_exhausted()
@@ -1453,8 +1454,8 @@ def test_all_providers_exhausted_returns_false_with_budget(
 def test_all_providers_exhausted_returns_true_when_all_exhausted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Returns True when brave, tavily, exa are all disabled and SearXNG unavailable."""
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "tavily", "exa"})
+    """Returns True when ATS discovery providers are unavailable."""
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "exa"})
     monkeypatch.setattr(_sp.SearxngProvider, "enabled", lambda self: False)
 
     result = _sp.all_providers_exhausted()

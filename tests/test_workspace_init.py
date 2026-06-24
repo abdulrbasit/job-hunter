@@ -15,6 +15,8 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     paths = {path for path, _content in iter_managed_files()}
 
     assert "config/job_hunter.yml" in paths
+    assert "config/companies_browser.yml" in paths
+    assert ".github/workflows/browser-hunt.yml" in paths
     assert ".github/workflows/find-jobs.yml" in paths
     assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
@@ -22,6 +24,7 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     assert ".gemini/skills/setup/SKILL.md" in paths
     assert ".env.example" in paths
     assert ".gitignore" in paths
+    assert "COMMANDS.md" in paths
     assert "outputs/state/discovered_urls.yml" in paths
     assert "data/.gitkeep" not in paths
 
@@ -43,6 +46,8 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     run_init(workspace)
 
     assert (workspace / "config" / "job_hunter.yml").exists()
+    assert (workspace / "config" / "companies_browser.yml").exists()
+    assert (workspace / ".github" / "workflows" / "browser-hunt.yml").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
@@ -51,6 +56,7 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert (workspace / "profile" / "resume_double_column.tex").exists()
     assert (workspace / "profile" / "resume_single_column.tex").exists()
     assert (workspace / "profile" / "career_context.md").exists()
+    assert (workspace / "COMMANDS.md").exists()
     assert (workspace / "outputs" / "state" / "discovered_urls.yml").exists()
     assert not (workspace / "data").exists()
     assert not (workspace / "profile" / ".gitkeep").exists()
@@ -100,7 +106,7 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
     root = Path(__file__).resolve().parents[1]
     packaged = dict(iter_packaged_resource_files())
 
-    canonical_files = ("config/job_hunter.yml",)
+    canonical_files = ("config/companies_browser.yml", "config/job_hunter.yml")
     for rel in canonical_files:
         assert packaged[rel] == (root / rel).read_bytes(), f"packaged workspace asset drifted: {rel}"
 

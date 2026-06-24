@@ -7,7 +7,6 @@ import re
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
 from urllib.parse import urlparse
 
 from job_hunter.config.defaults import EXCLUDED_LISTING_URL_PATTERNS, LANGUAGE_INDICATORS, STALE_INDICATORS
@@ -305,24 +304,3 @@ class JobAccumulator:
                 return True
             self.candidate_cache_updates.add(canonical_url)
         return False
-
-
-def make_job_filter(
-    config: dict,
-    seen_urls: set[str],
-    results: list[JobPosting],
-    title_filters: list[str],
-    lock: threading.Lock | None = None,
-    cached_candidate_urls: set[str] | None = None,
-    candidate_cache_updates: set[str] | None = None,
-) -> Any:
-    accumulator = JobAccumulator(
-        config=config,
-        seen_urls=seen_urls,
-        results=results,
-        title_filters=title_filters,
-        lock=lock or threading.Lock(),
-        cached_candidate_urls=cached_candidate_urls if cached_candidate_urls is not None else set(),
-        candidate_cache_updates=(candidate_cache_updates if candidate_cache_updates is not None else set()),
-    )
-    return accumulator.add_job

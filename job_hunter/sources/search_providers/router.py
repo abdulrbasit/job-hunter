@@ -93,7 +93,14 @@ def _provider_registry() -> dict[str, SearchProvider]:
 
 
 def _provider_order() -> list[str]:
-    return list(_search_cfg().get("order") or _provider_registry())
+    # Keep general search on SearXNG → Brave so semantic-provider quotas are
+    # available to explicit callers. Users can override search_providers.order.
+    return list(_search_cfg().get("order") or ["searxng", "brave"])
+
+
+def _ats_discovery_provider_order() -> list[str]:
+    # Exa semantic search finds ATS job-board URLs well; include it after brave.
+    return list(_search_cfg().get("ats_discovery_order") or ["searxng", "brave", "exa"])
 
 
 def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
@@ -102,10 +109,13 @@ def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
 
 
 def all_providers_exhausted(api_cfg: dict | None = None) -> bool:  # noqa: ARG001
-    """Return True when all search providers are effectively unavailable this run."""
-    paid_exhausted = all(name in _PROVIDER_STATE.run_disabled for name in ("brave", "tavily", "exa"))
-    searxng_unavailable = not SearxngProvider().enabled() or "searxng" in _PROVIDER_STATE.run_disabled
-    result = paid_exhausted and searxng_unavailable
+    """Return True when all ATS-discovery providers are unavailable this run."""
+    registry = _provider_registry()
+    result = all(
+        name in _PROVIDER_STATE.run_disabled or not registry[name].enabled()
+        for name in _ats_discovery_provider_order()
+        if name in registry
+    )
 
     if result:
         with _PROVIDER_STATE.searxng_zero_lock:
