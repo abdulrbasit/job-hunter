@@ -1,6 +1,7 @@
 """Tests for sources/career_pages.py — no real HTTP calls."""
 
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse
 
 from job_hunter.sources import career_pages
 
@@ -213,7 +214,7 @@ def test_extract_career_page_jobs_falls_through_to_jsonld_when_ats_api_empty() -
 
     def fake_get(url, **kwargs):
         call_count.append(url)
-        if "boards-api.greenhouse.io" in url:
+        if urlparse(url).hostname == "boards-api.greenhouse.io":
             return api_response
         return html_response
 
