@@ -137,6 +137,10 @@ jobs:
         if: steps.mode.outputs.mode == 'agent' && steps.region.outputs.should_run == 'true' && steps.scrape.outputs.has_candidates == 'true'
         run: job-hunter brief
 
+      - name: Stop SearXNG
+        if: always() && steps.region.outputs.should_run == 'true'
+        run: docker stop searxng 2>/dev/null || true
+
       - name: Commit results
         if: always() && steps.region.outputs.should_run == 'true'
         run: |
@@ -149,10 +153,10 @@ jobs:
             git push && exit 0
             git fetch origin main
             git rebase origin/main || {
-              git rebase --abort
-              git checkout --theirs outputs/state/ || true
-              git add outputs/state/
-              git rebase --continue || exit 1
+              git checkout --theirs -- .github/ .gitignore AGENTS.md CLAUDE.md GEMINI.md README.md SETUP.md 2>/dev/null || true
+              git checkout --ours -- outputs/ 2>/dev/null || true
+              git add -u
+              git rebase --continue || { git rebase --abort; exit 1; }
             }
           done
           echo "Push failed after 3 retries" && exit 1
