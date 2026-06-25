@@ -210,7 +210,7 @@ def test_job_hunter_router_skill_contract() -> None:
             f"job-hunter router must reference .claude/skills/job-hunter/modes/{child}.md"
         )
 
-    assert "## Command Registry" in text
+    assert "## Command Menu" in text
     assert "job-hunter dashboard --no-interactive" in text
 
     # All required /job-hunter commands present in the command menu

@@ -24,7 +24,6 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     assert ".gemini/skills/setup/SKILL.md" in paths
     assert ".env.example" in paths
     assert ".gitignore" in paths
-    assert "COMMANDS.md" in paths
     assert "outputs/state/discovered_urls.yml" in paths
     assert "data/.gitkeep" not in paths
 
@@ -56,7 +55,6 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert (workspace / "profile" / "resume_double_column.tex").exists()
     assert (workspace / "profile" / "resume_single_column.tex").exists()
     assert (workspace / "profile" / "career_context.md").exists()
-    assert (workspace / "COMMANDS.md").exists()
     assert (workspace / "outputs" / "state" / "discovered_urls.yml").exists()
     assert not (workspace / "data").exists()
     assert not (workspace / "profile" / ".gitkeep").exists()
@@ -143,21 +141,21 @@ def test_packaged_workspace_context_is_user_workspace_focused() -> None:
 def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path: Path) -> None:
     from job_hunter.workspace._assets import update_workspace_assets
 
-    commands = tmp_path / "COMMANDS.md"
+    setup = tmp_path / "SETUP.md"
     companies = tmp_path / "config" / "career_pages.yml"
-    commands.write_text("stale commands\n", encoding="utf-8")
+    setup.write_text("stale setup\n", encoding="utf-8")
     companies.parent.mkdir(parents=True)
     companies.write_text("companies:\n  - name: User Company\n", encoding="utf-8")
 
     written = update_workspace_assets(tmp_path)
 
     packaged = dict(iter_packaged_resource_files())
-    assert commands.read_bytes() == packaged["COMMANDS.md"]
+    assert setup.read_bytes() == packaged["SETUP.md"]
     # user list wins (template ships companies: [])
     import yaml
 
     assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "User Company"}]
-    assert written == ["README.md", "SETUP.md", "COMMANDS.md", "config/career_pages.yml"]
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
@@ -166,9 +164,9 @@ def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) 
     written = update_workspace_assets(tmp_path)
 
     packaged = dict(iter_packaged_resource_files())
-    assert (tmp_path / "COMMANDS.md").read_bytes() == packaged["COMMANDS.md"]
+    assert (tmp_path / "SETUP.md").read_bytes() == packaged["SETUP.md"]
     assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
-    assert written == ["README.md", "SETUP.md", "COMMANDS.md", "config/career_pages.yml"]
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
 
 
 def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_path: Path) -> None:
@@ -191,7 +189,7 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
     assert "**Application stats:** 1 job tracked." in updated
     assert "[PM @ Acme](https://example.com/job)" in updated
     assert (tmp_path / "SETUP.md").exists()
-    assert written == ["README.md", "SETUP.md", "COMMANDS.md", "config/career_pages.yml"]
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
 
 
 def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(tmp_path: Path) -> None:

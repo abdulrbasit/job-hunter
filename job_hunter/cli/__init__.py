@@ -306,21 +306,6 @@ def brief() -> None:
     typer.echo(artifact.as_posix())
 
 
-@app.command(name="run-daily")
-def run_daily(
-    region: str | None = typer.Option(None, "--region", "-r", help="Region key"),
-    no_discovery: bool = typer.Option(False, "--no-discovery", help="Skip scraping, just run briefing"),
-) -> None:
-    """Run daily routine: optional scrape then briefing."""
-    from job_hunter.briefing import write_today_briefing
-    from job_hunter.cli._dispatch import dispatch_hunt
-
-    if not no_discovery:
-        dispatch_hunt(region_key=region)
-    artifact = write_today_briefing()
-    typer.echo(artifact.as_posix())
-
-
 @app.command()
 def hunt(
     region: str | None = typer.Option(None, "--region", "-r", help="Region key from config/job_hunter.yml"),
@@ -343,17 +328,6 @@ def hunt(
         skip_validate=skip_validate,
         force=force,
     )
-
-
-@app.command(name="find-roles")
-def find_roles(
-    region: str | None = typer.Option(None, "--region", "-r"),
-    depth: str = typer.Option("standard", "--depth"),
-) -> None:
-    """Alias for hunt."""
-    from job_hunter.cli._dispatch import dispatch_hunt
-
-    dispatch_hunt(region_key=region, depth=depth)
 
 
 @app.command(name="import-job")

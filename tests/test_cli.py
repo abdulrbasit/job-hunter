@@ -105,6 +105,8 @@ def test_removed_commands_not_in_help() -> None:
         "retro",
         "sync",
         "migrate",
+        "run-daily",
+        "find-roles",
     ):
         assert removed not in result.stdout, f"removed command still present in help: {removed}"
     assert "update-skills" in result.stdout
@@ -458,5 +460,5 @@ def test_update_command_adds_workspace_assets(tmp_path: Path) -> None:
     import yaml
 
     assert result.exit_code == 0
-    assert (tmp_path / "COMMANDS.md").exists()
+    assert (tmp_path / "SETUP.md").exists()
     assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "Keep Me"}]

@@ -21,24 +21,16 @@ Once Docker Desktop is running and LaTeX Workshop is installed, your workspace a
 
 ### AI coding assistant (agent mode only — pick one)
 
-You need one AI coding tool to run the interactive review workflow. **You only need one.**
+You need one AI coding extension for VS Code to run the interactive review workflow. Both support the full skill workflow.
 
-| Tool | Cost | Slash skills | How it works |
-|---|---|---|---|
-| **Gemini CLI** | **Free** (Google account, generous daily quota) | ✓ Full | VS Code panel + slash commands |
-| **Claude Code** | Paid (Claude Pro ~$20/mo or API credits) | ✓ Full | VS Code extension + slash commands |
-| **Codex CLI** | Paid (OpenAI API, pay-per-use) | ✓ Full | CLI + slash commands |
-| **GitHub Copilot app** | Free tier / Paid ($10/mo) | ✗ No custom skills | Standalone desktop app, agent mode |
+| Tool | Cost | How to install |
+|---|---|---|
+| **Claude Code** | Claude Pro (~$20/mo) or API credits | VS Code → Extensions → search **Claude Code** → Install |
+| **Codex** | OpenAI API (pay-per-use) | VS Code → Extensions → search **Codex** → Install |
 
-**Recommendation:** Start with Gemini CLI — it's free, supports the full skill workflow, and you can switch later.
+**Claude Code:** Sign in with your Anthropic account after installing the extension.
 
-**Gemini CLI:** Install [Node.js 20+](https://nodejs.org/en/download/) (includes npm), restart your terminal, then `npm install -g @google/gemini-cli`. Run `gemini` to sign in with your Google account.
-
-**Claude Code:** VS Code → Extensions sidebar → search **Claude Code** → Install. Sign in with your Anthropic account.
-
-**Codex CLI:** `npm install -g @openai/codex` — requires an OpenAI API key set as `OPENAI_API_KEY`.
-
-See [COMMANDS.md](COMMANDS.md) for the full skill reference.
+**Codex:** Requires an OpenAI API key set as `OPENAI_API_KEY` in your `.env` file.
 
 ---
 
@@ -166,7 +158,7 @@ Open `.env` and fill in the same keys. This file is already in `.gitignore` — 
 
 Agent mode is the interactive approach: the pipeline fetches job candidates, and you review and process them with your AI tool.
 
-Open the workspace in your AI tool (Claude Code, Gemini CLI, or Codex), then run these skills in order.
+Open your workspace in VS Code with Claude Code or Codex, then run these skills in order.
 
 ---
 
@@ -250,17 +242,19 @@ Checks that your config, resume, and career context are all filled with real con
 
 ---
 
-## 5a-ii. Reviewing results with your AI tool
+## 5a-ii. Reviewing results
 
-After the pipeline runs on GitHub Actions and you pull the latest changes, open your workspace in your AI tool.
+After the pipeline runs on GitHub Actions and you pull the latest changes, open your workspace in VS Code.
 
-See [COMMANDS.md](COMMANDS.md) for the full skill reference. Quick loop:
+Quick loop:
 
 ```
 /job-hunter brief     # read today's briefing — what was found and why
 /job-hunter batch     # score and tailor the candidate queue one by one
 /job-hunter finalize  # commit outputs and clean up the queue
 ```
+
+For all available commands, see [Command Reference](#command-reference) below.
 
 ---
 
@@ -326,7 +320,7 @@ If it fails, click the failed run → click the failing step to read the error l
 
 ## 8. Daily workflow
 
-Push your workspace to GitHub, let the pipeline run overnight, pull the results in the morning, then review and process them with your AI tool.
+Push your workspace to GitHub, let the pipeline run overnight, pull the results in the morning, then review and process them in VS Code.
 
 ### Push (triggers the pipeline)
 
@@ -353,7 +347,79 @@ The `find-jobs.yml` workflow runs on a schedule — check `.github/workflows/fin
 
 ### Review and process
 
-Open your workspace in your AI tool and run the daily loop — see [COMMANDS.md](COMMANDS.md) for the full skill reference. Most days 15–30 minutes.
+Open your workspace in VS Code and run the daily loop. Most days 15–30 minutes.
+
+```
+/job-hunter brief     # see what was found
+/job-hunter batch     # go through the candidates
+/job-hunter finalize  # save your work
+```
+
+---
+
+## Command Reference
+
+### First-time setup
+
+| Step | Command |
+|---|---|
+| 1. Configure workspace | `/setup onboard` |
+| 2. Set career positioning | `/setup context` |
+| 3. Add work stories | `/setup stories` |
+| 4. Build your resume | `/setup resume` |
+| 5. Style resume | `/setup style` |
+| 6. Health check | `/setup doctor` |
+
+### Daily review loop
+
+| Step | Command |
+|---|---|
+| 1. See what was found | `/job-hunter brief` |
+| 2. Work through candidates | `/job-hunter batch` |
+| 3. Save your work | `/job-hunter finalize` |
+
+### Per-job actions
+
+Replace `<job>` with the folder name under `outputs/jobs/` (e.g. `stripe-senior-pm-2025-06`).
+
+| What you want to do | Command |
+|---|---|
+| Tailor resume + cover letter | `/job-hunter tailor <job>` |
+| Score a job fit | `/job-hunter score <job>` |
+| Research a company | `/job-hunter research <company>` |
+| Generate interview questions | `/job-hunter interview <job>` |
+| Draft LinkedIn outreach | `/job-hunter outreach <job>` |
+| Process one job URL directly | `/job-hunter one <url>` |
+
+### LinkedIn
+
+| What you want to do | Command |
+|---|---|
+| Get weekly post ideas | `/linkedin ideas` |
+| Write a post draft | `/linkedin draft` |
+| Draft comments | `/linkedin engage` |
+| Build connection queue | `/linkedin network` |
+
+All output is draft only — nothing is posted automatically.
+
+### Utility commands
+
+| What you want to do | Command |
+|---|---|
+| Search for more jobs | `/job-hunter search` |
+| Pre-screen batch against exclusions | `/job-hunter screen` |
+| View the application tracker | `/job-hunter dashboard` |
+| Refine existing work stories | `/job-hunter stories` |
+| Add a new search region | `/setup region add <name>` |
+| Remove a search region | `/setup region remove <name>` |
+
+### Modes at a glance
+
+**Agent mode** (`mode: agent` in `config/job_hunter.yml`)
+Pipeline scrapes and builds a briefing. You review and process candidates interactively with the daily loop above. No LLM API keys required for the pipeline.
+
+**LLM API mode** (`mode: llm-api` in `config/job_hunter.yml`)
+Pipeline runs fully automatically — scrape, score, tailor, cover letter, PDF, and tracker update happen inside GitHub Actions without you. LLM API keys must be added as GitHub Secrets. You still run the one-time setup steps above, then just pull and review the committed outputs.
 
 ---
 

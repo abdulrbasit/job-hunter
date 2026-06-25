@@ -2,7 +2,7 @@
 
 Job hunting is repetitive work. Job Hunter automates the parts that don't need you: scraping listings across major job boards, scoring each one against your profile, tailoring your resume per application, and drafting cover letters. You handle the conversations.
 
-Works interactively inside Claude Code, Codex, Gemini CLI, or GitHub Copilot, or runs fully autonomous via LLM API for unattended pipelines and GitHub Actions.
+Works interactively inside Claude Code or Codex (VS Code extensions), or runs fully autonomous via LLM API for unattended pipelines and GitHub Actions.
 
 ## What It Does
 
@@ -35,7 +35,7 @@ Edit `config/job_hunter.yml` with your titles, regions, exclusions, profile path
 
 | Mode | What runs | When to use |
 |---|---|---|
-| `agent` | Python prepares context; Claude Code, Codex, Gemini CLI, or Copilot skills handle scoring, tailoring, and writing | Interactive daily review |
+| `agent` | Python prepares context; Claude Code or Codex (VS Code) skills handle scoring, tailoring, and writing | Interactive daily review |
 | `llm-api` | Full autonomous pipeline; LLM APIs called inside Python | Unattended runs and GitHub Actions |
 
 Set `mode:` in `config/job_hunter.yml`. Default is `agent`.
@@ -48,7 +48,7 @@ job-hunter brief
 job-hunter dashboard --no-interactive
 ```
 
-In `agent` mode, open the workspace in Claude Code, Codex, Gemini CLI, or GitHub Copilot and use:
+In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use:
 
 ```text
 /job-hunter brief
@@ -72,12 +72,13 @@ from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
 - `job-hunter doctor` — check setup health
 - `job-hunter hunt` — discover and enrich jobs
 - `job-hunter brief` — write the daily briefing
-- `job-hunter tailor` — process job URLs or JD text
+- `job-hunter tailor` — tailor resume for one or more job postings
 - `job-hunter dashboard`, `applications`, `analytics` — inspect application state
-- `job-hunter update-skills` — refresh bundled `.claude/skills/`
+- `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
+- `job-hunter update-skills`, `update-workflows` — refresh skills or workflows individually
 - `job-hunter version`, `update-info` — version and upgrade guidance
 
-Support commands (`agent-context`, `import-job`, `compile-pdf`, `update-readme`, `mark-processed`, `discard-job`, `cleanup-transient`, `finalize-run`) are used by skills and automation.
+Support commands used by skills and automation: `agent-context`, `import-job`, `compile-pdf`, `update-readme`, `mark-processed`, `discard-job`, `cleanup-transient`, `finalize-run`.
 
 ## Data Contract
 
