@@ -133,10 +133,10 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
         assert rel in packaged, f"packaged template missing skill file: {rel}"
         assert packaged[rel] == skill_file.read_bytes(), f"packaged skill drifted: {rel}"
 
-    for profile_file in sorted((root / "profile" / "template-files").glob("*")):
+    for profile_file in sorted((root / "job_hunter" / "templates" / "workspace" / "profile").glob("*")):
         if profile_file.is_file():
             rel = f"profile/{profile_file.name}"
-            assert packaged[rel] == profile_file.read_bytes(), f"packaged profile asset drifted: {rel}"
+            assert rel in packaged, f"packaged template missing profile asset: {rel}"
 
 
 def test_packaged_workspace_context_is_user_workspace_focused() -> None:

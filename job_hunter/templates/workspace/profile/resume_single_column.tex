@@ -1,10 +1,10 @@
-\documentclass[a4,11pt]{article}
+\documentclass[a4,10pt]{article}
 
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
 \usepackage{titlesec}
 \usepackage{marvosym}
-\usepackage[usenames,dvipsnames]{color}
+\usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{verbatim}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
@@ -17,6 +17,9 @@
 \usepackage{tikz}
 \input{glyphtounicode}
 
+% Brand color — adjust hex to your preference.
+\definecolor{PrimaryColor}{HTML}{1B2A4E}
+\definecolor{AccentColor}{HTML}{7A8DA8}
 
 %----------FONT OPTIONS----------
 % sans-serif
@@ -32,7 +35,7 @@
 
 \pagestyle{fancy}
 \fancyhf{} % clear all header and footer fields
-\fancyfoot{} 
+\fancyfoot{}
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
 
@@ -51,8 +54,8 @@
 
 % Sections formatting
 \titleformat{\section}{
-  \vspace*{-2pt}\scshape\raggedright\large
-}{}{0em}{}[\color{black}\titlerule \vspace*{-2pt}]
+  \vspace*{0pt}\color{PrimaryColor}\scshape\raggedright\large
+}{}{0em}{}[\color{PrimaryColor}\titlerule \vspace*{1pt}]
 
 % Ensure that generate pdf is machine readable/ATS parsable
 \pdfgentounicode=1
@@ -61,30 +64,30 @@
 % Custom commands
 \newcommand{\resumeItem}[1]{
   \item\small{
-    {#1 \vspace*{4pt}}
+    {#1 \vspace*{1pt}}
   }
 }
 
 \newcommand{\resumeSubheading}[4]{
-  \vspace*{-1pt}\item
+  \vspace*{1pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \vspace*{2pt} \textbf{\normalsize#1} & \normalsize#2 \\ 
-      \textit{\normalsize#3} & \textit{\normalsize #4} \\
-    \end{tabular*}\vspace*{-1pt}
+      \vspace*{2pt} \textbf{\normalsize\color{PrimaryColor}#1} & \textit{\normalsize\color{AccentColor}#2} \\
+      \textit{\normalsize#3} & \textit{\normalsize\color{AccentColor}#4} \\
+    \end{tabular*}\vspace*{0pt}
 }
 
 \newcommand{\resumeSubSubheading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
       \textit{\small#1} & \textit{\small #2} \\
-    \end{tabular*}\vspace*{-1pt}
+    \end{tabular*}\vspace*{0pt}
 }
 
 \newcommand{\resumeProjectHeading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
-      \normalsize#1 & #2 \\
-    \end{tabular*}\vspace*{-1pt}
+      {\color{PrimaryColor}#1} & \textit{\color{AccentColor}#2} \\
+    \end{tabular*}\vspace*{1pt}
 }
 
 \newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace*{-1pt}}
@@ -94,7 +97,7 @@
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
 \newcommand{\resumeItemListStart}{\begin{itemize}}
-\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-1pt}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-2pt}}
 
 %-------------------------------------------
 %%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -104,8 +107,8 @@
 % TWO-COLUMN HEADER (default — no photo)
 \begin{minipage}[c]{0.62\textwidth}
     \raggedright
-    \textbf{\Huge \scshape Name} \\[10pt]
-    \textbf{\Large \scshape Title}
+    \textbf{\Huge \scshape \color{PrimaryColor} Name} \\[10pt]
+    \textbf{\Large \scshape \color{PrimaryColor} Title}
 \end{minipage}%
 \begin{minipage}[c]{0.38\textwidth}
     \raggedleft
@@ -118,18 +121,22 @@
 % THREE-COLUMN HEADER WITH PHOTO
 % To use: comment out the two-column block above and uncomment this block.
 % Place your photo (e.g. profile.png) in the same folder as this .tex file.
-% Adjust column widths (must sum to 1.0) and image size as needed.
+% Symmetric 0.43/0.14/0.43 widths center the circular photo on the page.
 %
-% \begin{minipage}[c]{0.50\textwidth}
+% \begin{minipage}[c]{0.43\textwidth}
 %     \raggedright
-%     \textbf{\Huge \scshape Name} \\[10pt]
-%     \textbf{\Large \scshape Title}
+%     \textbf{\Huge \scshape \color{PrimaryColor} Name} \\[10pt]
+%     \textbf{\Large \scshape \color{PrimaryColor} Title}
 % \end{minipage}%
 % \begin{minipage}[c]{0.14\textwidth}
 %     \centering
-%     \includegraphics[width=2.2cm,height=2.2cm,keepaspectratio,clip]{profile.png}
+%     \begin{tikzpicture}
+%       \draw[color=PrimaryColor, line width=2pt] (0,0) circle[radius=1.12cm];
+%       \clip (0,0) circle (1.1cm);
+%       \node at (0,0) {\includegraphics[width=2.2cm]{profile.png}};
+%     \end{tikzpicture}
 % \end{minipage}%
-% \begin{minipage}[c]{0.36\textwidth}
+% \begin{minipage}[c]{0.43\textwidth}
 %     \raggedleft
 %     \small City, Country\\ [3pt]
 %     \small +49 \\ [3pt]
@@ -138,63 +145,63 @@
 % \end{minipage} \vspace*{-15pt}
 
 %-----------SUMMARY-----------
+\vspace*{-6pt}
 \section{Summary}
-    \leftskip=0.15in \small Summary
+    \leftskip=0.15in \small Summary text here.\par\vspace*{-4pt}
 
 %-----------EXPERIENCE-----------
 \section{Experience}
-  
+
   \resumeSubHeadingListStart
-      
+
     \resumeSubheading
       {Title}{October 2023 -- Present}
       {\href{https://companylink.com}{\underline{Company}}}{City, Country}
       \resumeItemListStart
-        \resumeItem{Bulletpoint 1}
-        \resumeItem{Bulletpoint 2}        
-        \resumeItem{Bulletpoint 3}
-        \resumeItem{Bulletpoint 4}
+        \resumeItem{Bullet point 1}
+        \resumeItem{Bullet point 2}
+        \resumeItem{Bullet point 3}
+        \resumeItem{Bullet point 4}
+        \resumeItem{Bullet point 5}
       \resumeItemListEnd
 
-      \resumeSubheading
+    \resumeSubheading
       {Title}{October 2023 -- Present}
       {\href{https://companylink.com}{\underline{Company}}}{City, Country}
       \resumeItemListStart
-        \resumeItem{Bulletpoint 1}
-        \resumeItem{Bulletpoint 2}        
-        \resumeItem{Bulletpoint 3}
-        \resumeItem{Bulletpoint 4}
+        \resumeItem{Bullet point 1}
+        \resumeItem{Bullet point 2}
+        \resumeItem{Bullet point 3}
+        \resumeItem{Bullet point 4}
       \resumeItemListEnd
 
-\resumeSubHeadingListEnd
+  \resumeSubHeadingListEnd
 
 %-----------EDUCATION-----------
 \section{Education}
   \resumeSubHeadingListStart
-    \resumeSubheading
-      {Degree Title}{City, Country}
-      {\href{https://www.universitylink.com}{\underline{University Name}}}{September 2025 -- August 2027}
-      \resumeItemListStart
-        \resumeItem{Bulletpoint 1}
-        \resumeItem{Bulletpoint 2}
-      \resumeItemListEnd
 
     \resumeSubheading
       {Degree Title}{City, Country}
       {\href{https://www.universitylink.com}{\underline{University Name}}}{September 2025 -- August 2027}
       \resumeItemListStart
-        \resumeItem{Bulletpoint 1}
-        \resumeItem{Bulletpoint 2}
+        \resumeItem{Bullet point 1}
+        \resumeItem{Bullet point 2}
       \resumeItemListEnd
+
+    \resumeSubheading
+      {Degree Title}{City, Country}
+      {\href{https://www.universitylink.com}{\underline{University Name}}}{September 2017 -- August 2022}
+
   \resumeSubHeadingListEnd
 
 %-----------SKILLS-----------
 \section{Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Product}{: Add here} \vspace*{5pt} \\
-     \textbf{AI / Technical}{: Add here} \vspace*{5pt} \\
-     \textbf{Tools}{: Add here} \vspace*{5pt} \\
+     \textbf{Product}{: Add here} \vspace*{2pt} \\
+     \textbf{AI / Technical}{: Add here} \vspace*{2pt} \\
+     \textbf{Tools}{: Add here} \vspace*{2pt} \\
      \textbf{Certifications}{: \href{link for certification}{\underline{Certification Name}}, \href{link for certification}{\underline{Certification Name}}}
     }}
  \end{itemize}
@@ -204,7 +211,7 @@
 % The automated tailorer may only use this section when it is uncommented.
 % Keep at most 4 projects, 3-5 bullets per project, and do not let the resume
 % exceed its intended page limit.
-% \section{Projects}
+% \section{Technical Projects}
 %     \resumeSubHeadingListStart
 %       \resumeProjectHeading
 %           {\textbf{Project Name}}{Date Range}
@@ -222,14 +229,12 @@
 %           \resumeItemListEnd
 %     \resumeSubHeadingListEnd
 
-%
-
 %-----------Languages-----------
 \section{Languages}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-          \textbf{English --- C2 Level } \vspace*{4pt} \\
-          \textbf{German --- B1 Level } \vspace*{4pt} \\ 
+          \textbf{English --- C2 Level} \vspace*{2pt} \\
+          \textbf{German --- B1 Level} \vspace*{2pt} \\
     }}
  \end{itemize}
 

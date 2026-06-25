@@ -5,10 +5,10 @@
 % Requires: altacv.cls in same folder
 %%%%%%%%%%%%%%%%%
 
-\documentclass[9pt,a4paper,ragged2e,withhyper]{altacv}
+\documentclass[10pt,a4paper,ragged2e,withhyper]{altacv}
 
 %% AltaCV uses paracol internally. Geometry tuned for 67/33 column split.
-\geometry{left=1.25cm,right=1.25cm,top=1cm,bottom=1cm,columnsep=0.8cm}
+\geometry{left=1.0cm,right=1.0cm,top=1cm,bottom=1cm,columnsep=0.8cm}
 
 % Fonts + font packages
 \usepackage[T1]{fontenc}
@@ -46,13 +46,10 @@
 \colorlet{emphasis}{EmphasisColor}
 \colorlet{body}{BodyColor}
 
-%% Tighter bullet lists to fit content on one page
-% \setlist{leftmargin=*,labelsep=0.5em,nosep,itemsep=0.15\baselineskip,after=\vspace{0.15\baselineskip}}
-
 %% Override cvevent so date sits left and location sits right-most within the column.
 %% Original AltaCV puts both into 0.5\linewidth makeboxes, which centers location.
 \renewcommand{\cvevent}[4]{%
-  {\large\color{emphasis}#1\par}%
+  {\normalsize\bfseries\color{emphasis}#1\par}%
   \smallskip\normalsize
   \ifstrequal{#2}{}{}{\textbf{\color{accent}#2}\par\smallskip}%
   \ifstrequal{#3}{}{}{%
@@ -69,6 +66,8 @@
 }
 
 % Typography
+\renewcommand{\cvsectionfont}{\normalsize\bfseries}
+\renewcommand{\cvsubsectionfont}{\small\bfseries}
 \renewcommand{\cvItemMarker}{{\small\textbullet}}
 \renewcommand{\cvRatingMarker}{\faCircle}
 
@@ -86,7 +85,7 @@
     inner ysep=0.75ex,
     text height=1.5ex,
     text depth=.25ex
-  ] {\small #1};\hspace{2pt}%
+  ] {\fontsize{9pt}{11pt}\selectfont #1};\hspace{2pt}%
 }
 
 \begin{document}
@@ -119,7 +118,7 @@ Summary Text
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \columnratio{0.70}
-\setlength{\columnsep}{1.0cm}
+\setlength{\columnsep}{0.8cm}
 \begin{paracol}{2}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -171,7 +170,8 @@ Summary Text
 
 % RIGHT COLUMN
 \begingroup
-\setlength{\rightskip}{0.3em plus 1fil}
+\setlength{\leftskip}{0pt}
+\setlength{\rightskip}{-3mm plus 1fil}
 \setlength{\baselineskip}{15pt}
 \setlength{\lineskip}{5pt}
 \setlength{\lineskiplimit}{5pt}

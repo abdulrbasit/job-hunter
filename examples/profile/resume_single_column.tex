@@ -2,13 +2,13 @@
 % Single-column article layout
 % All names, companies, and metrics are invented.
 
-\documentclass[a4,11pt]{article}
+\documentclass[a4,10pt]{article}
 
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
 \usepackage{titlesec}
 \usepackage{marvosym}
-\usepackage[usenames,dvipsnames]{color}
+\usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{verbatim}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
@@ -20,6 +20,10 @@
 \usepackage{wrapfig}
 \usepackage{tikz}
 \input{glyphtounicode}
+
+% Example color scheme — dark green (fictional company brand)
+\definecolor{PrimaryColor}{HTML}{1A3A2A}
+\definecolor{AccentColor}{HTML}{4A7C5F}
 
 %----------FONT OPTIONS----------
 % \usepackage[sfdefault]{FiraSans}
@@ -47,35 +51,35 @@
 \setlength{\tabcolsep}{0in}
 
 \titleformat{\section}{
-  \vspace*{-2pt}\scshape\raggedright\large
-}{}{0em}{}[\color{black}\titlerule \vspace*{-2pt}]
+  \vspace*{0pt}\color{PrimaryColor}\scshape\raggedright\large
+}{}{0em}{}[\color{PrimaryColor}\titlerule \vspace*{1pt}]
 
 \pdfgentounicode=1
 
 \newcommand{\resumeItem}[1]{
-  \item\small{{#1 \vspace*{4pt}}}
+  \item\small{{#1 \vspace*{1pt}}}
 }
 
 \newcommand{\resumeSubheading}[4]{
-  \vspace*{-1pt}\item
+  \vspace*{1pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \vspace*{2pt} \textbf{\normalsize#1} & \normalsize#2 \\
-      \textit{\normalsize#3} & \textit{\normalsize #4} \\
-    \end{tabular*}\vspace*{-1pt}
+      \vspace*{2pt} \textbf{\normalsize\color{PrimaryColor}#1} & \textit{\normalsize\color{AccentColor}#2} \\
+      \textit{\normalsize#3} & \textit{\normalsize\color{AccentColor}#4} \\
+    \end{tabular*}\vspace*{0pt}
 }
 
 \newcommand{\resumeSubSubheading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
       \textit{\small#1} & \textit{\small #2} \\
-    \end{tabular*}\vspace*{-1pt}
+    \end{tabular*}\vspace*{0pt}
 }
 
 \newcommand{\resumeProjectHeading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
-      \normalsize#1 & #2 \\
-    \end{tabular*}\vspace*{-1pt}
+      {\color{PrimaryColor}#1} & \textit{\color{AccentColor}#2} \\
+    \end{tabular*}\vspace*{1pt}
 }
 
 \newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace*{-1pt}}
@@ -83,7 +87,7 @@
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
 \newcommand{\resumeItemListStart}{\begin{itemize}}
-\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-1pt}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace*{-2pt}}
 
 \begin{document}
 
@@ -91,8 +95,8 @@
 % TWO-COLUMN HEADER (no photo) — uncomment to switch back
 % \begin{minipage}[c]{0.62\textwidth}
 %     \raggedright
-%     \textbf{\Huge \scshape John Doe} \\[10pt]
-%     \textbf{\Large \scshape Senior Backend Engineer}
+%     \textbf{\Huge \scshape \color{PrimaryColor} John Doe} \\[10pt]
+%     \textbf{\Large \scshape \color{PrimaryColor} Senior Backend Engineer}
 % \end{minipage}%
 % \begin{minipage}[c]{0.38\textwidth}
 %     \raggedleft
@@ -104,18 +108,16 @@
 
 % THREE-COLUMN HEADER WITH PHOTO
 % Symmetric 0.43/0.14/0.43 widths center the circular photo on the page.
-% Replace the TikZ placeholder block with \includegraphics[width=2.2cm]{profile.png}
-% once you have an actual photo file.
 \begin{minipage}[c]{0.43\textwidth}
     \raggedright
-    \textbf{\Huge \scshape John Doe} \\[10pt]
-    \textbf{\Large \scshape Senior Backend Engineer}
+    \textbf{\Huge \scshape \color{PrimaryColor} John Doe} \\[10pt]
+    \textbf{\Large \scshape \color{PrimaryColor} Senior Backend Engineer}
 \end{minipage}%
 \begin{minipage}[c]{0.14\textwidth}
     \centering
     \begin{tikzpicture}
       \fill[gray!20] (0,0) circle (1.1cm);
-      \draw[black, line width=2pt] (0,0) circle[radius=1.12cm];
+      \draw[color=PrimaryColor, line width=2pt] (0,0) circle[radius=1.12cm];
       \node[font=\scriptsize\color{gray!60}] at (0,0) {Photo};
     \end{tikzpicture}
 \end{minipage}%
@@ -128,8 +130,9 @@
 \end{minipage} \vspace*{-15pt}
 
 %-----------SUMMARY-----------
+\vspace*{-6pt}
 \section{Summary}
-    \leftskip=0.15in \small Backend engineer with 8 years in fintech and payments infrastructure. Redesigned a core ledger service to handle 10x traffic growth and reduced settlement pipeline P99 latency from 800ms to under 120ms. Seeking a Staff or Senior Backend role where distributed systems depth is the job, not a side concern.
+    \leftskip=0.15in \small Backend engineer with 8 years in fintech and payments infrastructure. Redesigned a core ledger service to handle 10x traffic growth and reduced settlement pipeline P99 latency from 800ms to under 120ms. Seeking a Staff or Senior Backend role where distributed systems depth is the job, not a side concern.\par\vspace*{-4pt}
 
 %-----------EXPERIENCE-----------
 \section{Experience}
@@ -181,9 +184,9 @@
 \section{Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Languages}{: Go, Rust, Python, Java, SQL} \vspace*{5pt} \\
-     \textbf{Infrastructure}{: Kafka, PostgreSQL, Kubernetes, Redis, gRPC} \vspace*{5pt} \\
-     \textbf{Observability}{: OpenTelemetry, Prometheus, Grafana, Jaeger} \vspace*{5pt} \\
+     \textbf{Languages}{: Go, Rust, Python, Java, SQL} \vspace*{2pt} \\
+     \textbf{Infrastructure}{: Kafka, PostgreSQL, Kubernetes, Redis, gRPC} \vspace*{2pt} \\
+     \textbf{Observability}{: OpenTelemetry, Prometheus, Grafana, Jaeger} \vspace*{2pt} \\
      \textbf{Certifications}{: \href{https://example.com/cert}{\underline{Certified Kubernetes Administrator (CNCF)}}, \href{https://example.com/cert}{\underline{AWS Solutions Architect}}}
     }}
  \end{itemize}
@@ -192,8 +195,8 @@
 \section{Languages}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-          \textbf{English --- C2 Level (Native)} \vspace*{4pt} \\
-          \textbf{German --- B1 Level (Conversational)} \vspace*{4pt} \\
+          \textbf{English --- C2 Level (Native)} \vspace*{2pt} \\
+          \textbf{German --- B1 Level (Conversational)} \vspace*{2pt} \\
     }}
  \end{itemize}
 

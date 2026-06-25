@@ -47,6 +47,9 @@ Slug: `$ARGUMENTS`
 
 - Never write `resume_tailored.md`.
 - Never fabricate metrics, skills, titles, employers, dates, or outcomes.
+- All claims in the tailored resume must exist verbatim or be directly derivable from the base resume, matched Final stories, or company_research.md. Introduce no new facts, scope, or proof points.
+- Bullet char limit: every `\item` line must not exceed the max chars stated in `career_context.md` Bullet guidance. Count characters before writing each bullet.
+- Summary char limit: the tailored summary must not exceed the max chars stated in `career_context.md` Summary guidance. Count before writing.
 - Profile image is copied only when configured and present.
 - Do not update README or processed state. Caller owns workflow state.
 

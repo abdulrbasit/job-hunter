@@ -19,7 +19,8 @@ Set `mode:` in `config/job_hunter.yml`.
 - `.claude/skills/`: skills for Claude Code and Gemini CLI (GEMINI.md delegates here).
 - `config/job_hunter.yml`: user-editable machine config.
 - `config/schemas/job_hunter.schema.json`: schema for `job_hunter.yml`.
-- `profile/career_context.md`: human career, writing, targeting, and tone guidance.
+- `job_hunter/templates/workspace/profile/`: canonical starter profile and resume templates.
+- `examples/profile/`: filled fictional examples; not a template source.
 - `outputs/state/discovered_urls.yml`: URL-only dedup state.
 
 ## Skills

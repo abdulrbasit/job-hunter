@@ -25,6 +25,10 @@ If you changed `SETUP.md`:
 python scripts/sync_workspace_template.py
 ```
 
+Starter profile and resume templates are maintained directly in
+`job_hunter/templates/workspace/profile/`. Keep `examples/profile/` aligned
+with reusable layout changes, while preserving its fictional example content.
+
 ## Commits
 
 One line, 72 chars max: `type(scope): description`

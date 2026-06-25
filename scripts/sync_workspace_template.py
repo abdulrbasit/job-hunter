@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Sync user-facing files from the canonical repo root into job_hunter/templates/workspace/.
 
-Run before `uv build` or whenever canonical root files change. The template is
-never edited directly — this script is the only writer.
+Run before `uv build` or whenever canonical root files change. Root-sourced
+sections are only written by this script; workspace-only sections are maintained
+directly under job_hunter/templates/workspace/.
 
-Files NOT synced (workspace-only, maintained manually in the template):
+Files NOT synced (workspace-only, maintained directly in the template):
   .env.example
   .github/workflows/find-jobs.yml
   .github/workflows/tailor-job.yml
   .gitignore           (workspace .gitignore differs from the dev repo .gitignore)
   outputs/             (empty-dir scaffolding with .gitkeep + discovered_urls.yml)
-  profile/             (resume templates from profile/template-files/ — separate path)
+  profile/             (canonical starter profile and resume templates)
 """
 
 from __future__ import annotations

@@ -9,6 +9,8 @@ Interactive guided build for the base resume. Reads `career_context.md` and `sto
 - Preserve all LaTeX commands and document structure. Only replace placeholder text (e.g., `Name`, `Title`, `Bullet point 1`, `city, country`).
 - Evidence boundaries from `career_context.md` apply — never include restricted content.
 - Keep bullets tight: impact-first, one idea per bullet, no padding phrases.
+- Bullet char limit: every `\item` line must not exceed the max stated in `career_context.md` Bullet guidance. Count characters before writing each bullet.
+- Summary char limit: the summary must not exceed the max stated in `career_context.md` Summary guidance. Count before writing.
 - At the end, show a plain-language summary of changes and confirm before writing.
 
 ---

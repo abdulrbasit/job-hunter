@@ -29,8 +29,15 @@ fit-score thresholds in `config/job_hunter.yml`.
 - Skills to emphasize:
 - Skills to de-emphasize:
 - Proof-point priorities:
-- Summary guidance:
-- Bullet guidance:
+- Summary guidance: |
+  - At 10pt, both templates give the summary the full text width: target 300 chars, max 340 chars (about 4 lines)
+  - No em dashes; confident, technical, concrete diction only
+
+- Bullet guidance: |
+  - Format: RACR — outcome verb + what you did + scope/context + result
+  - Double-column main column at 10pt (~127mm): target 130 chars, max 150 chars (about 2 lines)
+  - Single-column template at 10pt (~181mm): target 175 chars, max 200 chars (about 2 lines)
+  - Past tense only; no verb repeated more than 3× across all bullets
 - Project-section guidance:
 - Evidence boundaries:
 - Phrases or claims to avoid:

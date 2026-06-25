@@ -143,12 +143,6 @@ def _iter_source_checkout_files(root: Path) -> Iterator[tuple[str, bytes]]:
                 yielded.add(rel)
                 yield rel, content
 
-    template_profile = root / "profile" / "template-files"
-    if template_profile.is_dir():
-        for rel, content in _walk_path(template_profile, "profile"):
-            yielded.add(rel)
-            yield rel, content
-
     state_file = root / "outputs" / "state" / "discovered_urls.yml"
     if state_file.is_file():
         rel = "outputs/state/discovered_urls.yml"

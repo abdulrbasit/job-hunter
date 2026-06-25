@@ -26,8 +26,8 @@
 - Skills to emphasize: Go, Rust, Kafka, PostgreSQL, Kubernetes, distributed systems design, observability (OpenTelemetry, Prometheus), service migrations
 - Skills to de-emphasize: Early frontend work (React, one project 2016), Android internship (pre-career), generic Agile/Scrum involvement
 - Proof-point priorities: Performance improvements with before/after numbers first, then scale anchors (events/sec, service count), then team and mentoring scope
-- Summary guidance: 2 sentences max; opens with domain and years; mentions one concrete technical proof point; no filler phrases
-- Bullet guidance: Lead with the outcome or the system change, then the approach, then the scope; avoid passive voice; preferred verbs: redesigned, reduced, shipped, migrated, eliminated, owned
+- Summary guidance: 2 sentences max; target 300 characters and never exceed 340 characters at 10pt; opens with domain and years; mentions one concrete technical proof point; no filler phrases
+- Bullet guidance: Lead with the outcome or the system change, then the approach, then the scope; at 10pt target 130/max 150 characters for double-column bullets and target 175/max 200 for single-column bullets; avoid passive voice; preferred verbs: redesigned, reduced, shipped, migrated, eliminated, owned
 - Evidence boundaries: Only use latency and throughput figures listed in Evidence Rules; service counts and team sizes are always safe
 - Phrases or claims to avoid: "passionate about clean code", "full-stack" (not accurate), "10x engineer", any latency figure not in Evidence Rules
 
