@@ -1,6 +1,9 @@
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+import builtins
 from unittest.mock import MagicMock
+
+import pytest
 
 from job_hunter.llm import client as real_llm_client
 from job_hunter.llm.client import LLMClient
@@ -66,3 +69,22 @@ def test_get_llm_client_cache_is_thread_safe(monkeypatch) -> None:
     assert len(created) == 1
     assert len({id(client) for client in clients}) == 1
     assert created == [("ollama", "", "http://localhost:11434", 4)]
+
+
+@pytest.mark.parametrize(
+    ("provider", "blocked_import"),
+    [("anthropic", "anthropic"), ("openai", "openai"), ("google", "google")],
+)
+def test_missing_provider_sdk_points_to_llm_extra(monkeypatch, provider, blocked_import) -> None:
+    real_import = builtins.__import__
+
+    def missing_sdk(name, *args, **kwargs):
+        if name == blocked_import:
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", missing_sdk)
+    client = LLMClient.__new__(LLMClient)
+
+    with pytest.raises(ImportError, match=r"job-hunter-kit\[llm\]"):
+        client._init(provider, "", "")
