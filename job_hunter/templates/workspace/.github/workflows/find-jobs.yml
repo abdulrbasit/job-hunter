@@ -64,6 +64,24 @@ jobs:
           command -v lightpanda
           echo "Lightpanda installed; nightly builds do not expose a stable --version command."
 
+      - name: Cache texlive image
+        if: steps.mode.outputs.mode == 'llm-api'
+        uses: actions/cache@v5
+        with:
+          path: /tmp/texlive.tar
+          key: texlive-latest
+
+      - name: Load or pull texlive image
+        if: steps.mode.outputs.mode == 'llm-api'
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/texlive.tar ]; then
+            docker load -i /tmp/texlive.tar
+          else
+            docker pull texlive/texlive:latest
+            docker save texlive/texlive:latest -o /tmp/texlive.tar
+          fi
+
       - name: Resolve region for this slot
         id: region
         env:

@@ -110,11 +110,15 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
     for rel in canonical_files:
         assert packaged[rel] == (root / rel).read_bytes(), f"packaged workspace asset drifted: {rel}"
 
-    for skill in sorted((root / ".claude" / "skills").glob("*/SKILL.md")):
-        if skill.parent.name in _DEV_SKILL_DIRS:
+    for skill_file in sorted((root / ".claude" / "skills").rglob("*")):
+        if not skill_file.is_file():
             continue
-        rel = skill.relative_to(root).as_posix()
-        assert packaged[rel] == skill.read_bytes(), f"packaged skill drifted: {rel}"
+        skill_dir = skill_file.relative_to(root / ".claude" / "skills").parts[0]
+        if skill_dir in _DEV_SKILL_DIRS:
+            continue
+        rel = skill_file.relative_to(root).as_posix()
+        assert rel in packaged, f"packaged template missing skill file: {rel}"
+        assert packaged[rel] == skill_file.read_bytes(), f"packaged skill drifted: {rel}"
 
     for profile_file in sorted((root / "profile" / "template-files").glob("*")):
         if profile_file.is_file():
