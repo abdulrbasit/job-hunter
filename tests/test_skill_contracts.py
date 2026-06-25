@@ -20,7 +20,7 @@ def test_workflow_skills_do_not_use_midflow_handoffs_or_raw_git_commits() -> Non
     forbidden = (
         "Apply `/",
         "Invoke `/",
-        "job-hunter commit-job",
+        "job-hunter internal commit-job",
         "mark-processed --from-candidates",
         "git commit",
         "git push",
@@ -43,9 +43,9 @@ def test_atomic_skills_do_not_finalize_or_mutate_repo_state() -> None:
     forbidden = (
         "git commit",
         "git push",
-        "job-hunter commit-job",
-        "job-hunter finalize-run",
-        "job-hunter mark-processed",
+        "job-hunter internal commit-job",
+        "job-hunter internal finalize-run",
+        "job-hunter internal mark-processed",
     )
     offenders: list[str] = []
     for path in _skill_files():
@@ -72,7 +72,7 @@ def test_setup_does_not_create_auto_run_routine() -> None:
 def test_workflow_skills_use_shared_candidate_lifecycle_contract() -> None:
     process_batch = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "batch.md").read_text(encoding="utf-8")
 
-    assert "job-hunter agent-context lifecycle" in process_batch
+    assert "job-hunter internal agent-context lifecycle" in process_batch
 
 
 def test_process_batch_never_pauses_between_inline_phases() -> None:
@@ -82,7 +82,7 @@ def test_process_batch_never_pauses_between_inline_phases() -> None:
     assert "status update is not an end state" in process_batch
     assert "control returning to this workflow" in process_batch
     assert "PDF failure is non-blocking only when `resume_tailored.tex` exists" in process_batch
-    assert "job-hunter cleanup-transient" in process_batch
+    assert "job-hunter internal cleanup-transient" in process_batch
 
 
 def test_atomic_skills_return_control_without_waiting() -> None:
@@ -102,7 +102,7 @@ def test_tailor_skill_reads_career_context() -> None:
     assert "cover-letter style" in text
     assert "resume_tailored.tex" in text
     assert "outputs/jobs/<slug>/resume_tailored.md" not in text
-    assert "job-hunter compile-pdf --job <slug>" in text
+    assert "job-hunter internal compile-pdf --job <slug>" in text
 
 
 def test_single_config_file_is_the_only_config() -> None:
@@ -161,9 +161,9 @@ def test_job_hunter_modes_use_current_cli_signatures() -> None:
     modes = ROOT / ".claude" / "skills" / "job-hunter" / "modes"
     text = "\n".join(path.read_text(encoding="utf-8") for path in modes.glob("*.md"))
 
-    assert "job-hunter discard-job --job <slug>" in text
-    assert "job-hunter agent-context validate-score --path " in text
-    assert "job-hunter compile-pdf --job <slug>" in text
+    assert "job-hunter internal discard-job --job <slug>" in text
+    assert "job-hunter internal agent-context validate-score --path " in text
+    assert "job-hunter internal compile-pdf --job <slug>" in text
     assert "--resume-batch" not in text
 
 

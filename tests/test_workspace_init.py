@@ -57,6 +57,10 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert (workspace / "outputs" / "state" / "discovered_urls.yml").exists()
     assert not (workspace / "data").exists()
     assert not (workspace / "profile" / ".gitkeep").exists()
+    setup = (workspace / "SETUP.md").read_text(encoding="utf-8")
+    assert "Python 3.12+" in setup
+    assert "job-hunter doctor" in setup
+    assert "job-hunter hunt --region primary" in setup
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert ".claude/skills/setup/SKILL.md" in manifest["managed_files"]

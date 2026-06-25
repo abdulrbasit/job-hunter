@@ -49,10 +49,6 @@ def test_hunt_command_exists_in_help() -> None:
 
 
 def test_user_contract_commands_run(tmp_path: Path) -> None:
-    result = run_cli("config", "check")
-    assert result.returncode == 0
-    assert "config/job_hunter.yml ok" in result.stdout
-
     workspace = tmp_path / "workspace"
     result = run_cli("init", str(workspace))
     assert result.returncode == 0
@@ -97,28 +93,72 @@ def test_upstream_repo_context_falls_back_to_checkout_name(
 def test_removed_commands_not_in_help() -> None:
     result = run_cli("--help")
     assert result.returncode == 0
+    for public in (
+        "applications",
+        "brief",
+        "dashboard",
+        "doctor",
+        "hunt",
+        "init",
+        "tailor",
+        "update",
+        "version",
+    ):
+        assert public in result.stdout
     for removed in (
-        "validate-claims",
-        "benchmark",
-        "adapters",
-        "score",
-        "retro",
-        "sync",
-        "migrate",
-        "run-daily",
-        "find-roles",
+        "agent-context",
+        "analytics",
+        "cleanup-transient",
+        "compile-pdf",
+        "config",
+        "discard-job",
+        "finalize-run",
+        "import-job",
+        "linkedin",
+        "mark-processed",
+        "update-info",
+        "update-readme",
+        "update-safety",
+        "update-skills",
+        "update-workflows",
+        "verify",
     ):
         assert removed not in result.stdout, f"removed command still present in help: {removed}"
-    assert "update-skills" in result.stdout
-    assert "update-workflows" in result.stdout
 
 
 def test_agent_context_help_loads() -> None:
-    result = run_cli("agent-context", "--help")
+    result = run_cli("internal", "agent-context", "--help")
     assert result.returncode == 0
     assert "story-index" in result.stdout
     assert "stories-final" in result.stdout
     assert "lifecycle" in result.stdout
+
+
+def test_internal_commands_remain_available_but_hidden() -> None:
+    top_level = run_cli("--help")
+    internal = run_cli("internal", "--help")
+
+    assert top_level.returncode == 0
+    assert "internal" not in top_level.stdout
+    assert internal.returncode == 0
+    assert "import-job" in internal.stdout
+    assert "finalize-run" in internal.stdout
+    assert "agent-context" in internal.stdout
+
+
+def test_update_replaces_specialized_update_commands() -> None:
+    result = run_cli("update", "--help")
+
+    assert result.returncode == 0
+    assert "--skills-only" in result.stdout
+    assert "--workflows-only" in result.stdout
+
+
+def test_version_includes_update_guidance() -> None:
+    result = run_cli("version")
+
+    assert result.returncode == 0
+    assert "uv tool upgrade job-hunter-kit" in result.stdout
 
 
 def test_commit_job_marks_url_as_processed() -> None:
@@ -138,7 +178,7 @@ def test_commit_job_marks_url_as_processed() -> None:
             from typer.testing import CliRunner
 
             runner = CliRunner()
-            runner.invoke(cli_module.app, ["commit-job", folder.name])
+            runner.invoke(cli_module.app, ["internal", "commit-job", folder.name])
 
         urls = load_processed()
         assert "https://example.com/jobs/tracker-test-unit" in urls
@@ -191,7 +231,7 @@ def test_mark_processed_from_candidates() -> None:
         yaml.safe_dump(candidates, f)
         tmp = f.name
     try:
-        result = run_cli("mark-processed", "--from-candidates", tmp)
+        result = run_cli("internal", "mark-processed", "--from-candidates", tmp)
         assert result.returncode == 0
         urls = load_processed()
         assert "https://example.com/mark-test-1" in urls
@@ -211,11 +251,11 @@ def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
     assert result.returncode == 0
     assert "Job Hunter Dashboard" in result.stdout
 
-    result = run_cli("analytics", "--json")
+    result = run_cli("internal", "analytics", "--json")
     assert result.returncode == 0
     assert "by_status" in result.stdout
 
-    result = run_cli("update-safety", "classify", "job_hunter/cli/__init__.py", "--json")
+    result = run_cli("internal", "update-safety", "classify", "job_hunter/cli/__init__.py", "--json")
     assert result.returncode == 0
     assert "system" in result.stdout
 
@@ -223,7 +263,7 @@ def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
     assert result.returncode in (0, 1)
     assert "checks" in result.stdout
 
-    result = run_cli("verify", "--json")
+    result = run_cli("internal", "verify", "--json")
     assert result.returncode in (0, 1)
     assert "errors" in result.stdout
 
