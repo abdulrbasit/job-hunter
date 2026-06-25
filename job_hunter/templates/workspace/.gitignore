@@ -19,6 +19,7 @@ outputs/jobs/**/*.pdf
 *.bcf
 *.run.xml
 *.xdv
+*.xmpi
 
 # Caches and state (rebuilt on next run)
 outputs/state/discovery_cache.yml
