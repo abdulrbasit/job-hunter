@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from job_hunter.ux.health import onboarding_status
+from job_hunter.ux.health import doctor, onboarding_status
 
 
 def _write_minimal_repo(root: Path) -> None:
@@ -109,3 +109,46 @@ def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: P
 
     assert payload["onboardingNeeded"] is False
     assert payload["missing"] == []
+
+
+def test_agent_mode_does_not_require_docker(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    monkeypatch.setattr("job_hunter.ux.health.shutil.which", lambda _name: None)
+
+    payload = doctor(tmp_path)
+    docker = next(check for check in payload["checks"] if check["name"] == "docker")
+
+    assert docker["ok"] is True
+    assert "optional" in docker["detail"].lower()
+
+
+def test_llm_api_mode_requires_docker_and_provider_sdk(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    config = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    config["mode"] = "llm-api"
+    (tmp_path / "config" / "job_hunter.yml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    monkeypatch.setattr("job_hunter.ux.health.shutil.which", lambda _name: None)
+    monkeypatch.setattr("job_hunter.ux.health._module_available", lambda name: name == "job_hunter")
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["docker"]["ok"] is False
+    assert checks["llm_provider:anthropic"]["ok"] is False
+    assert "job-hunter-kit[llm]" in checks["llm_provider:anthropic"]["fix"]
+
+
+def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    schema_dir = tmp_path / "config" / "schemas"
+    schema_dir.mkdir()
+    schema_dir.joinpath("job_hunter.schema.json").write_text(
+        '{"type":"object","required":["required_key"]}',
+        encoding="utf-8",
+    )
+
+    payload = doctor(tmp_path)
+    schema = next(check for check in payload["checks"] if check["name"] == "config_schema")
+
+    assert schema["ok"] is False
+    assert "required_key" in schema["detail"]
