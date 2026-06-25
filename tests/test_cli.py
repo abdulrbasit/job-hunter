@@ -73,8 +73,8 @@ def test_find_jobs_workflow_splits_scrape_and_briefing() -> None:
     assert "name: Build briefing" in workflow
     assert "job-hunter brief" in workflow
     assert "always() && steps.region.outputs.should_run == 'true'" in workflow
-    assert "texlive.tar" in workflow
     assert "texlive/texlive:latest" in workflow
+    assert "texlive.tar" not in workflow
 
 
 def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:
