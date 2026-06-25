@@ -65,7 +65,7 @@ class TestRemotiveSource:
                 return_value=_ENABLED_CFG,
             ),
             patch(
-                "job_hunter.sources.remotive_source.requests.get",
+                "job_hunter.sources._http.requests.get",
                 return_value=MagicMock(raise_for_status=MagicMock(), **{"json.return_value": response_data}),
             ),
         ):

@@ -112,7 +112,7 @@ class TestHimalayasSource:
                 return_value=_ENABLED_CFG,
             ),
             patch(
-                "job_hunter.sources.himalayas_source.requests.get",
+                "job_hunter.sources._http.requests.get",
                 return_value=_mock_get(_RESPONSE),
             ),
         ):

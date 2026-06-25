@@ -6,9 +6,8 @@ from pathlib import Path
 import yaml
 
 from job_hunter.workspace._assets import iter_managed_files, iter_packaged_resource_files
-from job_hunter.workspace.init import run_init
+from job_hunter.workspace._ops import iter_template_skill_files, run_init, update_skills
 from job_hunter.workspace.manifest import MANIFEST_PATH
-from job_hunter.workspace.skills import iter_template_skill_files, update_skills
 
 
 def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:

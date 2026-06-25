@@ -1,0 +1,459 @@
+"""ATS-specific job description fetchers (Greenhouse, Ashby, Lever, SmartRecruiters, Workable).
+
+Split from jd_fetcher.py for navigability. All public names are re-exported from jd_fetcher.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from difflib import SequenceMatcher
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+import requests
+
+from job_hunter.core.utils import strip_html
+
+logger = logging.getLogger(__name__)
+
+GREENHOUSE_API_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    ),
+}
+
+
+def _guess_title(text: str, min_chars: int, max_chars: int) -> str:
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip(" -|")
+        if min_chars <= len(line) <= max_chars and re.search(
+            r"\b(engineer|developer|manager|owner|designer|analyst|architect|lead|director|consultant)\b",
+            line,
+            re.IGNORECASE,
+        ):
+            return line
+    return "Unknown Role"
+
+
+# ---------------------------------------------------------------------------
+# Greenhouse API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _greenhouse_job_ref(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if "greenhouse.io" not in parsed.netloc.lower():
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) >= 3 and parts[1] == "jobs" and parts[2].isdigit():
+        return parts[0], parts[2]
+    query = parse_qs(parsed.query)
+    gh_jid = (query.get("gh_jid") or query.get("token") or [""])[0]
+    if len(parts) >= 2 and parts[1] == "jobs" and gh_jid.isdigit():
+        return parts[0], gh_jid
+    return None
+
+
+def _greenhouse_api_json(api_url: str, timeout: int, **params: Any) -> dict | None:
+    try:
+        resp = requests.get(
+            api_url,
+            timeout=timeout,
+            headers=GREENHOUSE_API_HEADERS,
+            params=params or None,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Greenhouse API failed for %s: %s", api_url, exc)
+        return None
+
+
+def _greenhouse_job_from_data(
+    data: dict,
+    url: str,
+    company: str,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    content = strip_html(data.get("content", ""))
+    title = data.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+    location = (data.get("location") or {}).get("name", "")
+    if not content and not title:
+        return None
+    company_name = company.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    job_url = data.get("absolute_url") or url
+    return {
+        "title": title,
+        "company": company_name,
+        "url": job_url,
+        "snippet": snippet,
+        "posted": (data.get("updated_at") or "")[:10],
+        "location": location,
+        "source": "greenhouse_api",
+    }
+
+
+def _normalize_greenhouse_title(title: str, company: str = "") -> str:
+    title_was_wrapped = title.lower().strip().startswith("job application for ")
+    value = title.lower()
+    value = re.sub(r"\([^)]*\)", "", value)
+    value = re.sub(r"^job application for\s+", "", value)
+    company_norm = re.sub(r"[^a-z0-9]+", " ", company.lower()).strip()
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    if company_norm and value.endswith(f" at {company_norm}"):
+        value = value[: -(len(company_norm) + 4)].strip()
+    elif title_was_wrapped and " at " in value:
+        value = value.rsplit(" at ", 1)[0].strip()
+    return value
+
+
+def _greenhouse_title_match_score(expected: str, found: str, company: str = "") -> float:
+    expected_norm = _normalize_greenhouse_title(expected, company)
+    found_norm = _normalize_greenhouse_title(found, company)
+    if not expected_norm or not found_norm:
+        return 0.0
+    if expected_norm == found_norm:
+        return 1.0
+    expected_tokens = set(expected_norm.split())
+    found_tokens = set(found_norm.split())
+    token_recall = len(expected_tokens & found_tokens) / max(len(expected_tokens), 1)
+    sequence = SequenceMatcher(None, expected_norm, found_norm).ratio()
+    return min(token_recall, sequence)
+
+
+def _looks_like_greenhouse_listing_text(text: str) -> bool:
+    normalized = re.sub(r"\s+", " ", text.lower())
+    listing_markers = (
+        "current openings",
+        "create a job alert",
+        "search department",
+        "office select",
+        "powered by greenhouse",
+    )
+    role_markers = (
+        "responsibilities",
+        "requirements",
+        "qualifications",
+        "about the role",
+        "what you'll do",
+        "what you will do",
+    )
+    return (
+        "jobs at " in normalized
+        and sum(1 for m in listing_markers if m in normalized) >= 2
+        and not any(m in normalized for m in role_markers)
+    )
+
+
+def _greenhouse_listing_match(
+    listing: dict | None,
+    job_id: str,
+    expected_title: str,
+    company: str,
+) -> dict | None:
+    jobs = (listing or {}).get("jobs", [])
+    for item in jobs:
+        if str(item.get("id")) == str(job_id):
+            return item
+    if not expected_title:
+        return None
+    scored = [
+        (
+            _greenhouse_title_match_score(expected_title, str(item.get("title") or ""), company),
+            item,
+        )
+        for item in jobs
+    ]
+    scored.sort(key=lambda row: row[0], reverse=True)
+    if not scored or scored[0][0] < 0.82:
+        return None
+    if len(scored) > 1 and scored[0][0] == scored[1][0]:
+        return None
+    return scored[0][1]
+
+
+def _fetch_greenhouse_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+    expected_title: str = "",
+) -> dict | None:
+    ref = _greenhouse_job_ref(url)
+    if not ref:
+        return None
+    company, job_id = ref
+    api_base = f"https://boards-api.greenhouse.io/v1/boards/{company}/jobs"
+
+    data = _greenhouse_api_json(f"{api_base}/{job_id}", timeout)
+    if data:
+        job = _greenhouse_job_from_data(data, url, company, max_description_chars, title_min_chars, title_max_chars)
+        if job and job.get("snippet"):
+            return job
+
+    listing = _greenhouse_api_json(api_base, timeout, content="true")
+    item = _greenhouse_listing_match(listing, job_id, expected_title, company)
+    if item:
+        return _greenhouse_job_from_data(item, url, company, max_description_chars, title_min_chars, title_max_chars)
+    return None
+
+
+def is_greenhouse_listing_url(url: str) -> bool:
+    """Return True for Greenhouse board/listing URLs that are not direct job postings."""
+    host = urlparse(url).hostname or ""
+    is_greenhouse = host == "greenhouse.io" or host.endswith(".greenhouse.io")
+    return is_greenhouse and not re.search(r"/jobs/\d+", url, re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Ashby API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _ashby_job_ref(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if parsed.netloc.lower() != "jobs.ashbyhq.com":
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 2:
+        return None
+    return parts[0], parts[1]
+
+
+def _ashby_job_from_data(
+    data: dict,
+    url: str,
+    company: str,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    posting = data.get("jobPosting") if "jobPosting" in data else data
+    if not isinstance(posting, dict):
+        return None
+    content = strip_html(posting.get("descriptionHtml", ""))
+    title = posting.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+    location = posting.get("locationName", "")
+    if not content and not title:
+        return None
+    company_name = company.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    return {
+        "title": title,
+        "company": company_name,
+        "url": posting.get("jobUrl") or url,
+        "snippet": snippet,
+        "posted": (posting.get("publishedAt") or "")[:10],
+        "location": location,
+        "source": "ashby_api",
+    }
+
+
+def _fetch_ashby_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _ashby_job_ref(url)
+    if not ref:
+        return None
+    company, job_id = ref
+    api_url = f"https://api.ashbyhq.com/posting-api/job-board/{company}/job-posting/{job_id}"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Ashby API failed for %s: %s", api_url, exc)
+        return None
+    return _ashby_job_from_data(data, url, company, max_description_chars, title_min_chars, title_max_chars)
+
+
+# ---------------------------------------------------------------------------
+# Lever API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _lever_job_ref(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if parsed.netloc.lower() != "jobs.lever.co":
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 2:
+        return None
+    return parts[0], parts[1]
+
+
+def _fetch_lever_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _lever_job_ref(url)
+    if not ref:
+        return None
+    company, posting_id = ref
+    api_url = f"https://api.lever.co/v0/postings/{company}/{posting_id}"
+    try:
+        resp = requests.get(
+            api_url,
+            params={"mode": "json"},
+            timeout=timeout,
+            headers=GREENHOUSE_API_HEADERS,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Lever API failed for %s: %s", api_url, exc)
+        return None
+
+    content = data.get("descriptionPlain") or strip_html(data.get("description", ""))
+    title = data.get("text", "") or _guess_title(content, title_min_chars, title_max_chars)
+    categories = data.get("categories", {}) or {}
+    location = categories.get("location", "")
+    if not content and not title:
+        return None
+    company_name = company.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    created_ms = data.get("createdAt")
+    posted = ""
+    if created_ms:
+        try:
+            from datetime import datetime
+
+            posted = datetime.fromtimestamp(created_ms / 1000).strftime("%Y-%m-%d")
+        except Exception:
+            posted = ""
+    return {
+        "title": title,
+        "company": company_name,
+        "url": data.get("hostedUrl") or url,
+        "snippet": snippet,
+        "posted": posted,
+        "location": location,
+        "source": "lever_api",
+    }
+
+
+# ---------------------------------------------------------------------------
+# SmartRecruiters API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _smartrecruiters_job_ref(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if parsed.netloc.lower() != "jobs.smartrecruiters.com":
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 2:
+        return None
+    return parts[0], parts[1]
+
+
+def _fetch_smartrecruiters_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _smartrecruiters_job_ref(url)
+    if not ref:
+        return None
+    company, posting_id = ref
+    api_url = f"https://api.smartrecruiters.com/v1/companies/{company}/postings/{posting_id}"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] SmartRecruiters API failed for %s: %s", api_url, exc)
+        return None
+
+    sections = data.get("jobAd", {}).get("sections", []) or []
+    content = "\n\n".join(
+        f"{s.get('title', '')}\n{strip_html(s.get('text', ''))}".strip()
+        for s in sections
+        if s.get("title") or s.get("text")
+    )
+    title = data.get("name", "") or _guess_title(content, title_min_chars, title_max_chars)
+    loc = data.get("location", {}) or {}
+    location = ", ".join(filter(None, [loc.get("city", ""), loc.get("country", "")]))
+    if not content and not title:
+        return None
+    company_name = company.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    return {
+        "title": title,
+        "company": company_name,
+        "url": url,
+        "snippet": snippet,
+        "posted": data.get("releasedDate", ""),
+        "location": location,
+        "source": "smartrecruiters_api",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Workable API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _workable_job_ref(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if parsed.netloc.lower() != "apply.workable.com":
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) >= 3 and parts[1].lower() == "j":
+        return parts[0], parts[2]
+    return None
+
+
+def _fetch_workable_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _workable_job_ref(url)
+    if not ref:
+        return None
+    company, shortcode = ref
+    api_url = f"https://apply.workable.com/api/v3/accounts/{company}/jobs/{shortcode}"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Workable API failed for %s: %s", api_url, exc)
+        return None
+
+    content = strip_html(data.get("description") or data.get("description_html") or data.get("full_description") or "")
+    title = data.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+    location_obj = data.get("location", {}) or {}
+    location = location_obj.get("location", "") if isinstance(location_obj, dict) else str(location_obj)
+    if not content and not title:
+        return None
+    company_name = company.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    return {
+        "title": title,
+        "company": company_name,
+        "url": url,
+        "snippet": snippet,
+        "posted": data.get("published_on", ""),
+        "location": location,
+        "source": "workable_api",
+    }

@@ -6,13 +6,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import requests
-
 from job_hunter.config.loader import get_timeout, load_api_config
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap, terminal_http_status
+from job_hunter.sources._http import fetch_title_pages
+from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
 
 logger = logging.getLogger(__name__)
 
@@ -72,60 +71,39 @@ class HimalayasSource(JobSourceAdapter):
         location = params.location
         jobs: list[JobPosting] = []
 
-        for title in params.job_titles:
-            for page in range(1, max_pages + 1):
-                try:
-                    resp = requests.get(
-                        _SEARCH_URL,
-                        params={"q": title, "country": iso, "sort": "recent", "page": page},
-                        timeout=timeout,
+        for title, raw_jobs in fetch_title_pages(
+            _SEARCH_URL,
+            params.job_titles,
+            lambda t, p: {"q": t, "country": iso, "sort": "recent", "page": p},
+            "jobs",
+            timeout=timeout,
+            max_pages=max_pages,
+            source_name="himalayas",
+        ):
+            before = len(jobs)
+            for item in raw_jobs:
+                job_title = str(item.get("title") or "")
+                job_location = _location_text(item)
+                if not title_matches(job_title, params.job_titles, []):
+                    continue
+                if not _country_matches(item, iso):
+                    continue
+                if location and job_location != "Remote" and not location_matches(job_location, location):
+                    continue
+                description = strip_html(item.get("description") or item.get("excerpt") or "")
+                jobs.append(
+                    JobPosting(
+                        title=job_title,
+                        company=str(item.get("companyName") or ""),
+                        url=str(item.get("applicationLink") or item.get("guid") or ""),
+                        posted=_posted(item.get("pubDate")),
+                        location=job_location,
+                        snippet=description[:3000],
+                        source="Himalayas",
+                        query=f"{title} @ {params.region_key}",
+                        region=params.region_key,
                     )
-                    resp.raise_for_status()
-                    raw_jobs = resp.json().get("jobs", [])
-                except Exception as exc:
-                    logger.warning(
-                        "[himalayas] failed for %r in %s page %s: %s",
-                        title,
-                        params.region_key,
-                        page,
-                        exc,
-                    )
-                    if terminal_http_status(exc):
-                        return jobs
-                    break
-
-                if not raw_jobs:
-                    break
-
-                before = len(jobs)
-                for item in raw_jobs:
-                    job_title = str(item.get("title") or "")
-                    job_location = _location_text(item)
-                    if not title_matches(job_title, params.job_titles, []):
-                        continue
-                    if not _country_matches(item, iso):
-                        continue
-                    if location and job_location != "Remote" and not location_matches(job_location, location):
-                        continue
-                    description = strip_html(item.get("description") or item.get("excerpt") or "")
-                    jobs.append(
-                        JobPosting(
-                            title=job_title,
-                            company=str(item.get("companyName") or ""),
-                            url=str(item.get("applicationLink") or item.get("guid") or ""),
-                            posted=_posted(item.get("pubDate")),
-                            location=job_location,
-                            snippet=description[:3000],
-                            source="Himalayas",
-                            query=f"{title} @ {params.region_key}",
-                            region=params.region_key,
-                        )
-                    )
-                logger.info(
-                    "[himalayas] +%d jobs for %r in %s",
-                    len(jobs) - before,
-                    title,
-                    params.region_key,
                 )
+            logger.info("[himalayas] +%d jobs for %r in %s", len(jobs) - before, title, params.region_key)
 
         return jobs
