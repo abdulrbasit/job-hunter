@@ -78,10 +78,10 @@ def test_workflow_skills_use_shared_candidate_lifecycle_contract() -> None:
 def test_process_batch_never_pauses_between_inline_phases() -> None:
     process_batch = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "batch.md").read_text(encoding="utf-8")
 
-    assert 'Never wait for a user to type "Continue"' in process_batch
-    assert "status update is not an end state" in process_batch
-    assert "control returning to this workflow" in process_batch
-    assert "PDF failure is non-blocking only when `resume_tailored.tex` exists" in process_batch
+    assert "Non-Interactive Contract" in process_batch
+    assert "Shall I continue?" in process_batch
+    assert "atomic skill returns to caller" in process_batch
+    assert "PDF failure non-blocking only when `resume_tailored.tex` exists" in process_batch
     assert "job-hunter internal cleanup-transient" in process_batch
 
 

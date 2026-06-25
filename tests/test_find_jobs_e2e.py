@@ -7,7 +7,7 @@ All external HTTP calls are monkeypatched out.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 from job_hunter import agent_context
@@ -53,7 +53,7 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    today = date.today().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     assert count == 2

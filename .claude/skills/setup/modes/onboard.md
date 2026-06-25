@@ -26,7 +26,7 @@ Ask:
 > Welcome to Job Hunter onboarding. Let's get your workspace configured.
 >
 > First: which mode are you setting up?
-> - **agent** — you review jobs interactively each day using Claude Code, Codex, Gemini CLI, or GitHub Copilot
+> - **agent** — you review jobs interactively each day using Claude Code, Codex, or Gemini CLI
 > - **llm-api** — the full pipeline runs automatically (score, tailor, cover letter, PDF, tracker) — great for GitHub Actions or unattended runs
 >
 > Type `agent` or `llm-api`.

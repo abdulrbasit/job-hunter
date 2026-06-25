@@ -6,7 +6,7 @@ Product code lives in the `job-hunter` Python package, not in this workspace.
 
 ## Modes
 
-- `agent`: Python gathers candidates; agent skills process them (Claude Code, Codex, Gemini CLI, Copilot).
+- `agent`: Python gathers candidates; agent skills process them (Claude Code, Codex, Gemini CLI).
 - `llm-api`: Python runs scoring, tailoring, cover letters, PDFs, README, and
   tracking without an agent session.
 

@@ -491,6 +491,40 @@ job-hunter doctor
 
 Fix required failures before the first search. Workflow schedule warnings can remain until you are ready for automatic runs.
 
+### Enable autonomous batch mode
+
+`/job-hunter batch` runs up to 15 candidates end-to-end without stopping. Each AI tool needs its own auto-approve setting, otherwise it pauses after every command and waits for confirmation.
+
+> **Warning — Auto mode scope**: auto mode lets the AI run commands, write files, and fetch web pages without asking at each step. Batch scope is limited to `outputs/` writes, `job-hunter internal` commands, and WebFetch. No applications are submitted, no git push occurs, and no messages are sent. Run `/job-hunter finalize` separately after reviewing outputs.
+
+#### Claude Code (VS Code extension)
+
+Enable **Auto** mode in the Claude Code panel before running batch. The mode selector is at the bottom of the extension panel. Auto mode resets when you close the panel.
+
+> **Disclaimer**: In Auto mode, Claude Code executes bash commands, reads and writes files, and fetches URLs without per-step confirmation. Job Hunter batch does not commit or push.
+
+#### Codex (VS Code extension)
+
+Open VS Code settings (`Ctrl+,`), search **Codex**, and set the approval policy to auto-approve for file and terminal operations. Alternatively, check `.codex/` in your workspace for a settings file and set the approval mode there.
+
+> **Disclaimer**: With auto-approve enabled, Codex runs terminal commands and writes files without prompting. No commits or pushes happen during batch.
+
+#### Gemini CLI
+
+Pass the `--yolo` flag when starting a batch session to auto-approve all tool calls:
+
+```bash
+gemini --yolo
+```
+
+Or set it permanently for the workspace by adding to `GEMINI.md`:
+
+```
+Always run with --yolo for /job-hunter batch sessions.
+```
+
+> **Disclaimer**: `--yolo` skips all tool-call confirmations for the session. Gemini CLI can execute shell commands and write files without prompting. Job Hunter batch does not commit or push.
+
 ---
 
 ## 7. LLM API mode setup
