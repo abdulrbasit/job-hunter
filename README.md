@@ -6,7 +6,7 @@ Works interactively inside Claude Code or Codex (VS Code extensions), or runs fu
 
 ## What It Does
 
-- **Discovers jobs** across LinkedIn, Indeed, Glassdoor, Himalayas, Remotive, and more — filtered by your titles, regions, and exclusions
+- **Discovers jobs** across supported job boards, aggregators, and company career pages — filtered by your titles, regions, and exclusions
 - **Scores each listing** against your career context so you know what to prioritize
 - **Tailors your resume** per job and generates a cover letter, ready for PDF export
 - **Tracks applications** with a dashboard and analytics so nothing slips through
@@ -27,7 +27,7 @@ cd my-workspace
 job-hunter doctor
 ```
 
-Open workspace in VS Code, then run `/setup onboard`, `/setup context`, `/setup stories`, and `/setup resume`. `job-hunter doctor` validates config and reports exact fixes.
+Open the workspace in VS Code with Claude Code or Codex, then run `/setup onboard`, `/setup context`, `/setup stories`, and `/setup resume`. `job-hunter doctor` validates config and reports exact fixes.
 
 ## Modes
 

@@ -30,18 +30,47 @@ def strip_html(html: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _first_title_match(title: str, job_titles: list[str]) -> re.Match[str] | None:
+    """Find first occurrence of any job title using word boundaries."""
+    matches = []
+    for job_title in job_titles:
+        tokens = re.findall(r"\w+", job_title.lower())
+        if tokens:
+            pattern = rf"(?<!\w){r'[\W_]+'.join(map(re.escape, tokens))}(?!\w)"
+            if match := re.search(pattern, title):
+                matches.append(match)
+    return min(matches, key=lambda match: match.start(), default=None)
+
+
+def _has_exclusion_before_role(
+    title: str,
+    excluded_terms: list[str],
+    role_match: re.Match[str] | None,
+) -> bool:
+    """Check if excluded terms appear before the matched role."""
+    role_end = role_match.end() if role_match else len(title) + 1
+    if excluded_terms:
+        for term in excluded_terms:
+            term = term.strip().lower()
+            if not term:
+                continue
+            excluded = re.search(rf"(?<!\w){re.escape(term)}(?!\w)", title)
+            if excluded and excluded.start() < role_end:
+                return True
+    return False
+
+
 def title_matches(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
-    """True if title contains at least one job title keyword and no excluded terms."""
+    """True when a target role appears before any excluded occupation or level."""
     if not title:
         return False
     lower = title.lower()
-    if excluded_terms and any(
-        re.search(rf"(?<!\w){re.escape(term.strip().lower())}(?!\w)", lower) for term in excluded_terms if term.strip()
-    ):
+    role_match = _first_title_match(lower, job_titles) if job_titles else None
+    if job_titles and not role_match:
         return False
     if not job_titles:
         return True
-    return any(jt.lower() in lower for jt in job_titles)
+    return not _has_exclusion_before_role(lower, excluded_terms or [], role_match)
 
 
 def location_matches(location: str, filter_location: str) -> bool:
