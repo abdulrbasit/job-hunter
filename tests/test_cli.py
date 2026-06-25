@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_TEMPLATE = ROOT / "job_hunter" / "templates" / "workspace"
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def _is_upstream_repo_context(root: Path = ROOT) -> bool:
@@ -24,7 +26,8 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONUTF8"] = "1"
-    return subprocess.run(
+    env["NO_COLOR"] = "1"
+    result = subprocess.run(
         [sys.executable, "-m", "job_hunter.cli", *args],
         cwd=ROOT,
         env=env,
@@ -33,6 +36,9 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         encoding="utf-8",
         check=False,
     )
+    result.stdout = ANSI_ESCAPE.sub("", result.stdout)
+    result.stderr = ANSI_ESCAPE.sub("", result.stderr)
+    return result
 
 
 def test_help_loads() -> None:
