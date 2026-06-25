@@ -58,7 +58,7 @@ def doctor(root: Path) -> dict[str, Any]:
                     f"llm_provider:{provider}",
                     _module_available(module),
                     f"{provider} SDK",
-                    "Install LLM support: pip install 'job-hunter-kit[llm]'",
+                    "Reinstall job-hunter-kit to restore its bundled LLM provider SDKs.",
                 )
             )
     resume_rel = _configured_profile_rel(job_hunter_cfg, "resume_tex", "profile/resume_double_column.tex")

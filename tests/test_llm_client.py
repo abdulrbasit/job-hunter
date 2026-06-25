@@ -86,5 +86,5 @@ def test_missing_provider_sdk_points_to_llm_extra(monkeypatch, provider, blocked
     monkeypatch.setattr(builtins, "__import__", missing_sdk)
     client = LLMClient.__new__(LLMClient)
 
-    with pytest.raises(ImportError, match=r"job-hunter-kit\[llm\]"):
+    with pytest.raises(ImportError, match="Reinstall job-hunter-kit"):
         client._init(provider, "", "")

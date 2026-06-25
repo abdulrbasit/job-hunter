@@ -24,6 +24,9 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
   "typer>=0.12",
+  "anthropic>=0.50.0",
+  "openai>=1.68.0",
+  "google-genai>=1.0.0",
   "requests>=2.31.0",
   "beautifulsoup4>=4.12.0",
   "pyyaml>=6.0",
@@ -35,13 +38,8 @@ dependencies = [
 [project.optional-dependencies]
 browser = ["playwright>=1.40.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "pytest-cov", "ty>=0.0.1a20"]
-llm = [
-  "anthropic>=0.50.0",
-  "openai>=1.68.0",
-  "google-genai>=1.0.0",
-]
 secrets = ["keyring>=24.0.0"]
-all = ["job-hunter-kit[llm,browser,secrets]"]
+all = ["job-hunter-kit[browser,secrets]"]
 
 [project.scripts]
 job-hunter = "job_hunter.cli:app"

@@ -61,6 +61,11 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert "Python 3.12+" in setup
     assert "job-hunter doctor" in setup
     assert "job-hunter hunt --region primary" in setup
+    assert "GitHub Desktop" in setup
+    assert "GitHub Secrets" in setup
+    assert "Agent mode setup" in setup
+    assert "LLM API mode setup" in setup
+    assert len(setup.splitlines()) >= 300
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert ".claude/skills/setup/SKILL.md" in manifest["managed_files"]

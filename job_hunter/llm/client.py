@@ -30,7 +30,7 @@ from typing import Any
 from job_hunter.models import LLMRequest, LLMResponse
 
 logger = logging.getLogger(__name__)
-_LLM_EXTRA_HELP = "Install LLM support with: pip install 'job-hunter-kit[llm]'"
+_LLM_EXTRA_HELP = "Reinstall job-hunter-kit to restore bundled LLM provider SDKs."
 
 
 def _compress_request(prompt: str, system: str, model: str) -> tuple[str, str]:

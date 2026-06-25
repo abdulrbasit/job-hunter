@@ -135,7 +135,7 @@ def test_llm_api_mode_requires_docker_and_provider_sdk(tmp_path: Path, monkeypat
 
     assert checks["docker"]["ok"] is False
     assert checks["llm_provider:anthropic"]["ok"] is False
-    assert "job-hunter-kit[llm]" in checks["llm_provider:anthropic"]["fix"]
+    assert "Reinstall job-hunter-kit" in checks["llm_provider:anthropic"]["fix"]
 
 
 def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:

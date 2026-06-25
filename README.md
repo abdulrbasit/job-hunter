@@ -17,11 +17,7 @@ Works interactively inside Claude Code or Codex (VS Code extensions), or runs fu
 uv tool install job-hunter-kit
 ```
 
-Base install targets agent mode. Autonomous mode needs:
-
-```bash
-uv tool install "job-hunter-kit[llm]"
-```
+Standard install supports both agent and `llm-api` modes.
 
 ## Quick Start
 
@@ -90,7 +86,7 @@ See `DATA_CONTRACT.md` for the full contract.
 ## Development
 
 ```bash
-uv sync --extra dev --extra llm
+uv sync --extra dev
 uv run pytest tests/ -q --tb=short
 uv run ruff format --check job_hunter tests .github/scripts
 uv run ruff check job_hunter tests .github/scripts

@@ -1002,9 +1002,12 @@ name = "job-hunter-kit"
 version = "0.10"
 source = { editable = "." }
 dependencies = [
+    { name = "anthropic" },
     { name = "beautifulsoup4" },
+    { name = "google-genai" },
     { name = "headroom-ai", marker = "sys_platform != 'win32'" },
     { name = "jsonschema" },
+    { name = "openai" },
     { name = "python-jobspy" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -1013,10 +1016,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "anthropic" },
-    { name = "google-genai" },
     { name = "keyring" },
-    { name = "openai" },
     { name = "playwright" },
 ]
 browser = [
@@ -1028,25 +1028,20 @@ dev = [
     { name = "ruff" },
     { name = "ty" },
 ]
-llm = [
-    { name = "anthropic" },
-    { name = "google-genai" },
-    { name = "openai" },
-]
 secrets = [
     { name = "keyring" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.50.0" },
+    { name = "anthropic", specifier = ">=0.50.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
-    { name = "google-genai", marker = "extra == 'llm'", specifier = ">=1.0.0" },
+    { name = "google-genai", specifier = ">=1.0.0" },
     { name = "headroom-ai", marker = "sys_platform != 'win32'", specifier = ">=0.1.0" },
-    { name = "job-hunter-kit", extras = ["llm", "browser", "secrets"], marker = "extra == 'all'" },
+    { name = "job-hunter-kit", extras = ["browser", "secrets"], marker = "extra == 'all'" },
     { name = "jsonschema", specifier = ">=4.0" },
     { name = "keyring", marker = "extra == 'secrets'", specifier = ">=24.0.0" },
-    { name = "openai", marker = "extra == 'llm'", specifier = ">=1.68.0" },
+    { name = "openai", specifier = ">=1.68.0" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
@@ -1057,7 +1052,7 @@ requires-dist = [
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a20" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["browser", "dev", "llm", "secrets", "all"]
+provides-extras = ["browser", "dev", "secrets", "all"]
 
 [[package]]
 name = "jsonschema"
