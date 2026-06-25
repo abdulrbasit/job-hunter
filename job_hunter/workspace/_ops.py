@@ -162,7 +162,7 @@ def run_init(path: Path, force: bool = False) -> None:
     typer.echo(f"  cd {workspace}")
     typer.echo("  job-hunter doctor")
     typer.echo("  # Open this folder in VS Code and run /setup onboard")
-    typer.echo("  job-hunter hunt --region primary")
+    typer.echo("  # Commit and push setup, then run GitHub Actions > Find Jobs")
 
 
 def _promote_examples(workspace: Path) -> None:

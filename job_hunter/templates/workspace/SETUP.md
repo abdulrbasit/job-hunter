@@ -631,23 +631,73 @@ Run `job-hunter doctor` locally after config changes.
 
 ## 10. First job search
 
-Run:
+The easiest and recommended first hunt is through GitHub Actions. This confirms your private repository, secrets, workflow, and Job Hunter configuration all work together.
+
+### Commit and push your completed setup
+
+Do this only after onboarding, career context, stories, resume, and `job-hunter doctor` are complete.
+
+GitHub Desktop:
+
+1. Open GitHub Desktop.
+2. Review changed files.
+3. Enter summary: `Complete Job Hunter setup`.
+4. Click **Commit to main**.
+5. Click **Push origin**.
+
+Command line:
 
 ```bash
-job-hunter hunt --region primary
+git add .
+git commit -m "Complete Job Hunter setup"
+git push
 ```
 
-Then:
+Never commit `.env`. It is ignored automatically.
+
+### Run the first hunt with GitHub Actions
+
+On GitHub.com:
+
+1. Open your private workspace repository.
+2. Select **Actions**.
+3. Select **Find Jobs**.
+4. Click **Run workflow**.
+5. Leave region blank to run all enabled regions, or enter `primary`.
+6. Click the green **Run workflow** button.
+7. Wait for the run to finish.
+
+Short path: **Actions → Find Jobs → Run workflow**.
+
+When the run succeeds, GitHub Actions commits discovered candidates back to your repository.
+
+### Pull first results
+
+GitHub Desktop:
+
+1. Click **Fetch origin**.
+2. Click **Pull origin**.
+
+Command line:
 
 ```bash
-job-hunter brief
+git pull
 ```
 
-In agent mode, open VS Code and run:
+Now open VS Code and review:
 
 ```text
 /job-hunter brief
 /job-hunter batch
+```
+
+### Optional local hunt
+
+Local hunt is useful for troubleshooting or development, but is not required for first setup.
+
+```bash
+job-hunter hunt --region primary
+job-hunter brief
 ```
 
 To process one URL:

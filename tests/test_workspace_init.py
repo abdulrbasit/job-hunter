@@ -66,6 +66,13 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert "Agent mode setup" in setup
     assert "LLM API mode setup" in setup
     assert len(setup.splitlines()) >= 300
+    first_hunt = setup.index("## 10. First job search")
+    commit_step = setup.index("Commit and push your completed setup", first_hunt)
+    actions_step = setup.index("Run the first hunt with GitHub Actions", first_hunt)
+    local_step = setup.index("Optional local hunt", first_hunt)
+    assert commit_step < actions_step < local_step
+    assert "git push" in setup[commit_step:actions_step]
+    assert "Actions → Find Jobs → Run workflow" in setup[actions_step:local_step]
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert ".claude/skills/setup/SKILL.md" in manifest["managed_files"]
