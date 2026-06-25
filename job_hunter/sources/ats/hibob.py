@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from job_hunter.core.config import load_api_config
+from job_hunter.config.loader import load_api_config
 from job_hunter.core.utils import location_matches, title_matches
 
 logger = logging.getLogger(__name__)

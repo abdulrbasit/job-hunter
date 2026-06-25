@@ -8,23 +8,19 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import cache
 
-from job_hunter.core.config import get_config, profile_path
+from job_hunter.config.loader import get_config, profile_path
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.pipeline.llm_stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
-_base_tex_cache: str | None = None
 
-
+@cache
 def _get_base_tex() -> str:
-    global _base_tex_cache
-    if _base_tex_cache is None:
-        with open(profile_path("resume_tex", "resume.tex"), encoding="utf-8") as f:
-            _base_tex_cache = f.read()
-    return _base_tex_cache
+    return profile_path("resume_tex", "resume.tex").read_text(encoding="utf-8")
 
 
 _SYSTEM_BASE = """You are editing a LaTeX resume.
@@ -82,20 +78,12 @@ def _load_runtime_config() -> dict:
     return get_config("job_hunter")
 
 
-def _load_story_bank(path_name: str) -> str:
-    """Load story bank text for source-grounded tailoring."""
+def _load_profile_text(key: str, default: str, *, warn: str = "") -> str:
     try:
-        path = profile_path("story_bank", path_name)
-        return path.read_text(encoding="utf-8")
+        return profile_path(key, default).read_text(encoding="utf-8")
     except FileNotFoundError:
-        logger.warning("[tailor] Story bank not found; project tailoring disabled")
-        return ""
-
-
-def _load_career_context() -> str:
-    try:
-        return profile_path("career_context", "profile/career_context.md").read_text(encoding="utf-8")
-    except FileNotFoundError:
+        if warn:
+            logger.warning(warn)
         return ""
 
 
@@ -182,8 +170,12 @@ def tailor(match_result: dict) -> str:
     gaps = ", ".join(match_result.get("gaps", []))
     tailoring_cfg = _load_runtime_config()
     stories_cfg = tailoring_cfg.get("tailoring", {}).get("stories", {})
-    story_bank = _load_story_bank(stories_cfg.get("story_bank", "story_bank.md"))
-    career_context = _load_career_context()
+    story_bank = _load_profile_text(
+        "story_bank",
+        stories_cfg.get("story_bank", "story_bank.md"),
+        warn="[tailor] Story bank not found; project tailoring disabled",
+    )
+    career_context = _load_profile_text("career_context", "profile/career_context.md")
     story_bank_limit = int(stories_cfg.get("max_chars_for_tailoring", 16000))
     tailoring_rules = _build_tailoring_rules(tailoring_cfg)
     positioning_rules = _build_positioning_rules(tailoring_cfg)

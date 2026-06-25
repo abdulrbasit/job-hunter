@@ -12,7 +12,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from job_hunter.core.config import get_timeout, load_api_config
+from job_hunter.config.loader import get_timeout, load_api_config
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter

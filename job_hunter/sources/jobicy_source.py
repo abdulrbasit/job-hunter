@@ -13,8 +13,8 @@ from pathlib import Path
 
 import requests
 
+from job_hunter.config.loader import ROOT, get_timeout, load_api_config
 from job_hunter.core.api_budget import reserve_api_call
-from job_hunter.core.config import ROOT, get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter

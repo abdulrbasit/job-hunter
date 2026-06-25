@@ -6,7 +6,7 @@ import argparse
 import os
 from pathlib import Path
 
-from job_hunter.core.config import ROOT, setup_logging
+from job_hunter.config.loader import ROOT, setup_logging
 from job_hunter.linkedin._config import (
     complete_linkedin,
     configured_path,

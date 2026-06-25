@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from job_hunter.config.loader import load_api_config
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
-from job_hunter.core.config import load_api_config
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.sources.ats_urls import ats_discovery_sites
 from job_hunter.sources.search_providers._result import SearchResult

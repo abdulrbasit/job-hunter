@@ -260,7 +260,7 @@ def update(
 @app.command()
 def version() -> None:
     """Show installed package version and workspace version."""
-    from job_hunter.core.config import package_version
+    from job_hunter.config.loader import package_version
     from job_hunter.workspace.manifest import find_workspace_root, read_manifest
 
     pkg_ver = package_version()
@@ -416,7 +416,7 @@ def compile_pdf(
     """Compile resume_tailored.tex → PDF for a job folder."""
     import shutil
 
-    from job_hunter.core.config import ROOT, get_config
+    from job_hunter.config.loader import ROOT, get_config
     from job_hunter.pipeline.pdf_compiler import compile_tex
     from job_hunter.tracker import repo_path
 

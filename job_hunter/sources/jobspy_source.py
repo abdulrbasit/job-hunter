@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Any
 
-from job_hunter.core.config import load_api_config
+from job_hunter.config.loader import load_api_config
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter

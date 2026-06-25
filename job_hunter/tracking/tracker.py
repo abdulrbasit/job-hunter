@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from job_hunter.core.config import ROOT as REPO_ROOT
+from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.tracking._io import _read_state, _write_state
 

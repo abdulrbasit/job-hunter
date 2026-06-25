@@ -11,8 +11,8 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
+from job_hunter.config.loader import FIRECRAWL_API_KEY, get_timeout, load_api_config
 from job_hunter.core.api_budget import reserve_api_call
-from job_hunter.core.config import FIRECRAWL_API_KEY, get_timeout, load_api_config
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.search_providers._constants import USER_AGENT
 from job_hunter.sources.search_providers._url_utils import (

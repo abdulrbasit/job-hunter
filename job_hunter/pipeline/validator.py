@@ -19,8 +19,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
+from job_hunter.config.loader import load_api_config
 from job_hunter.constants import VALIDATION_SNIPPET_CHARS
-from job_hunter.core.config import load_api_config
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.core.metrics import timed_stage
 from job_hunter.core.utils import url_is_alive

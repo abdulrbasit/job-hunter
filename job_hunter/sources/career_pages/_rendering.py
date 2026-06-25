@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from job_hunter.core.config import get_timeout
+from job_hunter.config.loader import get_timeout
 from job_hunter.sources.search_providers import (
     USER_AGENT,
     extract_jobs_from_html,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import requests
 
-from job_hunter.core.config import (
+from job_hunter.config.loader import (
     BRAVE_API_KEY,
     EXA_API_KEY,
     TAVILY_API_KEY,

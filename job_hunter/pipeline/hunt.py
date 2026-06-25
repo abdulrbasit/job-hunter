@@ -16,7 +16,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from job_hunter.core.config import ROOT as REPO_ROOT
+from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.core.url_liveness import UrlLivenessCache
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets

@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from job_hunter.core.config import get_timeout  # noqa: F401 — exposed for test patching
+from job_hunter.config.loader import get_timeout  # noqa: F401 — exposed for test patching
 from job_hunter.core.llm_utils import extract_json_object, get_llm_role_settings
 from job_hunter.core.utils import strip_html
 from job_hunter.llm.client import get_client as get_llm_client
@@ -624,7 +624,7 @@ def _normalize_extracted_job(extracted: Any) -> dict[str, str]:
 def _jd_config() -> dict:
     """Load jd_fetcher config section for test patching."""
     try:
-        from job_hunter.core.config import load_api_config
+        from job_hunter.config.loader import load_api_config
 
         return load_api_config().get("http", {}).get("jd_fetcher", {}) or {}
     except Exception:

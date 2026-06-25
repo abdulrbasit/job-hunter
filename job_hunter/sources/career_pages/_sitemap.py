@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from job_hunter.core.config import get_timeout
+from job_hunter.config.loader import get_timeout
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.career_pages._ats_patterns import _CAREER_PATHS
 from job_hunter.sources.search_providers import USER_AGENT, canonicalize_url

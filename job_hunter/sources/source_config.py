@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from job_hunter.core.config import get_config
+from job_hunter.config.loader import get_config
 
 logger = logging.getLogger(__name__)
 

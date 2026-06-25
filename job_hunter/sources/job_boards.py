@@ -18,13 +18,13 @@ from datetime import UTC, datetime
 
 import requests
 
+from job_hunter.config.loader import RAPIDAPI_KEY, get_timeout, load_api_config
 from job_hunter.constants import JOB_BOARD_SNIPPET_CHARS
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.config import RAPIDAPI_KEY, get_timeout, load_api_config
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter

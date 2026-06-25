@@ -12,7 +12,7 @@ from typing import Any
 import yaml
 
 from job_hunter.config.defaults import LINKEDIN_DEFAULTS, deep_merge
-from job_hunter.core.config import ROOT, get_config, profile_path
+from job_hunter.config.loader import ROOT, get_config, profile_path
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
 
@@ -61,10 +61,6 @@ def configured_path(config: dict[str, Any], key: str) -> Path:
     return repo_path(value)
 
 
-def ensure_parent(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-
 def read_text(path: Path, default: str = "") -> str:
     if not path.exists():
         return default
@@ -72,14 +68,14 @@ def read_text(path: Path, default: str = "") -> str:
 
 
 def append_section(path: Path, text: str) -> None:
-    ensure_parent(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     existing = read_text(path)
     separator = "\n\n" if existing.strip() else ""
     path.write_text(existing.rstrip() + separator + text.strip() + "\n", encoding="utf-8")
 
 
 def write_text(path: Path, text: str) -> None:
-    ensure_parent(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 

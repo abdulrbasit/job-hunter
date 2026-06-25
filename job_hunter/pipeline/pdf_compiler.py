@@ -14,7 +14,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from job_hunter.core.config import ROOT
+from job_hunter.config.loader import ROOT
 
 logger = logging.getLogger(__name__)
 

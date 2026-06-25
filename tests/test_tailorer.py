@@ -93,7 +93,11 @@ def test_tailor_includes_project_rules_and_story_bank_for_active_projects() -> N
 
     with (
         patch.object(tailorer, "_get_base_tex", return_value=tex_with_projects),
-        patch.object(tailorer, "_load_story_bank", return_value="### MS-01 — Digital Factory story"),
+        patch.object(
+            tailorer,
+            "_load_profile_text",
+            side_effect=lambda k, d, **kw: "### MS-01 — Digital Factory story" if k == "story_bank" else "",
+        ),
         patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock),
     ):
         tailorer.tailor(MATCH)
@@ -124,7 +128,11 @@ def test_tailor_disables_project_tailoring_when_section_is_commented() -> None:
 
     with (
         patch.object(tailorer, "_get_base_tex", return_value=tex_with_commented_projects),
-        patch.object(tailorer, "_load_story_bank", return_value="### MS-01 — Digital Factory story"),
+        patch.object(
+            tailorer,
+            "_load_profile_text",
+            side_effect=lambda k, d, **kw: "### MS-01 — Digital Factory story" if k == "story_bank" else "",
+        ),
         patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock),
     ):
         tailorer.tailor(MATCH)

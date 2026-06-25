@@ -10,7 +10,7 @@ import os
 import re
 from datetime import datetime
 
-from job_hunter.core.config import get_config, profile_path
+from job_hunter.config.loader import get_config, profile_path
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.pipeline.llm_stage import LLMStage

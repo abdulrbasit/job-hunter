@@ -36,17 +36,16 @@ def _compress_request(prompt: str, system: str, model: str) -> tuple[str, str]:
     """Compress prompt and system context via headroom before sending to the LLM."""
     try:
         from headroom import compress  # noqa: PLC0415
-
-        messages: list[dict] = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-        compressed = compress(messages, model=model)
-        c_system = next((m["content"] for m in compressed if m.get("role") == "system"), system)
-        c_prompt = next((m["content"] for m in compressed if m.get("role") == "user"), prompt)
-        return c_prompt, c_system
-    except Exception:
+    except ImportError:
         return prompt, system
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    compressed = compress(messages, model=model)
+    c_system = next((m["content"] for m in compressed if m.get("role") == "system"), system)
+    c_prompt = next((m["content"] for m in compressed if m.get("role") == "user"), prompt)
+    return c_prompt, c_system
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -183,10 +182,14 @@ class LLMClient:
             return resp.choices[0].message.content.strip(), usage.prompt_tokens, usage.completion_tokens, 0
 
         if self._provider == "google":
-            cfg_kwargs = google_generation_config_kwargs(system, max_tokens, response_format)
             from google.genai import types
 
-            config = types.GenerateContentConfig(**cfg_kwargs)
+            cfg: dict[str, Any] = {"max_output_tokens": max_tokens}
+            if system:
+                cfg["system_instruction"] = system
+            if response_format == "json":
+                cfg["response_mime_type"] = "application/json"
+            config = types.GenerateContentConfig(**cfg)
             resp = self._raw.models.generate_content(model=model, contents=user, config=config)
             return (resp.text or "").strip(), 0, 0, 0
 
@@ -242,17 +245,3 @@ def call(role: str, prompt: str, system: str = "", cache_system: bool = False, c
         cache_system=cache_system,
         cache_ttl=cache_ttl,
     )
-
-
-def google_generation_config_kwargs(
-    system: str | None,
-    max_tokens: int,
-    response_format: str | None = None,
-) -> dict[str, Any]:
-    """Build kwargs for Google GenerateContentConfig without importing the SDK."""
-    kwargs: dict[str, Any] = {"max_output_tokens": max_tokens}
-    if system:
-        kwargs["system_instruction"] = system
-    if response_format == "json":
-        kwargs["response_mime_type"] = "application/json"
-    return kwargs

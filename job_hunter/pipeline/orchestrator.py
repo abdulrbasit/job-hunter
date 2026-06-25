@@ -23,9 +23,9 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from job_hunter.config.loader import ROOT as REPO_ROOT
+from job_hunter.config.loader import get_config, load_api_config, profile_path, setup_logging
 from job_hunter.constants import DEFAULT_BATCH_SIZE
-from job_hunter.core.config import ROOT as REPO_ROOT
-from job_hunter.core.config import get_config, load_api_config, profile_path, setup_logging
 from job_hunter.core.url_liveness import UrlLivenessCache
 from job_hunter.pipeline.cover_writer import write_cover
 from job_hunter.pipeline.hunt import (

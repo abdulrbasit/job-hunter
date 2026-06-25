@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from job_hunter.core.config import ROOT
+from job_hunter.config.loader import ROOT
 from job_hunter.sources.career_pages import extract_career_page_jobs
 
 logger = logging.getLogger(__name__)

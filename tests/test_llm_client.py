@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock
 
 from job_hunter.llm import client as real_llm_client
-from job_hunter.llm.client import LLMClient, google_generation_config_kwargs
+from job_hunter.llm.client import LLMClient
 
 
 def _client_with_limit(requests_per_minute):
@@ -66,11 +66,3 @@ def test_get_llm_client_cache_is_thread_safe(monkeypatch) -> None:
     assert len(created) == 1
     assert len({id(client) for client in clients}) == 1
     assert created == [("ollama", "", "http://localhost:11434", 4)]
-
-
-def test_google_json_response_format_sets_mime_type() -> None:
-    kwargs = google_generation_config_kwargs("system", 20, "json")
-
-    assert kwargs["max_output_tokens"] == 20
-    assert kwargs["response_mime_type"] == "application/json"
-    assert kwargs["system_instruction"] == "system"

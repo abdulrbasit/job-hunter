@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from job_hunter.core.config import ROOT, get_config
+from job_hunter.config.loader import ROOT, get_config
 
 DEFAULT_CONFIG_PATH = ROOT / "config" / "job_hunter.yml"
 

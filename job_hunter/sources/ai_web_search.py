@@ -19,7 +19,7 @@ from job_hunter.config.defaults import (
     PROVIDER_SECRET_ENV_VARS,
     STALE_INDICATORS,
 )
-from job_hunter.core.config import get_config, get_secret, load_api_config
+from job_hunter.config.loader import get_config, get_secret, load_api_config
 from job_hunter.core.utils import title_matches
 
 logger = logging.getLogger(__name__)

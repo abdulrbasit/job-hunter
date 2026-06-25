@@ -35,7 +35,7 @@ def dispatch_hunt(
 ) -> None:
     """Entry point for `job-hunter hunt`. Reads mode from config and routes."""
     from job_hunter.config import get_mode
-    from job_hunter.core.config import setup_logging
+    from job_hunter.config.loader import setup_logging
     from job_hunter.models import HuntInput
     from job_hunter.pipeline.hunt import run
 
@@ -78,7 +78,7 @@ def dispatch_tailor(
 ) -> None:
     """Entry point for `job-hunter tailor`. Routes to pipeline or agent mode."""
     from job_hunter.config import get_mode
-    from job_hunter.core.config import ROOT, get_config, load_api_config
+    from job_hunter.config.loader import ROOT, get_config, load_api_config
     from job_hunter.core.url_liveness import UrlLivenessCache
     from job_hunter.pipeline.orchestrator import run as orch_run
     from job_hunter.pipeline.tailor import run_tailor

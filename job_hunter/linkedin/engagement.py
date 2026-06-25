@@ -15,7 +15,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
-from job_hunter.core.config import setup_logging
+from job_hunter.config.loader import setup_logging
 from job_hunter.linkedin._config import (
     append_section,
     complete_linkedin,

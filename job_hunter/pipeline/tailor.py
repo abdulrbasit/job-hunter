@@ -7,7 +7,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Any
 
-from job_hunter.core.config import get_config
+from job_hunter.config.loader import get_config
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.jd_fetcher import fetch_jd, jd_from_text
 from job_hunter.tracking.tracker import load_processed

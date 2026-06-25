@@ -8,8 +8,8 @@ from collections import Counter
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
+from job_hunter.config.loader import load_api_config
 from job_hunter.constants import MIN_FULL_JD_SNIPPET_CHARS
-from job_hunter.core.config import load_api_config
 from job_hunter.core.metrics import timed_stage
 from job_hunter.core.utils import url_is_alive
 from job_hunter.sources.jd_fetcher import fetch_jd

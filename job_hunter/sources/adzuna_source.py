@@ -18,12 +18,12 @@ from datetime import datetime
 
 import requests
 
+from job_hunter.config.loader import ADZUNA_API_KEY, ADZUNA_APP_ID, get_timeout, load_api_config
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.config import ADZUNA_API_KEY, ADZUNA_APP_ID, get_timeout, load_api_config
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
