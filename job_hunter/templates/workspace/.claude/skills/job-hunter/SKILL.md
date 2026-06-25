@@ -53,47 +53,11 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 - `research <job>`: execute `.claude/skills/job-hunter/modes/research.md` inline.
 - `stories`: execute `.claude/skills/job-hunter/modes/stories.md` inline.
 
-**LinkedIn sub-router** — second token selects the LinkedIn mode
-- `ideas`, `post`, `content` → execute `.claude/skills/linkedin/modes/ideas.md` inline.
-- `draft`, `write` → execute `.claude/skills/linkedin/modes/draft.md` inline.
-- `engage`, `comments` → execute `.claude/skills/linkedin/modes/engage.md` inline.
-- `network`, `connect` → execute `.claude/skills/linkedin/modes/network.md` inline.
-- `linkedin` alone → print the LinkedIn sub-menu and stop.
+**LinkedIn sub-router** — `linkedin` (alone or with sub-argument): execute `.claude/skills/linkedin/SKILL.md` inline with remaining arguments.
 
-**Setup sub-router** — second token selects the setup mode
-- `setup`, `init`, `onboard` → execute `.claude/skills/setup/modes/onboard.md` inline.
-- `doctor`, `health`, `check` → execute `.claude/skills/setup/modes/doctor.md` inline.
-- `add-region`, `region` → execute `.claude/skills/setup/modes/region.md` inline with remaining arguments.
-- `style` → execute `.claude/skills/setup/modes/style.md` inline.
+**Setup sub-router** — `setup`, `init`, `onboard`, `doctor`, `health`, `check`, `add-region`, `region`, `style`: execute `.claude/skills/setup/SKILL.md` inline with remaining arguments.
 
 Unknown mode → print the command menu and ask the user to choose a listed mode.
-
-## Command Registry
-
-| Mode | Aliases | What it does |
-|---|---|---|
-| `brief` | `today`, `status` | Pull latest and show today's candidate brief |
-| `dashboard` | `apps`, `applications` | Show the application tracker dashboard |
-| `batch` | `process`, `queue` | Process the next frozen candidate batch |
-| `one <url>` | `url <url>`, pasted URL | Process one job URL end-to-end |
-| `search` | — | Search for more jobs when candidates are thin |
-| `finalize` | — | Commit durable reviewed outputs |
-| `screen` | — | Pre-screen a frozen candidate batch against config exclusion rules |
-| `tailor <job>` | — | Tailor resume + cover letter for a job |
-| `outreach <job>` | — | Draft LinkedIn connection + follow-up for a job |
-| `interview <job>` | — | Generate predicted interview questions for a job |
-| `score <job>` | — | Score one job 0–100 vs. resume and story bank |
-| `research <job>` | — | Web-search a company for an imported job |
-| `stories` | — | Refine raw work notes into rated STAR stories |
-| `linkedin ideas` | `linkedin post`, `linkedin content` | Generate weekly LinkedIn post ideas |
-| `linkedin draft` | `linkedin write` | Write one ready-to-post LinkedIn draft |
-| `linkedin engage` | `linkedin comments` | Draft comments for posts in your feed |
-| `linkedin network` | `linkedin connect` | Build a weekly connection queue |
-| `add-region` | — | Add or remove a search region |
-| `style` | — | Change resume color scheme or font |
-| `setup` | — | One-time onboarding for a fresh workspace |
-| `doctor` | `health`, `check` | Run the health checker and show setup status |
-| `help` | `menu`, empty | Show this command menu |
 
 ## Command Menu
 

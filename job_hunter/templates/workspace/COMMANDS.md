@@ -4,34 +4,18 @@ How to invoke job-hunter skills — what to type, and when.
 
 ---
 
-## How skills work
-
-**Claude Code, Gemini CLI, Codex** — type slash commands directly in the AI panel:
-```
-/setup onboard
-/job-hunter brief
-```
-
-**GitHub Copilot app** — no slash commands, describe the task in plain language:
-```
-"onboard me and set up my workspace"
-"show me today's job briefing"
-```
-
----
-
 ## First-time setup
 
 Run these once, in this order.
 
-| Step | Slash command | Copilot: say this |
-|---|---|---|
-| 1. Configure workspace | `/setup onboard` | "onboard me and set up my workspace" |
-| 2. Set career positioning | `/setup context` | "help me fill in my career context" |
-| 3. Add work stories | `/setup stories` | "help me add my work stories and CV bullets" |
-| 4. Build your resume | `/setup resume` | "build my base resume" |
-| 5. Style resume | `/setup style` | "change my resume colours and font" |
-| 6. Health check | `/setup doctor` | "run a health check on my workspace" |
+| Step | Command |
+|---|---|
+| 1. Configure workspace | `/setup onboard` |
+| 2. Set career positioning | `/setup context` |
+| 3. Add work stories | `/setup stories` |
+| 4. Build your resume | `/setup resume` |
+| 5. Style resume | `/setup style` |
+| 6. Health check | `/setup doctor` |
 
 ---
 
@@ -39,38 +23,38 @@ Run these once, in this order.
 
 Run these after pulling the latest pipeline results.
 
-| Step | Slash command | Copilot: say this |
-|---|---|---|
-| 1. See what was found | `/job-hunter brief` | "show me today's job briefing" |
-| 2. Work through candidates | `/job-hunter batch` | "let's go through today's candidates" |
-| 3. Save your work | `/job-hunter finalize` | "finalize and commit my reviewed jobs" |
+| Step | Command |
+|---|---|
+| 1. See what was found | `/job-hunter brief` |
+| 2. Work through candidates | `/job-hunter batch` |
+| 3. Save your work | `/job-hunter finalize` |
 
 ---
 
 ## Per-job actions
 
-For slash commands, replace `<job>` with the job slug — the folder name under `outputs/jobs/`.
+Replace `<job>` with the job slug — the folder name under `outputs/jobs/`.
 For example: `outputs/jobs/stripe-senior-pm-2025-06/` → slug is `stripe-senior-pm-2025-06`.
 
-| What you want to do | Slash command | Copilot: say this |
-|---|---|---|
-| Tailor resume + cover letter | `/job-hunter tailor <job>` | "tailor my resume for the [company] job" |
-| Score a job fit | `/job-hunter score <job>` | "score the [company] job for me" |
-| Research a company | `/job-hunter research <company>` | "research [company] for me" |
-| Generate interview questions | `/job-hunter interview <job>` | "help me prep for the [company] interview" |
-| Draft LinkedIn outreach | `/job-hunter outreach <job>` | "draft LinkedIn outreach for the [company] job" |
-| Process one job URL directly | `/job-hunter one <url>` | "process this job posting: [paste URL]" |
+| What you want to do | Command |
+|---|---|
+| Tailor resume + cover letter | `/job-hunter tailor <job>` |
+| Score a job fit | `/job-hunter score <job>` |
+| Research a company | `/job-hunter research <company>` |
+| Generate interview questions | `/job-hunter interview <job>` |
+| Draft LinkedIn outreach | `/job-hunter outreach <job>` |
+| Process one job URL directly | `/job-hunter one <url>` |
 
 ---
 
 ## LinkedIn
 
-| What you want to do | Slash command | Copilot: say this |
-|---|---|---|
-| Get weekly post ideas | `/linkedin ideas` | "give me LinkedIn post ideas for this week" |
-| Write a post draft | `/linkedin draft` | "write a LinkedIn post about [topic]" |
-| Draft comments | `/linkedin engage` | "help me write comments for LinkedIn posts" |
-| Build connection queue | `/linkedin network` | "build my LinkedIn connection list from my job targets" |
+| What you want to do | Command |
+|---|---|
+| Get weekly post ideas | `/linkedin ideas` |
+| Write a post draft | `/linkedin draft` |
+| Draft comments | `/linkedin engage` |
+| Build connection queue | `/linkedin network` |
 
 All output is draft only — nothing is posted automatically.
 
@@ -78,7 +62,7 @@ All output is draft only — nothing is posted automatically.
 
 ## Utility commands
 
-| What you want to do | Slash command |
+| What you want to do | Command |
 |---|---|
 | Search for more jobs | `/job-hunter search` |
 | Pre-screen batch against exclusions | `/job-hunter screen` |
