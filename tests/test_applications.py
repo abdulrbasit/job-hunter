@@ -54,6 +54,7 @@ def _write_job(root: Path, slug: str = "2026-06-12_acme_pm") -> Path:
         encoding="utf-8",
     )
     (job_dir / "evaluation.md").write_text("# Evaluation\n", encoding="utf-8")
+    (job_dir / "resume_tailored.tex").write_text("\\documentclass{altacv}\n", encoding="utf-8")
     return job_dir
 
 
@@ -138,6 +139,39 @@ def test_readme_renders_from_applications(tmp_path: Path) -> None:
     text = (tmp_path / "README.md").read_text(encoding="utf-8")
     assert "outputs/jobs/2026-06-12_acme_pm/" in text
     assert "(tailored)" in text
+
+
+def test_readme_refreshes_existing_application_score(tmp_path: Path) -> None:
+    readme = (
+        f"{TABLE_START}\n"
+        "| Date | Job | Location | Score | Files |\n"
+        "|---|---|---|---|---|\n"
+        "| 2026-06-12 | [Product Manager @ Acme](https://example.com/acme) | Berlin"
+        " | 0 (tailored) | [Files](outputs/jobs/2026-06-12_acme_pm/) |\n"
+        f"{TABLE_END}\n"
+    )
+    (tmp_path / "README.md").write_text(readme, encoding="utf-8")
+
+    update_readme_from_applications(
+        [
+            {
+                "date": "2026-06-12",
+                "slug": "2026-06-12_acme_pm",
+                "company": "Acme",
+                "title": "Product Manager",
+                "url": "https://example.com/acme",
+                "location": "Berlin",
+                "score": 82,
+                "status": "tailored",
+            }
+        ],
+        tmp_path,
+        "2026-06-12",
+    )
+
+    text = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert "| 82 (tailored) |" in text
+    assert "| 0 (tailored) |" not in text
 
 
 def test_verify_repository_validates_applications_and_processed_state(tmp_path: Path) -> None:

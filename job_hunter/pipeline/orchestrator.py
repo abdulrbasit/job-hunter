@@ -81,34 +81,9 @@ def _screen_by_config(
     jobs: list[dict[str, Any]], scoring_cfg: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply deterministic exclusion rules from config before any LLM calls."""
-    excl = scoring_cfg.get("exclusions", {}) or {}
-    title_terms = [t.lower() for t in (excl.get("title_terms") or [])]
-    companies = {c.lower() for c in (excl.get("companies") or [])}
-    industries = [i.lower() for i in (excl.get("industries") or [])]
-    languages = [lang.lower() for lang in (excl.get("languages") or [])]
+    from job_hunter.pipeline.screening import hard_screen_jobs
 
-    kept: list[dict[str, Any]] = []
-    rejected: list[dict[str, Any]] = []
-    for job in jobs:
-        title_lower = (job.get("title") or "").lower()
-        company_lower = (job.get("company") or "").lower()
-        snippet_lower = (job.get("snippet") or "").lower()
-        reason: str | None = None
-        if title_terms and any(t in title_lower for t in title_terms):
-            reason = "excluded_title_term"
-        elif companies and company_lower in companies:
-            reason = "excluded_company"
-        elif industries and any(ind in snippet_lower for ind in industries):
-            reason = "excluded_industry"
-        elif languages and any(lang in snippet_lower for lang in languages):
-            reason = "excluded_language"
-        if reason:
-            rejected.append({**job, "_rejection_reason": reason})
-        else:
-            kept.append(job)
-    if rejected:
-        logger.info("[screen] config rules: %s excluded, %s kept", len(rejected), len(kept))
-    return kept, rejected
+    return hard_screen_jobs(jobs, scoring_cfg)
 
 
 def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
@@ -275,6 +250,7 @@ def _process_jobs(
             api_cfg=api_cfg,
             url_checker=url_checker or UrlLivenessCache().is_alive,
             max_years_bypass_companies=strategic_override_companies(scoring_cfg),
+            excluded_industries=(scoring_cfg.get("exclusions", {}) or {}).get("industries", []),
         )
         for job in rejected:
             logger.info(

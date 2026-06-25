@@ -1,44 +1,42 @@
 # Tailor
 
-Tailor resume and cover letter for one job. After completing, control returns to the calling workflow — caller must immediately continue the next step.
+Produce application artifacts for one scored job.
+
+Slug: `$ARGUMENTS`
 
 ## Inputs
 
-```bash
-job-hunter agent-context score --mode full --job <slug>   # JD, resume, stories
-```
-
-Also read `profile/career_context.md` for targeting, resume style, cover-letter style, evidence boundaries, and calibration notes.
+- `job-hunter agent-context score --mode full --job <slug>`
+- `outputs/jobs/<slug>/score.yml`
+- Configured base resume from `config/job_hunter.yml:profile.resume_tex`
+- Selected Final stories from `matched_story_ids`
+- `profile/career_context.md` for resume style, cover-letter style, and evidence boundaries
+- `outputs/jobs/<slug>/company_research.md`, when present
 
 ## Steps
 
-1. **Load research** — read `outputs/jobs/<slug>/company_research.md` if it exists. Use the Application Angle section to inform cover letter positioning and story selection.
-
-2. **Select stories** — pick 3–5 stories from the story bank whose `matched_story_ids` overlap with the job's required skills.
-
-3. **Tailor resume bullets** — rewrite active-role bullets to front-load keywords from the JD. Do not fabricate metrics.
-
-4. **Draft cover letter** — follow cover-letter style from `profile/career_context.md` if present. Default structure (4 paragraphs):
-   - Why this role (1–2 sentences, use Application Angle from research)
-   - Strongest story (STAR summary, 2 sentences)
-   - Second strongest story (STAR summary, 2 sentences)
-   - Close with availability and next step
-
-5. **Write outputs**:
-   - `outputs/jobs/<slug>/resume_tailored.md` — tailored bullets
-   - `outputs/jobs/<slug>/cover_letter.md` — cover letter draft
-
-6. **Compile PDF** (if LaTeX is available):
+1. Read the complete configured base resume `.tex`.
+2. Read only selected Final stories. Use `stories-final` only when score evidence is thin.
+3. Write the complete tailored LaTeX document to `outputs/jobs/<slug>/resume_tailored.tex`.
+   Preserve document class, layout, commands, employers, titles, dates, and verified facts.
+   Tailor summary, relevant bullets, skills order, and active projects only.
+4. Write `outputs/jobs/<slug>/cover_letter.md`.
+5. Run:
    ```bash
-   job-hunter compile-pdf <slug>
+   job-hunter compile-pdf --job <slug>
    ```
-   PDF failure is non-blocking — log and continue.
-
-7. Return. control returns to the calling workflow — do not prompt the user.
+   This copies configured `altacv.cls` and profile image into the job folder before compiling.
+6. If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.
 
 ## Rules
 
-- No fabricated metrics or unverified claims.
-- Scope anchors only: use titles and org-level language from the resume.
-- No em dashes in output text.
-- caller must immediately continue the next step after this skill completes.
+- Never write `resume_tailored.md`.
+- Never fabricate metrics, skills, titles, employers, dates, or outcomes.
+- Profile image is copied only when configured and present.
+- Do not update README or processed state. Caller owns workflow state.
+
+## Output
+
+`<Company> — resume .tex + cover letter written; PDF generated|failed`
+
+Control returns to the calling workflow; caller immediately continues.

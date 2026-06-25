@@ -1,38 +1,27 @@
 # Search
 
-Search for more job postings. After completing, control returns to the calling workflow; caller must immediately continue the next step.
+Find extra direct job postings when normal discovery is thin.
 
-## Approach
+1. Run `job-hunter agent-context llm-search-config`.
+2. Stop when disabled or trigger threshold is met.
+3. Search enabled regions and effective titles. Stop at `max_results_per_run`.
+4. Verify each URL is a live, specific job posting. Reject exact excluded companies,
+   exact excluded title terms, stale pages, listing pages, and clear location/language failures.
+   Do not semantically reject industries here; Screen owns that judgment.
+5. Write `outputs/candidates/<date>_llm_search_candidates.json`:
 
-Run 5 web searches per title per region using ATS-specific site queries. Do not use configured company lists or career URLs; query by title and location only.
-
-### Query Templates
-
-For each job title and region, run:
-
-```
-site:boards.greenhouse.io "<title>" "<location>"
-site:jobs.lever.co OR site:ashbyhq.com "<title>" "<location>"
-site:jobs.smartrecruiters.com OR site:workdayjobs.com "<title>" "<location>"
-site:apply.workable.com "<title>" "<location>"
-"<title>" "<location>" job apply -site:linkedin.com -site:glassdoor.com
+```json
+{"jobs": [{"title": "", "company": "", "url": "", "location": "",
+           "region": "", "snippet": "", "source": "web-search"}]}
 ```
 
-## Deduplication
+6. Build the bounded queue:
 
-Before adding any URL, check:
-- `outputs/state/discovered_urls.yml` for persistent URL dedup.
-- `exclusions.companies` in `config/job_hunter.yml`.
-- `exclusions.title_terms` in `config/job_hunter.yml`.
-- Code-owned listing URL patterns, which remove search/category pages such as LinkedIn collection URLs.
-- Code-owned stale indicators, which remove expired or closed postings.
+```bash
+job-hunter agent-context candidates \
+  --source outputs/candidates/<date>_llm_search_candidates.json \
+  --write-queue outputs/state/llm_search_queue.json
+```
 
-Skip listing/search/category page URLs. Only add direct job posting URLs.
-
-## Limits
-
-Read `search.llm_search.max_results_per_run` from `config/job_hunter.yml`. Stop when that limit is reached across all queries.
-
-## Output
-
-Append new job URLs to the candidate queue for the calling workflow to process. Do not score or tailor; this skill only finds URLs.
+Return counts and paths only. Caller runs normal hard screen then semantic Screen.
+Control returns to the calling workflow; caller immediately continues.

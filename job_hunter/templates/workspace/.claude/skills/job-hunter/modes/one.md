@@ -18,7 +18,7 @@ Parse `$ARGUMENTS` for optional `--region <r>` and `--location <l>`. If missing,
 1. Run `job-hunter import-job --url "<url>" --region "<region>" --location "<location>"` and capture the slug.
 2. Run `job-hunter agent-context lifecycle --job <slug>`, then run the returned full-score command when lifecycle reports `full_score`.
 3. Execute `.claude/skills/job-hunter/modes/score.md` inline in full mode. It writes `score.yml` with `matched_story_ids`.
-4. If below threshold with no override, print the reason and stop.
+4. If below threshold with no override, run `job-hunter discard-job --job <slug>`, print the reason, and stop.
 5. Ask: `Tailor resume and write cover letter? Reply yes to continue.`
 6. On confirmation:
    - Execute `.claude/skills/job-hunter/modes/research.md` inline.

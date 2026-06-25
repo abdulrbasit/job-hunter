@@ -213,9 +213,6 @@ class JobPolicy:
         if self.is_excluded_language(title, snippet):
             logger.info("[skip] Excluded-language posting: %s", title[:60])
             return "excluded_language"
-        if self.is_excluded_industry(snippet):
-            logger.info("[skip] Excluded industry: %s", title[:60])
-            return "excluded_industry"
         date_status = self.posting_date_status(str(job.get("posted") or ""))
         if date_status not in {"current", "missing"}:
             logger.info("[skip] %s: %s", date_status, title[:60])

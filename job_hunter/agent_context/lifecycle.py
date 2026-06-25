@@ -52,7 +52,16 @@ def validate_score_file(path: Path) -> dict[str, Any]:
             "path": path.as_posix(),
             "error": f"missing required keys: {', '.join(missing)}",
         }
-    return {"valid": True, "path": path.as_posix(), "score": data.get("score")}
+    score = data.get("score")
+    if not isinstance(score, int) or isinstance(score, bool) or not 0 <= score <= 100:
+        return {"valid": False, "path": path.as_posix(), "error": "score must be an integer from 0 to 100"}
+    decision = data.get("decision")
+    if decision not in {"APPLY", "SKIP"}:
+        return {"valid": False, "path": path.as_posix(), "error": "decision must be APPLY or SKIP"}
+    for key in ("matched_story_ids", "matched", "gaps"):
+        if not isinstance(data.get(key), list):
+            return {"valid": False, "path": path.as_posix(), "error": f"{key} must be a list"}
+    return {"valid": True, "path": path.as_posix(), "score": score}
 
 
 def _processed_state_path(root: Path) -> Path:

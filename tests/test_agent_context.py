@@ -415,6 +415,34 @@ def test_screen_candidate_batch_filters_exclusions_and_duplicates(
     assert "duplicate_application" in skipped["cand_dup"]
 
 
+def test_screen_candidate_batch_defers_industry_judgment(tmp_path: Path) -> None:
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {
+            "job_titles": ["Product Manager"],
+            "exclusions": {"industries": ["banking", "crypto"]},
+        },
+    )
+    batch = {
+        "batch_number": 1,
+        "batch_size": 15,
+        "jobs": [
+            {
+                "candidate_id": "cand_platform",
+                "title": "Product Manager",
+                "company": "Example SaaS",
+                "snippet": "Build workflow software used by banking customers.",
+            }
+        ],
+    }
+
+    result = screen_candidate_batch(batch, root=tmp_path)
+
+    assert result["skipped"] == []
+    assert result["retained"][0]["candidate_id"] == "cand_platform"
+    assert result["retained"][0]["judgment_signals"]["industry_terms"] == ["banking"]
+
+
 def test_candidate_lifecycle_routes_thin_candidate_to_import(tmp_path: Path) -> None:
     queue_path = tmp_path / "outputs" / "state" / "queue.json"
     queue_path.parent.mkdir(parents=True)
@@ -599,6 +627,7 @@ def test_score_context_full_is_bounded_and_includes_story_index(tmp_path: Path) 
             "scoring": {"min_fit_score": 70, "max_years_experience_required": 5},
             "job_titles": ["Product Manager"],
             "profile": {
+                "resume_tex": "profile/resume_double_column.tex",
                 "story_bank": "profile/story_bank.md",
                 "career_context": "profile/career_context.md",
             },
@@ -614,6 +643,10 @@ def test_score_context_full_is_bounded_and_includes_story_index(tmp_path: Path) 
     _write_yaml(job_dir / "score.yml", {"status": "pending"})
     (tmp_path / "profile").mkdir(exist_ok=True)
     (tmp_path / "profile" / "career_context.md").write_text("Prefers concise cover letters.", encoding="utf-8")
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(
+        "\\documentclass{altacv}\nVerified resume evidence.",
+        encoding="utf-8",
+    )
     (tmp_path / "profile" / "story_bank.md").write_text(
         """# Role
 
@@ -632,6 +665,7 @@ Situation: relevant verified work.
     assert payload["job"]["meta"]["company"] == "ExampleCo"
     assert len(payload["job"]["jd_excerpt"]) <= 90
     assert payload["profile"]["career_context"] == "Prefers concise cover letters."
+    assert "Verified resume evidence." in payload["profile"]["resume_tex"]
     assert payload["profile"]["target_titles"] == ["Product Manager"]
     assert payload["story_index"][0]["id"] == "ST-01"
 

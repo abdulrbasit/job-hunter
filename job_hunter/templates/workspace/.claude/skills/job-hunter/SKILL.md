@@ -4,7 +4,7 @@ description: "Primary job search command center. Routes to individual skills for
 when_to_use: "Use for all job search work: running hunts, processing candidates, tailoring, researching, and managing the pipeline."
 argument-hint: "[brief|batch|one <url>|search|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
 disable-model-invocation: true
-allowed-tools: Bash Read Edit Write
+allowed-tools: Bash Read Edit Write WebSearch WebFetch
 author: "Abdul Basit (@abdulrbasit)"
 category: workflow
 ---
@@ -29,7 +29,7 @@ Arguments: `$ARGUMENTS`
 
 - Never fabricate resume facts, employers, dates, metrics, skills, or job history.
 - Never submit applications, send messages, connect, follow, like, comment, or post automatically.
-- Never overwrite user-owned files: `profile/`, `outputs/`, `config/job_hunter.yml`, `.env`.
+- Never overwrite profile/config inputs unless that mode requires it and the user requested it.
 - Leave generated changes uncommitted unless `finalize` is explicitly invoked.
 
 ## Routing
@@ -50,7 +50,7 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 - `outreach <job>`: execute `.claude/skills/job-hunter/modes/outreach.md` inline.
 - `interview <job>`: execute `.claude/skills/job-hunter/modes/interview.md` inline.
 - `score <job>`: execute `.claude/skills/job-hunter/modes/score.md` inline.
-- `research <company>`: execute `.claude/skills/job-hunter/modes/research.md` inline.
+- `research <job>`: execute `.claude/skills/job-hunter/modes/research.md` inline.
 - `stories`: execute `.claude/skills/job-hunter/modes/stories.md` inline.
 
 **LinkedIn sub-router** — second token selects the LinkedIn mode
@@ -83,7 +83,7 @@ Unknown mode → print the command menu and ask the user to choose a listed mode
 | `outreach <job>` | — | Draft LinkedIn connection + follow-up for a job |
 | `interview <job>` | — | Generate predicted interview questions for a job |
 | `score <job>` | — | Score one job 0–100 vs. resume and story bank |
-| `research <company>` | — | Web-search a company and write research notes |
+| `research <job>` | — | Web-search a company for an imported job |
 | `stories` | — | Refine raw work notes into rated STAR stories |
 | `linkedin ideas` | `linkedin post`, `linkedin content` | Generate weekly LinkedIn post ideas |
 | `linkedin draft` | `linkedin write` | Write one ready-to-post LinkedIn draft |
@@ -114,7 +114,7 @@ Job Hunter Command Center
 /job-hunter outreach <job>     Draft LinkedIn connection + follow-up
 /job-hunter interview <job>    Generate predicted interview questions
 /job-hunter score <job>        Score one job 0-100 vs. resume and story bank
-/job-hunter research <company> Web-search a company and write research notes
+/job-hunter research <job>     Web-search a company for an imported job
 /job-hunter stories            Refine raw work notes into rated STAR stories
 
 ── LinkedIn ────────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ from job_hunter.core.config import ROOT as REPO_ROOT
 from job_hunter.core.url_liveness import UrlLivenessCache
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
+from job_hunter.pipeline.screening import hard_screen_jobs
 from job_hunter.sources.jd_fetcher import fetch_jd
 from job_hunter.sources.orchestrator import scrape_with_stats
 from job_hunter.sources.search_providers import canonicalize_url
@@ -103,6 +104,9 @@ def run_hunt(
     logger.info("[pipeline] Step 1b: Enriching sparse job descriptions...")
     jobs = _enrich(jobs, api_cfg)
     jobs = _drop_closed_postings(jobs)
+    jobs, rejected = hard_screen_jobs(jobs, scoring_cfg)
+    if rejected:
+        logger.info("[pipeline] Objective screen rejected %s job(s)", len(rejected))
     return jobs, existing_urls, existing_titles
 
 
@@ -131,6 +135,12 @@ def run_hunt_scrape_only(
     if jobs:
         jobs = _enrich(jobs, api_cfg or {})
         jobs = _drop_closed_postings(jobs)
+    if jobs:
+        from job_hunter.config import get_config
+
+        jobs, rejected = hard_screen_jobs(jobs, get_config("job_hunter"))
+        if rejected:
+            logger.info("[pipeline] Objective screen rejected %s job(s)", len(rejected))
     stats.total_after_policy = len(jobs)
 
     payload = {

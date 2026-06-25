@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 _SYSTEM = "You are a job-posting validator. Return ONLY valid JSON with no markdown fences and no explanation."
 
 _PROMPT = """\
-Read this job posting snippet and answer two questions.
+Read this job posting snippet and answer three questions.
 
 1. Is this an active, open posting?
    Mark is_active=false ONLY if the text explicitly says the role is filled,
@@ -47,18 +47,25 @@ Read this job posting snippet and answer two questions.
    exceeding {max_years} years (e.g. "10+ years required", "minimum 8 years").
    When in doubt, default to false.
 
+3. Is the EMPLOYER itself primarily in one of these excluded industries: {excluded_industries}?
+   Do not reject because the role serves those customers, builds a related feature, or mentions
+   compliance. Mark excluded_industry=true only when the employer's primary business clearly matches.
+   When in doubt, default to false.
+
 Snippet:
 {snippet}
 
-Return JSON: {{"is_active": bool, "over_experience": bool, "reason": "one-line reason if rejected, else null"}}"""
+Return JSON: {{"is_active": bool, "over_experience": bool, "excluded_industry": bool,
+"reason": "one-line reason if rejected, else null"}}"""
 
 _REPAIR_PROMPT = """\
 Convert this model response into valid JSON matching exactly this schema:
-{{"is_active": bool, "over_experience": bool, "reason": string|null}}
+{{"is_active": bool, "over_experience": bool, "excluded_industry": bool, "reason": string|null}}
 
 Rules:
 - Return ONLY valid JSON.
-- If a value is missing or unclear, use is_active=true, over_experience=false, reason=null.
+- If a value is missing or unclear, use is_active=true, over_experience=false,
+  excluded_industry=false, reason=null.
 
 Response:
 {raw}
@@ -112,6 +119,7 @@ def validate(
     *,
     url_checker: Callable[[str, int], bool] = url_is_alive,
     max_years_bypass_companies: list[str] | None = None,
+    excluded_industries: list[str] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     Returns (valid_jobs, rejected_jobs).
@@ -180,7 +188,11 @@ def validate(
             logger.info(f"{prefix}: strategic override bypasses experience limit: {deterministic_reason}")
 
         try:
-            prompt = _PROMPT.format(max_years=max_years, snippet=snippet)
+            prompt = _PROMPT.format(
+                max_years=max_years,
+                excluded_industries=", ".join(excluded_industries or []) or "none",
+                snippet=snippet,
+            )
             raw = stage.complete(
                 system=_SYSTEM,
                 user=prompt,
@@ -213,6 +225,13 @@ def validate(
             if result.get("over_experience", False) and bypass_max_years:
                 reason = result.get("reason", "over_experience")
                 logger.info(f"{prefix}: strategic override bypasses LLM experience limit: {reason}")
+
+            if result.get("excluded_industry", False):
+                reason = result.get("reason", "excluded_industry")
+                logger.info(f"{prefix}: excluded employer industry: {reason}")
+                with results_lock:
+                    results.append((idx_orig, "rejected", {**job, "_rejection_reason": reason}))
+                return
 
             logger.info(f"{prefix}: valid")
             with results_lock:

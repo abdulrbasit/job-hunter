@@ -243,6 +243,64 @@ def test_update_readme_includes_location_and_migrates_existing_rows(tmp_path) ->
     assert "| 2026-05-01 | [Old PM @ OldCo](https://example.com/old) | Unknown | 72 |" in content
 
 
+def test_update_readme_refreshes_existing_score(tmp_path) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        "\n".join(
+            [
+                "<!-- JOBS_TABLE_START -->",
+                "| Date | Job | Location | Score | Files |",
+                "|---|---|---|---|---|",
+                "| 2026-06-12 | [Product Manager @ Acme](https://example.com/acme) | Berlin | 0 | [Files](jobs/old/) |",
+                "<!-- JOBS_TABLE_END -->",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    match = {
+        "score": 88,
+        "job": {
+            "title": "Product Manager",
+            "company": "Acme",
+            "location": "Berlin",
+            "url": "https://example.com/acme",
+        },
+    }
+
+    with (
+        patch("job_hunter.pipeline.orchestrator.ROOT", str(tmp_path)),
+        patch("job_hunter.pipeline.orchestrator._today", return_value="2026-06-12"),
+    ):
+        orchestrator.update_readme([match])
+
+    content = readme.read_text(encoding="utf-8")
+    assert "| 88 |" in content
+    assert "| 0 |" not in content
+
+
+def test_hard_screen_keeps_industry_mentions_for_semantic_judgment() -> None:
+    from job_hunter.pipeline.screening import hard_screen_jobs
+
+    jobs = [
+        {
+            "title": "Product Manager",
+            "company": "Workflow SaaS",
+            "snippet": "Build software used by banking customers.",
+            "region": "berlin",
+        }
+    ]
+    config = {
+        "job_titles": ["Product Manager"],
+        "exclusions": {"industries": ["banking"]},
+        "regions": {"berlin": {"location": "Berlin"}},
+    }
+
+    kept, rejected = hard_screen_jobs(jobs, config)
+
+    assert rejected == []
+    assert kept[0]["_judgment_signals"]["industry_terms"] == ["banking"]
+
+
 def test_update_readme_refreshes_existing_stats_block(tmp_path) -> None:
     readme = tmp_path / "README.md"
     readme.write_text(

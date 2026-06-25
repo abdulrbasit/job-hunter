@@ -7,8 +7,8 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
 - Do not pause between phases. After the user starts `/job-hunter batch`, continue end-to-end through screen, import, full score, research, tailor, README update, and LLM search phases without stopping for user input. A one-line status update is not an end state.
 - Execute child skills inline in this same run. To use a child skill, read its mode file, apply its instructions to the current compact context, write the required artifacts, then resume the next step. Do not print slash commands as handoffs.
 - When an atomic skill says it returns to the caller, treat that as control returning to this workflow; continue the next step immediately.
-- Use frozen batches. Default to 15 candidates; `--batch-size`, `--resume-batch`, and `--dry-run` are available.
-- Use `job-hunter agent-context screen-batch` for deterministic candidate screening before import or score.
+- Use frozen batches. Default to 15 candidates; `--batch-size` and `--dry-run` are available.
+- Use `screen-batch` for objective Python screening, then `screen.md` for semantic judgment.
 - Use `job-hunter agent-context lifecycle` for deterministic candidate/JD lifecycle decisions.
 - Do not refresh the active queue inside a batch. Mark terminal decisions by `candidate_id`, then rebuild only after the batch is complete.
 - End only when the current frozen batch and any triggered LLM-search batch are processed, or when a hard blocker requires user input.
@@ -35,11 +35,10 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
      --batch outputs/state/agent_candidate_batch.json \
      --write-screen outputs/state/batch_screen.yml
    ```
-   Then execute `.claude/skills/job-hunter/modes/screen.md` inline against the retained candidates, reading `config/job_hunter.yml` for all `exclusions.*` keys and `scoring.max_years_experience_required`. Apply all 7 rejection rules to further filter the batch. Candidates rejected here are treated as screen skips alongside those in `batch_screen.yml`.
+   Then execute `.claude/skills/job-hunter/modes/screen.md` inline against every retained candidate.
    Print only: `Batch 1: 15 loaded, N screen skips, M retained`.
 
 3. Pre-load shared context once per batch:
-   - `job-hunter agent-context lifecycle`
    - Read `config/job_hunter.yml` for deterministic thresholds and exclusions.
    - Read `profile/career_context.md` for targeting and writing guidance.
    - `job-hunter agent-context stories-final`
@@ -61,7 +60,7 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
    - Execute `.claude/skills/job-hunter/modes/tailor.md` inline.
    - Run `job-hunter update-readme --job <slug>`.
    - Run `job-hunter mark-processed --url "<url>" --company "<company>" --title "<title>"`.
-   Docker/PDF failures are non-blocking: write resume and cover letter, run README and processed-state updates, then report compile instructions only in the final summary.
+   PDF failure is non-blocking only when `resume_tailored.tex` exists. README update requires the `.tex`.
 
 7. Rebuild the candidate queue before starting the next batch or reporting the final summary:
    ```bash

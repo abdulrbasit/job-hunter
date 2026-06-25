@@ -7,19 +7,12 @@ Choose a prefix that maps to a role or phase (e.g. `PM`, `ENG`, `SIDE`).
 
 ---
 
-# Draft — work notes waiting to be refined
+# Role — Employer (dates)
 
-<!-- Paste raw work notes here. Run /stories to convert them into rated STAR drafts. -->
+## Draft — raw notes and reviews
 
----
+<!-- Paste raw notes here. /job-hunter stories appends rated drafts here. -->
 
-# Rated — STAR drafts awaiting review
+## Final — refined STAR stories
 
-<!-- Stories processed by /stories appear here with a rating (A/B/C). Review and promote to Final. -->
-
----
-
-# Final — refined STAR stories
-
-<!-- Only stories in this section are used by /score and /tailor. -->
-<!-- Promote stories here after you have reviewed and verified every claim. -->
+<!-- Only stories promoted here are used by score and tailor. -->

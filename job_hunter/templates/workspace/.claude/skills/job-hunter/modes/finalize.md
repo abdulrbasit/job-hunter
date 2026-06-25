@@ -20,7 +20,9 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
    git diff --stat
    ```
 
-2. **Pre-flight:** Scan modified files for secrets. FAIL and stop if any match `*.env`, `*.key`, `*.pem`, `*secret*`, `*credential*`, `*password*`.
+2. **Pre-flight:** Confirm no secret-bearing filenames are in the durable path set.
+   `finalize-run` stages only its explicit allowlist; `.env`, keys, credentials, and files
+   outside that allowlist must remain unstaged.
 
 3. Do not stage files manually. Finalization is handled by `job-hunter finalize-run`, which stages durable repo state:
    - setup/config/profile files
@@ -44,7 +46,8 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
    | jobs + other paths | use the `feat(jobs)` message |
    | anything else | `chore: update YYYY-MM-DD` |
 
-5. Present the durable path set and commit message. Ask: "Finalize and push durable changes? Reply yes to confirm, or yes and push to also push."
+5. Present the durable path set and commit message. Ask:
+   "Finalize durable changes? Reply yes, or yes and push."
 
 6. On confirmation:
    ```bash

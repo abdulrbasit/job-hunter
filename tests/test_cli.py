@@ -73,6 +73,9 @@ def test_find_jobs_workflow_splits_scrape_and_briefing() -> None:
     assert "name: Build briefing" in workflow
     assert "job-hunter brief" in workflow
     assert "always() && steps.region.outputs.should_run == 'true'" in workflow
+    assert "texlive.tar" not in workflow
+    assert "searxng.tar" not in workflow
+    assert "docker save" not in workflow
 
 
 def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,6 +305,71 @@ def test_finalize_validation_blocks_excluded_apply_and_broken_readme_link(
     assert any("broken Files link" in error for error in errors)
 
 
+def test_update_readme_uses_score_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import yaml
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "date": "2026-06-12",
+                "company": "Acme",
+                "title": "Product Manager",
+                "url": "https://example.com/acme",
+                "location": "Berlin",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (job_dir / "score.yml").write_text(
+        yaml.safe_dump({"score": 82, "decision": "APPLY"}),
+        encoding="utf-8",
+    )
+    (job_dir / "resume_tailored.tex").write_text("\\documentclass{altacv}", encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "<!-- JOBS_TABLE_START -->\n"
+        "| Date | Job | Location | Score | Files |\n"
+        "|---|---|---|---|---|\n"
+        "<!-- JOBS_TABLE_END -->\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    result = CliRunner().invoke(cli_module.app, ["update-readme", "--job", job])
+
+    assert result.exit_code == 0, result.output
+    text = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert "| 82 (tailored) |" in text
+    assert f"outputs/jobs/{job}/" in text
+
+
+def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"company": "Acme", "title": "Product Manager", "url": "https://example.com/acme"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    result = CliRunner().invoke(cli_module.app, ["update-readme", "--job", job])
+
+    assert result.exit_code == 1
+    assert "resume_tailored.tex not found" in result.output
+
+
 def test_discard_job_removes_folder_and_tracks() -> None:
     import shutil
 
@@ -318,7 +386,7 @@ def test_discard_job_removes_folder_and_tracks() -> None:
     original_applications = app_path.read_bytes() if app_path.exists() else None
     save_applications({"applications": []})
     try:
-        result = run_cli("discard-job", folder.name)
+        result = run_cli("discard-job", "--job", folder.name)
         assert result.returncode == 0
         assert not folder.exists()
         urls = load_processed()

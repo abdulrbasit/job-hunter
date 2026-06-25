@@ -18,6 +18,12 @@ def _profile_context(root: Path) -> dict[str, Any]:
     configured_context = Path(profile.get("career_context", "profile/career_context.md"))
     context_path = configured_context if configured_context.is_absolute() else root / configured_context
     career_context = context_path.read_text(encoding="utf-8") if context_path.exists() else ""
+    resume_value = str(profile.get("resume_tex") or "")
+    resume_path = None
+    if resume_value:
+        configured_resume = Path(resume_value)
+        resume_path = configured_resume if configured_resume.is_absolute() else root / configured_resume
+    resume_tex = resume_path.read_text(encoding="utf-8") if resume_path and resume_path.exists() else ""
     return {
         "scoring": {
             "min_fit_score": scoring.get("min_fit_score"),
@@ -26,6 +32,7 @@ def _profile_context(root: Path) -> dict[str, Any]:
         },
         "target_titles": config.get("job_titles", []),
         "career_context": _clip(career_context, 2000),
+        "resume_tex": _clip(resume_tex, 6000),
     }
 
 

@@ -82,7 +82,7 @@ def test_process_batch_never_pauses_between_inline_phases() -> None:
     assert "status update is not an end state" in process_batch
     assert "control returning to this workflow" in process_batch
     assert "immediately screen that queue" in process_batch
-    assert "Docker/PDF failures are non-blocking" in process_batch
+    assert "PDF failure is non-blocking only when `resume_tailored.tex` exists" in process_batch
     assert "job-hunter cleanup-transient" in process_batch
 
 
@@ -90,8 +90,9 @@ def test_atomic_skills_return_control_without_waiting() -> None:
     for skill_name in ("search", "research", "tailor"):
         text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / f"{skill_name}.md").read_text(encoding="utf-8")
 
-        assert "control returns to the calling workflow" in text
-        assert "caller must immediately continue the next step" in text
+        lower = text.lower()
+        assert "control returns to the calling workflow" in lower
+        assert "caller immediately continues" in lower
 
 
 def test_tailor_skill_reads_career_context() -> None:
@@ -100,23 +101,22 @@ def test_tailor_skill_reads_career_context() -> None:
     assert "profile/career_context.md" in text
     assert "resume style" in text
     assert "cover-letter style" in text
+    assert "resume_tailored.tex" in text
+    assert "outputs/jobs/<slug>/resume_tailored.md" not in text
+    assert "job-hunter compile-pdf --job <slug>" in text
 
 
 def test_search_skill_uses_region_title_query_budget_and_filters() -> None:
     text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "search.md").read_text(encoding="utf-8")
 
-    assert "5 web searches per title per region" in text
-    assert "Do not use configured company lists or career URLs" in text
-    assert "site:boards.greenhouse.io" in text
-    assert "site:jobs.lever.co OR site:ashbyhq.com" in text
-    assert "site:jobs.smartrecruiters.com OR site:workdayjobs.com" in text
-    assert "discovered_urls.yml" in text
-    assert "Code-owned listing URL patterns" in text
-    assert "companies" in text
-    assert "title_terms" in text
-    assert "Code-owned stale indicators" in text
-    assert "listing/search/category page" in text
+    assert "enabled regions and effective titles" in text
+    assert "live, specific job posting" in text
+    assert "excluded companies" in text
+    assert "excluded title terms" in text
+    assert "listing pages" in text
     assert "max_results_per_run" in text
+    assert "llm_search_queue.json" in text
+    assert "Do not semantically reject industries" in text
 
 
 def test_single_config_file_is_the_only_config() -> None:
@@ -169,3 +169,13 @@ def test_url_dedup_state_uses_discovered_urls_not_applied_jobs() -> None:
             if name in text:
                 offenders.append(f"{path.parent.name}: {name}")
     assert not offenders, f"stale dedup state references in skills: {offenders}"
+
+
+def test_job_hunter_modes_use_current_cli_signatures() -> None:
+    modes = ROOT / ".claude" / "skills" / "job-hunter" / "modes"
+    text = "\n".join(path.read_text(encoding="utf-8") for path in modes.glob("*.md"))
+
+    assert "job-hunter discard-job --job <slug>" in text
+    assert "job-hunter agent-context validate-score --path " in text
+    assert "job-hunter compile-pdf --job <slug>" in text
+    assert "--resume-batch" not in text

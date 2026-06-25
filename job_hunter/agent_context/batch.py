@@ -74,6 +74,7 @@ def screen_candidate_batch(
     policy = JobPolicy(search_config)
     title_filters = search_config.get("job_titles", []) or []
     applied_keys = _applied_title_keys(base)
+    excluded_industries = [term.lower() for term in policy.excluded_industries]
 
     retained: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -89,8 +90,6 @@ def screen_candidate_batch(
                 reasons.append("excluded_language")
             if any(term.lower() in title.lower() for term in policy.excluded_title_terms):
                 reasons.append("excluded_title")
-            if policy.is_excluded_industry(snippet):
-                reasons.append("excluded_industry")
             if not reasons:
                 reasons.append("title_not_matched")
         if policy.has_wrong_location(candidate, _region_config(search_config, region)):
@@ -111,6 +110,9 @@ def screen_candidate_batch(
         if reasons:
             skipped.append(row)
         else:
+            row["judgment_signals"] = {
+                "industry_terms": [term for term in excluded_industries if term in snippet.lower()],
+            }
             retained.append(row)
 
     return {

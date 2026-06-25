@@ -263,7 +263,9 @@ def verify_repository(root: Path) -> dict[str, Any]:
             warnings.append(f"outputs/jobs/{slug}/score.yml missing")
         if not (job_dir / "evaluation.md").exists():
             warnings.append(f"outputs/jobs/{slug}/evaluation.md missing")
-        if not (job_dir / "resume_tailored.pdf").exists() and status == "tailored":
+        if status == "tailored" and not (job_dir / "resume_tailored.tex").exists():
+            errors.append(f"outputs/jobs/{slug}/resume_tailored.tex missing")
+        elif status == "tailored" and not (job_dir / "resume_tailored.pdf").exists():
             warnings.append(f"outputs/jobs/{slug}/resume_tailored.pdf missing")
 
     errors.extend(_readme_link_errors(root))
@@ -273,6 +275,7 @@ def verify_repository(root: Path) -> dict[str, Any]:
         "outputs/state/agent_candidate_queue.json",
         "outputs/state/batch_scores.yml",
         "outputs/state/batch_screen.yml",
+        "outputs/state/batch_judgment.yml",
         "outputs/state/llm_search_queue.json",
     ):
         if (root / rel).exists():

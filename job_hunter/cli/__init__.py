@@ -28,6 +28,7 @@ TRANSIENT_STATE_PATHS = (
     "outputs/state/agent_candidate_batch.json",
     "outputs/state/batch_scores.yml",
     "outputs/state/batch_screen.yml",
+    "outputs/state/batch_judgment.yml",
     "outputs/state/llm_search_queue.json",
 )
 
@@ -436,7 +437,7 @@ def tailor(
 
 @app.command(name="compile-pdf")
 def compile_pdf(
-    job: str = typer.Argument(..., help="Job folder name under outputs/jobs/"),
+    job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
     """Compile resume_tailored.tex → PDF for a job folder."""
     import shutil
@@ -507,12 +508,12 @@ def commit_job(
 
 @app.command(name="update-readme")
 def update_readme(
-    job: str = typer.Argument(..., help="Job folder name under outputs/jobs/"),
+    job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
     """Add or update a job entry in README.md tracking table."""
     from datetime import date
 
-    from job_hunter.pipeline.readme_writer import update_readme
+    from job_hunter.pipeline.readme_writer import update_readme_from_applications
     from job_hunter.tracker import repo_path
     from job_hunter.ux.applications import upsert_application_from_job
 
@@ -521,25 +522,14 @@ def update_readme(
     if not meta_path.exists():
         typer.echo(f"[update-readme] meta.json not found in {job}", err=True)
         raise typer.Exit(1)
+    if not (folder / "resume_tailored.tex").exists():
+        typer.echo(f"[update-readme] resume_tailored.tex not found in {job}", err=True)
+        raise typer.Exit(1)
 
     today = date.today().isoformat()
     root = repo_path()
-    upsert_application_from_job(job, root=root, status="tailored")
-
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    match = {
-        "job": {
-            "title": meta.get("title", ""),
-            "company": meta.get("company", ""),
-            "url": meta.get("url", ""),
-            "location": meta.get("location", ""),
-            "snippet": "",
-        },
-        "score": meta.get("score", 0),
-        "matched_keywords": meta.get("matched_keywords", []),
-        "gaps": meta.get("gaps", []),
-    }
-    update_readme([match], root, today)
+    application = upsert_application_from_job(job, root=root, status="tailored")
+    update_readme_from_applications([application], root, today)
     typer.echo(f"[update-readme] README updated for {job}")
 
 
@@ -650,7 +640,7 @@ def cleanup_transient() -> None:
 
 @app.command(name="discard-job")
 def discard_job(
-    job: str = typer.Argument(..., help="Job folder name under outputs/jobs/"),
+    job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
     """Delete a job folder and mark it processed."""
     import shutil
@@ -1115,7 +1105,7 @@ def agent_context_llm_search_config() -> None:
 
 @agent_context_app.command("validate-score")
 def agent_context_validate_score(
-    path: str = typer.Argument(...),
+    path: str = typer.Option(..., "--path"),
 ) -> None:
     """Validate a score.yml file."""
     from job_hunter import agent_context

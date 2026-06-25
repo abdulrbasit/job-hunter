@@ -29,6 +29,36 @@ def test_validate_accepts_fenced_json_with_preamble(mock_llm_client) -> None:
     assert rejected == []
 
 
+def test_validate_semantically_rejects_excluded_employer_industry(mock_llm_client) -> None:
+    jobs = [
+        {
+            "title": "Product Manager",
+            "company": "Example Bank",
+            "url": "https://example.com/jobs/pm",
+            "snippet": "Build the bank's core retail lending product.",
+        }
+    ]
+    api_cfg = {
+        "llm": {"models": {"validation": "test-model"}, "max_tokens": {"validation": 200}, "max_workers": 1},
+        "http": {"url_verification": {"enabled": False}},
+    }
+    raw = (
+        '{"is_active": true, "over_experience": false, '
+        '"excluded_industry": true, "reason": "Employer is a retail bank."}'
+    )
+
+    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock_llm_client(raw)):
+        valid, rejected = validator.validate(
+            jobs,
+            max_years=4,
+            api_cfg=api_cfg,
+            excluded_industries=["banking"],
+        )
+
+    assert valid == []
+    assert rejected[0]["_rejection_reason"] == "Employer is a retail bank."
+
+
 def test_validate_uses_injected_url_checker_before_llm() -> None:
     jobs = [
         {

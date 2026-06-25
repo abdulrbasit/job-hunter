@@ -130,8 +130,6 @@ def update_readme(matches: list[dict], root: str | Path, today: str) -> None:
         existing_rows = _parse_existing_rows(table_block)
         for match in sorted(matches, key=lambda x: x["score"], reverse=True):
             job = match["job"]
-            if job["url"] in existing_rows:
-                continue
             slug = f"{today}_{slugify(job['company'])}_{slugify(job['title'])}"
             label = _escape_table_cell(f"{job['title']} @ {job['company']}")
             existing_rows[job["url"]] = (
@@ -179,8 +177,6 @@ def update_readme_from_applications(apps: list[dict], root: str | Path, today: s
         existing_rows = _parse_existing_rows(table_block)
         for match in sorted(matches, key=lambda x: x["score"], reverse=True):
             job = match["job"]
-            if job["url"] in existing_rows:
-                continue
             slug = job["_slug"]
             status_suffix = job.get("_status_suffix", "")
             label = _escape_table_cell(f"{job['title']} @ {job['company']}")
