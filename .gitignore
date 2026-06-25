@@ -47,6 +47,7 @@ examples/profile/*.fdb_latexmk
 examples/profile/*.out
 examples/profile/*.synctex.gz
 examples/profile/*.pdf
+job_hunter/templates/workspace/profile/*.pdf
 
 # IDE
 .vscode/
