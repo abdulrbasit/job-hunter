@@ -24,7 +24,7 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
    `finalize-run` stages only its explicit allowlist; `.env`, keys, credentials, and files
    outside that allowlist must remain unstaged.
 
-3. Do not stage files manually. Finalization is handled by `job-hunter finalize-run`, which stages durable repo state:
+3. Do not stage files manually. Finalization is handled by `job-hunter internal finalize-run`, which stages durable repo state:
    - setup/config/profile files
    - job, candidate, LinkedIn, API-usage, token-metrics, and processed-job outputs
    - transient queue, screen, and batch-score scratch files are cleaned up, not pushed
@@ -51,7 +51,7 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
 
 6. On confirmation:
    ```bash
-   job-hunter finalize-run --mode interactive --message "<message>"
+   job-hunter internal finalize-run --mode interactive --message "<message>"
    ```
    Append `--push` only if the user explicitly requested a push.
 

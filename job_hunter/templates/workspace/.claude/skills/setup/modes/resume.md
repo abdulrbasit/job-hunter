@@ -189,7 +189,7 @@ If yes:
 3. If `pdflatex` is not found, inform:
    > `pdflatex` not found locally. Install TeX Live (Linux/macOS) or MiKTeX (Windows) to compile locally. On macOS: `brew install --cask mactex`. On Ubuntu: `sudo apt install texlive-full`. Once installed, rerun `/setup resume` to compile.
    >
-   > Alternatively, Docker compilation is available for tailored job outputs via `job-hunter compile-pdf --job <slug>`.
+   > Alternatively, Docker compilation is available for tailored job outputs via `job-hunter internal compile-pdf --job <slug>`.
 
 If compilation succeeds:
 > Base resume compiled → `profile/<filename>.pdf`. Open it to check the layout before your first hunt.

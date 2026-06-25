@@ -4,7 +4,7 @@ Single responsibility: generate a weekly batch of grounded post ideas. Nothing i
 
 ## Token Rules
 
-- Start with `job-hunter agent-context linkedin-weekly`.
+- Start with `job-hunter internal agent-context linkedin-weekly`.
 - Use `story-index` metadata first; use `stories-final` only when the LLM needs to compare verified achievements for proof-point ideas.
 - Do not read all job folders, Draft/raw stories, or full candidate snapshots.
 

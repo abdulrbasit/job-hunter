@@ -4,7 +4,7 @@ Single responsibility: find relevant public contacts and draft connection reques
 
 ## Token Rules
 
-- Start with `job-hunter agent-context linkedin-weekly`.
+- Start with `job-hunter internal agent-context linkedin-weekly`.
 - Prioritize companies with active tailored jobs from the compact context.
 - Search at most five companies and print only the output path.
 

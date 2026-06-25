@@ -42,20 +42,22 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+internal_app = typer.Typer(
+    help="Commands used by bundled agent skills and maintenance automation.", no_args_is_help=True
+)
+app.add_typer(internal_app, name="internal", hidden=True)
+
 agent_context_app = typer.Typer(help="Build agent context objects for Claude Code skills.", no_args_is_help=True)
-app.add_typer(agent_context_app, name="agent-context")
+internal_app.add_typer(agent_context_app, name="agent-context")
 
 applications_app = typer.Typer(help="Manage application lifecycle.", no_args_is_help=True)
 app.add_typer(applications_app, name="applications")
 
-config_app = typer.Typer(help="Validate and inspect configuration.", no_args_is_help=True)
-app.add_typer(config_app, name="config")
-
 linkedin_app = typer.Typer(help="Run LinkedIn content and networking pipelines.", no_args_is_help=True)
-app.add_typer(linkedin_app, name="linkedin")
+internal_app.add_typer(linkedin_app, name="linkedin")
 
 update_safety_app = typer.Typer(help="Classify paths by update safety layer.", no_args_is_help=True)
-app.add_typer(update_safety_app, name="update-safety")
+internal_app.add_typer(update_safety_app, name="update-safety")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -202,96 +204,6 @@ def _expand_listing_candidate(url: str, company: str, location: str, title: str)
 
 
 # ---------------------------------------------------------------------------
-# Workspace commands (new)
-# ---------------------------------------------------------------------------
-
-
-@app.command()
-def init(
-    path: str = typer.Argument(
-        "job-hunter-workspace",
-        help="Directory to create the workspace in. Recommended: FirstName.LastName-Resume (e.g. Abdul.Basit-Resume)",
-    ),
-    force: bool = typer.Option(False, "--force", "-f", help="Reinitialise even if directory is non-empty"),
-) -> None:
-    """Create a new job-hunter workspace with bundled assets."""
-    from job_hunter.workspace._ops import run_init
-
-    run_init(Path(path), force=force)
-
-
-@app.command()
-def update_skills(
-    workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
-) -> None:
-    """Update only `.claude/skills/` from the installed package."""
-    from job_hunter.workspace._ops import update_skills as run_update_skills
-
-    run_update_skills(Path(workspace))
-
-
-@app.command(name="update-workflows")
-def update_workflows(
-    workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
-) -> None:
-    """Update only `.github/` workflow files from the installed package."""
-    from job_hunter.workspace._ops import update_workflows as run_update_workflows
-
-    run_update_workflows(Path(workspace))
-
-
-@app.command()
-def update(
-    workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
-) -> None:
-    """Update workspace assets, skills, and workflows after a package upgrade."""
-    from job_hunter.workspace._assets import update_workspace_assets
-    from job_hunter.workspace._ops import update_skills as run_update_skills
-    from job_hunter.workspace._ops import update_workflows as run_update_workflows
-
-    ws = Path(workspace)
-    written = update_workspace_assets(ws)
-    typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
-    run_update_skills(ws)
-    run_update_workflows(ws)
-
-
-@app.command()
-def version() -> None:
-    """Show installed package version and workspace version."""
-    from job_hunter.config.loader import package_version
-    from job_hunter.workspace.manifest import find_workspace_root, read_manifest
-
-    pkg_ver = package_version()
-    typer.echo(f"job-hunter {pkg_ver}")
-
-    ws = find_workspace_root()
-    if ws:
-        try:
-            manifest = read_manifest(ws)
-            typer.echo(f"workspace {manifest.workspace_version}  ({ws})")
-        except Exception:
-            typer.echo(f"workspace (no manifest)  ({ws})")
-    else:
-        typer.echo("workspace not found (run 'job-hunter init' to create one)")
-
-
-@app.command(name="update-info")
-def update_info() -> None:
-    """Show how to update job-hunter to the latest version."""
-    typer.echo(
-        "\nUpdate flow:\n"
-        "  uv tool upgrade job-hunter-kit\n"
-        "    or: pip install --upgrade job-hunter-kit\n"
-        "\n  Then, in your workspace:\n"
-        "  job-hunter update\n"
-        "  job-hunter doctor\n"
-        "\nInstall from latest GitHub commit:\n"
-        '  uv tool install --force "job-hunter-kit @ git+https://github.com/abdulrbasit/job-hunter.git"\n'
-    )
-
-
-# ---------------------------------------------------------------------------
 # Hunt commands
 # ---------------------------------------------------------------------------
 
@@ -329,7 +241,7 @@ def hunt(
     )
 
 
-@app.command(name="import-job")
+@internal_app.command(name="import-job")
 def import_job(
     url: str | None = typer.Option(None, "--url", help="Job posting URL"),
     title: str | None = typer.Option(None, "--title"),
@@ -408,11 +320,11 @@ def tailor(
     raise typer.Exit(1)
 
 
-@app.command(name="compile-pdf")
+@internal_app.command(name="compile-pdf")
 def compile_pdf(
     job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
-    """Compile resume_tailored.tex → PDF for a job folder."""
+    """Compile resume_tailored.tex to PDF for a job folder."""
     import shutil
 
     from job_hunter.config.loader import ROOT, get_config
@@ -444,7 +356,7 @@ def compile_pdf(
     raise typer.Exit(1)
 
 
-@app.command(name="commit-job")
+@internal_app.command(name="commit-job")
 def commit_job(
     job: str = typer.Argument(..., help="Job folder name under outputs/jobs/"),
 ) -> None:
@@ -479,7 +391,7 @@ def commit_job(
         typer.echo(f"[commit-job] nothing new to commit for {job}")
 
 
-@app.command(name="update-readme")
+@internal_app.command(name="update-readme")
 def update_readme(
     job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
@@ -506,7 +418,7 @@ def update_readme(
     typer.echo(f"[update-readme] README updated for {job}")
 
 
-@app.command(name="mark-processed")
+@internal_app.command(name="mark-processed")
 def mark_processed_cmd(
     url: str | None = typer.Option(None, "--url"),
     company: str | None = typer.Option(None, "--company"),
@@ -538,7 +450,7 @@ def mark_processed_cmd(
     typer.echo(f"[mark-processed] marked: {title} @ {company}")
 
 
-@app.command(name="finalize-run")
+@internal_app.command(name="finalize-run")
 def finalize_run(
     message: str = typer.Option("chore: finalize hunt run", "--message", "-m"),
     push: bool = typer.Option(False, "--push"),
@@ -601,7 +513,7 @@ def finalize_run(
     _cleanup_transient_state(root, label="finalize-run")
 
 
-@app.command(name="cleanup-transient")
+@internal_app.command(name="cleanup-transient")
 def cleanup_transient() -> None:
     """Delete transient agent state files (queues, batch, screen files)."""
     from job_hunter.tracker import repo_path
@@ -611,7 +523,7 @@ def cleanup_transient() -> None:
         typer.echo("[cleanup-transient] no transient state files found")
 
 
-@app.command(name="discard-job")
+@internal_app.command(name="discard-job")
 def discard_job(
     job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
@@ -659,7 +571,7 @@ def dashboard(
         raise typer.Exit(run_interactive_dashboard(apps, root))
 
 
-@app.command()
+@internal_app.command()
 def analytics(
     days: int = typer.Option(30, "--days"),
     json_output: bool = typer.Option(False, "--json"),
@@ -699,7 +611,10 @@ def doctor(
     raise typer.Exit(0 if payload["ok"] else 1)
 
 
-@app.command()
+from job_hunter.cli import _workspace as _workspace_commands  # noqa: E402,F401
+
+
+@internal_app.command()
 def verify(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -751,19 +666,6 @@ def applications_update(
 
     app_rec = update_application_status(job, status, root=repo_path(), note=note)
     typer.echo(f"[applications] {app_rec['slug']} -> {app_rec['status']}")
-
-
-# ---------------------------------------------------------------------------
-# config sub-app
-# ---------------------------------------------------------------------------
-
-
-@config_app.command("check")
-def config_check() -> None:
-    """Validate config/job_hunter.yml."""
-    from job_hunter.core.config_schema import check
-
-    raise typer.Exit(check())
 
 
 # ---------------------------------------------------------------------------

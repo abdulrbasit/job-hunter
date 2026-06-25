@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/abdulrbasit/job-hunter
 cd job-hunter
-uv sync --extra dev
+uv sync --extra dev --extra llm
 ```
 
 ## Checks

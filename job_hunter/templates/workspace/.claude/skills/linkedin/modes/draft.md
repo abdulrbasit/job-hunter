@@ -7,7 +7,7 @@ Idea reference: `$ARGUMENTS`
 ## Token Rules
 
 - Read only the matched idea from `outputs/linkedin/ideas.md`.
-- Read the cited story ID with `job-hunter agent-context story --id <ID>`, or use `stories-final` only when the source idea requires comparing verified achievements.
+- Read the cited story ID with `job-hunter internal agent-context story --id <ID>`, or use `stories-final` only when the source idea requires comparing verified achievements.
 - Do not read Draft/raw stories or all prior drafts.
 
 ## Steps

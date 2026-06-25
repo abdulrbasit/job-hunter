@@ -30,6 +30,7 @@ from typing import Any
 from job_hunter.models import LLMRequest, LLMResponse
 
 logger = logging.getLogger(__name__)
+_LLM_EXTRA_HELP = "Install LLM support with: pip install 'job-hunter-kit[llm]'"
 
 
 def _compress_request(prompt: str, system: str, model: str) -> tuple[str, str]:
@@ -68,28 +69,28 @@ class LLMClient:
             try:
                 from anthropic import Anthropic
             except ImportError:
-                raise ImportError("pip install anthropic") from None
+                raise ImportError(_LLM_EXTRA_HELP) from None
             return Anthropic(api_key=api_key)
 
         if provider == "openai":
             try:
                 from openai import OpenAI
             except ImportError:
-                raise ImportError("pip install openai") from None
+                raise ImportError(_LLM_EXTRA_HELP) from None
             return OpenAI(api_key=api_key)
 
         if provider == "google":
             try:
                 from google import genai
             except ImportError:
-                raise ImportError("pip install google-genai") from None
+                raise ImportError(_LLM_EXTRA_HELP) from None
             return genai.Client(api_key=api_key)
 
         if provider == "ollama":
             try:
                 from openai import OpenAI
             except ImportError:
-                raise ImportError("pip install openai  # Ollama uses OpenAI-compatible API") from None
+                raise ImportError(_LLM_EXTRA_HELP) from None
             return OpenAI(base_url=base_url or "http://localhost:11434/v1", api_key="ollama")
 
         raise ValueError(f"Unknown provider: {provider!r}. Supported: anthropic | openai | google | ollama")

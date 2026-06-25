@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "job_hunter config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "profile", "job_titles", "regions", "exclusions", "scoring", "llm"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["agent", "llm-api"]
+    },
+    "profile": {
+      "type": "object",
+      "required": ["resume_tex", "story_bank", "career_context"],
+      "properties": {
+        "resume_tex": {"type": "string"},
+        "story_bank": {"type": "string"},
+        "career_context": {"type": "string"},
+        "latex_class": {"type": "string"},
+        "profile_image": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "job_titles": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1
+    },
+    "regions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["enabled", "country", "location"],
+        "properties": {
+          "enabled": {"type": "boolean"},
+          "primary": {"type": "boolean"},
+          "country": {"type": "string", "minLength": 2, "maxLength": 2},
+          "search_lang": {"type": "string"},
+          "location": {"type": "string"},
+          "description": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "exclusions": {
+      "type": "object",
+      "properties": {
+        "companies": {"type": "array", "items": {"type": "string"}},
+        "title_terms": {"type": "array", "items": {"type": "string"}},
+        "languages": {"type": "array", "items": {"type": "string"}},
+        "industries": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "scoring": {
+      "type": "object",
+      "required": ["min_fit_score", "batch_size"],
+      "properties": {
+        "min_fit_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "max_years_experience_required": {"type": "integer", "minimum": 0},
+        "batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Shared run batch size. Agent mode freezes this many candidates per batch; LLM API mode tailors this many top-scored matches per run. Request concurrency is controlled separately by llm.max_workers."
+        },
+        "strategic_overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["company"],
+            "properties": {
+              "company": {"type": "string"},
+              "min_score_override": {"type": "integer", "minimum": 0, "maximum": 100},
+              "bypass_max_years_experience": {"type": "boolean"},
+              "reason": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "llm": {
+      "type": "object",
+      "required": ["default_provider"],
+      "properties": {
+        "default_provider": {"type": "string", "enum": ["anthropic", "openai", "google", "ollama"]},
+        "providers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "models": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "max_tokens": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
+        "max_workers": {"type": "integer", "minimum": 1},
+        "rate_limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "requests_per_minute": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        },
+        "ollama": {
+          "type": "object",
+          "properties": {
+            "base_url": {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

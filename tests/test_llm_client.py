@@ -1,6 +1,6 @@
+import builtins
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-import builtins
 from unittest.mock import MagicMock
 
 import pytest

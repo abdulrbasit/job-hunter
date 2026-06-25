@@ -14,9 +14,13 @@ Works interactively inside Claude Code or Codex (VS Code extensions), or runs fu
 ## Install
 
 ```bash
-pip install job-hunter-kit
-# or
 uv tool install job-hunter-kit
+```
+
+Base install targets agent mode. Autonomous mode needs:
+
+```bash
+uv tool install "job-hunter-kit[llm]"
 ```
 
 ## Quick Start
@@ -24,12 +28,10 @@ uv tool install job-hunter-kit
 ```bash
 job-hunter init my-workspace
 cd my-workspace
-cp .env.example .env
-job-hunter config check
 job-hunter doctor
 ```
 
-Edit `config/job_hunter.yml` with your titles, regions, exclusions, profile paths, scoring thresholds, and provider/model choices. Put your positioning, writing style, and career context in `profile/career_context.md`. Secrets use fixed environment variable names in `.env` or GitHub Actions.
+Open workspace in VS Code, then run `/setup onboard`, `/setup context`, `/setup stories`, and `/setup resume`. `job-hunter doctor` validates config and reports exact fixes.
 
 ## Modes
 
@@ -68,17 +70,16 @@ from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
 ## CLI Reference
 
 - `job-hunter init <workspace>` — create a workspace
-- `job-hunter config check` — validate `config/job_hunter.yml`
 - `job-hunter doctor` — check setup health
 - `job-hunter hunt` — discover and enrich jobs
 - `job-hunter brief` — write the daily briefing
 - `job-hunter tailor` — tailor resume for one or more job postings
-- `job-hunter dashboard`, `applications`, `analytics` — inspect application state
+- `job-hunter dashboard`, `applications` — inspect application state
 - `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
-- `job-hunter update-skills`, `update-workflows` — refresh skills or workflows individually
-- `job-hunter version`, `update-info` — version and upgrade guidance
+- `job-hunter update --skills-only` or `--workflows-only` — targeted refresh
+- `job-hunter version` — version and upgrade guidance
 
-Support commands used by skills and automation: `agent-context`, `import-job`, `compile-pdf`, `update-readme`, `mark-processed`, `discard-job`, `cleanup-transient`, `finalize-run`.
+Bundled skills use hidden `job-hunter internal ...` commands. They are not part of normal user workflow.
 
 ## Data Contract
 
@@ -89,7 +90,7 @@ See `DATA_CONTRACT.md` for the full contract.
 ## Development
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra llm
 uv run pytest tests/ -q --tb=short
 uv run ruff format --check job_hunter tests .github/scripts
 uv run ruff check job_hunter tests .github/scripts

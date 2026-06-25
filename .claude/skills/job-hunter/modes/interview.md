@@ -6,7 +6,7 @@ Slug: `$ARGUMENTS`
 
 ## Token Rules
 
-- Start with `job-hunter agent-context score --mode full --job <slug>`.
+- Start with `job-hunter internal agent-context score --mode full --job <slug>`.
 - Story bank: use matched_story_ids first → story-index if thin → stories-final for broad comparison. Never use Draft/raw sections.
 - Read `profile/career_context.md` when present for learned interview preferences, dealbreakers, and calibration notes.
 

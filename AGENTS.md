@@ -51,10 +51,9 @@ ty check job_hunter tests
 ```bash
 job-hunter hunt --region primary
 job-hunter brief
-job-hunter config check
 job-hunter doctor
 
-uv sync --extra dev
+uv sync --extra dev --extra llm
 uv run pytest tests/ -q --tb=short
 uv run ruff format --check job_hunter tests .github/scripts
 uv run ruff check job_hunter tests .github/scripts

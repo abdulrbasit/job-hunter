@@ -90,8 +90,6 @@ def sync(*, check: bool = False) -> int:  # noqa: C901
             if not child.is_file():
                 continue
             rel = child.relative_to(src)
-            if rel.parts[0] == "schemas":
-                continue
             items.append((child, TEMPLATE / name / rel, f"{name}/{rel.as_posix()}"))
         _sync_items(items, check, changes)
 

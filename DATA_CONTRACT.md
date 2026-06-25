@@ -22,8 +22,7 @@ Product updates may replace system-owned files. They must never overwrite user d
 | `.claude/skills/` | Agent skills |
 | `.github/` | Workflows and automation |
 | `config/schemas/` | Config validation schemas |
-| `COMMANDS.md` | Command reference |
-| `README.md`, `SETUP.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Docs |
+| `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` | Docs |
 | `pyproject.toml` | Package metadata |
 | `DATA_CONTRACT.md` | This file |
 
@@ -32,7 +31,7 @@ Product updates may replace system-owned files. They must never overwrite user d
 `job-hunter update` runs three steps:
 
 1. **Workspace assets** — controlled by `_UPDATE_ASSETS` in `job_hunter/workspace/_assets.py`:
-   - Non-YAML files (e.g. `COMMANDS.md`): always replaced.
+   - Non-YAML files (for example `README.md` and `SETUP.md`): always replaced.
    - YAML config files: deep-merged — new template keys are added, your values are kept. Lists: your version wins.
 2. **Skills** — replaces `.claude/skills/` and the mirrored agent CLI trees.
 3. **Workflows** — replaces `.github/`. Your cron schedule in `find-jobs.yml` is preserved.

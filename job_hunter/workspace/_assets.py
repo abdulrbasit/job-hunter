@@ -31,7 +31,7 @@ _CANONICAL_FILES = (
 )
 # Files/dirs that only exist in the bundled template (no canonical root counterpart).
 # .gitignore: workspace version differs from the dev repo .gitignore.
-_RESOURCE_ONLY_FILES: frozenset[str] = frozenset({".gitignore"})
+_RESOURCE_ONLY_FILES: frozenset[str] = frozenset({".gitignore", "SETUP.md"})
 _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/", "outputs/", "profile/")
 
 # Dev-only skills — excluded from the user workspace template.
@@ -139,9 +139,6 @@ def _iter_source_checkout_files(root: Path) -> Iterator[tuple[str, bytes]]:
                 parts = rel.split("/")
                 # Skip dev-only skills — not user-facing.
                 if parts[:2] == [".claude", "skills"] and len(parts) > 2 and parts[2] in _DEV_SKILL_DIRS:
-                    continue
-                # Skip config/schemas/ — developer validation artifact, not user-facing.
-                if parts[:2] == ["config", "schemas"]:
                     continue
                 yielded.add(rel)
                 yield rel, content

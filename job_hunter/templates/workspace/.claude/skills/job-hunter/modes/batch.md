@@ -9,7 +9,7 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
 - When an atomic skill says it returns to the caller, treat that as control returning to this workflow; continue the next step immediately.
 - Use frozen batches. Default to 15 candidates; `--batch-size` and `--dry-run` are available.
 - Use `screen-batch` for objective Python screening, then `screen.md` for semantic judgment.
-- Use `job-hunter agent-context lifecycle` for deterministic candidate/JD lifecycle decisions.
+- Use `job-hunter internal agent-context lifecycle` for deterministic candidate/JD lifecycle decisions.
 - Do not refresh the active queue inside a batch. Mark terminal decisions by `candidate_id`, then rebuild only after the batch is complete.
 - End only when the current frozen batch and any triggered LLM-search batch are processed, or when a hard blocker requires user input.
 - Never mark an entire candidate source file processed after systemic fetch failures. Mark only specific terminal job URLs.
@@ -28,10 +28,10 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
 
 2. Build the queue and freeze the first batch:
    ```bash
-   job-hunter agent-context batch --scope briefing-backlog --batch-size 15 \
+   job-hunter internal agent-context batch --scope briefing-backlog --batch-size 15 \
      --write-queue outputs/state/agent_candidate_queue.json \
      --write-batch outputs/state/agent_candidate_batch.json
-   job-hunter agent-context screen-batch \
+   job-hunter internal agent-context screen-batch \
      --batch outputs/state/agent_candidate_batch.json \
      --write-screen outputs/state/batch_screen.yml
    ```
@@ -41,34 +41,34 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
 3. Pre-load shared context once per batch:
    - Read `config/job_hunter.yml` for deterministic thresholds and exclusions.
    - Read `profile/career_context.md` for targeting and writing guidance.
-   - `job-hunter agent-context stories-final`
+   - `job-hunter internal agent-context stories-final`
 
 4. For every skipped candidate in `batch_screen.yml`, mark terminal with lifecycle reason `screen_skip` using `candidate_id`. Do not refresh the queue.
 
 5. For each retained candidate, one at a time:
-   - Run `job-hunter agent-context lifecycle --queue ... --candidate-id <id>`.
-   - Run `job-hunter import-job --queue ... --candidate-id <id>`.
+   - Run `job-hunter internal agent-context lifecycle --queue ... --candidate-id <id>`.
+   - Run `job-hunter internal import-job --queue ... --candidate-id <id>`.
    - Run lifecycle for the created job. If it returns `webfetch_required`, use WebFetch once, write the fetched text to a temporary file, and rerun lifecycle with `--fallback-text-file <path>`. Reimport only when lifecycle returns `reimport_with_fallback`; otherwise mark terminal with reason `missing_full_jd`.
-   - Run `job-hunter agent-context score --mode full --job <slug>`.
+   - Run `job-hunter internal agent-context score --mode full --job <slug>`.
    - Execute `.claude/skills/job-hunter/modes/score.md` inline in full mode; it writes `score.yml` and `evaluation.md`.
-   - Validate the score: `job-hunter agent-context validate-score --path outputs/jobs/<slug>/score.yml`.
-   - Discard below-threshold jobs: `job-hunter discard-job --job <slug>`.
+   - Validate the score: `job-hunter internal agent-context validate-score --path outputs/jobs/<slug>/score.yml`.
+   - Discard below-threshold jobs: `job-hunter internal discard-job --job <slug>`.
 
 6. Tailor all APPLY jobs, descending score, whose score meets the fit threshold from config.
    For each qualifying job, complete all four steps before moving to the next:
    - Execute `.claude/skills/job-hunter/modes/research.md` inline.
    - Execute `.claude/skills/job-hunter/modes/tailor.md` inline.
-   - Run `job-hunter update-readme --job <slug>`.
-   - Run `job-hunter mark-processed --url "<url>" --company "<company>" --title "<title>"`.
+   - Run `job-hunter internal update-readme --job <slug>`.
+   - Run `job-hunter internal mark-processed --url "<url>" --company "<company>" --title "<title>"`.
    PDF failure is non-blocking only when `resume_tailored.tex` exists. README update requires the `.tex`.
 
 7. Rebuild the candidate queue before starting the next batch or reporting the final summary:
    ```bash
-   job-hunter agent-context candidates --scope briefing-backlog \
+   job-hunter internal agent-context candidates --scope briefing-backlog \
      --write-queue outputs/state/agent_candidate_queue.json
    ```
 
-8. After all batch work is complete, run `job-hunter cleanup-transient`.
+8. After all batch work is complete, run `job-hunter internal cleanup-transient`.
    Removes stale scratch files: `agent_candidate_queue.json`, `agent_candidate_batch.json`, `batch_screen.yml`, `batch_scores.yml`. Does not delete `applications.yml`, `discovered_urls.yml`, tailored job folders, or candidate snapshots.
 
 ## Failure Handling

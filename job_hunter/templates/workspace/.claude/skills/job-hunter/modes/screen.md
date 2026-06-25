@@ -37,7 +37,7 @@ decisions:
 For each `SKIP`, run:
 
 ```bash
-job-hunter agent-context lifecycle --queue outputs/state/agent_candidate_queue.json \
+job-hunter internal agent-context lifecycle --queue outputs/state/agent_candidate_queue.json \
   --candidate-id <id> --mark-terminal screen_skip
 ```
 

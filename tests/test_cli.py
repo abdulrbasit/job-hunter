@@ -38,7 +38,7 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
 def test_help_loads() -> None:
     result = run_cli("--help")
     assert result.returncode == 0
-    assert "job-hunter" in result.stdout
+    assert "Job search automation" in result.stdout
     assert "brief" in result.stdout
 
 
@@ -382,7 +382,7 @@ def test_update_readme_uses_score_file(tmp_path: Path, monkeypatch: pytest.Monke
     )
     monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
 
-    result = CliRunner().invoke(cli_module.app, ["update-readme", "--job", job])
+    result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", job])
 
     assert result.exit_code == 0, result.output
     text = (tmp_path / "README.md").read_text(encoding="utf-8")
@@ -405,7 +405,7 @@ def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch:
     )
     monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
 
-    result = CliRunner().invoke(cli_module.app, ["update-readme", "--job", job])
+    result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", job])
 
     assert result.exit_code == 1
     assert "resume_tailored.tex not found" in result.output
@@ -427,7 +427,7 @@ def test_discard_job_removes_folder_and_tracks() -> None:
     original_applications = app_path.read_bytes() if app_path.exists() else None
     save_applications({"applications": []})
     try:
-        result = run_cli("discard-job", "--job", folder.name)
+        result = run_cli("internal", "discard-job", "--job", folder.name)
         assert result.returncode == 0
         assert not folder.exists()
         urls = load_processed()
@@ -461,7 +461,7 @@ def test_cleanup_transient_removes_batch_scratch_files(tmp_path: Path, monkeypat
     assert all(not (tmp_path / rel).exists() for rel in cli_module.TRANSIENT_STATE_PATHS)
 
 
-# --- version / update-info ---
+# --- version ---
 
 
 def test_version_command_runs() -> None:
@@ -475,13 +475,13 @@ def test_version_command_runs() -> None:
     assert "job-hunter" in result.output
 
 
-def test_update_info_command_runs() -> None:
+def test_version_command_shows_update_info() -> None:
     from typer.testing import CliRunner
 
     from job_hunter.cli import app
 
     runner = CliRunner()
-    result = runner.invoke(app, ["update-info"])
+    result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
     assert "uv tool upgrade" in result.output
 

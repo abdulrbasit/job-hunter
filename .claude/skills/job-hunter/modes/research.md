@@ -4,7 +4,7 @@ Write concise company research for one imported job.
 
 Slug: `$ARGUMENTS`
 
-1. Run `job-hunter agent-context score --mode full --job <slug>`.
+1. Run `job-hunter internal agent-context score --mode full --job <slug>`.
 2. Run at most three targeted web searches: product/business, role challenge, recent signal.
 3. Write `outputs/jobs/<slug>/company_research.md` with:
    What they build, Relevant to this role, Recent signal, Cover-letter hook, Sources.

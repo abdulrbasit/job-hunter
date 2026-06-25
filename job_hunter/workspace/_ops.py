@@ -160,8 +160,8 @@ def run_init(path: Path, force: bool = False) -> None:
     typer.echo(f"\n[ok] Workspace created at: {workspace}")
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {workspace}")
-    typer.echo("  cp .env.example .env  # then fill in your API keys")
     typer.echo("  job-hunter doctor")
+    typer.echo("  # Open this folder in VS Code and run /setup onboard")
     typer.echo("  job-hunter hunt --region primary")
 
 

@@ -6,9 +6,9 @@ Slug: `$ARGUMENTS`
 
 ## Inputs
 
-- `job-hunter agent-context tailor-context --job <slug>` → tailoring_rules, positioning_rules,
+- `job-hunter internal agent-context tailor-context --job <slug>` → tailoring_rules, positioning_rules,
   project_rules, keywords, gaps, cover_constraints
-- `job-hunter agent-context score --mode full --job <slug>` → story_index, job meta, score.yml
+- `job-hunter internal agent-context score --mode full --job <slug>` → story_index, job meta, score.yml
 - `outputs/jobs/<slug>/score.yml` — matched_story_ids
 - Configured base resume from `config/job_hunter.yml:profile.resume_tex`
 - `profile/career_context.md` — resume style, cover-letter style, and evidence boundaries
@@ -16,7 +16,7 @@ Slug: `$ARGUMENTS`
 
 ## Steps
 
-1. Run `job-hunter agent-context tailor-context --job <slug>`.
+1. Run `job-hunter internal agent-context tailor-context --job <slug>`.
    Apply every field exactly as delivered — these are the same constraints that llm-api mode uses.
 2. Read `profile/career_context.md` for resume style, cover-letter style, and evidence boundaries.
 3. Read the complete configured base resume `.tex`.
@@ -38,7 +38,7 @@ Slug: `$ARGUMENTS`
    - Start directly with the first sentence of the letter body.
 7. Run:
    ```bash
-   job-hunter compile-pdf --job <slug>
+   job-hunter internal compile-pdf --job <slug>
    ```
    This copies configured `altacv.cls` and profile image into the job folder before compiling.
 8. If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.

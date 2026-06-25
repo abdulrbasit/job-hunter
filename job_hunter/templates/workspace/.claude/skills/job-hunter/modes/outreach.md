@@ -6,7 +6,7 @@ Slug: `$ARGUMENTS`
 
 ## Token Rules
 
-- Start with `job-hunter agent-context score --mode full --job <slug>`.
+- Start with `job-hunter internal agent-context score --mode full --job <slug>`.
 - Use `matched_story_ids` from `score.yml`; read selected stories only with `agent-context story --id`.
 - Read `profile/career_context.md` when present for writing-style and targeting preferences.
 - Search for at most three public profiles and print only the output path.

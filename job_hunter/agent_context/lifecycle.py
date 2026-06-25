@@ -180,7 +180,7 @@ def candidate_lifecycle(
             return result
         result["action"] = "full_score"
         result["reason"] = "job_imported"
-        result["score_command"] = f"job-hunter agent-context score --mode full --job {job}"
+        result["score_command"] = f"job-hunter internal agent-context score --mode full --job {job}"
         return result
 
     if not candidate:
@@ -192,12 +192,12 @@ def candidate_lifecycle(
     if jd_status in JD_LIFECYCLE_IMPORT_STATUSES:
         result["action"] = "import_required"
         result["reason"] = f"candidate_jd_status:{jd_status}"
-        result["import_command"] = f"job-hunter import-job --queue {queue_label} {candidate_selector}"
+        result["import_command"] = f"job-hunter internal import-job --queue {queue_label} {candidate_selector}"
         return result
 
     result["action"] = "snippet_score"
     result["reason"] = f"candidate_jd_status:{jd_status or 'unknown'}"
     result["score_command"] = (
-        f"job-hunter agent-context score --mode snippet --queue {queue_label} {candidate_selector}"
+        f"job-hunter internal agent-context score --mode snippet --queue {queue_label} {candidate_selector}"
     )
     return result

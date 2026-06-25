@@ -22,6 +22,8 @@ def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, An
 
 def doctor(root: Path) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
+    job_hunter_cfg = _read_yaml(root / "config" / "job_hunter.yml")
+    mode = str(job_hunter_cfg.get("mode") or "agent")
     checks.append(
         _check(
             "python_version",
@@ -38,26 +40,39 @@ def doctor(root: Path) -> dict[str, Any]:
             "Run: pip install -e . from the job-hunter repo root.",
         )
     )
+    docker_available = shutil.which("docker") is not None
     checks.append(
         _check(
             "docker",
-            shutil.which("docker") is not None,
-            "Docker CLI",
-            "Install/start Docker Desktop for local PDF compilation.",
+            docker_available or mode == "agent",
+            "Docker CLI" if docker_available else "Optional in agent mode; required for autonomous PDF compilation.",
+            "Install/start Docker Desktop for llm-api PDF compilation.",
         )
     )
-    job_hunter_cfg = _read_yaml(root / "config" / "job_hunter.yml")
+    if mode == "llm-api":
+        provider = str((job_hunter_cfg.get("llm") or {}).get("default_provider") or "anthropic")
+        module = {"anthropic": "anthropic", "openai": "openai", "google": "google", "ollama": "openai"}.get(provider)
+        if module:
+            checks.append(
+                _check(
+                    f"llm_provider:{provider}",
+                    _module_available(module),
+                    f"{provider} SDK",
+                    "Install LLM support: pip install 'job-hunter-kit[llm]'",
+                )
+            )
     resume_rel = _configured_profile_rel(job_hunter_cfg, "resume_tex", "profile/resume_double_column.tex")
     story_rel = _configured_profile_rel(job_hunter_cfg, "story_bank", "profile/story_bank.md")
     for rel in ("config/job_hunter.yml", resume_rel, story_rel):
         checks.append(_check(rel, (root / rel).exists(), rel, f"Create {rel}."))
     checks.extend(_schema_checks(root))
+    checks.append(_config_schema_check(root))
+    schedule = _workflow_schedule_configured(root)
     checks.append(
         _check(
             "workflow_schedule",
-            _workflow_schedule_configured(root),
-            "find-jobs.yml schedule",
-            "Uncomment schedule lines when ready for automatic scraping.",
+            True,
+            "configured" if schedule else "optional; manual runs remain available",
         )
     )
     outputs = root / "outputs"
@@ -98,6 +113,24 @@ def _schema_checks(root: Path) -> list[dict[str, Any]]:
         except Exception as exc:
             checks.append(_check(f"yaml:{path.name}", False, str(exc), f"Fix {path.name}."))
     return checks
+
+
+def _config_schema_check(root: Path) -> dict[str, Any]:
+    config_path = root / "config" / "job_hunter.yml"
+    schema_path = root / "config" / "schemas" / "job_hunter.schema.json"
+    if not config_path.exists():
+        return _check("config_schema", False, "config/job_hunter.yml missing", "Run job-hunter init.")
+    if not schema_path.exists():
+        return _check("config_schema", True, "schema unavailable; YAML syntax checked")
+    try:
+        import jsonschema
+
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        jsonschema.validate(instance=data, schema=schema)
+    except Exception as exc:
+        return _check("config_schema", False, str(exc), "Fix config/job_hunter.yml, then rerun job-hunter doctor.")
+    return _check("config_schema", True, "config/job_hunter.yml matches schema")
 
 
 def _configured_profile_rel(data: dict[str, Any], key: str, default: str) -> str:
@@ -147,12 +180,8 @@ def onboarding_status(root: Path, checks: list[dict[str, Any]] | None = None) ->
     if not story_path.exists() or not _has_final_story(story_path):
         missing.append(f"{story_rel}:final_stories")
 
-    if checks is None:
-        workflow_configured = _workflow_schedule_configured(root)
-        outputs_writable = _outputs_writable(root)
-    else:
-        workflow_configured = _check_ok(checks, "workflow_schedule")
-        outputs_writable = _check_ok(checks, "outputs_writable")
+    workflow_configured = _workflow_schedule_configured(root)
+    outputs_writable = _outputs_writable(root) if checks is None else _check_ok(checks, "outputs_writable")
     if not workflow_configured:
         warnings.append("workflow_schedule")
     if not outputs_writable:

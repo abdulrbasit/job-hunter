@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra llm
       - name: Format check
         run: uv run ruff format --check job_hunter tests scripts
       - name: Lint
@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra llm
       - name: Run tests
         run: uv run pytest tests/ -q --tb=short
 
@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra llm
       - name: Validate config schema
         run: uv run python scripts/validate_config.py
 

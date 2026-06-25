@@ -1,6 +1,5 @@
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 
 def test_llm_sdks_are_optional() -> None:
@@ -9,9 +8,7 @@ def test_llm_sdks_are_optional() -> None:
     optional = project["project"]["optional-dependencies"]
 
     assert not any(
-        name in dependency
-        for name in ("anthropic", "openai", "google-genai")
-        for dependency in dependencies
+        name in dependency for name in ("anthropic", "openai", "google-genai") for dependency in dependencies
     )
     assert optional["llm"] == [
         "anthropic>=0.50.0",

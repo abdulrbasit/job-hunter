@@ -5,7 +5,7 @@ Thin start-of-day orchestrator. Keep output compact; never read raw candidate sn
 ## Steps
 
 1. Run `git pull origin main`.
-2. Run `job-hunter agent-context brief` and print the result.
+2. Run `job-hunter internal agent-context brief` and print the result.
 3. Run `job-hunter dashboard --no-interactive` if applications exist, and include only the compact active-application count/table.
 4. If candidates are ready, tell the user to run `/job-hunter batch`.
 

@@ -24,9 +24,6 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
   "typer>=0.12",
-  "anthropic>=0.50.0",
-  "openai>=1.68.0",
-  "google-genai>=1.0.0",
   "requests>=2.31.0",
   "beautifulsoup4>=4.12.0",
   "pyyaml>=6.0",
@@ -38,8 +35,13 @@ dependencies = [
 [project.optional-dependencies]
 browser = ["playwright>=1.40.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "pytest-cov", "ty>=0.0.1a20"]
+llm = [
+  "anthropic>=0.50.0",
+  "openai>=1.68.0",
+  "google-genai>=1.0.0",
+]
 secrets = ["keyring>=24.0.0"]
-all = ["job-hunter-kit[browser,secrets]"]
+all = ["job-hunter-kit[llm,browser,secrets]"]
 
 [project.scripts]
 job-hunter = "job_hunter.cli:app"
@@ -83,6 +85,16 @@ override-dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
+[tool.coverage.run]
+source = ["job_hunter"]
+omit = [
+  "job_hunter/cli/*",
+  "job_hunter/sources/career_pages/_rendering.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
@@ -94,8 +106,16 @@ ignore = ["E501", "S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S603", "S607"]
-"job_hunter/**" = ["C901"]
-"job_hunter/cli/__init__.py" = ["B008", "S603", "S607"]
+"job_hunter/cli/__init__.py" = ["B008", "C901", "S603", "S607"]
+"job_hunter/agent_context/{batch,candidates,lifecycle}.py" = ["C901"]
+"job_hunter/core/llm_utils.py" = ["C901"]
+"job_hunter/pipeline/{enrichment,orchestrator,validator}.py" = ["C901"]
+"job_hunter/sources/*_source.py" = ["C901"]
+"job_hunter/sources/{job_boards,jd_fetcher,orchestrator}.py" = ["C901"]
+"job_hunter/sources/career_pages/{__init__,_jsonld}.py" = ["C901"]
+"job_hunter/sources/search_providers/{ats_discovery,router}.py" = ["C901"]
+"job_hunter/ux/health.py" = ["C901"]
+"job_hunter/workspace/_assets.py" = ["C901"]
 "job_hunter/sources/ats/*.py" = ["S314"]
 
 [tool.ruff.lint.flake8-bugbear]

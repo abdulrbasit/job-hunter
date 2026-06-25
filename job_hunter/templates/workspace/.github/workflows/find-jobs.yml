@@ -42,9 +42,9 @@ jobs:
           python-version: "3.12"
           ignore-nothing-to-cache: true
 
-      - name: Install Python package and browser extra
+      - name: Install Python package and runtime extras
         run: |
-          uv pip install "job-hunter-kit[browser]"
+          uv pip install "job-hunter-kit[llm,browser]"
           playwright install --with-deps chromium
 
       - name: Read execution mode

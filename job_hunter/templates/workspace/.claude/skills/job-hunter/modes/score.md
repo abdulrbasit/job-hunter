@@ -5,7 +5,7 @@ Score one imported job against bounded JD context, configured base resume, and v
 Run:
 
 ```bash
-job-hunter agent-context score --mode full --job <slug>
+job-hunter internal agent-context score --mode full --job <slug>
 ```
 
 Use `resume_tex`, `career_context`, `story_index`, live thresholds, and strategic overrides
@@ -28,7 +28,7 @@ Write `evaluation.md` with Fit Summary, Verified Evidence, Gaps, and Recommendat
 Then validate:
 
 ```bash
-job-hunter agent-context validate-score --path outputs/jobs/<slug>/score.yml
+job-hunter internal agent-context validate-score --path outputs/jobs/<slug>/score.yml
 ```
 
 `APPLY` only when score meets live threshold or strategic override; otherwise `SKIP`.

@@ -7,7 +7,7 @@ Paste posts or content here: `$ARGUMENTS`
 ## Token Rules
 
 - Use pasted content as the primary input.
-- Read `job-hunter agent-context linkedin-weekly` only if candidate context helps.
+- Read `job-hunter internal agent-context linkedin-weekly` only if candidate context helps.
 - Read selected stories by ID only when a comment needs a verified proof point.
 
 ## Steps

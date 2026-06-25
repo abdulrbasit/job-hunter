@@ -465,7 +465,7 @@ def test_candidate_lifecycle_routes_thin_candidate_to_import(tmp_path: Path) -> 
 
     assert payload["action"] == "import_required"
     assert payload["reason"] == "candidate_jd_status:thin"
-    assert "job-hunter import-job" in payload["import_command"]
+    assert "job-hunter internal import-job" in payload["import_command"]
 
 
 def test_candidate_lifecycle_uses_candidate_id_in_commands(tmp_path: Path) -> None:
