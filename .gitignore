@@ -41,12 +41,14 @@ profile/template-files/*.out
 profile/template-files/*.synctex.gz
 profile/template-files/*.toc
 profile/template-files/*.pdf
+*.xmpi
 examples/profile/*.aux
 examples/profile/*.fls
 examples/profile/*.fdb_latexmk
+examples/profile/*.log
 examples/profile/*.out
 examples/profile/*.synctex.gz
-examples/profile/*.pdf
+# examples/profile/*.pdf is intentionally NOT excluded — compiled PDFs are tracked in the repo
 job_hunter/templates/workspace/profile/*.pdf
 
 # IDE

@@ -88,39 +88,44 @@
 \begin{document}
 
 %----------HEADING----------
-% TWO-COLUMN HEADER (default — no photo)
-\begin{minipage}[c]{0.62\textwidth}
-    \raggedright
-    \textbf{\Huge \scshape John Doe} \\[10pt]
-    \textbf{\Large \scshape Senior Backend Engineer}
-\end{minipage}%
-\begin{minipage}[c]{0.38\textwidth}
-    \raggedleft
-    \small Hamburg, Germany\\ [3pt]
-    \small +49 160 0000000 \\ [3pt]
-    \href{mailto:john.doe@example.com}{\small john.doe@example.com}\\ [3pt]
-    \href{https://www.linkedin.com/in/john-doe-eng/}{\small \underline{linkedin.com/in/john-doe-eng}}
-\end{minipage} \vspace*{-15pt}
-
-% THREE-COLUMN HEADER WITH PHOTO
-% To use: comment out the two-column block above and uncomment this block.
-%
-% \begin{minipage}[c]{0.50\textwidth}
+% TWO-COLUMN HEADER (no photo) — uncomment to switch back
+% \begin{minipage}[c]{0.62\textwidth}
 %     \raggedright
 %     \textbf{\Huge \scshape John Doe} \\[10pt]
 %     \textbf{\Large \scshape Senior Backend Engineer}
 % \end{minipage}%
-% \begin{minipage}[c]{0.14\textwidth}
-%     \centering
-%     \includegraphics[width=2.2cm,height=2.2cm,keepaspectratio,clip]{profile.png}
-% \end{minipage}%
-% \begin{minipage}[c]{0.36\textwidth}
+% \begin{minipage}[c]{0.38\textwidth}
 %     \raggedleft
 %     \small Hamburg, Germany\\ [3pt]
 %     \small +49 160 0000000 \\ [3pt]
 %     \href{mailto:john.doe@example.com}{\small john.doe@example.com}\\ [3pt]
 %     \href{https://www.linkedin.com/in/john-doe-eng/}{\small \underline{linkedin.com/in/john-doe-eng}}
 % \end{minipage} \vspace*{-15pt}
+
+% THREE-COLUMN HEADER WITH PHOTO
+% Symmetric 0.43/0.14/0.43 widths center the circular photo on the page.
+% Replace the TikZ placeholder block with \includegraphics[width=2.2cm]{profile.png}
+% once you have an actual photo file.
+\begin{minipage}[c]{0.43\textwidth}
+    \raggedright
+    \textbf{\Huge \scshape John Doe} \\[10pt]
+    \textbf{\Large \scshape Senior Backend Engineer}
+\end{minipage}%
+\begin{minipage}[c]{0.14\textwidth}
+    \centering
+    \begin{tikzpicture}
+      \fill[gray!20] (0,0) circle (1.1cm);
+      \draw[black, line width=2pt] (0,0) circle[radius=1.12cm];
+      \node[font=\scriptsize\color{gray!60}] at (0,0) {Photo};
+    \end{tikzpicture}
+\end{minipage}%
+\begin{minipage}[c]{0.43\textwidth}
+    \raggedleft
+    \small Hamburg, Germany\\ [3pt]
+    \small +49 160 0000000 \\ [3pt]
+    \href{mailto:john.doe@example.com}{\small john.doe@example.com}\\ [3pt]
+    \href{https://www.linkedin.com/in/john-doe-eng/}{\small \underline{linkedin.com/in/john-doe-eng}}
+\end{minipage} \vspace*{-15pt}
 
 %-----------SUMMARY-----------
 \section{Summary}

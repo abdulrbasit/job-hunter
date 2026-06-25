@@ -86,7 +86,7 @@
     inner ysep=0.75ex,
     text height=1.5ex,
     text depth=.25ex
-  ] {\small #1}%
+  ] {\small #1};\hspace{2pt}%
 }
 
 \begin{document}
@@ -170,7 +170,11 @@ Summary Text
 \switchcolumn
 
 % RIGHT COLUMN
-\begin{adjustwidth}{0pt}{0.6em}
+\begingroup
+\setlength{\rightskip}{0.3em plus 1fil}
+\setlength{\baselineskip}{15pt}
+\setlength{\lineskip}{5pt}
+\setlength{\lineskiplimit}{5pt}
 
 \cvsection{Skills}
 
@@ -213,7 +217,7 @@ Summary Text
 \href{certification_link}{\textbf{Certification Name}}\\
 {\small Certification Authority}
 
-\end{adjustwidth}
+\endgroup
 
 \end{paracol}
 

@@ -118,18 +118,22 @@
 % THREE-COLUMN HEADER WITH PHOTO
 % To use: comment out the two-column block above and uncomment this block.
 % Place your photo (e.g. profile.png) in the same folder as this .tex file.
-% Adjust column widths (must sum to 1.0) and image size as needed.
+% Symmetric 0.43/0.14/0.43 widths center the circular photo on the page.
 %
-% \begin{minipage}[c]{0.50\textwidth}
+% \begin{minipage}[c]{0.43\textwidth}
 %     \raggedright
 %     \textbf{\Huge \scshape Name} \\[10pt]
 %     \textbf{\Large \scshape Title}
 % \end{minipage}%
 % \begin{minipage}[c]{0.14\textwidth}
 %     \centering
-%     \includegraphics[width=2.2cm,height=2.2cm,keepaspectratio,clip]{profile.png}
+%     \begin{tikzpicture}
+%       \draw[black, line width=2pt] (0,0) circle[radius=1.12cm];
+%       \clip (0,0) circle (1.1cm);
+%       \node at (0,0) {\includegraphics[width=2.2cm]{profile.png}};
+%     \end{tikzpicture}
 % \end{minipage}%
-% \begin{minipage}[c]{0.36\textwidth}
+% \begin{minipage}[c]{0.43\textwidth}
 %     \raggedleft
 %     \small City, Country\\ [3pt]
 %     \small +49 \\ [3pt]
