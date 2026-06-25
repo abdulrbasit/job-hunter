@@ -38,9 +38,7 @@ You need one AI coding tool to run the interactive review workflow. **You only n
 
 **Codex CLI:** `npm install -g @openai/codex` — requires an OpenAI API key set as `OPENAI_API_KEY`.
 
-**GitHub Copilot app** (standalone desktop, released June 2026): Has built-in slash commands (`/model`, `/add-dir`, `/security-review`) with argument hints, but no custom workspace skills. Reads `AGENTS.md` and runs `job-hunter` CLI commands autonomously with approval. Download through GitHub settings.
-
-See [COMMANDS.md](COMMANDS.md) for the full skill reference across all tools.
+See [COMMANDS.md](COMMANDS.md) for the full skill reference.
 
 ---
 
@@ -168,9 +166,7 @@ Open `.env` and fill in the same keys. This file is already in `.gitignore` — 
 
 Agent mode is the interactive approach: the pipeline fetches job candidates, and you review and process them with your AI tool.
 
-Open the workspace in your AI tool (Claude Code, Gemini CLI, Codex, or Copilot), then run these skills in order.
-
-> **GitHub Copilot app users:** Copilot can run setup through natural language — say "onboard me" or "set up my workspace" and it reads `AGENTS.md` and the skill files to guide you. Slash-command tools give a more structured step-by-step experience, but Copilot works for setup too.
+Open the workspace in your AI tool (Claude Code, Gemini CLI, or Codex), then run these skills in order.
 
 ---
 
@@ -265,8 +261,6 @@ See [COMMANDS.md](COMMANDS.md) for the full skill reference. Quick loop:
 /job-hunter batch     # score and tailor the candidate queue one by one
 /job-hunter finalize  # commit outputs and clean up the queue
 ```
-
-**GitHub Copilot app:** describe the task in plain language — *"Run today's job review: check the briefing, help me go through the candidates, and finalise when done."* The app reads `AGENTS.md`, works out the command sequence, and runs each step with your approval.
 
 ---
 

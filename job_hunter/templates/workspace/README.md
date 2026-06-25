@@ -26,7 +26,7 @@ job-hunter brief
 job-hunter dashboard --no-interactive
 ```
 
-In `agent` mode, use `/job-hunter` from Claude Code or Codex in this workspace.
+In `agent` mode, use `/job-hunter` from Claude Code, Gemini CLI, or Codex in this workspace.
 In `llm-api` mode, the CLI runs the full pipeline.
 
 ## Optional browser hunt
