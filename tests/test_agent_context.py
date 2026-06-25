@@ -13,7 +13,6 @@ from job_hunter.agent_context import (
     candidate_lifecycle,
     final_stories_text,
     linkedin_weekly_context,
-    llm_search_config,
     score_context,
     screen_candidate_batch,
     story_by_id,
@@ -106,13 +105,13 @@ def test_candidate_queue_default_matches_briefing_backlog_scope(tmp_path: Path) 
         ],
     )
     _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_llm_search_candidates.json",
+        tmp_path / "outputs" / "candidates" / "2026-06-02_extra_candidates.json",
         [
             {
-                "title": "AI Product Manager",
-                "company": "LLMCo",
-                "url": "https://example.com/llm",
-                "snippet": "AI product role with prioritization.",
+                "title": "Growth Product Manager",
+                "company": "ExtraCo",
+                "url": "https://example.com/extra",
+                "snippet": "Growth product role with analytics.",
             }
         ],
     )
@@ -125,7 +124,7 @@ def test_candidate_queue_default_matches_briefing_backlog_scope(tmp_path: Path) 
     assert {job["source_file"] for job in queue["jobs"]} == {
         f"{today}_vancouver_candidates.json",
         "2026-06-02_all_candidates.json",
-        "2026-06-02_llm_search_candidates.json",
+        "2026-06-02_extra_candidates.json",
     }
 
 
@@ -217,7 +216,7 @@ def test_morning_briefing_uses_same_backlog_scope(monkeypatch: pytest.MonkeyPatc
         ],
     )
     _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_llm_search_candidates.json",
+        tmp_path / "outputs" / "candidates" / "2026-06-02_extra_candidates.json",
         [
             {
                 "title": "PM Backlog",
@@ -236,7 +235,7 @@ def test_morning_briefing_uses_same_backlog_scope(monkeypatch: pytest.MonkeyPatc
     text = briefing.build_briefing()
 
     assert f"`{today}_all_candidates.json`" in text
-    assert "`2026-06-02_llm_search_candidates.json`" in text
+    assert "`2026-06-02_extra_candidates.json`" in text
     assert "**2 unprocessed candidate(s) across 2 active file(s).**" in text
     assert "score and tailor backlog candidates" in text
 
@@ -685,69 +684,6 @@ def test_score_context_snippet_uses_no_story_bank(tmp_path: Path) -> None:
 
     assert payload["candidate"]["company"] == "ExampleCo"
     assert payload["story_index"] == []
-
-
-def test_llm_search_config_returns_region_title_exclusion_context(tmp_path: Path) -> None:
-    _write_yaml(
-        tmp_path / "config" / "job_hunter.yml",
-        {
-            "regions": {
-                "berlin": {
-                    "enabled": True,
-                    "primary": True,
-                    "country": "DE",
-                    "search_lang": "en",
-                    "location": "Berlin",
-                    "job_titles": ["Product Owner"],
-                },
-                "remote_de": {
-                    "enabled": True,
-                    "country": "DE",
-                    "location": "remote Germany",
-                },
-                "disabled": {
-                    "enabled": False,
-                    "country": "US",
-                    "location": "New York",
-                    "job_titles": ["Growth PM"],
-                },
-            },
-            "job_titles": ["Product Manager", "Technical Product Manager"],
-            "search": {
-                "llm_search": {
-                    "enabled": True,
-                    "trigger_threshold": 3,
-                    "max_results_per_run": 9,
-                },
-            },
-            "exclusions": {
-                "companies": ["NopeCo"],
-                "title_terms": ["engineer"],
-                "languages": ["german"],
-            },
-            "scoring": {"batch_size": 7},
-        },
-    )
-
-    payload = llm_search_config(root=tmp_path)
-    payload_text = json.dumps(payload)
-
-    assert payload["enabled"] is True
-    assert payload["trigger_threshold"] == 3
-    assert payload["max_results_per_run"] == 9
-    assert payload["batch_size"] == 7
-    assert payload["searches_per_title_per_region"] == 5
-    assert [region["region"] for region in payload["regions"]] == ["berlin", "remote_de"]
-    assert payload["regions"][0]["job_titles"] == ["Product Owner"]
-    assert payload["regions"][1]["job_titles"] == [
-        "Product Manager",
-        "Technical Product Manager",
-    ]
-    assert payload["exclusions"]["excluded_companies"] == ["NopeCo"]
-    assert payload["exclusions"]["excluded_title_terms"] == ["engineer"]
-    assert all("companies" not in region for region in payload["regions"])
-    assert "career_url" not in payload_text
-    assert "Should Not Leak" not in payload_text
 
 
 def test_linkedin_weekly_limit_comes_from_job_hunter_config(tmp_path: Path) -> None:

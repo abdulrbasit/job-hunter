@@ -34,7 +34,6 @@ LLM_ROLE_DEFAULTS: dict[str, Any] = {
         "research": "anthropic",
         "linkedin": "anthropic",
         "jd_extraction": "anthropic",
-        "ai_web_search": "anthropic",
     },
     "models": {
         "validation": "claude-haiku-4-5-20251001",
@@ -44,7 +43,6 @@ LLM_ROLE_DEFAULTS: dict[str, Any] = {
         "research": "claude-haiku-4-5-20251001",
         "linkedin": "claude-sonnet-4-6",
         "jd_extraction": "claude-haiku-4-5-20251001",
-        "ai_web_search": "claude-haiku-4-5-20251001",
     },
     "max_tokens": {
         "validation": 200,
@@ -54,7 +52,6 @@ LLM_ROLE_DEFAULTS: dict[str, Any] = {
         "research": 800,
         "linkedin": 6000,
         "jd_extraction": 1500,
-        "ai_web_search": 1200,
     },
     "max_workers": 5,
     "rate_limits": {},
@@ -270,17 +267,6 @@ HTTP_DEFAULTS: dict[str, Any] = {
         "ats_discovery_order": ["searxng", "brave", "exa"],
         "searxng_base_url": "",
         "ats_discovery": {"enabled": True, "sources": list(ATS_DISCOVERY_SOURCES)},
-        "ai_web_search": {
-            "enabled": False,
-            "run_if_fewer_than_jobs": 0,
-            "prompt_delay_seconds": 3,
-            "max_prompts_per_run": 80,
-            "max_prompts_per_region": 8,
-            "max_results_per_prompt": 8,
-            "max_results_per_region": 30,
-            "max_total_results_per_run": 120,
-            "min_confidence": 0.5,
-        },
     },
     "job_boards": {
         "timeout_seconds": 10,

@@ -276,7 +276,6 @@ def verify_repository(root: Path) -> dict[str, Any]:
         "outputs/state/batch_scores.yml",
         "outputs/state/batch_screen.yml",
         "outputs/state/batch_judgment.yml",
-        "outputs/state/llm_search_queue.json",
     ):
         if (root / rel).exists():
             warnings.append(f"stale transient queue: {rel}")

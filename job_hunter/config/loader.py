@@ -62,7 +62,6 @@ def get_job_hunter_config() -> dict[str, Any]:
     _reject_removed_user_config(data)
     defaults: dict[str, Any] = {
         "llm": LLM_ROLE_DEFAULTS,
-        "search": {"llm_search": {"enabled": False, "trigger_threshold": 15, "max_results_per_run": 20}},
         "linkedin": LINKEDIN_DEFAULTS,
         "tailoring": TAILORING_DEFAULTS,
         "cover_letter": COVER_LETTER_DEFAULTS,
@@ -111,10 +110,7 @@ def get_api_config() -> dict[str, Any]:
             "rate_limits": llm.get("rate_limits", {}) or {},
             "ollama": llm.get("ollama", {}) or {},
         },
-        "http": deep_merge(
-            HTTP_DEFAULTS,
-            {"search_providers": {"ai_web_search": cfg.get("search", {}).get("llm_search", {}) or {}}},
-        ),
+        "http": HTTP_DEFAULTS,
         "profile": cfg.get("profile", {}) or {},
     }
 

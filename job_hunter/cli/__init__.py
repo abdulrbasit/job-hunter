@@ -29,7 +29,6 @@ TRANSIENT_STATE_PATHS = (
     "outputs/state/batch_scores.yml",
     "outputs/state/batch_screen.yml",
     "outputs/state/batch_judgment.yml",
-    "outputs/state/llm_search_queue.json",
 )
 
 # ---------------------------------------------------------------------------

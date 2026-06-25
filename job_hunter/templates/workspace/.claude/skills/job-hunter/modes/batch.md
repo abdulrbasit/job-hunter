@@ -68,11 +68,8 @@ Process a frozen candidate batch end-to-end. Never wait for a user to type "Cont
      --write-queue outputs/state/agent_candidate_queue.json
    ```
 
-8. LLM job search: run `agent-context llm-search-config`. If disabled, report `LLM search: disabled`.
-   If enabled and `tailored_count < trigger_threshold`: execute `.claude/skills/job-hunter/modes/search.md` inline. If it writes `outputs/state/llm_search_queue.json`, immediately screen that queue and apply the same frozen-batch import/full-score/tailor loop before any final summary. `trigger_threshold` means AI web search runs only when normal sources yielded fewer than that many candidates; `max_results_per_run` caps AI web-search candidates added in one run.
-
-9. After all batch work is complete, run `job-hunter cleanup-transient`.
-   Removes stale scratch files: `agent_candidate_queue.json`, `agent_candidate_batch.json`, `batch_screen.yml`, `batch_scores.yml`, and `llm_search_queue.json`. Does not delete `applications.yml`, `discovered_urls.yml`, tailored job folders, or candidate snapshots.
+8. After all batch work is complete, run `job-hunter cleanup-transient`.
+   Removes stale scratch files: `agent_candidate_queue.json`, `agent_candidate_batch.json`, `batch_screen.yml`, `batch_scores.yml`. Does not delete `applications.yml`, `discovered_urls.yml`, tailored job folders, or candidate snapshots.
 
 ## Failure Handling
 

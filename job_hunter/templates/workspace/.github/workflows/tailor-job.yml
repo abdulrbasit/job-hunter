@@ -83,7 +83,6 @@ jobs:
             outputs/linkedin/ \
             outputs/state/discovered_urls.yml \
             outputs/state/agent_candidate_queue.json \
-            outputs/state/llm_search_queue.json \
             outputs/state/api_usage.json \
             outputs/state/dev_token_metrics.json
           do

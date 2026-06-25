@@ -3,7 +3,7 @@
   "title": "job_hunter config",
   "type": "object",
   "additionalProperties": false,
-  "required": ["mode", "profile", "job_titles", "regions", "exclusions", "search", "scoring", "llm"],
+  "required": ["mode", "profile", "job_titles", "regions", "exclusions", "scoring", "llm"],
   "properties": {
     "mode": {
       "type": "string",
@@ -50,23 +50,6 @@
         "title_terms": {"type": "array", "items": {"type": "string"}},
         "languages": {"type": "array", "items": {"type": "string"}},
         "industries": {"type": "array", "items": {"type": "string"}}
-      },
-      "additionalProperties": false
-    },
-    "search": {
-      "type": "object",
-      "required": ["llm_search"],
-      "properties": {
-        "llm_search": {
-          "type": "object",
-          "required": ["enabled", "trigger_threshold", "max_results_per_run"],
-          "properties": {
-            "enabled": {"type": "boolean"},
-            "trigger_threshold": {"type": "integer", "minimum": 0},
-            "max_results_per_run": {"type": "integer", "minimum": 0}
-          },
-          "additionalProperties": false
-        }
       },
       "additionalProperties": false
     },

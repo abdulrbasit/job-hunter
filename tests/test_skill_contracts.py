@@ -81,13 +81,12 @@ def test_process_batch_never_pauses_between_inline_phases() -> None:
     assert 'Never wait for a user to type "Continue"' in process_batch
     assert "status update is not an end state" in process_batch
     assert "control returning to this workflow" in process_batch
-    assert "immediately screen that queue" in process_batch
     assert "PDF failure is non-blocking only when `resume_tailored.tex` exists" in process_batch
     assert "job-hunter cleanup-transient" in process_batch
 
 
 def test_atomic_skills_return_control_without_waiting() -> None:
-    for skill_name in ("search", "research", "tailor"):
+    for skill_name in ("research", "tailor"):
         text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / f"{skill_name}.md").read_text(encoding="utf-8")
 
         lower = text.lower()
@@ -104,19 +103,6 @@ def test_tailor_skill_reads_career_context() -> None:
     assert "resume_tailored.tex" in text
     assert "outputs/jobs/<slug>/resume_tailored.md" not in text
     assert "job-hunter compile-pdf --job <slug>" in text
-
-
-def test_search_skill_uses_region_title_query_budget_and_filters() -> None:
-    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "search.md").read_text(encoding="utf-8")
-
-    assert "enabled regions and effective titles" in text
-    assert "live, specific job posting" in text
-    assert "excluded companies" in text
-    assert "excluded title terms" in text
-    assert "listing pages" in text
-    assert "max_results_per_run" in text
-    assert "llm_search_queue.json" in text
-    assert "Do not semantically reject industries" in text
 
 
 def test_single_config_file_is_the_only_config() -> None:
@@ -179,3 +165,29 @@ def test_job_hunter_modes_use_current_cli_signatures() -> None:
     assert "job-hunter agent-context validate-score --path " in text
     assert "job-hunter compile-pdf --job <slug>" in text
     assert "--resume-batch" not in text
+
+
+def test_tailor_skill_calls_tailor_context_command() -> None:
+    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "tailor.md").read_text(encoding="utf-8")
+
+    assert "agent-context tailor-context" in text
+    assert "--job <slug>" in text
+
+
+def test_tailor_skill_enforces_cover_letter_constraints() -> None:
+    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "tailor.md").read_text(encoding="utf-8")
+
+    assert "target_words" in text
+    assert "max_words" in text
+    assert "cover_constraints" in text
+    assert "paragraph_structure" in text
+
+
+def test_tailor_skill_enforces_tailoring_rules() -> None:
+    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "tailor.md").read_text(encoding="utf-8")
+
+    assert "tailoring_rules" in text
+    assert "positioning_rules" in text
+    assert "project_rules" in text
+    assert "keywords" in text
+    assert "gaps" in text

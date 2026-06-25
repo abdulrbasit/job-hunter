@@ -231,6 +231,12 @@ def get_client(role: str) -> LLMClient:
         return client
 
 
+def clear_cache() -> None:
+    """Clear the provider client cache. For testing only."""
+    with _lock:
+        _cache.clear()
+
+
 def call(role: str, prompt: str, system: str = "", cache_system: bool = False, cache_ttl: str = "5m") -> LLMResponse:
     """Convenience wrapper: resolve client + model + tokens from config, then call."""
     from job_hunter.core.llm_utils import get_llm_role_settings

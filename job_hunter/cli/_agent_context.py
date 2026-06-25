@@ -211,12 +211,14 @@ def agent_context_linkedin_weekly(
     typer.echo(json.dumps(payload, indent=2))
 
 
-@agent_context_app.command("llm-search-config")
-def agent_context_llm_search_config() -> None:
-    """Print LLM search configuration."""
+@agent_context_app.command("tailor-context")
+def agent_context_tailor_context(
+    job: str = typer.Option(..., "--job"),
+) -> None:
+    """Print tailoring + cover-letter constraints for a scored job."""
     from job_hunter import agent_context
 
-    typer.echo(json.dumps(agent_context.llm_search_config(), indent=2))
+    typer.echo(json.dumps(agent_context.tailor_context(job=job), indent=2))
 
 
 @agent_context_app.command("validate-score")

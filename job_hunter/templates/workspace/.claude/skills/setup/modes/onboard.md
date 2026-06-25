@@ -178,29 +178,7 @@ Update `llm.models.tailoring` and `llm.models.cover_letter` if changed.
 
 ---
 
-## Step 8 — LLM Web Search (optional)
-
-Inform the user:
-
-> **LLM web search** is disabled by default (`search.llm_search.enabled: false`). When enabled, the pipeline uses AI to search the web for job listings when regular job boards find fewer results than a threshold you set. Useful for niche roles, but uses more API credits.
-
-Ask:
-
-> Do you want to enable LLM web search? (Default: no)
-
-If yes, ask:
-
-> What trigger threshold? (Default: 15 — AI search kicks in when fewer than 15 candidates are found from regular sources)
-
-If yes, ask:
-
-> Max AI search results per run? (Default: 20)
-
-Update `search.llm_search.enabled`, `trigger_threshold`, and `max_results_per_run` accordingly.
-
----
-
-## Step 9 — LLM API Mode extras (only if mode = llm-api)
+## Step 8 — LLM API Mode extras (only if mode = llm-api)
 
 Tell the user:
 

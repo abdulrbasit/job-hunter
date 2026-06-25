@@ -18,8 +18,6 @@ from job_hunter.agent_context.candidates import (
     build_candidate_queue,
 )
 from job_hunter.agent_context.stories import story_index
-from job_hunter.config.defaults import EXCLUDED_LISTING_URL_PATTERNS, STALE_INDICATORS
-from job_hunter.constants import DEFAULT_BATCH_SIZE
 
 
 def _latest_commit_subject(root: Path) -> str:
@@ -107,54 +105,6 @@ def _linkedin_job_limit(root: Path, days: int, limit: int | None) -> tuple[int, 
     if daily_limit > 0:
         return daily_limit * max(days, 1), "config:scoring.batch_size * days"
     return 0, "unlimited"
-
-
-def _effective_region_titles(region_config: dict[str, Any], global_titles: list[str]) -> list[str]:
-    titles = region_config.get("job_titles") or global_titles
-    return [str(title) for title in titles if str(title).strip()]
-
-
-def _llm_search_regions(config: dict[str, Any]) -> list[dict[str, Any]]:
-    global_titles = [str(title) for title in config.get("job_titles", []) or [] if str(title).strip()]
-    regions: list[dict[str, Any]] = []
-    for region_name, region_config in (config.get("regions") or {}).items():
-        if not isinstance(region_config, dict) or not region_config.get("enabled", True):
-            continue
-        regions.append(
-            {
-                "region": str(region_name),
-                "country": str(region_config.get("country") or ""),
-                "location": str(region_config.get("location") or ""),
-                "search_lang": str(region_config.get("search_lang") or ""),
-                "primary": bool(region_config.get("primary", False)),
-                "job_titles": _effective_region_titles(region_config, global_titles),
-            }
-        )
-    return regions
-
-
-def llm_search_config(*, root: Path | None = None) -> dict[str, Any]:
-    """Return compact region/title/exclusion context for agent-driven web search."""
-    base = _root(root)
-    config = _read_yaml(base / "config" / "job_hunter.yml")
-    ljs = (config.get("search") or {}).get("llm_search") or {}
-    scoring = config.get("scoring") or {}
-    exclusions = config.get("exclusions") or {}
-    return {
-        "enabled": bool(ljs.get("enabled", False)),
-        "trigger_threshold": int(ljs.get("trigger_threshold", 999)),
-        "max_results_per_run": int(ljs.get("max_results_per_run", 20)),
-        "batch_size": int(scoring.get("batch_size", DEFAULT_BATCH_SIZE)),
-        "searches_per_title_per_region": 5,
-        "regions": _llm_search_regions(config),
-        "exclusions": {
-            "excluded_companies": [str(company) for company in exclusions.get("companies", []) or []],
-            "excluded_title_terms": [str(term) for term in exclusions.get("title_terms", []) or []],
-            "excluded_url_patterns": [str(pattern) for pattern in EXCLUDED_LISTING_URL_PATTERNS],
-            "excluded_languages": [str(language) for language in exclusions.get("languages", []) or []],
-            "stale_indicators": [str(indicator) for indicator in STALE_INDICATORS],
-        },
-    }
 
 
 def linkedin_weekly_context(

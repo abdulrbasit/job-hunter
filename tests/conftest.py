@@ -14,84 +14,83 @@ os.environ.setdefault("RAPIDAPI_KEY", "test-rapidapi-key")
 runtime_root = Path(tempfile.mkdtemp(prefix="job-hunter-test-root-"))
 config_dir = runtime_root / "config"
 config_dir.mkdir(parents=True)
-if True:
-    (config_dir / "job_hunter.yml").write_text(
-        textwrap.dedent(
-            """
-            mode: agent
-            profile:
-              resume_tex: profile/resume_double_column.tex
-              story_bank: profile/story_bank.md
-              career_context: profile/career_context.md
-            job_titles:
-              - Product Manager
-            regions:
-              primary:
-                enabled: true
-                primary: true
-                country: DE
-                search_lang: en
-                location: Berlin
-            exclusions:
-              companies: []
-              title_terms: []
-              languages: []
-              industries: []
-            search:
-              llm_search:
-                enabled: false
-                trigger_threshold: 15
-                max_results_per_run: 20
-            scoring:
-              min_fit_score: 70
-              batch_size: 15
-            linkedin:
-              enabled: false
-            llm:
-              default_provider: anthropic
-              providers:
-                validation: anthropic
-                scoring: anthropic
-                tailoring: anthropic
-                cover_letter: anthropic
-                jd_extraction: anthropic
-                ai_web_search: anthropic
-                linkedin: anthropic
-              models:
-                validation: test-model
-                scoring: test-model
-                tailoring: test-model
-                cover_letter: test-model
-                jd_extraction: test-model
-                ai_web_search: test-model
-                linkedin: test-model
-              max_tokens:
-                validation: 256
-                scoring: 256
-                tailoring: 1024
-                cover_letter: 1024
-                jd_extraction: 512
-                ai_web_search: 1200
-                linkedin: 1024
-            """
-        ).lstrip(),
-        encoding="utf-8",
-    )
+(config_dir / "job_hunter.yml").write_text(
+    textwrap.dedent(
+        """
+        mode: agent
+        profile:
+          resume_tex: profile/resume_double_column.tex
+          story_bank: profile/story_bank.md
+          career_context: profile/career_context.md
+        job_titles:
+          - Product Manager
+        regions:
+          primary:
+            enabled: true
+            primary: true
+            country: DE
+            search_lang: en
+            location: Berlin
+        exclusions:
+          companies: []
+          title_terms: []
+          languages: []
+          industries: []
+        scoring:
+          min_fit_score: 70
+          batch_size: 15
+        linkedin:
+          enabled: false
+        llm:
+          default_provider: anthropic
+          providers:
+            validation: anthropic
+            scoring: anthropic
+            tailoring: anthropic
+            cover_letter: anthropic
+            jd_extraction: anthropic
+            linkedin: anthropic
+          models:
+            validation: test-model
+            scoring: test-model
+            tailoring: test-model
+            cover_letter: test-model
+            jd_extraction: test-model
+            linkedin: test-model
+          max_tokens:
+            validation: 256
+            scoring: 256
+            tailoring: 1024
+            cover_letter: 1024
+            jd_extraction: 512
+            linkedin: 1024
+        """
+    ).lstrip(),
+    encoding="utf-8",
+)
 
-    profile_dir = runtime_root / "profile"
-    profile_dir.mkdir(parents=True)
-    for filename in ("resume_double_column.tex", "story_bank.md", "altacv.cls"):
-        (profile_dir / filename).write_text("", encoding="utf-8")
-    (profile_dir / "career_context.md").write_text("", encoding="utf-8")
+profile_dir = runtime_root / "profile"
+profile_dir.mkdir(parents=True)
+for filename in ("resume_double_column.tex", "story_bank.md", "altacv.cls"):
+    (profile_dir / filename).write_text("", encoding="utf-8")
+(profile_dir / "career_context.md").write_text("", encoding="utf-8")
 
-    state_dir = runtime_root / "outputs" / "state"
-    state_dir.mkdir(parents=True)
-    (state_dir / "discovered_urls.yml").write_text("discovered: []\ncandidate_urls: []\n", encoding="utf-8")
+state_dir = runtime_root / "outputs" / "state"
+state_dir.mkdir(parents=True)
+(state_dir / "discovered_urls.yml").write_text("discovered: []\ncandidate_urls: []\n", encoding="utf-8")
 
-    os.environ.setdefault("JOB_HUNTER_ROOT", str(runtime_root))
+os.environ.setdefault("JOB_HUNTER_ROOT", str(runtime_root))
 
 # The project package is on sys.path via the installed package (pip install -e .)
 # No manual path manipulation needed.
+
+
+@pytest.fixture(autouse=True)
+def _clear_llm_cache():
+    yield
+    from job_hunter.llm import client as _llm_client
+
+    _llm_client.clear_cache()
 
 
 @pytest.fixture

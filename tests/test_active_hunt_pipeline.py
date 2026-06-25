@@ -51,7 +51,7 @@ def test_active_orchestrator_applies_policy_and_candidate_cache(monkeypatch) -> 
                 "search_lang": "en",
             }
         },
-        "search": {"llm_search": {"enabled": False}},
+        "search": {},
     }
 
     class Source:
@@ -110,7 +110,7 @@ def test_global_feed_is_fetched_once_for_all_regions(monkeypatch) -> None:
             "berlin": {"enabled": True, "country": "DE", "location": "Berlin"},
             "dublin": {"enabled": True, "country": "IE", "location": "Dublin"},
         },
-        "search": {"llm_search": {"enabled": False}},
+        "search": {},
     }
 
     class GlobalSource:

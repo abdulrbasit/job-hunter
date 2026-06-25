@@ -47,14 +47,6 @@ exclusions:
     - german
   industries: []
 
-search:
-  llm_search:
-    enabled: false
-    # Run AI web search only when normal sources find fewer than this many candidates.
-    trigger_threshold: 15
-    # Hard cap for AI web-search candidates added in one run.
-    max_results_per_run: 20
-
 scoring:
   min_fit_score: 70
   max_years_experience_required: 5
@@ -78,7 +70,6 @@ llm:
     cover_letter: anthropic
     research: anthropic
     jd_extraction: anthropic
-    ai_web_search: anthropic
   models:
     validation: "claude-haiku-4-5-20251001"
     scoring: "claude-haiku-4-5-20251001"
@@ -86,7 +77,6 @@ llm:
     cover_letter: "claude-sonnet-4-6"
     research: "claude-haiku-4-5-20251001"
     jd_extraction: "claude-haiku-4-5-20251001"
-    ai_web_search: "claude-haiku-4-5-20251001"
   max_tokens:
     validation: 200
     scoring: 1000
@@ -94,6 +84,5 @@ llm:
     cover_letter: 800
     research: 800
     jd_extraction: 1500
-    ai_web_search: 1200
   max_workers: 5
   rate_limits: {}

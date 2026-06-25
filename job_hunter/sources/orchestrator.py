@@ -159,19 +159,6 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
         except Exception as exc:
             logger.warning("[orchestrator] ATS discovery failed: %s", exc)
 
-    # Step 3: LLM web search (optional)
-    llm_cfg = (cfg.get("search", {}) or {}).get("llm_search", {}) or {}
-    if depth != "fast" and llm_cfg.get("enabled"):
-        threshold = int(llm_cfg.get("trigger_threshold", 0) or 0)
-        if len(results) < threshold or depth == "deep":
-            try:
-                from job_hunter.sources.ai_web_search import fetch_ai_web_search_jobs
-
-                ai_raw = fetch_ai_web_search_jobs(job_titles, regions)
-                _add_unique([JobPosting.from_dict(j) for j in ai_raw], "ai_web_search")
-            except Exception as exc:
-                logger.warning("[orchestrator] LLM search failed: %s", exc)
-
     stats.rejected = dict(rejected)
     stats.duration_seconds = time.monotonic() - start
     logger.info(
