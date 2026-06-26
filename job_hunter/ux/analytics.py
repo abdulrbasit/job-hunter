@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from job_hunter.ux.applications import filtered_applications
+from job_hunter.ux.applications import ApplicationRecord, filtered_applications
 
 
 def analyze_pipeline(root: Path, *, days: int = 14) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def _source_host(url: str) -> str:
     return host.removeprefix("www.") or "unknown"
 
 
-def _low_score_reasons(root: Path, apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _low_score_reasons(root: Path, apps: list[ApplicationRecord]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for app in apps:
         score = app.get("score")
@@ -80,7 +80,7 @@ def _low_score_reasons(root: Path, apps: list[dict[str, Any]]) -> list[dict[str,
     return items
 
 
-def _stale_active_apps(apps: list[dict[str, Any]], *, days: int) -> list[dict[str, str]]:
+def _stale_active_apps(apps: list[ApplicationRecord], *, days: int) -> list[dict[str, str]]:
     cutoff = datetime.now(UTC) - timedelta(days=days)
     stale: list[dict[str, str]] = []
     for app in apps:
@@ -99,7 +99,7 @@ def _stale_active_apps(apps: list[dict[str, Any]], *, days: int) -> list[dict[st
     return stale
 
 
-def _followup_candidates(apps: list[dict[str, Any]], *, days: int) -> list[dict[str, str]]:
+def _followup_candidates(apps: list[ApplicationRecord], *, days: int) -> list[dict[str, str]]:
     by_status_days = defaultdict(lambda: days)
     by_status_days.update({"applied": 7, "responded": 3, "interview": 5})
     now = datetime.now(UTC)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import yaml
 
@@ -23,6 +23,23 @@ CANONICAL_STATUSES = (
 
 ACTIVE_STATUSES = {"tailored", "applied", "responded", "interview", "offer"}
 HIDDEN_LEGACY_STATUSES = {"discarded", "skip"}
+
+
+class ApplicationRecord(TypedDict, total=False):
+    slug: str
+    date: str
+    company: str
+    title: str
+    url: str
+    region: str
+    location: str
+    status: str
+    score: int | float | str | None
+    decision: str
+    files: dict[str, str]
+    notes: list[str]
+    created_at: str
+    updated_at: str
 
 
 def applications_path(root: Path | None = None) -> Path:

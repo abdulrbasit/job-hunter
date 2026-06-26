@@ -7,10 +7,10 @@ from datetime import date
 from typing import Any
 
 from job_hunter.pipeline.readme_writer import update_readme_from_applications
-from job_hunter.ux.applications import render_applications_table, update_application_status
+from job_hunter.ux.applications import ApplicationRecord, render_applications_table, update_application_status
 
 
-def dashboard_summary(apps: list[dict[str, Any]]) -> dict[str, Any]:
+def dashboard_summary(apps: list[ApplicationRecord]) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for app in apps:
         status = str(app.get("status") or "unknown")
@@ -18,7 +18,7 @@ def dashboard_summary(apps: list[dict[str, Any]]) -> dict[str, Any]:
     return {"total": len(apps), "by_status": dict(sorted(counts.items()))}
 
 
-def render_dashboard(apps: list[dict[str, Any]]) -> str:
+def render_dashboard(apps: list[ApplicationRecord]) -> str:
     summary = dashboard_summary(apps)
     lines = ["Job Hunter Dashboard"]
     lines.append(f"Total: {summary['total']}")
@@ -66,7 +66,7 @@ def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
                 update_readme_from_applications(current_apps, root, date.today().isoformat())
 
 
-def _print_preview(app: dict[str, Any]) -> None:
+def _print_preview(app: ApplicationRecord) -> None:
     print("")
     print(f"{app.get('company', 'Unknown')} - {app.get('title', 'Unknown')}")
     print(f"Status: {app.get('status', '')} | Score: {app.get('score', '')}")
