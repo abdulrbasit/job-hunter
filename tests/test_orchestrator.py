@@ -31,7 +31,7 @@ def test_process_jobs_caps_tailoring_to_configured_batch_size() -> None:
         return True
 
     with (
-        patch("job_hunter.pipeline.orchestrator.filter_matches", return_value=matches),
+        patch("job_hunter.pipeline.orchestrator.score_and_filter_jobs", return_value=matches),
         patch("job_hunter.pipeline.orchestrator._process_match", side_effect=fake_process),
     ):
         processed = orchestrator._process_jobs(
@@ -279,7 +279,7 @@ def test_update_readme_refreshes_existing_score(tmp_path) -> None:
 
 
 def test_hard_screen_rejects_excluded_industry() -> None:
-    from job_hunter.pipeline.screening import hard_screen_jobs
+    from job_hunter.pipeline.screening import screen_jobs_by_rules
 
     jobs = [
         {
@@ -295,7 +295,7 @@ def test_hard_screen_rejects_excluded_industry() -> None:
         "regions": {"berlin": {"location": "Berlin"}},
     }
 
-    kept, rejected = hard_screen_jobs(jobs, config)
+    kept, rejected = screen_jobs_by_rules(jobs, config)
 
     assert kept == []
     assert rejected[0]["_rejection_reason"] == "excluded_industry"

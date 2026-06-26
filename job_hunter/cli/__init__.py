@@ -241,7 +241,7 @@ def update_readme(
 
     from job_hunter.pipeline.readme_writer import update_readme_from_applications
     from job_hunter.tracker import repo_path
-    from job_hunter.ux.applications import upsert_application_from_job
+    from job_hunter.ux.applications import load_applications, upsert_application_from_job
 
     folder = repo_path("outputs", "jobs", job)
     meta_path = folder / "meta.json"
@@ -254,8 +254,9 @@ def update_readme(
 
     today = date.today().isoformat()
     root = repo_path()
-    application = upsert_application_from_job(job, root=root, status="tailored")
-    update_readme_from_applications([application], root, today)
+    upsert_application_from_job(job, root=root, status="tailored")
+    all_apps = load_applications(root)["applications"]
+    update_readme_from_applications(all_apps, root, today)
     typer.echo(f"[update-readme] README updated for {job}")
 
 

@@ -396,6 +396,49 @@ def test_update_readme_uses_score_file(tmp_path: Path, monkeypatch: pytest.Monke
     assert f"outputs/jobs/{job}/" in text
 
 
+def test_update_readme_preserves_existing_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Calling update-readme for one job must not drop rows for other already-tracked jobs."""
+    import yaml
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    def _make_job(slug: str, score: int, url: str) -> None:
+        job_dir = tmp_path / "outputs" / "jobs" / slug
+        job_dir.mkdir(parents=True)
+        (job_dir / "meta.json").write_text(
+            json.dumps({"date": "2026-06-26", "company": "Co", "title": slug, "url": url, "location": "Berlin"}),
+            encoding="utf-8",
+        )
+        (job_dir / "score.yml").write_text(yaml.safe_dump({"score": score, "decision": "APPLY"}), encoding="utf-8")
+        (job_dir / "resume_tailored.tex").write_text("\\documentclass{altacv}", encoding="utf-8")
+
+    existing_slug = "2026-06-26_existing_co_job-a"
+    new_slug = "2026-06-26_new_co_job-b"
+    _make_job(existing_slug, 80, "https://example.com/a")
+    _make_job(new_slug, 75, "https://example.com/b")
+
+    (tmp_path / "README.md").write_text(
+        "<!-- JOBS_TABLE_START -->\n"
+        "| Date | Job | Location | Score | Files |\n"
+        "|---|---|---|---|---|\n"
+        "<!-- JOBS_TABLE_END -->\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    # First job — seeds applications.yml
+    CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", existing_slug])
+    # Second job — must not erase the first row
+    result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", new_slug])
+
+    assert result.exit_code == 0, result.output
+    text = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert existing_slug in text, "first job row was lost after second update-readme call"
+    assert new_slug in text, "second job row missing"
+
+
 def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 

@@ -31,9 +31,10 @@ from job_hunter.pipeline.hunt import (
     run_hunt_scrape_only,
 )
 from job_hunter.pipeline.pdf_compiler import compile_tex
+from job_hunter.pipeline.pre_llm_gate import apply_pre_llm_gate
 from job_hunter.pipeline.readme_writer import slugify
 from job_hunter.pipeline.readme_writer import update_readme as write_readme_table
-from job_hunter.pipeline.scorer import filter_matches, strategic_override_companies
+from job_hunter.pipeline.scorer import score_and_filter_jobs, strategic_override_companies
 from job_hunter.pipeline.tailor import run_tailor
 from job_hunter.pipeline.tailorer import tailor
 from job_hunter.pipeline.validator import validate
@@ -73,9 +74,9 @@ def _screen_by_config(
     jobs: list[dict[str, Any]], scoring_cfg: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply deterministic exclusion rules from config before any LLM calls."""
-    from job_hunter.pipeline.screening import hard_screen_jobs
+    from job_hunter.pipeline.screening import screen_jobs_by_rules
 
-    return hard_screen_jobs(jobs, scoring_cfg)
+    return screen_jobs_by_rules(jobs, scoring_cfg)
 
 
 def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
@@ -162,8 +163,14 @@ def _process_jobs(
         logger.info("[pipeline] Scoring skipped (--skip-score) - processing all")
         matches = [{"job": job, "score": 0, "matched_keywords": [], "gaps": []} for job in jobs]
     else:
+        jobs, pre_llm_rejected = apply_pre_llm_gate(jobs, scoring_cfg)
+        if pre_llm_rejected:
+            logger.info("[pipeline] Pre-LLM gate dropped %s job(s)", len(pre_llm_rejected))
+        if not jobs:
+            logger.warning("[pipeline] Pre-LLM gate rejected all remaining jobs.")
+            return []
         logger.info("[pipeline] Scoring %s job(s)...", len(jobs))
-        matches = filter_matches(jobs, config=scoring_cfg)
+        matches = score_and_filter_jobs(jobs, config=scoring_cfg)
         if not matches:
             logger.warning("[pipeline] No jobs passed the scoring threshold.")
             return []

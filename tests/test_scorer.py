@@ -121,7 +121,7 @@ def test_score_api_error() -> None:
     assert "api error" in result["gaps"]
 
 
-# ── filter_matches() ─────────────────────────────────────────────────────────
+# ── score_and_filter_jobs() ──────────────────────────────────────────────────
 
 
 def test_build_scoring_resume_context_compacts_latex_noise() -> None:
@@ -237,13 +237,13 @@ def _score_result(score_val, years=3, company="TestCo"):
         ({"score_val": 90}, None, CONFIG, True, 1),
     ],
 )
-def test_filter_matches(score_kwargs, job_override, cfg, null_years, expected_count) -> None:
+def test_score_and_filter_jobs(score_kwargs, job_override, cfg, null_years, expected_count) -> None:
     job = {**JOB, **(job_override or {})}
     result = _score_result(**score_kwargs)
     if null_years:
         result["years_exp_required"] = None
     with patch.object(scorer, "score", return_value=result):
-        matches = scorer.filter_matches([job], config=cfg)
+        matches = scorer.score_and_filter_jobs([job], config=cfg)
     assert len(matches) == expected_count
 
 
@@ -294,5 +294,5 @@ def test_strategic_override_companies_excluded_when_key_absent() -> None:
 def test_filter_bypass_years_by_company(company, expected_count) -> None:
     job = {**JOB, "company": company}
     with patch.object(scorer, "score", return_value=_score_result(82, years=8, company=company)):
-        matches = scorer.filter_matches([job], config=_BYPASS_CONFIG)
+        matches = scorer.score_and_filter_jobs([job], config=_BYPASS_CONFIG)
     assert len(matches) == expected_count

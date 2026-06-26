@@ -145,7 +145,7 @@ def score(job: dict, config: dict) -> dict:
             result = stage.parse_json_object(repaired, "scoring response must be a JSON object")
         logger.debug(f"[scorer] {job.get('title', 'Unknown')} → score={result.get('score')}")
     except ImportError:
-        raise  # missing SDK affects every job — let filter_matches fail fast
+        raise  # missing SDK affects every job — let score_and_filter_jobs fail fast
     except json.JSONDecodeError as e:
         logger.error(f"[scorer] JSON parse error: {e} | raw: {raw[:200]!r}")
         result = {
@@ -203,7 +203,7 @@ def strategic_override_companies(config: dict) -> list[str]:
     ]
 
 
-def filter_matches(
+def score_and_filter_jobs(
     jobs: list[dict],
     min_score: int | None = None,
     max_years: int | None = None,

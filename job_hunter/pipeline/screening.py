@@ -28,7 +28,7 @@ def _requires_excluded_language(title_lower: str, excluded_langs: list[str]) -> 
     return False
 
 
-def _screen_one(
+def _screen_job(
     job: dict[str, Any],
     policy: JobPolicy,
     regions: dict[str, Any],
@@ -68,7 +68,7 @@ def _screen_one(
     return reason, signals
 
 
-def hard_screen_jobs(
+def screen_jobs_by_rules(
     jobs: list[dict[str, Any]],
     config: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -80,7 +80,7 @@ def hard_screen_jobs(
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, signals = _screen_one(job, policy, regions, industries)
+        reason, signals = _screen_job(job, policy, regions, industries)
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
         else:

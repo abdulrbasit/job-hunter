@@ -193,10 +193,10 @@ def build_candidate_queue(
         )
 
     from job_hunter.config import get_config
-    from job_hunter.pipeline.screening import hard_screen_jobs
+    from job_hunter.pipeline.screening import screen_jobs_by_rules
 
     _cfg = get_config("job_hunter") if base == _root() else _read_yaml(base / "config" / "job_hunter.yml")
-    queued, _hard_rejected = hard_screen_jobs(queued, _cfg)
+    queued, _hard_rejected = screen_jobs_by_rules(queued, _cfg)
 
     return {
         "generated": date.today().isoformat(),
