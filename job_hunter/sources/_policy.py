@@ -456,8 +456,7 @@ class JobPolicy:
         restrictions = [str(v) for v in job.get("location_restrictions", []) or [] if str(v).strip()]
         if restrictions:
             return not any(
-                _is_broad_location_restriction(v, allowed_codes)
-                or bool(_codes_from_location_text(v) & allowed_codes)
+                _is_broad_location_restriction(v, allowed_codes) or bool(_codes_from_location_text(v) & allowed_codes)
                 for v in restrictions
             )
         location = str(job.get("location") or "")
