@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
-import shutil
 import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -24,6 +22,7 @@ from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.config.loader import get_config, load_api_config, profile_path, setup_logging
 from job_hunter.constants import DEFAULT_BATCH_SIZE
 from job_hunter.core.url_liveness import UrlLivenessCache
+from job_hunter.pipeline import _match_processor
 from job_hunter.pipeline._artifacts import write_match_artifacts
 from job_hunter.pipeline.cover_writer import write_cover
 from job_hunter.pipeline.hunt import (
@@ -67,12 +66,7 @@ def update_readme(matches: list[dict[str, Any]]) -> None:
 
 
 def _copy_latex_assets(job_dir: Path) -> None:
-    for src in (
-        profile_path("latex_class", "altacv.cls"),
-        profile_path("profile_image", ""),
-    ):
-        if src.exists():
-            shutil.copy2(src, job_dir / src.name)
+    _match_processor.copy_latex_assets(job_dir, profile_path)
 
 
 def _screen_by_config(
@@ -85,105 +79,36 @@ def _screen_by_config(
 
 
 def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
-    """Write company_research.md via LLM using training-data knowledge."""
     from job_hunter.pipeline.llm_stage import LLMStage
 
-    config = get_config("job_hunter")
-    titles = ", ".join(config.get("job_titles") or []) or "the role"
-    company = job.get("company", "Unknown")
-    title = job.get("title") or titles
-
-    stage = LLMStage("research")
-    system = (
-        "You write concise company research notes for job applications. "
-        "Use only factual information from your training data. "
-        "If uncertain about a claim, omit it. No speculation."
+    _match_processor.write_company_research(
+        job,
+        job_dir,
+        get_config=get_config,
+        llm_stage_factory=LLMStage,
+        logger=logger,
     )
-    prompt = (
-        f"Write company research for a {title} applicant targeting {company}.\n\n"
-        f"Use this exact structure (plain text, under 300 words total):\n\n"
-        f"## Product & Business\n<2-3 sentences on what the company builds and for whom>\n\n"
-        f"## Tech Stack / Engineering\n<known technologies and engineering practices>\n\n"
-        f"## Culture Signals\n<reputation, glassdoor signals, engineering blog if known>\n\n"
-        f"## Recent News\n<notable events from training data>\n\n"
-        f"## Application Angle\n<one line on how this context informs the cover letter or story selection>"
-    )
-    try:
-        content = stage.complete(system=system, user=prompt)
-        (job_dir / "company_research.md").write_text(f"# {company} Research\n\n{content}", encoding="utf-8")
-        logger.info("  company research written")
-    except Exception as e:
-        logger.warning("  company research failed: %s — continuing", e)
 
 
 def _make_generated_tex_self_contained(tex: str) -> str:
-    latex_class = profile_path("latex_class", "altacv.cls")
-    profile_image = profile_path("profile_image", "")
-
-    if latex_class.exists() or latex_class.name:
-        class_stem = re.escape(latex_class.stem)
-        tex = re.sub(
-            rf"(\\documentclass(?:\[[^\]]*\])?)\{{(?:[./\\]+)?(?:.*[./\\])?{class_stem}\}}",
-            rf"\1{{{latex_class.stem}}}",
-            tex,
-            count=1,
-        )
-
-    if profile_image.exists() or profile_image.name:
-        image_stem = re.escape(profile_image.stem)
-        tex = re.sub(
-            rf"(\\photoR\{{[^}}]+\}})\{{(?:[./\\]+)?(?:.*[./\\])?{image_stem}\}}",
-            rf"\1{{{profile_image.stem}}}",
-            tex,
-            count=1,
-        )
-
-    return tex
+    return _match_processor.make_generated_tex_self_contained(tex, profile_path)
 
 
 def _process_match(match: dict[str, Any]) -> bool:
-    """
-    Tailor, compile PDF, and write cover letter for a single matched job.
-    Returns True on full success, False if a critical step fails.
-    PDF compilation is non-critical; failure there does not abort the job.
-    """
-    job = match["job"]
-    slug = f"{_today()}_{slugify(job['company'])}_{slugify(job['title'])}"
-    job_dir = JOBS_DIR / slug
-    job_dir.mkdir(exist_ok=True)
-
-    write_match_artifacts(match, job_dir, today=_today())
-
-    logger.info("  Researching company...")
-    _write_company_research(job, job_dir)
-
-    logger.info("  Tailoring resume...")
-    try:
-        tex_path = job_dir / "resume_tailored.tex"
-        tex_path.write_text(_make_generated_tex_self_contained(tailor(match)), encoding="utf-8")
-        _copy_latex_assets(job_dir)
-        logger.info("  resume tailored")
-    except Exception as e:
-        logger.error("  tailoring failed: %s", e)
-        return False
-
-    logger.info("  Compiling PDF...")
-    try:
-        pdf = compile_tex(str(tex_path), str(job_dir))
-        logger.info("  PDF %s", "generated" if pdf else "(LaTeX saved, no PDF)")
-    except Exception as e:
-        logger.warning("  PDF compilation failed: %s - continuing", e)
-
-    logger.info("  Writing cover letter...")
-    try:
-        write_cover(match, str(job_dir))
-        logger.info("  cover letter written")
-    except Exception as e:
-        logger.error("  cover letter failed: %s", e)
-        return False
-
-    logger.info("  complete -> jobs/%s/", slug)
-    return True
+    return _match_processor.process_match(
+        match,
+        today=_today,
+        jobs_dir=JOBS_DIR,
+        slugify=slugify,
+        write_match_artifacts=write_match_artifacts,
+        write_company_research=_write_company_research,
+        tailor=tailor,
+        make_tex_self_contained=_make_generated_tex_self_contained,
+        copy_latex_assets=_copy_latex_assets,
+        compile_tex=compile_tex,
+        write_cover=write_cover,
+        logger=logger,
+    )
 
 
 def _process_jobs(
