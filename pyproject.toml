@@ -104,7 +104,7 @@ ignore = ["E501", "S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S603", "S607"]
-"job_hunter/cli/__init__.py" = ["B008", "C901", "S603", "S607"]
+"job_hunter/cli/__init__.py" = ["B008", "S603", "S607"]
 "job_hunter/agent_context/{batch,candidates,lifecycle}.py" = ["C901"]
 "job_hunter/core/llm_utils.py" = ["C901"]
 "job_hunter/pipeline/{enrichment,orchestrator,validator}.py" = ["C901"]

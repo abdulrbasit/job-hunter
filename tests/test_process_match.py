@@ -37,6 +37,24 @@ def _match(company: str = "Acme", title: str = "PM", score: int = 85) -> dict:
     }
 
 
+def test_write_match_artifacts_lives_in_dedicated_module(tmp_path: Path) -> None:
+    from job_hunter.pipeline._artifacts import write_match_artifacts
+
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+
+    write_match_artifacts(_match(company="TestCo", score=92), job_dir, today="2026-06-25")
+
+    meta = json.loads((job_dir / "meta.json").read_text(encoding="utf-8"))
+    score = yaml.safe_load((job_dir / "score.yml").read_text(encoding="utf-8"))
+    jd = (job_dir / "jd.md").read_text(encoding="utf-8")
+
+    assert meta["company"] == "TestCo"
+    assert meta["score"] == 92
+    assert score["decision"] == "APPLY"
+    assert "# PM @ TestCo" in jd
+
+
 def _run_match(
     tmp_path: Path,
     match: dict | None = None,

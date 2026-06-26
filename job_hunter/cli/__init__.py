@@ -7,29 +7,14 @@ from pathlib import Path
 
 import typer
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+from job_hunter.cli import _run_artifacts as _run_artifacts
 
-FINALIZE_PATHS = (
-    "README.md",
-    "config",
-    "profile",
-    "outputs/applications.yml",
-    "outputs/candidates",
-    "outputs/jobs",
-    "outputs/linkedin",
-    "outputs/state/api_usage.json",
-    "outputs/state/dev_token_metrics.json",
-    "outputs/state/discovered_urls.yml",
-)
-TRANSIENT_STATE_PATHS = (
-    "outputs/state/agent_candidate_queue.json",
-    "outputs/state/agent_candidate_batch.json",
-    "outputs/state/batch_scores.yml",
-    "outputs/state/batch_screen.yml",
-    "outputs/state/batch_judgment.yml",
-)
+FINALIZE_PATHS = _run_artifacts.FINALIZE_PATHS
+TRANSIENT_STATE_PATHS = _run_artifacts.TRANSIENT_STATE_PATHS
+_cleanup_transient_state = _run_artifacts.cleanup_transient_state
+_expand_listing_candidate = _run_artifacts.expand_listing_candidate
+_sync_processed_from_job_outputs = _run_artifacts.sync_processed_from_job_outputs
+_validate_run_artifacts = _run_artifacts.validate_run_artifacts
 
 # ---------------------------------------------------------------------------
 # Typer apps
@@ -58,150 +43,6 @@ internal_app.add_typer(linkedin_app, name="linkedin")
 
 update_safety_app = typer.Typer(help="Classify paths by update safety layer.", no_args_is_help=True)
 internal_app.add_typer(update_safety_app, name="update-safety")
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _cleanup_transient_state(root: Path, *, label: str) -> int:
-    cleaned = 0
-    for rel in TRANSIENT_STATE_PATHS:
-        p = root / rel
-        if p.exists():
-            p.unlink()
-            cleaned += 1
-            typer.echo(f"[{label}] cleaned up {rel}")
-    return cleaned
-
-
-def _sync_processed_from_job_outputs(root: Path) -> int:
-    import yaml
-
-    jobs_dir = root / "outputs" / "jobs"
-    if not jobs_dir.exists():
-        return 0
-
-    state_path = root / "outputs" / "state" / "discovered_urls.yml"
-    if state_path.exists():
-        state = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
-    else:
-        state = {}
-    urls = set(state.get("discovered", []) or [])
-    before = len(urls)
-
-    for meta_path in sorted(jobs_dir.glob("*/meta.json")):
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        url = str(meta.get("url") or "")
-        if url:
-            urls.add(url)
-
-    added = len(urls) - before
-    if not added:
-        return 0
-
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    header = (
-        "# URL-only dedup state. Each entry is a canonical job URL.\n"
-        "# Automatically updated after each run.\n"
-        "# Remove a URL manually to rediscover or reprocess that job.\n\n"
-    )
-    state_path.write_text(
-        header + yaml.safe_dump({"discovered": sorted(urls)}, default_flow_style=False, allow_unicode=True),
-        encoding="utf-8",
-    )
-    return added
-
-
-def _validate_run_artifacts(root: Path) -> list[str]:
-    import re
-    from datetime import date
-
-    import yaml
-
-    from job_hunter import agent_context
-    from job_hunter.sources._policy import JobPolicy
-
-    errors: list[str] = []
-    job_hunter_config = yaml.safe_load((root / "config" / "job_hunter.yml").read_text(encoding="utf-8")) or {}
-    policy = JobPolicy(job_hunter_config)
-    seen_application_keys: dict[str, str] = {}
-    today = date.today().isoformat()
-
-    for job_dir in sorted((root / "outputs" / "jobs").glob("*")):
-        if not job_dir.is_dir():
-            continue
-        meta_path = job_dir / "meta.json"
-        score_path = job_dir / "score.yml"
-        if not meta_path.exists():
-            continue
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            errors.append(f"{meta_path.as_posix()}: invalid meta.json: {exc}")
-            continue
-        is_today = job_dir.name.startswith(today) or meta.get("date") == today
-        if not is_today:
-            continue
-        key = f"{meta.get('company', '').lower()}::{meta.get('title', '').lower()}"
-        if key != "::" and key in seen_application_keys:
-            errors.append(f"{job_dir.as_posix()}: duplicate application title also in {seen_application_keys[key]}")
-        elif key != "::":
-            seen_application_keys[key] = job_dir.as_posix()
-
-        if score_path.exists():
-            try:
-                raw_score = yaml.safe_load(score_path.read_text(encoding="utf-8")) or {}
-            except (yaml.YAMLError, UnicodeDecodeError) as exc:
-                errors.append(f"{score_path.as_posix()}: invalid score.yml: {exc}")
-                continue
-            if str(raw_score.get("status") or "").lower() == "pending":
-                continue
-            validation = agent_context.validate_score_file(score_path)
-            if not validation["valid"]:
-                errors.append(f"{score_path.as_posix()}: invalid score.yml: {validation['error']}")
-                continue
-            if str(raw_score.get("decision") or "").upper() == "APPLY" and policy.is_excluded_company(
-                str(meta.get("company") or "")
-            ):
-                errors.append(f"{job_dir.as_posix()}: APPLY job is from excluded company {meta.get('company')}")
-
-    readme_path = root / "README.md"
-    if readme_path.exists():
-        readme = readme_path.read_text(encoding="utf-8", errors="replace")
-        for rel in re.findall(r"\[Files\]\((outputs/jobs/[^)]+/)\)", readme):
-            if not (root / rel).exists():
-                errors.append(f"README.md: broken Files link {rel}")
-    return errors
-
-
-def _expand_listing_candidate(url: str, company: str, location: str, title: str) -> dict | None:
-    from job_hunter.config import get_config
-    from job_hunter.sources.search_providers import fetch_playwright_career_jobs
-
-    search_cfg = get_config("job_hunter")
-    title_filters = search_cfg.get("job_titles", [])
-    excluded_terms = (search_cfg.get("exclusions", {}) or {}).get("title_terms", [])
-    try:
-        jobs = fetch_playwright_career_jobs(
-            {"name": company or "Unknown Company", "career_url": url, "location": location},
-            title_filters,
-            excluded_terms,
-        )
-    except Exception:
-        return None
-    if not jobs:
-        return None
-    wanted = title.lower().strip()
-    for job in jobs:
-        found = str(job.get("title") or "").lower()
-        if wanted and (wanted in found or found in wanted):
-            return job
-    return jobs[0] if len(jobs) == 1 else None
-
 
 # ---------------------------------------------------------------------------
 # Hunt commands
@@ -450,38 +291,16 @@ def mark_processed_cmd(
     typer.echo(f"[mark-processed] marked: {title} @ {company}")
 
 
-@internal_app.command(name="finalize-run")
-def finalize_run(
-    message: str = typer.Option("chore: finalize hunt run", "--message", "-m"),
-    push: bool = typer.Option(False, "--push"),
-    mode: str = typer.Option("manual", "--mode", help="manual|auto"),
-) -> None:
-    """Validate, commit, and optionally push durable run artifacts."""
+def _fail_finalize(errors: list[str], *, label: str) -> None:
+    typer.echo(f"[finalize-run] {label} failed:", err=True)
+    for error in errors[:20]:
+        typer.echo(f"- {error}", err=True)
+    raise typer.Exit(1)
+
+
+def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], message: str) -> bool:
     import subprocess
 
-    from job_hunter.tracker import repo_path
-    from job_hunter.ux.health import verify_repository
-
-    root = repo_path()
-    verify_payload = verify_repository(root)
-    if verify_payload["errors"]:
-        typer.echo("[finalize-run] verify failed:", err=True)
-        for error in verify_payload["errors"][:20]:
-            typer.echo(f"- {error}", err=True)
-        raise typer.Exit(1)
-
-    validation_errors = _validate_run_artifacts(root)
-    if validation_errors:
-        typer.echo("[finalize-run] validation failed:", err=True)
-        for error in validation_errors[:20]:
-            typer.echo(f"- {error}", err=True)
-        raise typer.Exit(1)
-
-    synced = _sync_processed_from_job_outputs(root)
-    if synced:
-        typer.echo(f"[finalize-run] synced {synced} processed job tracker entry(s)")
-
-    finalize_paths = FINALIZE_PATHS
     status = subprocess.run(
         ["git", "status", "--porcelain", "--", *finalize_paths],
         cwd=root,
@@ -494,22 +313,56 @@ def finalize_run(
         raise typer.Exit(status.returncode)
     if not status.stdout.strip():
         typer.echo("[finalize-run] no finalizable changes to commit")
-        return
+        return False
 
     existing_paths = [path for path in finalize_paths if (root / path).exists()]
     subprocess.run(["git", "add", "--force", "--", *existing_paths], check=True, cwd=root)
     staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=root, check=False)
     if staged.returncode == 0:
         typer.echo("[finalize-run] no staged durable changes to commit")
-        return
+        return False
     subprocess.run(["git", "commit", "-m", message], check=True, cwd=root)
     typer.echo(f"[finalize-run] committed: {message}")
+    return True
+
+
+def _push_finalized_run(root: Path, *, push: bool, mode: str) -> None:
+    import subprocess
+
     if mode == "auto":
         subprocess.run(["git", "push", "origin", "HEAD:main"], check=True, cwd=root)
         typer.echo("[finalize-run] pushed HEAD to origin/main")
     elif push:
         subprocess.run(["git", "push"], check=True, cwd=root)
         typer.echo("[finalize-run] pushed to origin")
+
+
+@internal_app.command(name="finalize-run")
+def finalize_run(
+    message: str = typer.Option("chore: finalize hunt run", "--message", "-m"),
+    push: bool = typer.Option(False, "--push"),
+    mode: str = typer.Option("manual", "--mode", help="manual|auto"),
+) -> None:
+    """Validate, commit, and optionally push durable run artifacts."""
+    from job_hunter.tracker import repo_path
+    from job_hunter.ux.health import verify_repository
+
+    root = repo_path()
+    verify_payload = verify_repository(root)
+    if verify_payload["errors"]:
+        _fail_finalize(verify_payload["errors"], label="verify")
+
+    validation_errors = _validate_run_artifacts(root)
+    if validation_errors:
+        _fail_finalize(validation_errors, label="validation")
+
+    synced = _sync_processed_from_job_outputs(root)
+    if synced:
+        typer.echo(f"[finalize-run] synced {synced} processed job tracker entry(s)")
+
+    if not _commit_finalizable_changes(root, FINALIZE_PATHS, message):
+        return
+    _push_finalized_run(root, push=push, mode=mode)
     _cleanup_transient_state(root, label="finalize-run")
 
 

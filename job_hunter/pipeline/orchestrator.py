@@ -13,7 +13,6 @@ Two modes, one entry point:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import shutil
@@ -21,12 +20,11 @@ import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-import yaml
-
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.config.loader import get_config, load_api_config, profile_path, setup_logging
 from job_hunter.constants import DEFAULT_BATCH_SIZE
 from job_hunter.core.url_liveness import UrlLivenessCache
+from job_hunter.pipeline._artifacts import write_match_artifacts
 from job_hunter.pipeline.cover_writer import write_cover
 from job_hunter.pipeline.hunt import (
     load_hunt_snapshot,
@@ -154,38 +152,7 @@ def _process_match(match: dict[str, Any]) -> bool:
     job_dir = JOBS_DIR / slug
     job_dir.mkdir(exist_ok=True)
 
-    meta = {
-        "date": _today(),
-        "title": job["title"],
-        "company": job["company"],
-        "url": job["url"],
-        "location": job.get("location", ""),
-        "posted": job.get("posted", ""),
-        "score": match["score"],
-        "matched_keywords": match.get("matched", match.get("matched_keywords", [])),
-        "gaps": match.get("gaps", []),
-        "source": job.get("source", "scraped"),
-    }
-    (job_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    score_data = {
-        "score": match["score"],
-        "decision": match.get("decision", "APPLY"),
-        "matched_story_ids": match.get("matched_story_ids", []),
-        "matched": match.get("matched", match.get("matched_keywords", [])),
-        "gaps": match.get("gaps", []),
-        "role_summary": match.get("role_summary", ""),
-        "score_rationale": match.get("score_rationale", ""),
-        "recommendation": match.get("recommendation", ""),
-    }
-    (job_dir / "score.yml").write_text(yaml.safe_dump(score_data, allow_unicode=True), encoding="utf-8")
-    (job_dir / "jd.md").write_text(
-        f"# {job['title']} @ {job['company']}\n\n"
-        f"**URL:** {job['url']}\n\n"
-        f"**Location:** {job.get('location', 'Unknown')}\n\n"
-        f"**Posted:** {job.get('posted', 'Unknown')}\n\n"
-        f"{job['snippet']}",
-        encoding="utf-8",
-    )
+    write_match_artifacts(match, job_dir, today=_today())
 
     logger.info("  Researching company...")
     _write_company_research(job, job_dir)

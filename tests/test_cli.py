@@ -467,6 +467,19 @@ def test_cleanup_transient_removes_batch_scratch_files(tmp_path: Path, monkeypat
     assert all(not (tmp_path / rel).exists() for rel in cli_module.TRANSIENT_STATE_PATHS)
 
 
+def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> None:
+    from job_hunter.cli import _run_artifacts
+
+    assert "outputs/state/agent_candidate_queue.json" in _run_artifacts.TRANSIENT_STATE_PATHS
+
+    transient = tmp_path / "outputs" / "state" / "agent_candidate_queue.json"
+    transient.parent.mkdir(parents=True)
+    transient.write_text("{}", encoding="utf-8")
+
+    assert _run_artifacts.cleanup_transient_state(tmp_path, label="test") == 1
+    assert not transient.exists()
+
+
 # --- version ---
 
 
