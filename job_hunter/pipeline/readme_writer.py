@@ -150,21 +150,8 @@ def update_readme(matches: list[dict], root: str | Path, today: str) -> None:
 
 
 def update_readme_from_applications(apps: list[dict], root: str | Path, today: str) -> None:
-    """Update README table from application dicts (used by update-readme command)."""
-    matches = []
-    for app in apps:
-        job = {
-            "title": app.get("title", ""),
-            "company": app.get("company", ""),
-            "url": app.get("url", ""),
-            "location": app.get("location", ""),
-        }
-        slug = app.get("slug") or (f"{app.get('date', today)}_{slugify(job['company'])}_{slugify(job['title'])}")
-        status = app.get("status", "")
-        status_suffix = f" ({status})" if status else ""
-        matches.append({"job": {**job, "_slug": slug, "_status_suffix": status_suffix}, "score": app.get("score", 0)})
-
-    logger.info("[readme] Updating from %s application(s)", len(matches))
+    """Rewrite README table from application dicts — authoritative, replaces existing rows."""
+    logger.info("[readme] Updating from %s application(s)", len(apps))
     readme_path = Path(root) / "README.md"
     try:
         content = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
@@ -173,18 +160,24 @@ def update_readme_from_applications(apps: list[dict], root: str | Path, today: s
         if start_idx == -1 or end_idx == -1:
             logger.warning("[readme] Markers not found - skipping update")
             return
-        table_block = content[start_idx + len(TABLE_START) : end_idx]
-        existing_rows = _parse_existing_rows(table_block)
-        for match in sorted(matches, key=lambda x: x["score"], reverse=True):
-            job = match["job"]
-            slug = job["_slug"]
-            status_suffix = job.get("_status_suffix", "")
+        all_rows = []
+        for app in sorted(apps, key=lambda a: a.get("score", 0) or 0, reverse=True):
+            job = {
+                "title": app.get("title", ""),
+                "company": app.get("company", ""),
+                "url": app.get("url", ""),
+                "location": app.get("location", ""),
+            }
+            slug = app.get("slug") or f"{app.get('date', today)}_{slugify(job['company'])}_{slugify(job['title'])}"
+            status = app.get("status", "")
+            status_suffix = f" ({status})" if status else ""
+            score = app.get("score", 0)
             label = _escape_table_cell(f"{job['title']} @ {job['company']}")
-            existing_rows[job["url"]] = (
+            all_rows.append(
                 f"| {today} | [{label}]({job['url']}) | {_job_location(job)}"
-                f" | {match['score']}{status_suffix} | [Files](outputs/jobs/{slug}/) |"
+                f" | {score}{status_suffix} | [Files](outputs/jobs/{slug}/) |"
             )
-        all_rows = sorted(existing_rows.values(), reverse=True)
+        all_rows.sort(reverse=True)
         new_table = f"\n{TABLE_HEADER}\n" + "\n".join(all_rows) + "\n"
         content = _replace_stats_block(content, _stats_block(all_rows, today), start_idx)
         start_idx = content.find(TABLE_START)

@@ -9,7 +9,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from job_hunter.config.defaults import EXCLUDED_LISTING_URL_PATTERNS, LANGUAGE_INDICATORS, STALE_INDICATORS
+from job_hunter.config.defaults import (
+    _COUNTRY_NAME_TO_CODE,
+    _RESTRICTION_PHRASES,
+    EXCLUDED_LISTING_URL_PATTERNS,
+    LANGUAGE_INDICATORS,
+    STALE_INDICATORS,
+)
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting
 from job_hunter.sources.search_providers import canonicalize_url
@@ -87,6 +93,41 @@ def _looks_like_german_text(text: str) -> bool:
     hits = [word for word in words if word in _GERMAN_LANGUAGE_MARKERS]
     return len(hits) >= _GERMAN_MIN_HITS and len(set(hits)) >= _GERMAN_MIN_UNIQUE_HITS
 
+
+_LANG_CODE_TO_NAME: dict[str, str] = {
+    "en": "english",
+    "de": "german",
+    "fr": "french",
+    "it": "italian",
+    "es": "spanish",
+    "pt": "portuguese",
+    "br": "portuguese",
+    "nl": "dutch",
+    "pl": "polish",
+    "ru": "russian",
+    "cs": "czech",
+    "sk": "slovak",
+    "hu": "hungarian",
+    "ro": "romanian",
+    "sv": "swedish",
+    "da": "danish",
+    "no": "norwegian",
+    "fi": "finnish",
+    "el": "greek",
+    "tr": "turkish",
+    "ar": "arabic",
+    "he": "hebrew",
+    "zh": "chinese",
+    "ja": "japanese",
+    "ko": "korean",
+    "hi": "hindi",
+    "id": "indonesian",
+    "ms": "indonesian",
+    "th": "thai",
+    "vi": "vietnamese",
+    "uk": "ukrainian",
+    "ca": "catalan",
+}
 
 _CORPORATE_SUFFIX_RE = re.compile(
     r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
@@ -230,6 +271,46 @@ class JobPolicy:
         from job_hunter.core.utils import location_matches
 
         return not any(location_matches(job_location, loc) for loc in allowed)
+
+    def excluded_by_search_lang(self, title: str, snippet: str, search_lang: str) -> bool:
+        """Return True if job's language is not in the search_lang allow-list."""
+        allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}
+        if not allowed_codes or "*" in allowed_codes:
+            return False
+        allowed_names = {_LANG_CODE_TO_NAME[c] for c in allowed_codes if c in _LANG_CODE_TO_NAME}
+        if not allowed_names:
+            return False
+        text = (title + " " + snippet).lower()
+        for lang_name, indicators in LANGUAGE_INDICATORS.items():
+            if lang_name in allowed_names:
+                continue
+            if any(ind in text for ind in indicators):
+                return True
+        return False
+
+    def _allowed_country_codes(self) -> set[str]:
+        regions = self.config.get("regions", {}) or {}
+        codes: set[str] = set()
+        for region_cfg in regions.values() if isinstance(regions, dict) else []:
+            if isinstance(region_cfg, dict) and region_cfg.get("enabled", True):
+                country = (region_cfg.get("country") or "").strip().upper()
+                if country:
+                    codes.add(country)
+        return codes
+
+    def is_location_restricted(self, title: str, snippet: str) -> bool:
+        """Return True if JD text restricts work to a country not in user's configured regions."""
+        allowed = self._allowed_country_codes()
+        if not allowed:
+            return False
+        text = (title + " " + snippet).lower()
+        for country_name, iso_code in _COUNTRY_NAME_TO_CODE.items():
+            if iso_code in allowed:
+                continue
+            for phrase in _RESTRICTION_PHRASES:
+                if phrase.format(country_name) in text:
+                    return True
+        return False
 
     def accepts_search_result_url(self, url: str, title: str, snippet: str) -> bool:
         if self.is_excluded_url(url):

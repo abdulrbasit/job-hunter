@@ -192,6 +192,12 @@ def build_candidate_queue(
             }
         )
 
+    from job_hunter.config import get_config
+    from job_hunter.pipeline.screening import hard_screen_jobs
+
+    _cfg = get_config("job_hunter") if base == _root() else _read_yaml(base / "config" / "job_hunter.yml")
+    queued, _hard_rejected = hard_screen_jobs(queued, _cfg)
+
     return {
         "generated": date.today().isoformat(),
         "scope": "today" if resolved_today_only else "briefing-backlog",
@@ -200,6 +206,7 @@ def build_candidate_queue(
         "total_seen": total_seen,
         "skipped_processed": skipped_processed,
         "skipped_duplicate": skipped_duplicate,
+        "skipped_hard_screen": len(_hard_rejected),
         "count": len(queued),
         "source_reports": source_reports,
         "jobs": queued,

@@ -76,7 +76,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
 
-    def _add_unique(postings: list[JobPosting], source: str) -> None:
+    def _add_unique(postings: list[JobPosting], source: str, *, search_lang: str = "en") -> None:
         source_rejected: Counter[str] = Counter()
 
         def reject(reason: str) -> None:
@@ -103,6 +103,9 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             reason = policy.rejection_reason(jp.model_dump(), job_titles)
             if reason:
                 reject(reason)
+                continue
+            if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
+                reject("excluded_by_search_lang")
                 continue
             seen_urls.add(url)
             results.append(jp.model_copy(update={"date_status": policy.posting_date_status(jp.posted)}))
@@ -144,7 +147,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(future.result(), source)
+                        _add_unique(future.result(), source, search_lang=params.search_lang)
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)

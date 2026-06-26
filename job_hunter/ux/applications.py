@@ -245,6 +245,9 @@ def update_application_status(
                 notes.append(note)
                 app["notes"] = notes
             save_applications(data, root)
+            from job_hunter.pipeline.readme_writer import update_readme_from_applications
+
+            update_readme_from_applications(data["applications"], root or repo_path(), date.today().isoformat())
             return app
     raise KeyError(f"application not found: {slug}")
 
@@ -280,6 +283,21 @@ def filtered_applications(
     )
 
 
+def delete_application(slug: str, root: Path | None = None) -> None:
+    import shutil
+
+    base = root or repo_path()
+    data = load_applications(root)
+    data["applications"] = [a for a in data["applications"] if a.get("slug") != slug]
+    save_applications(data, root)
+    job_dir = base / "outputs" / "jobs" / slug
+    if job_dir.exists():
+        shutil.rmtree(job_dir)
+    from job_hunter.pipeline.readme_writer import update_readme_from_applications
+
+    update_readme_from_applications(data["applications"], base, date.today().isoformat())
+
+
 def active_application_count(root: Path | None = None) -> int:
     return sum(
         1 for app in ensure_applications(root)["applications"] if str(app.get("status") or "") in ACTIVE_STATUSES
@@ -287,13 +305,14 @@ def active_application_count(root: Path | None = None) -> int:
 
 
 def render_applications_table(apps: list[dict[str, Any]]) -> str:
-    rows = ["Date       Status      Score  Region       Company - Role"]
-    rows.append("-" * 78)
-    for app in apps:
+    rows = ["#   Date       Status      Score  Region       Company - Role"]
+    rows.append("-" * 82)
+    for i, app in enumerate(apps, 1):
         score = app.get("score")
         score_text = "" if score in (None, "") else str(score)
         role = f"{app.get('company', 'Unknown')} - {app.get('title', 'Unknown')}"
         rows.append(
+            f"{i:<3} "
             f"{str(app.get('date') or '')[:10]:<10} "
             f"{str(app.get('status') or ''):<11} "
             f"{score_text:<6} "

@@ -28,6 +28,8 @@ def hard_screen_jobs(
         region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
         if not reason and policy.has_wrong_location(job, region_config):
             reason = "wrong_location"
+        if not reason and policy.is_location_restricted(title, str(job.get("snippet") or "")):
+            reason = "location_restricted"
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
             continue

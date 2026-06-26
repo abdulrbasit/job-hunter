@@ -282,12 +282,43 @@ Examples:
     return parser
 
 
+def _log_token_summary() -> None:
+    import datetime
+    import json
+    import os
+
+    from job_hunter.pipeline.llm_stage import get_token_totals
+
+    totals = get_token_totals()
+    if not totals:
+        return
+    logger.info("TOKEN USAGE SUMMARY")
+    logger.info("%-20s %10s %10s %10s", "stage", "input", "output", "cached")
+    logger.info("%s", "-" * 52)
+    grand: dict[str, int] = {"in": 0, "out": 0, "cached": 0}
+    for role in ("jd_extraction", "validation", "scoring", "tailoring", "cover_letter", "research"):
+        t = totals.get(role)
+        if not t:
+            continue
+        logger.info("%-20s %10d %10d %10d", role, t["in"], t["out"], t["cached"])
+        for k in grand:
+            grand[k] += t[k]
+    logger.info("%s", "-" * 52)
+    logger.info("%-20s %10d %10d %10d", "TOTAL", grand["in"], grand["out"], grand["cached"])
+    if path := os.environ.get("TOKEN_LOG"):
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": datetime.datetime.utcnow().isoformat(), "totals": totals}) + "\n")
+
+
 def run(args: dict) -> int:
+    from job_hunter.pipeline.llm_stage import reset_token_totals
+
     logger.info("\n%s", "=" * 60)
     region_label = args["region"] if args["mode"] == "hunt" and args["region"] else "all"
     logger.info("Pipeline | mode=%s | region=%s | %s", args["mode"], region_label, _today())
     logger.info("%s", "=" * 60)
 
+    reset_token_totals()
     api_cfg = load_api_config()
     url_liveness = UrlLivenessCache()
     scoring_cfg = get_config("job_hunter")
@@ -357,6 +388,7 @@ def run(args: dict) -> int:
 
     logger.info("\n%s", "=" * 60)
     logger.info("[pipeline] Done. %s job(s) processed.", len(processed))
+    _log_token_summary()
     logger.info("%s\n", "=" * 60)
     return 0
 

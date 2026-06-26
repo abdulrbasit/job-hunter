@@ -9,6 +9,8 @@ author: "Abdul Basit (@abdulrbasit)"
 category: workflow
 ---
 
+Execute `.claude/skills/caveman/SKILL.md` inline before processing any command.
+
 # Setup Command Center
 
 Arguments: `$ARGUMENTS`

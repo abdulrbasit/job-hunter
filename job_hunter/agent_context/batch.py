@@ -92,8 +92,13 @@ def screen_candidate_batch(
                 reasons.append("excluded_title")
             if not reasons:
                 reasons.append("title_not_matched")
-        if policy.has_wrong_location(candidate, _region_config(search_config, region)):
+        region_cfg = _region_config(search_config, region)
+        if policy.has_wrong_location(candidate, region_cfg):
             reasons.append("wrong_location")
+        if policy.excluded_by_search_lang(title, snippet, region_cfg.get("search_lang", "en")):
+            reasons.append("excluded_by_search_lang")
+        if policy.is_location_restricted(title, snippet):
+            reasons.append("location_restricted")
         if policy.is_stale_posting(title, snippet):
             reasons.append("stale_posting")
         if _title_key(candidate) in applied_keys:

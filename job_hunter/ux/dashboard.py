@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import sys
-from datetime import date
 from typing import Any
 
-from job_hunter.pipeline.readme_writer import update_readme_from_applications
-from job_hunter.ux.applications import ApplicationRecord, render_applications_table, update_application_status
+from job_hunter.ux.applications import (
+    CANONICAL_STATUSES,
+    ApplicationRecord,
+    delete_application,
+    render_applications_table,
+    update_application_status,
+)
+
+_HELP = (
+    "Statuses: tailored | applied | responded | interview | offer | rejected\n"
+    "Commands:  <num>                     preview job\n"
+    "           u <num> <status> [note]   update status\n"
+    "           d <num>                   delete job (removes files)\n"
+    "           q                         quit"
+)
 
 
 def dashboard_summary(apps: list[ApplicationRecord]) -> dict[str, Any]:
@@ -37,33 +49,71 @@ def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
         return 0
 
     current_apps = list(apps)
+    print(_HELP)
     while True:
         print(render_dashboard(current_apps))
         print("")
-        print("Commands: number=preview, u <number> <status>=update, q=quit")
         command = input("dashboard> ").strip()
+        if not command:
+            continue
         if command.lower() in {"q", "quit", "exit"}:
             return 0
-        if command.isdigit():
-            idx = int(command) - 1
-            if 0 <= idx < len(current_apps):
-                _print_preview(current_apps[idx])
-            continue
+
         parts = command.split()
+
+        # Preview: <num>
+        if len(parts) == 1 and parts[0].isdigit():
+            num = int(parts[0])
+            if 1 <= num <= len(current_apps):
+                _print_preview(current_apps[num - 1])
+            else:
+                print(f"No job #{num}. Range: 1-{len(current_apps)}")
+            continue
+
+        # Update: u <num> <status> [note]
         if len(parts) >= 3 and parts[0].lower() in {"u", "update"} and parts[1].isdigit():
-            idx = int(parts[1]) - 1
-            if 0 <= idx < len(current_apps):
-                status = parts[2]
-                note = " ".join(parts[3:])
+            num = int(parts[1])
+            if not (1 <= num <= len(current_apps)):
+                print(f"No job #{num}. Range: 1-{len(current_apps)}")
+                continue
+            raw_status = parts[2]
+            note = " ".join(parts[3:])
+            try:
                 app = update_application_status(
-                    str(current_apps[idx].get("slug") or ""),
-                    status,
+                    str(current_apps[num - 1].get("slug") or ""),
+                    raw_status,
                     root=root,
                     note=note,
                 )
-                current_apps[idx] = app
-                print(f"Updated {app['slug']} -> {app['status']}")
-                update_readme_from_applications(current_apps, root, date.today().isoformat())
+            except ValueError as exc:
+                print(str(exc))
+                print(f"Valid statuses: {', '.join(CANONICAL_STATUSES)}")
+                continue
+            except KeyError as exc:
+                print(f"Application not found: {exc}")
+                continue
+            current_apps[num - 1] = app
+            print(f"Updated {app['slug']} -> {app['status']}")
+            continue
+
+        # Delete: d <num>
+        if len(parts) == 2 and parts[0].lower() == "d" and parts[1].isdigit():
+            num = int(parts[1])
+            if not (1 <= num <= len(current_apps)):
+                print(f"No job #{num}. Range: 1-{len(current_apps)}")
+                continue
+            slug = str(current_apps[num - 1].get("slug") or "")
+            print(f"Warning: permanently deletes {slug} from tracker and outputs/jobs/{slug}/.")
+            confirm = input("Type 'yes' to confirm: ").strip().lower()
+            if confirm == "yes":
+                delete_application(slug, root)
+                current_apps.pop(num - 1)
+                print(f"Deleted {slug}.")
+            else:
+                print("Cancelled.")
+            continue
+
+        print(f"Unknown command.\n{_HELP}")
 
 
 def _print_preview(app: ApplicationRecord) -> None:

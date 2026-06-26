@@ -9,6 +9,8 @@ author: "Abdul Basit (@abdulrbasit)"
 category: workflow
 ---
 
+Execute `.claude/skills/caveman/SKILL.md` inline before processing any command.
+
 # Job Hunter Command Center
 
 One entry point for all job search work. Keep output compact — no raw candidate snapshots, full logs, PDFs, or Draft/raw story-bank sections.
@@ -39,6 +41,7 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 **Daily workflow**
 - `brief`, `today`, `status`: execute `.claude/skills/job-hunter/modes/brief.md` inline.
 - `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
+- `batch lite`: execute `.claude/skills/job-hunter/modes/batch-lite.md` inline.
 - `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
 - `search`: execute `.claude/skills/job-hunter/modes/search.md` inline.
@@ -68,6 +71,7 @@ Job Hunter Command Center
 /job-hunter brief              Pull latest and show today's candidate brief
 /job-hunter dashboard          Show the application tracker dashboard
 /job-hunter batch              Process the next frozen candidate batch
+/job-hunter batch lite         Lite batch: skip semantic screen, research, and cover letters
 /job-hunter one <url>          Process one job URL end-to-end
 /job-hunter search             Search for more jobs when candidates are thin
 /job-hunter finalize           Commit durable reviewed outputs

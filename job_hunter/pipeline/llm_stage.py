@@ -1,12 +1,34 @@
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from job_hunter.core.llm_utils import extract_json_object, get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
+
+_token_totals: dict[str, dict[str, int]] = {}
+_token_lock = threading.Lock()
+
+
+def _record_tokens(role: str, in_tok: int, out_tok: int, cached: int) -> None:
+    with _token_lock:
+        b = _token_totals.setdefault(role, {"in": 0, "out": 0, "cached": 0})
+        b["in"] += in_tok
+        b["out"] += out_tok
+        b["cached"] += cached
+
+
+def get_token_totals() -> dict[str, dict[str, int]]:
+    with _token_lock:
+        return {k: dict(v) for k, v in _token_totals.items()}
+
+
+def reset_token_totals() -> None:
+    with _token_lock:
+        _token_totals.clear()
 
 
 @dataclass
@@ -48,6 +70,7 @@ class LLMStage:
             cache_ttl=resolved_ttl or "5m",
             response_format=resolved_format,
         )
+        _record_tokens(self.role, response.input_tokens, response.output_tokens, response.cached_tokens)
         return response.content
 
     @staticmethod

@@ -57,6 +57,8 @@ def test_author_value(skill_md: Path) -> None:
     text = skill_md.read_text(encoding="utf-8")
     parts = text.split("---", 2)
     fm = yaml.safe_load(parts[1])
+    if fm.get("third-party"):
+        return
     assert fm.get("author") == REQUIRED_AUTHOR, (
         f"{skill_md}: author must be '{REQUIRED_AUTHOR}', got '{fm.get('author')}'"
     )
