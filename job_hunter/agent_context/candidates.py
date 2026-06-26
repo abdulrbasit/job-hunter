@@ -132,7 +132,7 @@ def build_candidate_queue(
                     source_skipped_duplicate_url += 1
                     skipped_duplicate += 1
                 continue
-            if not url and title_key in seen_titles:
+            if title_key in seen_titles:
                 source_skipped_duplicate_title += 1
                 skipped_duplicate += 1
                 continue

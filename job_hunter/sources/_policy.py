@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from job_hunter.config.defaults import (
     _COUNTRY_NAME_TO_CODE,
     _RESTRICTION_PHRASES,
+    _US_ONLY_PHRASES,
     EXCLUDED_LISTING_URL_PATTERNS,
     LANGUAGE_INDICATORS,
     STALE_INDICATORS,
@@ -133,10 +134,16 @@ _CORPORATE_SUFFIX_RE = re.compile(
     r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
     re.IGNORECASE,
 )
+# Job-board noise appended to company names by some scrapers, stripped before normalization.
+_COMPANY_NOISE_SUFFIX_RE = re.compile(
+    r"\s+(linkedin jobs|on linkedin|linkedin|careers|job board)$",
+    re.IGNORECASE,
+)
 
 
 def normalize_company_name(company: str) -> str:
-    normalized = _CORPORATE_SUFFIX_RE.sub("", company or "")
+    company = _COMPANY_NOISE_SUFFIX_RE.sub("", company or "")
+    normalized = _CORPORATE_SUFFIX_RE.sub("", company)
     normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower())
     return " ".join(normalized.split())
 
@@ -304,12 +311,19 @@ class JobPolicy:
         if not allowed:
             return False
         text = (title + " " + snippet).lower()
+        title_lower = title.lower()
         for country_name, iso_code in _COUNTRY_NAME_TO_CODE.items():
             if iso_code in allowed:
                 continue
             for phrase in _RESTRICTION_PHRASES:
                 if phrase.format(country_name) in text:
                     return True
+            # standalone country name in title catches "PM - Colombia", "PM (Remote/Egypt)"
+            if re.search(r"\b" + re.escape(country_name) + r"\b", title_lower):
+                return True
+        # US/Canada shorthand phrases — "us" is too noisy for the country loop
+        if "US" not in allowed and any(phrase in text for phrase in _US_ONLY_PHRASES):
+            return True
         return False
 
     def accepts_search_result_url(self, url: str, title: str, snippet: str) -> bool:

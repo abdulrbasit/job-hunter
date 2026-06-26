@@ -278,7 +278,7 @@ def test_update_readme_refreshes_existing_score(tmp_path) -> None:
     assert "| 0 |" not in content
 
 
-def test_hard_screen_keeps_industry_mentions_for_semantic_judgment() -> None:
+def test_hard_screen_rejects_excluded_industry() -> None:
     from job_hunter.pipeline.screening import hard_screen_jobs
 
     jobs = [
@@ -297,8 +297,8 @@ def test_hard_screen_keeps_industry_mentions_for_semantic_judgment() -> None:
 
     kept, rejected = hard_screen_jobs(jobs, config)
 
-    assert rejected == []
-    assert kept[0]["_judgment_signals"]["industry_terms"] == ["banking"]
+    assert kept == []
+    assert rejected[0]["_rejection_reason"] == "excluded_industry"
 
 
 def test_update_readme_refreshes_existing_stats_block(tmp_path) -> None:

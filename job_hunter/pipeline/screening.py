@@ -7,6 +7,64 @@ from typing import Any
 from job_hunter.core.utils import title_matches
 from job_hunter.sources._policy import JobPolicy
 
+# Snippet phrases that explicitly mark a fixed-term/contract posting.
+_CONTRACT_PHRASES: frozenset[str] = frozenset(
+    {
+        "employment type: contract",
+        "employment type : contract",
+        "this is a contract role",
+        "this is a contract position",
+        "contract-only",
+        "contractors only",
+        "fixed-term contract",
+    }
+)
+
+
+def _requires_excluded_language(title_lower: str, excluded_langs: list[str]) -> bool:
+    for lang in excluded_langs:
+        if f"{lang} speaking" in title_lower or f"fluent in {lang}" in title_lower or f"{lang} speaker" in title_lower:
+            return True
+    return False
+
+
+def _screen_one(
+    job: dict[str, Any],
+    policy: JobPolicy,
+    regions: dict[str, Any],
+    industries: list[str],
+) -> tuple[str, list[str]]:
+    title = str(job.get("title") or "")
+    snippet = str(job.get("snippet") or "")
+    snippet_lower = snippet.lower()
+
+    reason = policy.rejection_reason(job, [])
+    if not reason and not title_matches(title, [], policy.excluded_title_terms):
+        reason = "excluded_title"
+    if not reason and _requires_excluded_language(title.lower(), policy.excluded_languages):
+        reason = "requires_language"
+
+    region = str(job.get("region") or "")
+    region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
+
+    if not reason and policy.has_wrong_location(job, region_config):
+        reason = "wrong_location"
+    if not reason and policy.is_location_restricted(title, snippet):
+        reason = "location_restricted"
+
+    if not reason:
+        search_lang = (region_config.get("search_lang") or "en") if isinstance(region_config, dict) else "en"
+        if policy.excluded_by_search_lang(title, snippet, search_lang):
+            reason = "excluded_by_search_lang"
+
+    if not reason and policy.is_excluded_industry(snippet_lower):
+        reason = "excluded_industry"
+    if not reason and any(phrase in snippet_lower for phrase in _CONTRACT_PHRASES):
+        reason = "contract_role"
+
+    signals = [] if reason else [term for term in industries if term in snippet_lower]
+    return reason, signals
+
 
 def hard_screen_jobs(
     jobs: list[dict[str, Any]],
@@ -20,22 +78,10 @@ def hard_screen_jobs(
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        title = str(job.get("title") or "")
-        reason = policy.rejection_reason(job, [])
-        if not reason and not title_matches(title, [], policy.excluded_title_terms):
-            reason = "excluded_title"
-        region = str(job.get("region") or "")
-        region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
-        if not reason and policy.has_wrong_location(job, region_config):
-            reason = "wrong_location"
-        if not reason and policy.is_location_restricted(title, str(job.get("snippet") or "")):
-            reason = "location_restricted"
+        reason, signals = _screen_one(job, policy, regions, industries)
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
-            continue
-
-        snippet = str(job.get("snippet") or "").lower()
-        signals = [term for term in industries if term in snippet]
-        kept.append({**job, **({"_judgment_signals": {"industry_terms": signals}} if signals else {})})
+        else:
+            kept.append({**job, **({"_judgment_signals": {"industry_terms": signals}} if signals else {})})
 
     return kept, rejected

@@ -144,6 +144,11 @@ LANGUAGE_INDICATORS: dict[str, tuple[str, ...]] = {
         "tus responsabilidades",
         "tu perfil",
         "que ofrecemos",
+        "nuestra compañia",
+        "nuestra empresa",
+        "nuestro equipo",
+        "somos una empresa",
+        "fue fundada",
     ),
     "french": (
         "nous recherchons",
@@ -170,6 +175,10 @@ LANGUAGE_INDICATORS: dict[str, tuple[str, ...]] = {
         "sua candidatura",
         "venha trabalhar",
         "nos estamos procurando",
+        "nossa empresa",
+        "nossa equipe",
+        "somos uma empresa",
+        "foi fundada",
     ),
     "russian": (
         "мы ищем",
@@ -341,6 +350,7 @@ _COUNTRY_NAME_TO_CODE: dict[str, str] = {
     "america": "US",
     "canada": "CA",
     "mexico": "MX",
+    "méxico": "MX",
     # South / Central America
     "brazil": "BR",
     "brasil": "BR",
@@ -468,6 +478,7 @@ _COUNTRY_NAME_TO_CODE: dict[str, str] = {
 _RESTRICTION_PHRASES: tuple[str, ...] = (
     "{} only",
     "{}-only",
+    "only {}",
     "{}-based candidates only",
     "must be based in {}",
     "must be located in {}",
@@ -484,6 +495,32 @@ _RESTRICTION_PHRASES: tuple[str, ...] = (
     "open to candidates in {}",
     "based in {} required",
     "relocation to {} required",
+    "remote/{}",
+    "remote - {}",
+    "remote – {}",
+    "remote in {}",
+    "{} remote",
+    "({}) remote",
+    "(remote/{}) ",
+)
+
+# US/Canada shorthand patterns too ambiguous for the country-name loop ("us" is a pronoun).
+# Checked directly in is_location_restricted when US is not an allowed region.
+_US_ONLY_PHRASES: frozenset[str] = frozenset(
+    {
+        "us remote",
+        "us-remote",
+        "remote - united states",
+        "remote – united states",
+        "(us remote)",
+        "us/can remote",
+        "us/ca remote",
+        "remote within the us",
+        "within the united states",
+        "canada or mexico",
+        "mexico or canada",
+        "remote (us only)",
+    }
 )
 
 SCORING_PROMPT_CONTEXT: dict[str, Any] = {
