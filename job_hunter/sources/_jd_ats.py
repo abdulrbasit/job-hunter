@@ -9,11 +9,18 @@ import logging
 import re
 from difflib import SequenceMatcher
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import requests
 
 from job_hunter.core.utils import strip_html
+from job_hunter.sources._jd_ats_parsers import (
+    ashby_job_ref as _ashby_job_ref,
+    greenhouse_job_ref as _greenhouse_job_ref,
+    lever_job_ref as _lever_job_ref,
+    smartrecruiters_job_ref as _smartrecruiters_job_ref,
+    workable_job_ref as _workable_job_ref,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,20 +47,6 @@ def _guess_title(text: str, min_chars: int, max_chars: int) -> str:
 # ---------------------------------------------------------------------------
 # Greenhouse API fetcher
 # ---------------------------------------------------------------------------
-
-
-def _greenhouse_job_ref(url: str) -> tuple[str, str] | None:
-    parsed = urlparse(url)
-    if "greenhouse.io" not in parsed.netloc.lower():
-        return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) >= 3 and parts[1] == "jobs" and parts[2].isdigit():
-        return parts[0], parts[2]
-    query = parse_qs(parsed.query)
-    gh_jid = (query.get("gh_jid") or query.get("token") or [""])[0]
-    if len(parts) >= 2 and parts[1] == "jobs" and gh_jid.isdigit():
-        return parts[0], gh_jid
-    return None
 
 
 def _greenhouse_api_json(api_url: str, timeout: int, **params: Any) -> dict | None:
@@ -217,16 +210,6 @@ def is_greenhouse_listing_url(url: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _ashby_job_ref(url: str) -> tuple[str, str] | None:
-    parsed = urlparse(url)
-    if parsed.netloc.lower() != "jobs.ashbyhq.com":
-        return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) < 2:
-        return None
-    return parts[0], parts[1]
-
-
 def _ashby_job_from_data(
     data: dict,
     url: str,
@@ -281,16 +264,6 @@ def _fetch_ashby_api(
 # ---------------------------------------------------------------------------
 # Lever API fetcher
 # ---------------------------------------------------------------------------
-
-
-def _lever_job_ref(url: str) -> tuple[str, str] | None:
-    parsed = urlparse(url)
-    if parsed.netloc.lower() != "jobs.lever.co":
-        return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) < 2:
-        return None
-    return parts[0], parts[1]
 
 
 def _fetch_lever_api(
@@ -351,16 +324,6 @@ def _fetch_lever_api(
 # ---------------------------------------------------------------------------
 
 
-def _smartrecruiters_job_ref(url: str) -> tuple[str, str] | None:
-    parsed = urlparse(url)
-    if parsed.netloc.lower() != "jobs.smartrecruiters.com":
-        return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) < 2:
-        return None
-    return parts[0], parts[1]
-
-
 def _fetch_smartrecruiters_api(
     url: str,
     timeout: int,
@@ -408,16 +371,6 @@ def _fetch_smartrecruiters_api(
 # ---------------------------------------------------------------------------
 # Workable API fetcher
 # ---------------------------------------------------------------------------
-
-
-def _workable_job_ref(url: str) -> tuple[str, str] | None:
-    parsed = urlparse(url)
-    if parsed.netloc.lower() != "apply.workable.com":
-        return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) >= 3 and parts[1].lower() == "j":
-        return parts[0], parts[2]
-    return None
 
 
 def _fetch_workable_api(

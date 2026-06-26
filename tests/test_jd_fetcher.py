@@ -5,6 +5,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from job_hunter.sources import jd_fetcher
+from job_hunter.sources._jd_ats_parsers import (
+    ashby_job_ref,
+    greenhouse_job_ref,
+    lever_job_ref,
+    smartrecruiters_job_ref,
+    workable_job_ref,
+)
 from job_hunter.sources.ats_urls import company_name_from_url
 
 SAMPLE_URL = "https://boards.greenhouse.io/testcorp/jobs/12345"
@@ -38,6 +45,14 @@ class TestCompanyNameFromUrl:
     )
     def test_company_name_from_url(self, url, expected) -> None:
         assert company_name_from_url(url) == expected
+
+
+def test_ats_provider_job_refs_parse_direct_job_urls() -> None:
+    assert greenhouse_job_ref("https://boards.greenhouse.io/acme/jobs/123") == ("acme", "123")
+    assert ashby_job_ref("https://jobs.ashbyhq.com/acme/uuid-1") == ("acme", "uuid-1")
+    assert lever_job_ref("https://jobs.lever.co/acme/posting-1") == ("acme", "posting-1")
+    assert smartrecruiters_job_ref("https://jobs.smartrecruiters.com/Acme/123-product") == ("Acme", "123-product")
+    assert workable_job_ref("https://apply.workable.com/acme/j/ABCDE") == ("acme", "ABCDE")
 
 
 def _jd_llm_client(text: str) -> MagicMock:
