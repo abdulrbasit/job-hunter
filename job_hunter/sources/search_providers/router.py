@@ -66,21 +66,12 @@ def set_run_disabled(disabled: set[str]) -> None:
     _PROVIDER_STATE.set_run_disabled(disabled)
 
 
-def _add_run_disabled(provider_name: str) -> None:
-    """Disable one provider for the rest of this run (quota hit mid-run)."""
-    _PROVIDER_STATE.add_run_disabled(provider_name)
-
-
 def _provider_failure_count(name: str) -> int:
     return _PROVIDER_STATE.failure_count(name)
 
 
 def _reset_provider_failure(name: str) -> None:
     _PROVIDER_STATE.reset_failure(name)
-
-
-def _record_provider_failure(name: str) -> int:
-    return _PROVIDER_STATE.record_failure(name)
 
 
 def _provider_registry() -> dict[str, SearchProvider]:
@@ -213,7 +204,7 @@ class SearchRouter:
                     break
             except Exception as exc:
                 if is_api_quota_exhausted(exc):
-                    _add_run_disabled(provider.name)
+                    _PROVIDER_STATE.add_run_disabled(provider.name)
                     _reset_provider_failure(provider.name)
                     health.exhausted_providers.add(pname)
                     logger.warning(
@@ -221,7 +212,7 @@ class SearchRouter:
                         provider.name,
                     )
                     continue
-                failures = _record_provider_failure(provider.name)
+                failures = _PROVIDER_STATE.record_failure(provider.name)
                 health.transient_failures.add(pname)
                 logger.warning(
                     "[search] %s transient failure (%s/%s): %s",
