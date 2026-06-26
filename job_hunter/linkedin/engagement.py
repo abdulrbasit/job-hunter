@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
-import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
@@ -27,7 +24,22 @@ from job_hunter.linkedin._config import (
     read_text,
     repo_path,
     today_slug,
-    write_text,
+)
+from job_hunter.linkedin._engagement_support import (
+    Candidate,
+    canonical_url,
+    candidate_text,
+    clean_excerpt,
+    clean_title,
+    fingerprint,
+    load_state,
+    person_name,
+    render_people,
+    save_state,
+    stable_key,
+    topic_from_query,
+    trim_words,
+    update_state,
 )
 from job_hunter.sources.search_providers import search_web
 
@@ -91,23 +103,6 @@ Return a JSON object with:
 Keep queries short and searchable. Do not include LinkedIn site: operators."""
 
 
-@dataclass
-class Candidate:
-    kind: str
-    url: str
-    title: str
-    description: str
-    source: str
-    query: str = ""
-    topic: str = ""
-    relationship_type: str = ""
-    score: int = 0
-    reason: str = ""
-    fingerprint: str = ""
-    suggested_action: str = "review manually"
-    message_variants: list[str] | None = None
-
-
 @lru_cache(maxsize=1)
 def _policy() -> dict[str, Any]:
     with resources.files("job_hunter.linkedin").joinpath("defaults.yml").open(encoding="utf-8") as defaults:
@@ -123,70 +118,9 @@ def _setting(policy: dict[str, Any], section: str, key: str, default: int) -> in
     return int(policy.get(section, {}).get(key, default))
 
 
-def _state_path(config: dict[str, Any], policy: dict[str, Any]) -> Path:
-    value = Path(policy.get("state_file", "state.yml"))
-    if value.is_absolute():
-        return value
-    config_dir = config.get("__config_dir")
-    return Path(config_dir) / value if config_dir else repo_path(value)
-
-
-def _canonical_url(url: str) -> str:
-    parsed = urlsplit(url.strip())
-    path = parsed.path.rstrip("/")
-    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path, "", ""))
-
-
-def _stable_key(url: str, text: str = "") -> str:
-    canonical = _canonical_url(url)
-    if canonical:
-        return canonical
-    return hashlib.sha1(text.lower().encode("utf-8")).hexdigest()  # noqa: S324
-
-
-def _fingerprint(*parts: str) -> str:
-    text = " ".join(part for part in parts if part).lower()
-    text = re.sub(r"\s+", " ", text).strip()
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()  # noqa: S324
-
-
-def _topic_from_query(query: str) -> str:
-    match = re.search(r'"([^"]+)"', query or "")
-    return match.group(1) if match else "this topic"
-
-
-def _clean_title(title: str) -> str:
-    title = re.sub(r"\s+-\s+LinkedIn\s*$", "", title or "", flags=re.IGNORECASE)
-    title = re.sub(r"\s+\|\s+LinkedIn\s*$", "", title, flags=re.IGNORECASE)
-    return re.sub(r"\s+", " ", title).strip() or "LinkedIn result"
-
-
-def _person_name(title: str) -> str:
-    cleaned = _clean_title(title)
-    for separator in (" - ", " | ", " @ "):
-        if separator in cleaned:
-            return cleaned.split(separator, 1)[0].strip()
-    return cleaned
-
-
-def _trim_words(text: str, max_words: int) -> str:
-    words = text.split()
-    if len(words) <= max_words:
-        return text
-    return " ".join(words[:max_words]).rstrip(".,;:") + "."
-
-
-def _clean_excerpt(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "")).strip()
-
-
 def _is_login_wall(description: str, policy: dict[str, Any]) -> bool:
     lower = (description or "").lower()
     return any(phrase in lower for phrase in _terms(policy, "login_wall_phrases"))
-
-
-def _text(candidate: Candidate) -> str:
-    return f"{candidate.title} {candidate.description} {candidate.query} {candidate.topic}".lower()
 
 
 def _relationship_type(title: str, description: str, policy: dict[str, Any]) -> str:
@@ -201,19 +135,11 @@ def _relationship_type(title: str, description: str, policy: dict[str, Any]) -> 
 
 
 def _load_state(config: dict[str, Any]) -> dict[str, Any]:
-    state_path = _state_path(config, _policy())
-    data = yaml.safe_load(read_text(state_path, "{}")) or {}
-    return {
-        "seen_people": list(data.get("seen_people", [])),
-        "skipped_urls": list(data.get("skipped_urls", [])),
-        "message_fingerprints": list(data.get("message_fingerprints", [])),
-    }
+    return load_state(config, _policy())
 
 
 def _save_state(config: dict[str, Any], state: dict[str, Any]) -> None:
-    state_path = _state_path(config, _policy())
-    normalized = {key: sorted(set(value)) for key, value in state.items()}
-    write_text(state_path, yaml.safe_dump(normalized, sort_keys=False, allow_unicode=False))
+    save_state(config, _policy(), state)
 
 
 def _search_context(policy: dict[str, Any]) -> dict[str, list[str]]:
@@ -338,7 +264,7 @@ def _collect_public_results(
 
     for _kind, query in _queries(config, strategy, policy):
         for item in search_web(query, region, count=results_per_query):
-            url = _canonical_url(item.get("url", ""))
+            url = canonical_url(item.get("url", ""))
             if not url or url in seen:
                 continue
             if "/in/" not in url:
@@ -351,11 +277,11 @@ def _collect_public_results(
                 Candidate(
                     kind="person",
                     url=url,
-                    title=_clean_title(item.get("title", "")),
+                    title=clean_title(item.get("title", "")),
                     description=description,
                     source=item.get("source", "search"),
                     query=query,
-                    topic=_topic_from_query(query),
+                    topic=topic_from_query(query),
                 )
             )
     return collected
@@ -367,7 +293,7 @@ def _score_candidate(
     strategy: dict[str, list[str]],
     policy: dict[str, Any],
 ) -> Candidate:
-    text = _text(candidate)
+    text = candidate_text(candidate)
     target_companies = [str(c).lower() for c in strategy.get("target_companies", [])]
     score = 0
     reasons: list[str] = []
@@ -399,7 +325,7 @@ def _score_candidate(
 
     candidate.score = max(score, 0)
     candidate.reason = "; ".join(reasons) or "matches configured search"
-    candidate.fingerprint = _fingerprint(candidate.url, candidate.title, candidate.description)
+    candidate.fingerprint = fingerprint(candidate.url, candidate.title, candidate.description)
     return candidate
 
 
@@ -418,7 +344,7 @@ def _dedupe_and_select(
 
     for candidate in candidates:
         candidate = _score_candidate(candidate, config, strategy, policy)
-        key = _stable_key(candidate.url, candidate.fingerprint)
+        key = stable_key(candidate.url, candidate.fingerprint)
         if key in skipped:
             continue
         if key in seen_people or candidate.fingerprint in seen_people:
@@ -446,8 +372,8 @@ def _dedupe_and_select(
 
 def _deterministic_messages(candidate: Candidate, config: dict[str, Any]) -> list[str]:
     max_words = int(config.get("networking", {}).get("max_message_words", 70))
-    first_name = _person_name(candidate.title).split()[0] or "there"
-    evidence = _clean_excerpt(candidate.description)[:120].rstrip(".,;:")
+    first_name = person_name(candidate.title).split()[0] or "there"
+    evidence = clean_excerpt(candidate.description)[:120].rstrip(".,;:")
     positioning = str(config.get("positioning", "I work in a related field.")).rstrip(".")
     if len(evidence.split()) < 6:
         return ["no message recommended"]
@@ -461,7 +387,7 @@ def _deterministic_messages(candidate: Candidate, config: dict[str, Any]) -> lis
             f"Hi {first_name}, your work around {evidence} connects with my current focus: "
             f"{positioning}. I would be glad to connect and follow your perspective."
         )
-    return [_trim_words(text, max_words)]
+    return [trim_words(text, max_words)]
 
 
 def _generate_suggestions(
@@ -476,10 +402,10 @@ def _generate_suggestions(
     people_payload = [
         {
             "url": c.url,
-            "name": _person_name(c.title),
+            "name": person_name(c.title),
             "role_or_context": c.title,
             "relationship_type": c.relationship_type,
-            "evidence": _clean_excerpt(c.description),
+            "evidence": clean_excerpt(c.description),
             "score": c.score,
         }
         for c in all_people
@@ -498,7 +424,7 @@ def _generate_suggestions(
 
     messages_by_url = (
         {
-            _canonical_url(item.get("url", "")): item.get("message_variants", [])
+            canonical_url(item.get("url", "")): item.get("message_variants", [])
             for item in payload.get("people", [])
             if isinstance(item, dict)
         }
@@ -509,46 +435,12 @@ def _generate_suggestions(
     for candidate in all_people:
         messages = messages_by_url.get(candidate.url) or _deterministic_messages(candidate, config)
         candidate.message_variants = [
-            _trim_words(str(message).strip(), int(config.get("networking", {}).get("max_message_words", 70)))
+            trim_words(str(message).strip(), int(config.get("networking", {}).get("max_message_words", 70)))
             for message in messages[:2]
             if str(message).strip()
         ] or ["no message recommended"]
 
     return selected
-
-
-def _render_people(items: list[Candidate]) -> str:
-    if not items:
-        return "_No people suggestions returned._"
-    sections = []
-    for item in items:
-        messages = item.message_variants or []
-        messages_text = "\n".join(f"  - {msg}" for msg in messages)
-        sections.append(
-            f"""### {_person_name(item.title)}
-
-- Role/context: {item.title}
-- Link: {item.url}
-- Score: {item.score}
-- Why relevant: {item.reason}
-- Evidence: {_clean_excerpt(item.description)[:300]}
-- Relationship type: {item.relationship_type}
-- Suggested action: {item.suggested_action}
-- Ask readiness: cold
-- Message variants:
-{messages_text}
-"""
-        )
-    return "\n\n".join(sections)
-
-
-def _update_state(state: dict[str, Any], selected: dict[str, list[Candidate]]) -> dict[str, Any]:
-    for candidate in selected["people"] + selected["recruiters"]:
-        state.setdefault("seen_people", []).append(_stable_key(candidate.url, candidate.fingerprint))
-        state.setdefault("seen_people", []).append(candidate.fingerprint)
-        for message in candidate.message_variants or []:
-            state.setdefault("message_fingerprints", []).append(_fingerprint(message))
-    return state
 
 
 def discover(config_path: Path | None = None) -> dict:
@@ -570,10 +462,10 @@ def discover(config_path: Path | None = None) -> dict:
 
     append_section(
         configured_path(config, "networking"),
-        f"## {today_slug()}\n\n### Recruiters\n\n{_render_people(selected['recruiters'])}\n\n"
-        f"### Role-Adjacent Professionals and Creators\n\n{_render_people(selected['people'])}",
+        f"## {today_slug()}\n\n### Recruiters\n\n{render_people(selected['recruiters'])}\n\n"
+        f"### Role-Adjacent Professionals and Creators\n\n{render_people(selected['people'])}",
     )
-    _save_state(config, _update_state(state, selected))
+    _save_state(config, update_state(state, selected))
 
     logger.info(
         "[linkedin] Added %s recruiters and %s people.",
