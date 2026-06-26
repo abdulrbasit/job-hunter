@@ -41,8 +41,7 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 **Daily workflow**
 - `brief`, `today`, `status`: execute `.claude/skills/job-hunter/modes/brief.md` inline.
 - `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
-- `batch lite`: execute `.claude/skills/job-hunter/modes/batch-lite.md` inline.
-- `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
+- `batch`, `batch lite`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
 - `search`: execute `.claude/skills/job-hunter/modes/search.md` inline.
 - `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.

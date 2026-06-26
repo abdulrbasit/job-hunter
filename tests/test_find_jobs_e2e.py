@@ -29,6 +29,7 @@ _FAKE_JOBS = [
         "company": "Beta Corp",
         "url": "https://beta.example.com/jobs/spm",
         "location": "Remote",
+        "location_restrictions": ["Germany"],
         "snippet": "Drive product roadmap.",
         "source": "remotive",
         "region": "primary",

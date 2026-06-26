@@ -11,7 +11,7 @@ import requests
 from job_hunter.config.loader import load_api_config
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import location_matches, title_matches
-from job_hunter.sources.ats_urls import ats_discovery_sites
+from job_hunter.sources.ats_urls import ats_discovery_sites, company_name_from_url
 from job_hunter.sources.search_providers._result import SearchResult
 from job_hunter.sources.search_providers._url_utils import canonicalize_url
 from job_hunter.sources.search_providers.router import (
@@ -47,29 +47,6 @@ def _passes_ats_discovery_shape(url: str, source: str) -> bool:
         re.search(host_pattern, parsed.netloc, re.IGNORECASE) is not None
         and re.search(path_pattern, parsed.path, re.IGNORECASE) is not None
     )
-
-
-def _company_from_ats_url(url: str, source: str) -> str:
-    parsed = urlparse(url)
-    parts = [part for part in parsed.path.split("/") if part]
-    if source in {"greenhouse", "lever", "ashby", "smartrecruiters", "workable"} and parts:
-        return parts[0].replace("-", " ").replace("_", " ").strip().title()
-    if source == "personio":
-        if parsed.netloc.endswith(".jobs.personio.de"):
-            return parsed.netloc.split(".jobs.personio.de", 1)[0].replace("-", " ").title()
-        if parts and parts[0] != "job":
-            return parts[0].replace("-", " ").title()
-    if source == "recruitee":
-        return parsed.netloc.split(".recruitee.com", 1)[0].replace("-", " ").title()
-    if source == "hibob":
-        return parsed.netloc.split(".careers.hibob.com", 1)[0].replace("-", " ").title()
-    if source == "teamtailor":
-        return parsed.netloc.split(".teamtailor.com", 1)[0].replace("-", " ").title()
-    if source == "breezy":
-        return parsed.netloc.split(".breezy.hr", 1)[0].replace("-", " ").title()
-    if source == "workday" and parsed.netloc:
-        return parsed.netloc.split(".", 1)[0].replace("-", " ").title()
-    return ""
 
 
 _ATS_LOCATION_VERIFIABLE = {
@@ -248,7 +225,7 @@ def _process_ats_result(
     jobs.append(
         {
             "title": enriched.get("title", job_title) if enriched else job_title,
-            "company": (enriched or {}).get("company") or _company_from_ats_url(result.url, source),
+            "company": (enriched or {}).get("company") or company_name_from_url(result.url) or "",
             "location": enriched_location or location,
             "url": result.url,
             "posted": (enriched or {}).get("posted", ""),

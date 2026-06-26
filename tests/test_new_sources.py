@@ -126,7 +126,7 @@ _REMOTEOK_JOB = {
     "company": "RemoteCo",
     "url": "https://remoteok.com/1",
     "date": "2026-06-01T00:00:00Z",
-    "location": "Remote",
+    "location": "Worldwide",
     "tags": ["python", "django"],
     "description": "",
 }
@@ -180,7 +180,7 @@ _WWR_RSS_MATCHING = b"""<?xml version="1.0" encoding="UTF-8"?>
       <title>ACME Corp: Software Engineer</title>
       <link>https://weworkremotely.com/job/1</link>
       <pubDate>Mon, 01 Jun 2026 12:00:00 +0000</pubDate>
-      <description>Build great things.</description>
+      <description>Build great things from Europe.</description>
     </item>
     <item>
       <title>OtherCo: Marketing Manager</title>

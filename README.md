@@ -88,8 +88,8 @@ See `DATA_CONTRACT.md` for the full contract.
 ```bash
 uv sync --extra dev
 uv run pytest tests/ -q --tb=short
-uv run ruff format --check job_hunter tests .github/scripts
-uv run ruff check job_hunter tests .github/scripts
+uv run ruff format --check job_hunter tests scripts
+uv run ruff check job_hunter tests scripts
 uv run ty check job_hunter tests
 uv build
 ```

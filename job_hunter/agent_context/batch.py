@@ -93,7 +93,9 @@ def screen_candidate_batch(
             if not reasons:
                 reasons.append("title_not_matched")
         region_cfg = _region_config(search_config, region)
-        if policy.has_wrong_location(candidate, region_cfg):
+        if policy.has_incompatible_location_metadata(candidate, region_cfg):
+            reasons.append("incompatible_location_metadata")
+        if "incompatible_location_metadata" not in reasons and policy.has_wrong_location(candidate, region_cfg):
             reasons.append("wrong_location")
         if policy.excluded_by_search_lang(title, snippet, region_cfg.get("search_lang", "en")):
             reasons.append("excluded_by_search_lang")

@@ -76,7 +76,13 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
 
-    def _add_unique(postings: list[JobPosting], source: str, *, search_lang: str = "en") -> None:
+    def _add_unique(
+        postings: list[JobPosting],
+        source: str,
+        *,
+        search_lang: str = "en",
+        region_cfg: dict[str, Any] | None = None,
+    ) -> None:
         source_rejected: Counter[str] = Counter()
 
         def reject(reason: str) -> None:
@@ -107,6 +113,13 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
                 reject("excluded_by_search_lang")
                 continue
+            effective_region_cfg = region_cfg or regions.get(jp.region, {})
+            if policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_cfg):
+                reject("incompatible_location_metadata")
+                continue
+            if policy.has_wrong_location(jp.model_dump(), effective_region_cfg):
+                reject("wrong_location")
+                continue
             seen_urls.add(url)
             results.append(jp.model_copy(update={"date_status": policy.posting_date_status(jp.posted)}))
             stats.total_after_policy += 1
@@ -118,7 +131,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
     regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
 
-    if global_adapters:
+    if global_adapters and region is None:
         global_params = SearchParams(
             region_key="global_remote",
             country="",
@@ -137,6 +150,18 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                 except Exception as exc:
                     stats.failed_sources.append(source)
                     logger.warning("[orchestrator] %s raised: %s", source, exc)
+    elif global_adapters:
+        for region_key, region_cfg in regions.items():
+            params = _params_for_region(region_key, region_cfg, job_titles, excluded_title_terms)
+            with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
+                futures = {pool.submit(adapter.fetch, params): adapter.source_name for adapter in global_adapters}
+                for future in as_completed(futures):
+                    source = futures[future]
+                    try:
+                        _add_unique(future.result(), source, search_lang=params.search_lang, region_cfg=region_cfg)
+                    except Exception as exc:
+                        stats.failed_sources.append(source)
+                        logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     # Step 1: per-region board dispatch in parallel
     if regional_adapters:
@@ -147,7 +172,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(future.result(), source, search_lang=params.search_lang)
+                        _add_unique(future.result(), source, search_lang=params.search_lang, region_cfg=region_cfg)
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)

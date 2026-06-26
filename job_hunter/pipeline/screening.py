@@ -47,6 +47,8 @@ def _screen_one(
     region = str(job.get("region") or "")
     region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
 
+    if not reason and policy.has_incompatible_location_metadata(job, region_config):
+        reason = "incompatible_location_metadata"
     if not reason and policy.has_wrong_location(job, region_config):
         reason = "wrong_location"
     if not reason and policy.is_location_restricted(title, snippet):

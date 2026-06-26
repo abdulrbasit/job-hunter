@@ -73,6 +73,11 @@ def test_location_text_with_restrictions() -> None:
     assert hm._location_text(job) == "Germany"
 
 
+def test_location_text_with_string_restrictions() -> None:
+    job = {"locationRestrictions": ["Germany", "United States"]}
+    assert hm._location_text(job) == "Germany, United States"
+
+
 def test_country_matches_no_restrictions() -> None:
     assert hm._country_matches({}, "DE") is True
 
@@ -82,8 +87,18 @@ def test_country_matches_matching() -> None:
     assert hm._country_matches(job, "DE") is True
 
 
+def test_country_matches_string_restriction() -> None:
+    job = {"locationRestrictions": ["Germany"]}
+    assert hm._country_matches(job, "DE") is True
+
+
 def test_country_matches_no_match() -> None:
     job = {"locationRestrictions": [{"alpha2": "US"}]}
+    assert hm._country_matches(job, "DE") is False
+
+
+def test_country_matches_string_no_match() -> None:
+    job = {"locationRestrictions": ["United States"]}
     assert hm._country_matches(job, "DE") is False
 
 
@@ -120,3 +135,4 @@ class TestHimalayasSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "Himalayas"
+        assert jobs[0].location_restrictions == ["Germany"]

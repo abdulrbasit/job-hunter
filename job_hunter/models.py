@@ -47,6 +47,10 @@ class JobPosting(BaseModel):
     full_jd: str = ""
     enrichment_source: str = ""
     date_status: str = ""
+    location_restrictions: list[str] = Field(default_factory=list)
+    timezone_restrictions: list[float] = Field(default_factory=list)
+    employment_type: str = ""
+    seniority: list[str] = Field(default_factory=list)
     fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
     # Set by score stage
     score: int | None = None

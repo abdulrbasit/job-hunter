@@ -111,6 +111,8 @@ class JobicySource(JobSourceAdapter):
                     source="Jobicy",
                     query=f"{' | '.join(params.job_titles[:3])} @ {params.region_key}",
                     region=params.region_key,
+                    location_restrictions=[str(item.get("jobGeo") or "")] if item.get("jobGeo") else [],
+                    employment_type=str(item.get("jobType") or ""),
                 )
             )
 

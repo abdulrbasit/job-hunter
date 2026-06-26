@@ -33,15 +33,59 @@ def _country_matches(job: dict[str, Any], iso: str) -> bool:
     restrictions = job.get("locationRestrictions") or []
     if not restrictions:
         return True
-    return any(str(item.get("alpha2") or "").upper() == iso for item in restrictions if isinstance(item, dict))
+    for item in restrictions:
+        if isinstance(item, dict):
+            if str(item.get("alpha2") or "").upper() == iso:
+                return True
+            if _restriction_name_matches(str(item.get("name") or ""), iso):
+                return True
+        elif _restriction_name_matches(str(item), iso):
+            return True
+    return False
+
+
+def _restriction_name_matches(value: str, iso: str) -> bool:
+    from job_hunter.sources._policy import _codes_from_location_text, _is_broad_location_restriction
+
+    allowed = {iso.upper()}
+    return _is_broad_location_restriction(value, allowed) or iso.upper() in _codes_from_location_text(value)
 
 
 def _location_text(job: dict[str, Any]) -> str:
     restrictions = job.get("locationRestrictions") or []
-    names = [
-        str(item.get("name") or "").strip() for item in restrictions if isinstance(item, dict) and item.get("name")
-    ]
+    names = []
+    for item in restrictions:
+        if isinstance(item, dict) and item.get("name"):
+            names.append(str(item.get("name") or "").strip())
+        elif isinstance(item, str) and item.strip():
+            names.append(item.strip())
     return ", ".join(names) if names else "Remote"
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        if isinstance(item, dict):
+            text = str(item.get("name") or item.get("alpha2") or "").strip()
+        else:
+            text = str(item or "").strip()
+        if text:
+            result.append(text)
+    return result
+
+
+def _float_list(value: Any) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        try:
+            result.append(float(item))
+        except (TypeError, ValueError):
+            continue
+    return result
 
 
 class HimalayasSource(JobSourceAdapter):
@@ -102,6 +146,10 @@ class HimalayasSource(JobSourceAdapter):
                         source="Himalayas",
                         query=f"{title} @ {params.region_key}",
                         region=params.region_key,
+                        location_restrictions=_string_list(item.get("locationRestrictions")),
+                        timezone_restrictions=_float_list(item.get("timezoneRestrictions")),
+                        employment_type=str(item.get("employmentType") or ""),
+                        seniority=_string_list(item.get("seniority")),
                     )
                 )
             logger.info("[himalayas] +%d jobs for %r in %s", len(jobs) - before, title, params.region_key)

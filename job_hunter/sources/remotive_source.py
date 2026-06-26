@@ -66,6 +66,8 @@ class RemotiveSource(JobSourceAdapter):
                         source="Remotive",
                         query=f"{title} @ {params.region_key}",
                         region=params.region_key,
+                        location_restrictions=[job_location] if job_location else [],
+                        employment_type=str(item.get("job_type") or ""),
                     )
                 )
             logger.info("[remotive] +%d jobs for %r in %s", len(jobs) - before, title, params.region_key)

@@ -68,6 +68,7 @@ class WorkingNomadsSource(JobSourceAdapter):
                     source="WorkingNomads",
                     query=f"{' | '.join(params.job_titles[:3])} @ {params.region_key}",
                     region=params.region_key,
+                    location_restrictions=[str(item.get("region") or "")] if item.get("region") else [],
                 )
             )
 

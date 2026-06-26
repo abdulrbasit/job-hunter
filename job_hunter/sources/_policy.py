@@ -130,6 +130,69 @@ _LANG_CODE_TO_NAME: dict[str, str] = {
     "ca": "catalan",
 }
 
+_COUNTRY_ALIAS_TO_CODE: dict[str, str] = {
+    **_COUNTRY_NAME_TO_CODE,
+    "uk": "GB",
+    "u k": "GB",
+}
+_SHORT_COUNTRY_CODES: frozenset[str] = frozenset(_COUNTRY_NAME_TO_CODE.values())
+
+_BROAD_LOCATION_RESTRICTIONS: frozenset[str] = frozenset(
+    {
+        "anywhere",
+        "global",
+        "remote",
+        "worldwide",
+        "world wide",
+    }
+)
+
+_EUROPE_COUNTRY_CODES: frozenset[str] = frozenset(
+    {
+        "AL",
+        "AT",
+        "BA",
+        "BE",
+        "BG",
+        "BY",
+        "CH",
+        "CY",
+        "CZ",
+        "DE",
+        "DK",
+        "EE",
+        "ES",
+        "FI",
+        "FR",
+        "GB",
+        "GR",
+        "HR",
+        "HU",
+        "IE",
+        "IS",
+        "IT",
+        "LT",
+        "LU",
+        "LV",
+        "MD",
+        "MK",
+        "MT",
+        "NL",
+        "NO",
+        "PL",
+        "PT",
+        "RO",
+        "RS",
+        "SE",
+        "SI",
+        "SK",
+        "UA",
+    }
+)
+
+_EUROPE_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"eu", "europe", "emea"})
+_REMOTE_ONLY_LOCATIONS: frozenset[str] = frozenset({"", "remote"})
+
 _CORPORATE_SUFFIX_RE = re.compile(
     r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
     re.IGNORECASE,
@@ -146,6 +209,69 @@ def normalize_company_name(company: str) -> str:
     normalized = _CORPORATE_SUFFIX_RE.sub("", company)
     normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower())
     return " ".join(normalized.split())
+
+
+def _norm_location_text(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+
+def _codes_from_location_text(value: object) -> set[str]:
+    text = _norm_location_text(value)
+    if not text:
+        return set()
+    if text.upper() in _SHORT_COUNTRY_CODES:
+        return {text.upper()}
+    codes: set[str] = set()
+    for name, code in sorted(_COUNTRY_ALIAS_TO_CODE.items(), key=lambda item: len(item[0]), reverse=True):
+        normalized = _norm_location_text(name)
+        if normalized and re.search(r"\b" + re.escape(normalized) + r"\b", text):
+            codes.add(code)
+    return codes
+
+
+def _restricted_codes_from_slug_text(value: object) -> set[str]:
+    text = _norm_location_text(value)
+    codes: set[str] = set()
+    short_aliases = {"us": "US", "usa": "US", "uk": "GB", "gb": "GB", "ca": "CA"}
+    for alias, code in short_aliases.items():
+        patterns = (
+            f"remote {alias}",
+            f"{alias} remote",
+            f"{alias} only",
+            f"only {alias}",
+            f"within the {alias}",
+        )
+        if any(re.search(r"\b" + re.escape(pattern) + r"\b", text) for pattern in patterns):
+            codes.add(code)
+    for name, code in sorted(_COUNTRY_NAME_TO_CODE.items(), key=lambda item: len(item[0]), reverse=True):
+        normalized = _norm_location_text(name)
+        patterns = (
+            f"remote {normalized}",
+            f"{normalized} remote",
+            f"{normalized} only",
+            f"only {normalized}",
+            f"within the {normalized}",
+        )
+        if any(re.search(r"\b" + re.escape(pattern) + r"\b", text) for pattern in patterns):
+            codes.add(code)
+    return codes
+
+
+def _is_broad_location_restriction(value: object, allowed_codes: set[str]) -> bool:
+    text = _norm_location_text(value)
+    if text in _BROAD_LOCATION_RESTRICTIONS:
+        return True
+    if text in _EUROPE_LOCATION_RESTRICTIONS:
+        return bool(allowed_codes & _EUROPE_COUNTRY_CODES)
+    return False
+
+
+def _looks_like_remote_city_region(region_cfg: dict) -> bool:
+    locations = region_cfg.get("locations") or []
+    if isinstance(locations, str):
+        locations = [locations]
+    location = _norm_location_text(region_cfg.get("location") or " ".join(str(item) for item in locations))
+    return "remote" in location or location in _BROAD_LOCATION_RESTRICTIONS
 
 
 @dataclass(frozen=True)
@@ -268,9 +394,19 @@ class JobPolicy:
             return date_status
         return ""
 
+    def _region_locations(self, region_cfg: dict) -> list[str]:
+        locations = region_cfg.get("locations") or []
+        if isinstance(locations, str):
+            locations = [locations]
+        if not locations and region_cfg.get("location"):
+            locations = [region_cfg.get("location")]
+        return [str(location) for location in locations if str(location or "").strip()]
+
     def has_wrong_location(self, job: dict, region_cfg: dict) -> bool:
         """Return True if job location doesn't match any allowed location in region_cfg."""
-        allowed = region_cfg.get("locations") or []
+        if self.location_metadata_matches_region(job, region_cfg):
+            return False
+        allowed = self._region_locations(region_cfg)
         if not allowed:
             return False
         job_location = str(job.get("location") or "")
@@ -279,6 +415,38 @@ class JobPolicy:
         from job_hunter.core.utils import location_matches
 
         return not any(location_matches(job_location, loc) for loc in allowed)
+
+    def location_metadata_matches_region(self, job: dict, region_cfg: dict) -> bool:
+        allowed_codes = {str(region_cfg.get("country") or "").strip().upper()}
+        allowed_codes.discard("")
+        restrictions = [str(value) for value in job.get("location_restrictions", []) or [] if str(value).strip()]
+        if not restrictions or not allowed_codes:
+            return False
+        return any(
+            _is_broad_location_restriction(value, allowed_codes)
+            or bool(_codes_from_location_text(value) & allowed_codes)
+            for value in restrictions
+        )
+
+    def has_incompatible_location_metadata(self, job: dict, region_cfg: dict) -> bool:
+        allowed_codes = {str(region_cfg.get("country") or "").strip().upper()}
+        allowed_codes.discard("")
+        if not region_cfg or not allowed_codes:
+            return False
+
+        restrictions = [str(value) for value in job.get("location_restrictions", []) or [] if str(value).strip()]
+        if restrictions:
+            return not self.location_metadata_matches_region(job, region_cfg)
+
+        combined = " ".join(str(job.get(key) or "") for key in ("url", "title", "snippet", "location"))
+        mentioned_codes = _restricted_codes_from_slug_text(combined)
+        if mentioned_codes and not mentioned_codes & allowed_codes:
+            return True
+
+        location = _norm_location_text(job.get("location"))
+        if location in _REMOTE_ONLY_LOCATIONS and not _looks_like_remote_city_region(region_cfg):
+            return True
+        return False
 
     def excluded_by_search_lang(self, title: str, snippet: str, search_lang: str) -> bool:
         """Return True if job's language is not in the search_lang allow-list."""

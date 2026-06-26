@@ -82,6 +82,9 @@ class RemoteOKSource(JobSourceAdapter):
                     source="RemoteOK",
                     query=job_title,
                     region=params.region_key,
+                    location_restrictions=[job_location]
+                    if job_location and job_location.lower() not in ("remote", "")
+                    else [],
                 )
             )
 

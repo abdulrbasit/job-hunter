@@ -135,6 +135,48 @@ def test_global_feed_is_fetched_once_for_all_regions(monkeypatch) -> None:
     assert jobs[0].region == "global_remote"
 
 
+def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) -> None:
+    config = {
+        "job_titles": ["Product Manager"],
+        "exclusions": {"companies": [], "title_terms": [], "industries": [], "languages": []},
+        "regions": {
+            "berlin": {"enabled": True, "country": "DE", "location": "Berlin", "search_lang": "en"},
+        },
+        "search": {},
+    }
+
+    class GlobalSource:
+        source_name = "global"
+        global_feed = True
+
+        def __init__(self):
+            self.params = []
+
+        def fetch(self, params):
+            self.params.append(params)
+            return [
+                _posting(
+                    location="Remote",
+                    region=params.region_key,
+                    location_restrictions=["Germany"],
+                )
+            ]
+
+    source = GlobalSource()
+    monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _cfg, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "board_adapters", lambda: [source])
+    monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
+    monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
+
+    jobs, _stats = orchestrator.scrape_with_stats(region="berlin", depth="fast")
+
+    assert len(source.params) == 1
+    assert source.params[0].region_key == "berlin"
+    assert source.params[0].country == "DE"
+    assert [job.region for job in jobs] == ["berlin"]
+
+
 def test_enrichment_never_replaces_known_identity_with_unknown_values() -> None:
     job = _posting(source="Arbeitsagentur").to_dict()
 

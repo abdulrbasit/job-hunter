@@ -76,6 +76,9 @@ class WeWorkRemotelySource(JobSourceAdapter):
             url = (item.findtext("link") or "").strip()
             pub_date = _parse_rfc2822(item.findtext("pubDate") or "")
             description = strip_html(item.findtext("description") or "")
+            restrictions = (
+                [params.location] if params.location and params.location.lower() in description.lower() else []
+            )
 
             jobs.append(
                 JobPosting(
@@ -88,6 +91,7 @@ class WeWorkRemotelySource(JobSourceAdapter):
                     source="WeWorkRemotely",
                     query=job_title,
                     region=params.region_key,
+                    location_restrictions=restrictions,
                 )
             )
 

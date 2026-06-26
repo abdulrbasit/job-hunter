@@ -137,3 +137,49 @@ def test_excluded_company_matches_suffix_and_case_variants() -> None:
     assert policy.is_excluded_company("Delivery Hero SE")
     assert policy.is_excluded_company("AUTO1 Group")
     assert not policy.is_excluded_company("Hero Digital")
+
+
+def test_wrong_location_uses_singular_location_config() -> None:
+    policy = JobPolicy({"exclusions": {}})
+    region_cfg = {"country": "DE", "location": "Berlin"}
+
+    assert not policy.has_wrong_location({"location": "Berlin, Germany"}, region_cfg)
+    assert policy.has_wrong_location({"location": "Munich, Germany"}, region_cfg)
+
+
+def test_wrong_location_keeps_plural_locations_config() -> None:
+    policy = JobPolicy({"exclusions": {}})
+    region_cfg = {"country": "DE", "locations": ["Berlin", "Munich"]}
+
+    assert not policy.has_wrong_location({"location": "Munich, Germany"}, region_cfg)
+    assert policy.has_wrong_location({"location": "Hamburg, Germany"}, region_cfg)
+
+
+def test_city_region_rejects_plain_remote_without_metadata() -> None:
+    policy = JobPolicy({"exclusions": {}})
+    region_cfg = {"country": "DE", "location": "Berlin"}
+
+    assert policy.has_incompatible_location_metadata({"location": "Remote"}, region_cfg)
+
+
+def test_city_region_accepts_remote_country_metadata() -> None:
+    policy = JobPolicy({"exclusions": {}})
+    region_cfg = {"country": "DE", "location": "Berlin"}
+    job = {"location": "Remote", "location_restrictions": ["Germany"]}
+
+    assert not policy.has_incompatible_location_metadata(job, region_cfg)
+    assert not policy.has_wrong_location(job, region_cfg)
+
+
+def test_country_slug_restrictions_reject_incompatible_remote_jobs() -> None:
+    policy = JobPolicy({"exclusions": {}})
+    region_cfg = {"country": "DE", "location": "Berlin"}
+
+    assert policy.has_incompatible_location_metadata(
+        {"url": "https://example.com/jobs/product-manager-remote-within-the-us", "location": "Remote"},
+        region_cfg,
+    )
+    assert policy.has_incompatible_location_metadata(
+        {"url": "https://example.com/jobs/product-manager-remote-uk", "location": "Remote"},
+        region_cfg,
+    )
