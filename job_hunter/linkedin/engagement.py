@@ -27,8 +27,8 @@ from job_hunter.linkedin._config import (
 )
 from job_hunter.linkedin._engagement_support import (
     Candidate,
-    canonical_url,
     candidate_text,
+    canonical_url,
     clean_excerpt,
     clean_title,
     fingerprint,

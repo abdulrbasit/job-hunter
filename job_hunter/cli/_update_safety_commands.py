@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import typer
 
 from job_hunter.cli import update_safety_app
@@ -9,7 +11,7 @@ from job_hunter.cli import update_safety_app
 
 @update_safety_app.command("classify")
 def update_safety_classify(
-    paths: list[str] = typer.Argument(...),
+    paths: Annotated[list[str], typer.Argument()],
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Classify file paths by update safety layer."""
@@ -26,7 +28,7 @@ def update_safety_classify(
 
 @update_safety_app.command("report")
 def update_safety_report_cmd(
-    paths: list[str] = typer.Argument(default=None),
+    paths: Annotated[list[str] | None, typer.Argument()] = None,
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Show full update-safety report for given paths."""

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 import shutil
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 def copy_latex_assets(job_dir: Path, profile_path: Callable[[str, str], Path]) -> None:

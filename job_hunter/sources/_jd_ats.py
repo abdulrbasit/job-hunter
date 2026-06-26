@@ -16,9 +16,17 @@ import requests
 from job_hunter.core.utils import strip_html
 from job_hunter.sources._jd_ats_parsers import (
     ashby_job_ref as _ashby_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     greenhouse_job_ref as _greenhouse_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     lever_job_ref as _lever_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     smartrecruiters_job_ref as _smartrecruiters_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     workable_job_ref as _workable_job_ref,
 )
 

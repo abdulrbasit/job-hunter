@@ -399,11 +399,9 @@ def discard_job(
     typer.echo(f"[discard-job] deleted and marked processed: {job}")
 
 
-from job_hunter.cli import _workspace as _workspace_commands  # noqa: E402,F401
-
-
 from job_hunter.cli import _agent_context as _agent_context_commands  # noqa: E402,F401
 from job_hunter.cli import _application_commands as _application_commands  # noqa: E402,F401
 from job_hunter.cli import _health_commands as _health_commands  # noqa: E402,F401
 from job_hunter.cli import _linkedin_commands as _linkedin_commands  # noqa: E402,F401
 from job_hunter.cli import _update_safety_commands as _update_safety_commands  # noqa: E402,F401
+from job_hunter.cli import _workspace as _workspace_commands  # noqa: E402,F401
