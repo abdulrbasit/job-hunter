@@ -10,10 +10,10 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.source_config import job_board_enabled, job_board_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +28,14 @@ class WorkingNomadsSource(JobSourceAdapter):
         return "workingnomads"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("workingnomads", {}) or {}
-        return bool(cfg.get("enabled", True))
+        return job_board_enabled("workingnomads")
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Working Nomads public API."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("workingnomads", {}) or {}
-        if not source_cfg.get("enabled", True):
+        if not job_board_enabled("workingnomads"):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = job_board_timeout("workingnomads")
 
         logger.info("[workingnomads] Fetching all remote jobs")
         try:

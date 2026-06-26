@@ -13,10 +13,10 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.source_config import job_board_enabled, job_board_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +40,14 @@ class WeWorkRemotelySource(JobSourceAdapter):
         return "weworkremotely"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("weworkremotely", {}) or {}
-        return bool(cfg.get("enabled", True))
+        return job_board_enabled("weworkremotely")
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from We Work Remotely's public RSS feed."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("weworkremotely", {}) or {}
-        if not source_cfg.get("enabled", True):
+        if not job_board_enabled("weworkremotely"):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = job_board_timeout("weworkremotely")
 
         logger.info("[weworkremotely] Fetching RSS feed")
         try:

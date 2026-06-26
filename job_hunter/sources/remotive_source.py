@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import logging
 
-from job_hunter.config.loader import get_timeout, load_api_config
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._http import fetch_title_pages
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import (
+    DEFAULT_SINGLE_PAGE_SOURCE_CAP,
+    job_board_enabled,
+    job_board_timeout,
+    source_page_cap,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +28,14 @@ class RemotiveSource(JobSourceAdapter):
         return "remotive"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remotive", {}) or {}
-        return bool(cfg.get("enabled", True))
+        return job_board_enabled("remotive")
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Remotive's free public API."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remotive", {}) or {}
-        if not source_cfg.get("enabled", True):
+        if not job_board_enabled("remotive"):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = job_board_timeout("remotive")
         max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
         jobs: list[JobPosting] = []
 

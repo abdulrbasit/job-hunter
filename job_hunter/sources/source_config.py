@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from job_hunter.config.loader import get_config
+from job_hunter.config.loader import get_config, get_timeout, load_api_config
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,18 @@ def sleep_between_pages(delay_seconds: float, page: int, max_pages: int) -> None
     """Sleep between capped page requests when configured."""
     if delay_seconds > 0 and page < max_pages:
         time.sleep(delay_seconds)
+
+
+def job_board_source_config(name: str) -> dict[str, Any]:
+    return load_api_config().get("http", {}).get("job_boards", {}).get(name, {}) or {}
+
+
+def job_board_enabled(name: str) -> bool:
+    return bool(job_board_source_config(name).get("enabled", True))
+
+
+def job_board_timeout(name: str) -> int:
+    return int(job_board_source_config(name).get("timeout_seconds") or get_timeout("job_boards"))
 
 
 def jobicy_geo_slug(region_cfg: dict[str, Any]) -> str:

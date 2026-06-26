@@ -451,13 +451,13 @@ class TestWeWorkRemotelySource:
 
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"weworkremotely": {"enabled": False}}}}
-        with patch("job_hunter.sources.weworkremotely_source.load_api_config", return_value=disabled):
+        with patch("job_hunter.sources.source_config.load_api_config", return_value=disabled):
             assert WeWorkRemotelySource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
             patch(
-                "job_hunter.sources.weworkremotely_source.load_api_config",
+                "job_hunter.sources.source_config.load_api_config",
                 return_value=_WWR_CFG,
             ),
             patch(
@@ -662,13 +662,13 @@ class TestWorkingNomadsSource:
 
     def test_is_enabled_false_when_disabled(self) -> None:
         cfg = {"http": {"job_boards": {"workingnomads": {"enabled": False}}}}
-        with patch("job_hunter.sources.workingnomads_source.load_api_config", return_value=cfg):
+        with patch("job_hunter.sources.source_config.load_api_config", return_value=cfg):
             assert WorkingNomadsSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
             patch(
-                "job_hunter.sources.workingnomads_source.load_api_config",
+                "job_hunter.sources.source_config.load_api_config",
                 return_value=_WN_CFG,
             ),
             patch(
@@ -689,7 +689,7 @@ class TestWorkingNomadsSource:
         ]
         with (
             patch(
-                "job_hunter.sources.workingnomads_source.load_api_config",
+                "job_hunter.sources.source_config.load_api_config",
                 return_value=_WN_CFG,
             ),
             patch(
