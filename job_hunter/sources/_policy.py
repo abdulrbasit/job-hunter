@@ -196,7 +196,8 @@ class JobPolicy:
         return bool(company_norm) and any(normalize_company_name(e) == company_norm for e in self.excluded_companies)
 
     def is_excluded_industry(self, snippet: str) -> bool:
-        return any(kw in snippet.lower() for kw in self.excluded_industries)
+        text = snippet.lower()
+        return any(re.search(r"\b" + re.escape(kw) + r"\b", text) for kw in self.excluded_industries)
 
     def posting_date_status(self, posted: str) -> str:
         if not posted:
