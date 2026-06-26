@@ -260,6 +260,38 @@ def update_readme(
     typer.echo(f"[update-readme] README updated for {job}")
 
 
+@internal_app.command(name="write-research")
+def write_research_cmd(
+    job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
+) -> None:
+    """Write company_research.md for a job using LLM training-data knowledge."""
+    import logging
+
+    from job_hunter.config.loader import get_config
+    from job_hunter.pipeline._match_processor import write_company_research
+    from job_hunter.pipeline.llm_stage import LLMStage
+    from job_hunter.tracker import repo_path
+
+    logger = logging.getLogger(__name__)
+    root = repo_path()
+    job_dir = root / "outputs" / "jobs" / job
+    meta_path = job_dir / "meta.json"
+    if not meta_path.exists():
+        typer.echo(f"[write-research] meta.json not found in {job}", err=True)
+        raise typer.Exit(1)
+
+    import json
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    write_company_research(meta, job_dir, get_config=get_config, llm_stage_factory=LLMStage, logger=logger)
+    out = job_dir / "company_research.md"
+    if out.exists():
+        typer.echo(f"[write-research] company_research.md written for {job}")
+    else:
+        typer.echo(f"[write-research] research failed for {job}", err=True)
+        raise typer.Exit(1)
+
+
 @internal_app.command(name="mark-processed")
 def mark_processed_cmd(
     url: str | None = typer.Option(None, "--url"),

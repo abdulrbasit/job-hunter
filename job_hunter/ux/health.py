@@ -13,6 +13,7 @@ import yaml
 
 from job_hunter.agent_context import validate_score_file
 from job_hunter.agent_context._utils import _read_yaml
+from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.ux.applications import CANONICAL_STATUSES, load_applications
 
 
@@ -337,7 +338,7 @@ def _processed_consistency_errors(root: Path, apps: list[dict[str, Any]]) -> lis
     discovered = set(state.get("discovered") or [])
     for app in apps:
         url = str(app.get("url") or "")
-        if url and app.get("status") in CANONICAL_STATUSES and url not in discovered:
+        if url and app.get("status") in CANONICAL_STATUSES and canonicalize_url(url) not in discovered:
             errors.append(f"discovered_urls.yml: missing discovered URL for {app.get('slug')}")
     return errors
 

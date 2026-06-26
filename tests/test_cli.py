@@ -460,6 +460,68 @@ def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch:
     assert "resume_tailored.tex not found" in result.output
 
 
+def test_write_research_writes_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"company": "Acme", "title": "Product Manager", "url": "https://example.com/acme"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    def fake_write_research(job, job_dir, *, get_config, llm_stage_factory, logger):
+        (job_dir / "company_research.md").write_text("# Acme Research\n\ncontent", encoding="utf-8")
+
+    monkeypatch.setattr("job_hunter.pipeline._match_processor.write_company_research", fake_write_research)
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "write-research", "--job", job])
+
+    assert result.exit_code == 0
+    assert "company_research.md written" in result.output
+    assert (job_dir / "company_research.md").exists()
+
+
+def test_write_research_exits_1_when_research_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"company": "Acme", "title": "Product Manager", "url": "https://example.com/acme"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+    monkeypatch.setattr("job_hunter.pipeline._match_processor.write_company_research", lambda *a, **kw: None)
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "write-research", "--job", job])
+
+    assert result.exit_code == 1
+
+
+def test_write_research_exits_1_when_meta_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+    (tmp_path / "outputs" / "jobs" / "2026-06-12_acme_pm").mkdir(parents=True)
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "write-research", "--job", "2026-06-12_acme_pm"])
+
+    assert result.exit_code == 1
+
+
 def test_discard_job_removes_folder_and_tracks() -> None:
     import shutil
 
