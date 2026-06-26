@@ -183,3 +183,55 @@ def test_country_slug_restrictions_reject_incompatible_remote_jobs() -> None:
         {"url": "https://example.com/jobs/product-manager-remote-uk", "location": "Remote"},
         region_cfg,
     )
+
+
+# --- has_incompatible_location_for_global_feed ---
+
+_MULTI_REGION_CONFIG = {
+    "regions": {
+        "berlin": {"enabled": True, "country": "DE", "location": "Berlin"},
+        "dublin": {"enabled": True, "country": "IE", "location": "Dublin"},
+    },
+    "exclusions": {},
+}
+
+
+def test_global_feed_rejects_location_restrictions_to_non_configured_country() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Spain"]})
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Greece"]})
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["USA"]})
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["United States"]})
+
+
+def test_global_feed_accepts_location_restrictions_to_configured_country() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Germany"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Ireland"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["DE"]})
+
+
+def test_global_feed_accepts_broad_location_restrictions() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Anywhere"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["worldwide"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Remote"]})
+
+
+def test_global_feed_rejects_location_field_named_non_configured_country() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert policy.has_incompatible_location_for_global_feed({"location": "Barcelona, Spain"})
+    assert policy.has_incompatible_location_for_global_feed({"location": "Athens, Greece"})
+    assert policy.has_incompatible_location_for_global_feed({"location": "New York, United States"})
+
+
+def test_global_feed_accepts_remote_or_empty_location() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert not policy.has_incompatible_location_for_global_feed({"location": "Remote"})
+    assert not policy.has_incompatible_location_for_global_feed({"location": ""})
+    assert not policy.has_incompatible_location_for_global_feed({})
+
+
+def test_global_feed_passes_when_no_regions_configured() -> None:
+    policy = JobPolicy({"regions": {}, "exclusions": {}})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Spain"]})

@@ -448,6 +448,24 @@ class JobPolicy:
             return True
         return False
 
+    def has_incompatible_location_for_global_feed(self, job: dict) -> bool:
+        """For global-feed jobs (no per-region context): reject if location data names only non-configured countries."""
+        allowed_codes = self._allowed_country_codes()
+        if not allowed_codes:
+            return False
+        restrictions = [str(v) for v in job.get("location_restrictions", []) or [] if str(v).strip()]
+        if restrictions:
+            return not any(
+                _is_broad_location_restriction(v, allowed_codes)
+                or bool(_codes_from_location_text(v) & allowed_codes)
+                for v in restrictions
+            )
+        location = str(job.get("location") or "")
+        if not location or _norm_location_text(location) in _REMOTE_ONLY_LOCATIONS:
+            return False
+        codes = _codes_from_location_text(location)
+        return bool(codes) and not codes & allowed_codes
+
     def excluded_by_search_lang(self, title: str, snippet: str, search_lang: str) -> bool:
         """Return True if job's language is not in the search_lang allow-list."""
         allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}

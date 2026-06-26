@@ -120,6 +120,9 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             if policy.has_wrong_location(jp.model_dump(), effective_region_cfg):
                 reject("wrong_location")
                 continue
+            if not effective_region_cfg and policy.has_incompatible_location_for_global_feed(jp.model_dump()):
+                reject("incompatible_location_metadata")
+                continue
             seen_urls.add(url)
             results.append(jp.model_copy(update={"date_status": policy.posting_date_status(jp.posted)}))
             stats.total_after_policy += 1
