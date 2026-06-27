@@ -284,6 +284,7 @@ def filtered_applications(
 
 
 def delete_application(slug: str, root: Path | None = None) -> None:
+    import logging
     import shutil
 
     base = root or repo_path()
@@ -292,7 +293,14 @@ def delete_application(slug: str, root: Path | None = None) -> None:
     save_applications(data, root)
     job_dir = base / "outputs" / "jobs" / slug
     if job_dir.exists():
-        shutil.rmtree(job_dir)
+        try:
+            shutil.rmtree(job_dir)
+        except OSError as exc:
+            logging.getLogger(__name__).warning(
+                "[delete] Could not remove %s: %s — delete manually to prevent agent from re-suggesting it.",
+                job_dir,
+                exc,
+            )
     from job_hunter.pipeline.readme_writer import update_readme_from_applications
 
     update_readme_from_applications(data["applications"], base, date.today().isoformat())

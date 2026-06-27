@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -34,6 +33,14 @@ def build_candidate_batch(
 
 
 def _applied_title_keys(root: Path) -> set[str]:
+    """Return title+company keys for jobs currently in the pipeline.
+
+    Reads outputs/jobs/*/meta.json (active job folders) and applications.yml
+    (active-status entries only). README.md is intentionally excluded — it is a
+    display artifact and can be stale after deletions.
+    """
+    from job_hunter.ux.applications import ACTIVE_STATUSES, load_applications
+
     keys: set[str] = set()
     jobs_dir = root / "outputs" / "jobs"
     if jobs_dir.exists():
@@ -46,15 +53,12 @@ def _applied_title_keys(root: Path) -> set[str]:
             if key != "::":
                 keys.add(key)
 
-    readme_path = root / "README.md"
-    if readme_path.exists():
-        try:
-            readme = readme_path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            readme = readme_path.read_text(encoding="utf-8", errors="replace")
-        for match in re.finditer(r"\[([^\]]+?) @ ([^\]]+?)\]\(https?://", readme):
-            title, company = match.group(1), match.group(2)
-            keys.add(_title_key({"company": company, "title": title}))
+    for app in load_applications(root).get("applications", []):
+        if str(app.get("status") or "") in ACTIVE_STATUSES:
+            key = _title_key({"company": app.get("company", ""), "title": app.get("title", "")})
+            if key != "::":
+                keys.add(key)
+
     return keys
 
 
