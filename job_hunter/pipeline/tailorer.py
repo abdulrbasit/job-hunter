@@ -24,8 +24,13 @@ def _get_base_tex() -> str:
 
 
 _SYSTEM_BASE = """You are editing a LaTeX resume.
-Return ONLY the complete modified LaTeX file.
-No markdown fences, no explanation, no commentary."""
+Return ONLY the complete modified LaTeX file. No markdown fences, no explanation, no commentary.
+
+HARD RULES — NO EXCEPTIONS:
+- Never invent or modify metrics, numbers, percentages, employers, job titles, dates, certifications, or skills.
+- Never add content that cannot be verified from the provided base resume or story bank.
+- Preserve all LaTeX commands, document class, employers, titles, and dates exactly as written.
+- All edits must be directly derivable from the base resume content. Introduce no new facts."""
 
 # System prompt is built per-call from stable config-driven content so Anthropic can cache the prefix.
 # Variable fields (keywords, tex, jd, gaps) stay in the user message.
@@ -155,6 +160,23 @@ def _build_positioning_rules(tailoring_cfg: dict) -> str:
     return "\n".join(lines) if lines else "- Follow the existing summary and bullet constraints."
 
 
+def _filter_story_bank(bank: str, ids: list[str]) -> str:
+    """Return only story blocks whose ID appears in ids. Falls back to full bank if no matches."""
+    if not bank or not ids:
+        return bank
+    blocks, current = [], []
+    for line in bank.splitlines():
+        if line.startswith("## ") and current:
+            blocks.append("\n".join(current))
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        blocks.append("\n".join(current))
+    filtered = [b for b in blocks if any(sid in b for sid in ids)]
+    return "\n\n".join(filtered) if filtered else bank
+
+
 def tailor(match_result: dict) -> str:
     """
     Tailor the base resume for a specific job.
@@ -177,6 +199,9 @@ def tailor(match_result: dict) -> str:
     )
     career_context = _load_profile_text("career_context", "profile/career_context.md")
     story_bank_limit = int(stories_cfg.get("max_chars_for_tailoring", 16000))
+    matched_ids = match_result.get("matched_story_ids") or []
+    if matched_ids:
+        story_bank = _filter_story_bank(story_bank, matched_ids)
     tailoring_rules = _build_tailoring_rules(tailoring_cfg)
     positioning_rules = _build_positioning_rules(tailoring_cfg)
     project_rules = _build_project_rules(tailoring_cfg, _get_base_tex(), story_bank)

@@ -9,7 +9,17 @@ job-hunter internal agent-context score --mode full --job <slug>
 ```
 
 Use `resume_tex`, `career_context`, `story_index`, live thresholds, and strategic overrides
-from that payload. Read selected stories with `agent-context story --id`.
+from that payload. Note: `resume_tex` in the payload is already the compact plain-text
+version of the resume when `outputs/state/compiled/resume.compact.txt` is present — no
+need to load the full `.tex` for scoring. Read selected stories with `agent-context story --id`.
+
+Also apply from the score payload:
+- `strategic_overrides[].bypass_max_years_experience` — `true` means skip the years-of-experience
+  filter entirely for that company.
+- `profile.scoring.excluded_industries` — job in an excluded industry → `SKIP` regardless of score.
+
+`matched_story_ids` in score.yml: list the IDs of all Final stories used as evidence.
+Empty list is valid (means no story evidence was consulted).
 
 Write `outputs/jobs/<slug>/score.yml`:
 

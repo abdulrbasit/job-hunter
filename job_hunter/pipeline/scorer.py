@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from job_hunter.config.loader import get_config, load_api_config, profile_path
 from job_hunter.constants import LLM_REPAIR_INPUT_CHARS
+from job_hunter.core.latex_utils import compact_latex_resume as _compact_latex_resume
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.pipeline.llm_stage import LLMStage
@@ -30,7 +30,9 @@ _SYSTEM_BASE = (
     "You are a recruiter scoring job fit. "
     "Return ONLY valid JSON with no markdown fences, no explanation. "
     'Schema: {"score": int, "matched_keywords": [str], "gaps": [str], '
-    '"years_exp_required": int or null, "role_summary": str, "score_rationale": str}'
+    '"years_exp_required": int or null, "role_summary": str, "score_rationale": str} '
+    "Base your score only on evidence present in the provided resume. "
+    "Do not infer unstated skills, experience, or qualifications."
 )
 
 
@@ -72,27 +74,6 @@ Rules:
 Response:
 {raw}
 """
-
-
-def _strip_latex_comments(tex: str) -> str:
-    lines = []
-    for line in tex.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("%"):
-            continue
-        lines.append(line.split("%", 1)[0].rstrip())
-    return "\n".join(lines)
-
-
-def _compact_latex_resume(tex: str) -> str:
-    text = _strip_latex_comments(tex)
-    text = re.sub(r"\\(documentclass|usepackage|geometry|hypersetup)(?:\[[^\]]*\])?\{[^}]*\}", " ", text)
-    text = re.sub(r"\\(begin|end)\{[^}]*\}", "\n", text)
-    text = re.sub(r"\\[a-zA-Z*]+(?:\[[^\]]*\])?", " ", text)
-    text = text.replace("{", " ").replace("}", " ")
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
 
 
 def _scoring_prompt_config(config: dict) -> dict:

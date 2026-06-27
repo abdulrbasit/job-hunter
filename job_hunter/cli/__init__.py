@@ -432,6 +432,15 @@ def discard_job(
     typer.echo(f"[discard-job] deleted and marked processed: {job}")
 
 
+@internal_app.command(name="compile-profile")
+def compile_profile_cmd() -> None:
+    """Compile profile files into minified versions for the current run."""
+    from job_hunter.config.loader import ROOT
+    from job_hunter.tools.compile_profile import compile_all
+
+    compile_all(ROOT)
+
+
 from job_hunter.cli import _agent_context as _agent_context_commands  # noqa: E402,F401
 from job_hunter.cli import _application_commands as _application_commands  # noqa: E402,F401
 from job_hunter.cli import _health_commands as _health_commands  # noqa: E402,F401

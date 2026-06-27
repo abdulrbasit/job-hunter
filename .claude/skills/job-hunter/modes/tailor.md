@@ -11,21 +11,41 @@ Slug: `$ARGUMENTS`
 - `job-hunter internal agent-context score --mode full --job <slug>` → story_index, job meta, score.yml
 - `outputs/jobs/<slug>/score.yml` — matched_story_ids
 - Configured base resume from `config/job_hunter.yml:profile.resume_tex`
-- `profile/career_context.md` — resume style, cover-letter style, and evidence boundaries
+- `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md` — resume style, cover-letter style, and evidence boundaries
+- `outputs/state/compiled/resume.compact.txt` if present — plain text of resume for planning
 - `outputs/jobs/<slug>/company_research.md`, when present
 
 ## Steps
 
 1. Run `job-hunter internal agent-context tailor-context --job <slug>`.
    Apply every field exactly as delivered — these are the same constraints that llm-api mode uses.
-2. Read `profile/career_context.md` for resume style, cover-letter style, and evidence boundaries.
-3. Read the complete configured base resume `.tex`.
+2. Read `outputs/state/compiled/career_context.min.md` (if present) else `profile/career_context.md`
+   for resume style, cover-letter style, and evidence boundaries.
+3. Resolve the configured resume path from `config/job_hunter.yml:profile.resume_tex`
+   (e.g. `profile/resume.tex` or `profile/resume_double_column.tex`).
+   Copy it to the job folder without reading it into context:
+   ```bash
+   cp <resolved-resume-path> outputs/jobs/<slug>/resume_tailored.tex
+   ```
+   Then read `outputs/state/compiled/resume.compact.txt` (if present) to understand existing content
+   and plan which sections to change. Do NOT load the full `.tex` into context.
 4. Read only selected Final stories (from `matched_story_ids` in score.yml).
-5. Write `outputs/jobs/<slug>/resume_tailored.tex`:
-   - Mirror `keywords` in summary and bullets.
-   - Do not emphasize `gaps`.
+5. Tailor `outputs/jobs/<slug>/resume_tailored.tex` via surgical edits — do NOT regenerate the full file:
+   - For each section that needs changing: Read only the specific target lines (use offset/limit),
+     then Edit in place with the tailored text.
+   - Summary (`\cvtagline` or equivalent): mirror top `keywords` from tailor-context.
+   - Experience bullets: edit `\item` lines that are weak on `keywords`; do not touch untargeted bullets.
+   - Skills section: reorder to front-load `keywords`.
    - Apply `tailoring_rules`, `positioning_rules`, and `project_rules` exactly.
+   - Verify char limits from `career_context.min.md` Bullet/Summary guidance before each edit.
    - Preserve document class, layout, commands, employers, titles, dates, and verified facts.
+   - If an Edit fails (old_string not found): Read the affected section by line range, then retry.
+   - Never fall back to regenerating the full file.
+   - Before writing each `\item` or summary line: count characters. If it exceeds the limit
+     in career_context.md, shorten until it fits. Do not write the edit if it still exceeds.
+   - After all edits: read back each changed line. If any employer, title, date, metric, or
+     skill appears that was not in the base resume or matched Final stories, revert that line
+     to the original base resume text. Do not substitute an alternative — revert.
 6. Write `outputs/jobs/<slug>/cover_letter.md`:
    - Tone: `cover_constraints.tone`.
    - Length: target `cover_constraints.target_words` words,
@@ -42,6 +62,14 @@ Slug: `$ARGUMENTS`
    ```
    This copies configured `altacv.cls` and profile image into the job folder before compiling.
 8. If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.
+
+## Hard Rules
+
+- Never add a metric (number, %, count) not in the base resume.
+- Never change an employer name, job title, or employment date.
+- Never add a certification, degree, or skill not in the base resume.
+- Never regenerate the full file. Surgical edits only.
+- If post-edit verification detects fabrication: revert the line to the original base resume text, not substitute.
 
 ## Rules
 

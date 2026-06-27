@@ -10,6 +10,7 @@ category: workflow
 ---
 
 Execute `.claude/skills/caveman/SKILL.md` inline before processing any command.
+Execute `.claude/skills/job-hunter/_rules.md` inline before processing any command.
 
 # Job Hunter Command Center
 
@@ -33,6 +34,16 @@ Arguments: `$ARGUMENTS`
 - Never submit applications, send messages, connect, follow, like, comment, or post automatically.
 - Never overwrite profile/config inputs unless that mode requires it and the user requested it.
 - Leave generated changes uncommitted unless `finalize` is explicitly invoked.
+
+## Initialization
+
+Before any mode that reads profile files (batch, one, tailor, score, brief), run:
+
+```bash
+job-hunter internal compile-profile
+```
+
+This compiles profile files into minified versions for the session. Silent on failure.
 
 ## Routing
 

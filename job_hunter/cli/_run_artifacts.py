@@ -26,15 +26,21 @@ TRANSIENT_STATE_PATHS = (
     "outputs/state/batch_scores.yml",
     "outputs/state/batch_screen.yml",
     "outputs/state/batch_judgment.yml",
+    "outputs/state/compiled",
 )
 
 
 def cleanup_transient_state(root: Path, *, label: str) -> int:
+    import shutil
+
     cleaned = 0
     for rel in TRANSIENT_STATE_PATHS:
         p = root / rel
         if p.exists():
-            p.unlink()
+            if p.is_dir():
+                shutil.rmtree(p)
+            else:
+                p.unlink()
             cleaned += 1
             typer.echo(f"[{label}] cleaned up {rel}")
     return cleaned

@@ -326,6 +326,9 @@ def run(args: dict) -> int:
     logger.info("%s", "=" * 60)
 
     reset_token_totals()
+    from job_hunter.tools.compile_profile import compile_all as _compile_profile
+
+    _compile_profile(REPO_ROOT)
     api_cfg = load_api_config()
     url_liveness = UrlLivenessCache()
     scoring_cfg = get_config("job_hunter")

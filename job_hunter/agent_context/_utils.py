@@ -42,3 +42,9 @@ def _clip(value: Any, limit: int) -> str:
 def _resolve_path(root: Path, path: Path | str) -> Path:
     resolved = Path(path)
     return resolved if resolved.is_absolute() else root / resolved
+
+
+def _prefer_compiled(path: Path, root: Path) -> Path:
+    """Return the compiled counterpart of a profile file if it exists."""
+    compiled = root / "outputs" / "state" / "compiled" / (path.stem + ".min" + path.suffix)
+    return compiled if compiled.exists() else path

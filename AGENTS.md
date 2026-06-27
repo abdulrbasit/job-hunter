@@ -61,6 +61,18 @@ uv run ruff check job_hunter tests .github/scripts
 uv run ty check job_hunter tests
 ```
 
+## Development Conventions
+
+- Always use `/ponytail` + `/caveman` for coding tasks. Ponytail: build smallest correct thing, no speculative abstractions. Caveman: terse prose.
+- TDD: write tests before implementing non-trivial Python changes.
+- Use `/commit` before every commit (runs preflight checks + safe staging).
+
+## Skill Architecture
+
+`.claude/skills/job-hunter/_rules.md` is the canonical universal rules file (evidence boundary, fabrication prevention, char limits, score decisions, industry exclusions). SKILL.md loads it inline so every mode inherits it automatically. Mirror all changes to the bundled copy at `job_hunter/templates/workspace/.claude/skills/job-hunter/_rules.md`.
+
+Profile compilation (`job_hunter/tools/compile_profile.py`) runs at pipeline start and writes `outputs/state/compiled/{career_context.min.md,story_bank.min.md,resume.compact.txt}`. Context loaders prefer compiled files when present. The compiled dir is transient — cleaned up after each run.
+
 ## Rules
 
 - **Never bump the version (`pyproject.toml`) or publish to PyPI** (trigger `release.yml`, `gh workflow run release.yml`, `uv publish`, etc.) unless the user explicitly asks. Push commits freely; do not release as a follow-on step.
