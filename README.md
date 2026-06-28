@@ -43,7 +43,8 @@ Set `mode:` in `config/job_hunter.yml`. Default is `agent`.
 ```bash
 job-hunter hunt --region primary
 job-hunter brief
-job-hunter dashboard --no-interactive
+job-hunter dash                      # web dashboard
+job-hunter dashboard --no-interactive  # terminal 
 ```
 
 In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use:
@@ -70,7 +71,8 @@ from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
 - `job-hunter hunt` — discover and enrich jobs
 - `job-hunter brief` — write the daily briefing
 - `job-hunter tailor` — tailor resume for one or more job postings
-- `job-hunter dashboard`, `applications` — inspect application state
+- `job-hunter dash` — open web dashboard in a native window (Applications, Insights, Analytics)
+- `job-hunter dashboard`, `applications` — terminal dashboard and application list
 - `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
 - `job-hunter update --skills-only` or `--workflows-only` — targeted refresh
 - `job-hunter version` — version and upgrade guidance

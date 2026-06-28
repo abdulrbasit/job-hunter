@@ -784,11 +784,13 @@ Batch mode:
 
 ### Inspect application tracker
 
-```text
-/job-hunter dashboard
+Open the web dashboard in a native window:
+
+```bash
+job-hunter dash
 ```
 
-Or terminal:
+Or use the terminal dashboard:
 
 ```bash
 job-hunter dashboard --no-interactive
@@ -840,7 +842,8 @@ Public terminal commands:
 | `job-hunter hunt` | Search and process jobs according to mode |
 | `job-hunter brief` | Create daily candidate briefing |
 | `job-hunter tailor` | Tailor from URLs or job-description file |
-| `job-hunter dashboard` | View application dashboard |
+| `job-hunter dash` | Open web dashboard (Applications · Insights · Analytics) |
+| `job-hunter dashboard` | Terminal application dashboard |
 | `job-hunter applications list` | List applications |
 | `job-hunter applications update` | Change application status |
 | `job-hunter update` | Refresh managed workspace files |
