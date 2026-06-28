@@ -50,6 +50,15 @@ internal_app.add_typer(update_safety_app, name="update-safety")
 
 
 @app.command()
+def dash() -> None:
+    """Open interactive dashboard (Applications · Insights · Analytics)."""
+    from job_hunter.config.loader import ROOT
+    from job_hunter.ux.webdash import launch
+
+    launch(ROOT)
+
+
+@app.command()
 def brief() -> None:
     """Generate today's job search briefing."""
     from job_hunter.briefing import write_today_briefing

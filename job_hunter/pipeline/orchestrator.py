@@ -15,7 +15,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime
+import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
@@ -289,8 +290,38 @@ Examples:
     return parser
 
 
+def _persist_metrics(
+    args: dict,
+    jobs_found: int,
+    jobs_tailored: int,
+    *,
+    start_ts: str,
+    elapsed: float,
+) -> None:
+    try:
+        from job_hunter.config.loader import get_mode
+        from job_hunter.metrics.store import record_run
+        from job_hunter.pipeline.llm_stage import get_token_totals
+
+        db_path = REPO_ROOT / "outputs" / "state" / "metrics.db"
+        record_run(
+            db_path,
+            ts=start_ts,
+            mode=args.get("mode", ""),
+            exec_mode=get_mode(),
+            region=args.get("region") or "",
+            duration_s=round(elapsed, 2),
+            jobs_found=jobs_found,
+            jobs_tailored=jobs_tailored,
+            token_totals=get_token_totals(),
+            total_cost_usd=None,
+            scrape_stats={},  # ponytail: add ScrapeStats passthrough when needed
+        )
+    except Exception:  # noqa: BLE001,S110
+        pass
+
+
 def _log_token_summary() -> None:
-    import datetime
     import json
     import os
 
@@ -319,6 +350,9 @@ def _log_token_summary() -> None:
 
 def run(args: dict) -> int:
     from job_hunter.pipeline.llm_stage import reset_token_totals
+
+    _start_ts = datetime.now(UTC).replace(microsecond=0).isoformat()
+    _start_mono = time.monotonic()
 
     logger.info("\n%s", "=" * 60)
     region_label = args["region"] if args["mode"] == "hunt" and args["region"] else "all"
@@ -379,7 +413,8 @@ def run(args: dict) -> int:
             logger.warning("[pipeline] No jobs parsed. Exiting.")
             return 2
 
-    logger.info("[pipeline] %s job(s) ready for processing", len(jobs))
+    _jobs_found = len(jobs)
+    logger.info("[pipeline] %s job(s) ready for processing", _jobs_found)
 
     processed = _process_jobs(
         jobs,
@@ -399,6 +434,7 @@ def run(args: dict) -> int:
     logger.info("\n%s", "=" * 60)
     logger.info("[pipeline] Done. %s job(s) processed.", len(processed))
     _log_token_summary()
+    _persist_metrics(args, _jobs_found, len(processed), start_ts=_start_ts, elapsed=time.monotonic() - _start_mono)
     logger.info("%s\n", "=" * 60)
     return 0
 
