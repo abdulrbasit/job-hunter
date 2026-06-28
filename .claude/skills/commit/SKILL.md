@@ -46,6 +46,7 @@ Create a clean, intentional commit after verifying that code, tests, configs, an
 5. Prepare the commit.
    - Propose a concise commit message, 72 characters or fewer.
    - **Never include `Co-authored-by` or any AI attribution trailer.** This repo does not use co-author tags regardless of tool defaults.
+   - For version bump commits, the message must be exactly `release: v{VERSION}` (e.g. `release: v0.14`). The release workflow checks for this exact format.
    - Ask for confirmation before committing.
 
 6. Commit after confirmation.
