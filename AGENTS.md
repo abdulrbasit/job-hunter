@@ -56,8 +56,8 @@ job-hunter doctor
 
 uv sync --extra dev
 uv run pytest tests/ -q --tb=short
-uv run ruff format --check job_hunter tests .github/scripts
-uv run ruff check job_hunter tests .github/scripts
+uv run ruff format --check job_hunter tests
+uv run ruff check job_hunter tests
 uv run ty check job_hunter tests
 ```
 
@@ -65,7 +65,8 @@ uv run ty check job_hunter tests
 
 - Always use `/ponytail` + `/caveman` for coding tasks. Ponytail: build smallest correct thing, no speculative abstractions. Caveman: terse prose.
 - TDD: write tests before implementing non-trivial Python changes.
-- Use `/commit` before every commit (runs preflight checks + safe staging).
+- **Always use `/commit` before every commit.** Skill is at `.claude/skills/commit/SKILL.md`. It runs preflight checks and stages only specific files.
+- **Never add `Co-Authored-By` or any AI attribution trailer** to commit messages. This repo does not use co-author tags.
 
 ## Skill Architecture
 

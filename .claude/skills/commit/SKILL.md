@@ -24,13 +24,12 @@ Create a clean, intentional commit after verifying that code, tests, configs, an
    - Do not revert user changes.
 
 2. Run preflight checks.
-   - Tests: `python -m pytest tests/ -q --tb=short` (covers schema, config, and unit tests)
-   - Format check: `python -m ruff format --check job_hunter tests scripts`
-   - Lint: `python -m ruff check job_hunter tests scripts`
-   - Type check: `ty check job_hunter tests`
-   - If formatting fails, run `python -m ruff format job_hunter tests .github/scripts` then rerun `ruff format --check` until clean. Do not hand-format.
-   - If `python -m ruff ...` cannot launch on Windows, find it with `Get-Command ruff -All`.
-   - If `pyproject.toml` changed, run `pip install -e ".[dev]"` first to ensure the install resolves cleanly before running checks.
+   - Tests: `uv run pytest tests/ -q --tb=short`
+   - Format check: `uv run ruff format --check job_hunter tests`
+   - Lint: `uv run ruff check job_hunter tests`
+   - Type check: `uv run ty check job_hunter tests`
+   - If formatting fails, run `uv run ruff format job_hunter tests` then rerun format check. Do not hand-format.
+   - If `pyproject.toml` changed, run `uv sync --extra dev` first.
    - Treat failed tests, lint, or type errors as blockers unless the user explicitly accepts the risk.
 
 3. Stage only specific files.
