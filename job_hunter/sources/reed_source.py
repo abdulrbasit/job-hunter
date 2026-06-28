@@ -16,7 +16,7 @@ from datetime import datetime
 
 import requests
 
-from job_hunter.config.loader import REED_API_KEY, get_timeout, load_api_config
+from job_hunter.config.loader import REED_API_KEY, get_api_config, get_timeout
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
@@ -59,7 +59,7 @@ class ReedSource(JobSourceAdapter):
         return "reed"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -74,7 +74,7 @@ class ReedSource(JobSourceAdapter):
         if params.country.upper() not in _REED_COUNTRIES:
             return []
 
-        reed_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
+        reed_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
         if not reed_cfg.get("enabled", True):
             return []
 

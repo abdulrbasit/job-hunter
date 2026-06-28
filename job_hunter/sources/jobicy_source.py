@@ -13,7 +13,7 @@ from pathlib import Path
 
 import requests
 
-from job_hunter.config.loader import ROOT, get_timeout, load_api_config
+from job_hunter.config.loader import ROOT, get_api_config, get_timeout
 from job_hunter.core.api_budget import reserve_api_call
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
@@ -55,12 +55,12 @@ class JobicySource(JobSourceAdapter):
         return "jobicy"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobicy", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobicy", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Jobicy's free public API."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobicy", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobicy", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

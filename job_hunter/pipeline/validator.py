@@ -19,7 +19,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
-from job_hunter.config.loader import load_api_config
+from job_hunter.config.loader import get_api_config
 from job_hunter.constants import VALIDATION_SNIPPET_CHARS
 from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.core.metrics import timed_stage
@@ -129,7 +129,7 @@ def validate(
     false negatives from transient API errors.
     """
     if api_cfg is None:
-        api_cfg = load_api_config()
+        api_cfg = get_api_config()
 
     stage = LLMStage(
         "validation",

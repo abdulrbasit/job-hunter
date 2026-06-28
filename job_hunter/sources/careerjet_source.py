@@ -11,7 +11,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -86,12 +86,12 @@ class CareerjetSource(JobSourceAdapter):
         return "careerjet"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
         return bool(cfg.get("enabled", True)) and bool(cfg.get("affid", ""))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch jobs from Careerjet's affiliate search API."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
         affid = source_cfg.get("affid", "")

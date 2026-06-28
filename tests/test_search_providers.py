@@ -379,7 +379,7 @@ def test_discover_ats_jobs_by_search_returns_empty_when_exhausted(monkeypatch, c
         "_search_cfg",
         lambda: {"ats_discovery": {"enabled": True}},
     )
-    monkeypatch.setattr(_ats_mod, "load_api_config", lambda: {})
+    monkeypatch.setattr(_ats_mod, "get_api_config", lambda: {})
 
     with caplog.at_level(logging.INFO, logger=_ats_mod.logger.name):
         result = search_providers.discover_ats_jobs_by_search(
@@ -510,7 +510,7 @@ def test_lightpanda_career_jobs_parse_rendered_html(monkeypatch) -> None:
     monkeypatch.setattr(search_providers.subprocess, "run", lambda *a, **k: Completed())
     monkeypatch.setattr(
         _fetchers_mod,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"lightpanda": {"timeout_seconds": 8}}},
     )
 
@@ -548,7 +548,7 @@ def test_firecrawl_career_jobs_require_key_and_budget(monkeypatch) -> None:
     monkeypatch.setattr(search_providers.requests, "post", post)
     monkeypatch.setattr(
         _fetchers_mod,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"firecrawl": {"timeout_seconds": 20}}},
     )
 

@@ -191,9 +191,9 @@ def _normalize_extracted_job(extracted: Any) -> dict[str, str]:
 def _jd_config() -> dict:
     """Load jd_fetcher config section for test patching."""
     try:
-        from job_hunter.config.loader import load_api_config
+        from job_hunter.config.loader import get_api_config
 
-        return load_api_config().get("http", {}).get("jd_fetcher", {}) or {}
+        return get_api_config().get("http", {}).get("jd_fetcher", {}) or {}
     except Exception:
         return {}
 

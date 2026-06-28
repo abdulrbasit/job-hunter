@@ -8,8 +8,8 @@ from job_hunter.config.loader import (
     BRAVE_API_KEY,
     EXA_API_KEY,
     TAVILY_API_KEY,
+    get_api_config,
     get_timeout,
-    load_api_config,
 )
 from job_hunter.sources.search_providers._constants import (
     BRAVE_SUPPORTED_COUNTRIES,
@@ -26,7 +26,7 @@ def _timeout(section: str) -> int:
 
 
 def _search_cfg() -> dict:
-    return load_api_config().get("http", {}).get("search_providers", {}) or {}
+    return get_api_config().get("http", {}).get("search_providers", {}) or {}
 
 
 class SearchProvider:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from job_hunter.config.loader import load_api_config
+from job_hunter.config.loader import get_api_config
 from job_hunter.core.utils import location_matches, title_matches
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def fetch_hibob_jobs(
     )
 
     raw_links: dict[str, tuple[str, str]] = {}  # url -> (title text, location text)
-    ats_cfg = load_api_config().get("http", {}).get("ats_scraper", {}) or {}
+    ats_cfg = get_api_config().get("http", {}).get("ats_scraper", {}) or {}
     playwright_timeout = int(ats_cfg.get("hibob_playwright_timeout_seconds", 25) * 1000)
     try:
         with sync_playwright() as pw:

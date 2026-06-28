@@ -12,7 +12,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -40,7 +40,7 @@ class JobBankSource(JobSourceAdapter):
         return "jobbank"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -51,7 +51,7 @@ class JobBankSource(JobSourceAdapter):
         if params.country.upper() != "CA":
             return []
 
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

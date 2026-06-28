@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Any
 
-from job_hunter.config.loader import load_api_config
+from job_hunter.config.loader import get_api_config
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -137,7 +137,7 @@ class JobSpySource(JobSourceAdapter):
         return "jobspy"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -152,7 +152,7 @@ class JobSpySource(JobSourceAdapter):
         """
         from jobspy import scrape_jobs
 
-        jobspy_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
+        jobspy_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
         if not jobspy_cfg.get("enabled", True):
             return []
 

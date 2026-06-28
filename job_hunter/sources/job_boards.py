@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 
 import requests
 
-from job_hunter.config.loader import RAPIDAPI_KEY, get_timeout, load_api_config
+from job_hunter.config.loader import RAPIDAPI_KEY, get_api_config, get_timeout
 from job_hunter.constants import JOB_BOARD_SNIPPET_CHARS
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
@@ -60,7 +60,7 @@ JSEARCH_URL = "https://jsearch.p.rapidapi.com/search"
 
 
 def _jsearch_max_consecutive_failures() -> int:
-    cfg = load_api_config().get("http", {}).get("job_boards", {})
+    cfg = get_api_config().get("http", {}).get("job_boards", {})
     try:
         return int(cfg.get("max_consecutive_failures", 3))
     except (TypeError, ValueError):
@@ -97,11 +97,11 @@ class ArbeitnowSource(JobSourceAdapter):
         return "arbeitnow"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("arbeitnow", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("arbeitnow", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
-        boards_cfg = load_api_config().get("http", {}).get("job_boards", {}) or {}
+        boards_cfg = get_api_config().get("http", {}).get("job_boards", {}) or {}
         arbeitnow_cfg = boards_cfg.get("arbeitnow", {}) or {}
         if not arbeitnow_cfg.get("enabled", True):
             return []
@@ -191,7 +191,7 @@ class JSearchSource(JobSourceAdapter):
             logger.warning("[jsearch] No configured job titles; skipping")
             return []
 
-        boards_cfg = load_api_config().get("http", {}).get("job_boards", {}) or {}
+        boards_cfg = get_api_config().get("http", {}).get("job_boards", {}) or {}
         jsearch_cfg = boards_cfg.get("jsearch", {}) or {}
         if not jsearch_cfg.get("enabled", True):
             return []

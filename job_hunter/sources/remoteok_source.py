@@ -11,7 +11,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -30,12 +30,12 @@ class RemoteOKSource(JobSourceAdapter):
         return "remoteok"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from RemoteOK's public JSON feed."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("remoteok", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
-from job_hunter.config.loader import get_config, load_api_config, profile_path, setup_logging
+from job_hunter.config.loader import get_api_config, get_config, profile_path, setup_logging
 from job_hunter.constants import DEFAULT_BATCH_SIZE
 from job_hunter.core.url_liveness import UrlLivenessCache
 from job_hunter.pipeline import _match_processor
@@ -363,7 +363,7 @@ def run(args: dict) -> int:
     from job_hunter.tools.compile_profile import compile_all as _compile_profile
 
     _compile_profile(REPO_ROOT)
-    api_cfg = load_api_config()
+    api_cfg = get_api_config()
     url_liveness = UrlLivenessCache()
     scoring_cfg = get_config("job_hunter")
     max_years = scoring_cfg.get("scoring", {}).get("max_years_experience_required", 4)

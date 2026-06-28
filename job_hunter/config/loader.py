@@ -17,6 +17,7 @@ from job_hunter.config.defaults import (
     LINKEDIN_DEFAULTS,
     LLM_ROLE_DEFAULTS,
     SCORING_PROMPT_CONTEXT,
+    SECRET_ENV_VARS,
     TAILORING_DEFAULTS,
     deep_merge,
 )
@@ -193,9 +194,6 @@ def profile_path(key: str, default: str) -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-load_api_config = get_api_config
-
-
 def package_version() -> str:
     from importlib.metadata import PackageNotFoundError, version
 
@@ -205,21 +203,15 @@ def package_version() -> str:
         return "unknown"
 
 
-def _env(name: str) -> str:
-    from job_hunter.config.defaults import SECRET_ENV_VARS
-
-    return get_secret(SECRET_ENV_VARS[name], required=False)
-
-
-RAPIDAPI_KEY: str = _env("rapidapi")
-ADZUNA_API_KEY: str = _env("adzuna_api_key")
-ADZUNA_APP_ID: str = _env("adzuna_app_id")
-JOOBLE_API_KEY: str = _env("jooble")
-REED_API_KEY: str = _env("reed")
-FIRECRAWL_API_KEY: str = _env("firecrawl")
-BRAVE_API_KEY: str = _env("brave")
-EXA_API_KEY: str = _env("exa")
-TAVILY_API_KEY: str = _env("tavily")
+RAPIDAPI_KEY: str = get_secret(SECRET_ENV_VARS["rapidapi"], required=False)
+ADZUNA_API_KEY: str = get_secret(SECRET_ENV_VARS["adzuna_api_key"], required=False)
+ADZUNA_APP_ID: str = get_secret(SECRET_ENV_VARS["adzuna_app_id"], required=False)
+JOOBLE_API_KEY: str = get_secret(SECRET_ENV_VARS["jooble"], required=False)
+REED_API_KEY: str = get_secret(SECRET_ENV_VARS["reed"], required=False)
+FIRECRAWL_API_KEY: str = get_secret(SECRET_ENV_VARS["firecrawl"], required=False)
+BRAVE_API_KEY: str = get_secret(SECRET_ENV_VARS["brave"], required=False)
+EXA_API_KEY: str = get_secret(SECRET_ENV_VARS["exa"], required=False)
+TAVILY_API_KEY: str = get_secret(SECRET_ENV_VARS["tavily"], required=False)
 
 
 def setup_logging(log_level: str = "INFO", log_file: str = "job_hunt.log") -> logging.Logger:

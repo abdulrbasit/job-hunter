@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from job_hunter.config.loader import FIRECRAWL_API_KEY, get_timeout, load_api_config
+from job_hunter.config.loader import FIRECRAWL_API_KEY, get_api_config, get_timeout
 from job_hunter.core.api_budget import reserve_api_call
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.search_providers._constants import USER_AGENT
@@ -149,7 +149,7 @@ def fetch_lightpanda_career_jobs(
         return []
 
     url = _with_scheme(company["career_url"])
-    timeout_seconds = int(load_api_config().get("http", {}).get("lightpanda", {}).get("timeout_seconds", 8))
+    timeout_seconds = int(get_api_config().get("http", {}).get("lightpanda", {}).get("timeout_seconds", 8))
     timeout_ms = timeout_seconds * 1000
     try:
         completed = subprocess.run(  # noqa: S603
@@ -198,7 +198,7 @@ def fetch_firecrawl_career_jobs(
     if not reserve_api_call("firecrawl"):
         return []
 
-    cfg = load_api_config().get("http", {}).get("firecrawl", {}) or {}
+    cfg = get_api_config().get("http", {}).get("firecrawl", {}) or {}
     timeout_seconds = int(cfg.get("timeout_seconds", 20))
     url = _with_scheme(company["career_url"])
     try:

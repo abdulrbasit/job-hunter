@@ -36,7 +36,7 @@ def _jobs_from_hunt(
 ) -> tuple[list[dict[str, Any]], set[str], set[str], ScrapeStats]:
     """Scrape all enabled sources, then deduplicate against processed jobs."""
     postings, stats = scrape_with_stats(region=region, depth=depth)
-    jobs = [posting.to_dict() for posting in postings]
+    jobs = [posting.model_dump() for posting in postings]
     if not jobs:
         return [], set(), set(), stats
     new_jobs, existing_urls = filter_new_jobs(jobs)

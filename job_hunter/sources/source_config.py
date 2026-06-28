@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from job_hunter.config.loader import get_config, get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_config, get_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def sleep_between_pages(delay_seconds: float, page: int, max_pages: int) -> None
 
 
 def job_board_source_config(name: str) -> dict[str, Any]:
-    return load_api_config().get("http", {}).get("job_boards", {}).get(name, {}) or {}
+    return get_api_config().get("http", {}).get("job_boards", {}).get(name, {}) or {}
 
 
 def job_board_enabled(name: str) -> bool:

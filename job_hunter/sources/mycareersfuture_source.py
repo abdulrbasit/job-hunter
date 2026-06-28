@@ -9,7 +9,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -33,7 +33,7 @@ class MyCareersFutureSource(JobSourceAdapter):
         return "mycareersfuture"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("mycareersfuture", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("mycareersfuture", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -44,7 +44,7 @@ class MyCareersFutureSource(JobSourceAdapter):
         if params.country.upper() != "SG":
             return []
 
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("mycareersfuture", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("mycareersfuture", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

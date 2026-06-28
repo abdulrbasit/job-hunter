@@ -123,7 +123,7 @@ def test_hunt_no_new_jobs_is_successful_empty_run() -> None:
     }
 
     with (
-        patch("job_hunter.pipeline.orchestrator.load_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
         patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
         patch("job_hunter.pipeline.orchestrator.run_hunt", return_value=([], set(), set())),
     ):
@@ -152,7 +152,7 @@ def test_hunt_scrape_only_emits_github_action_output_lines(tmp_path, capsys) -> 
     snapshot = tmp_path / "hunt_scrape_2026-06-11_primary.json"
 
     with (
-        patch("job_hunter.pipeline.orchestrator.load_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
         patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
         patch(
             "job_hunter.pipeline.orchestrator.run_hunt_scrape_only",
@@ -188,7 +188,7 @@ def test_hunt_from_snapshot_preserves_tracker_context() -> None:
     existing_urls = {"https://example.com/old"}
 
     with (
-        patch("job_hunter.pipeline.orchestrator.load_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
         patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
         patch(
             "job_hunter.pipeline.orchestrator.load_hunt_snapshot",

@@ -41,7 +41,7 @@ class TestRemotiveSource:
     def test_is_enabled_respects_config(self) -> None:
         disabled_cfg = {"http": {"job_boards": {"remotive": {"enabled": False}}}}
         with patch(
-            "job_hunter.sources.source_config.load_api_config",
+            "job_hunter.sources.source_config.get_api_config",
             return_value=disabled_cfg,
         ):
             assert RemotiveSource().is_enabled({}) is False
@@ -61,7 +61,7 @@ class TestRemotiveSource:
         }
         with (
             patch(
-                "job_hunter.sources.source_config.load_api_config",
+                "job_hunter.sources.source_config.get_api_config",
                 return_value=_ENABLED_CFG,
             ),
             patch(
@@ -78,7 +78,7 @@ class TestRemotiveSource:
     def test_fetch_returns_empty_when_disabled(self) -> None:
         disabled_cfg = {"http": {"job_boards": {"remotive": {"enabled": False}}}}
         with patch(
-            "job_hunter.sources.source_config.load_api_config",
+            "job_hunter.sources.source_config.get_api_config",
             return_value=disabled_cfg,
         ):
             jobs = RemotiveSource().fetch(mk_params(["Software Engineer"], _REGIONS))

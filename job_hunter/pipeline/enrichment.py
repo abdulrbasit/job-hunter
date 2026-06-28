@@ -8,7 +8,7 @@ from collections import Counter
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
-from job_hunter.config.loader import load_api_config
+from job_hunter.config.loader import get_api_config
 from job_hunter.constants import MIN_FULL_JD_SNIPPET_CHARS
 from job_hunter.core.metrics import timed_stage
 from job_hunter.core.utils import url_is_alive
@@ -64,7 +64,7 @@ def enrich_snippets(
     keep the original job unchanged.
     """
     if api_cfg is None:
-        api_cfg = load_api_config()
+        api_cfg = get_api_config()
 
     enrich_cfg = api_cfg.get("http", {}).get("jd_enrichment", {}) or {}
     max_workers = int(enrich_cfg.get("max_workers", 5))

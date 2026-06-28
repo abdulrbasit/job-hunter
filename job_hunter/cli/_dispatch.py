@@ -78,7 +78,7 @@ def dispatch_tailor(
 ) -> None:
     """Entry point for `job-hunter tailor`. Routes to pipeline or agent mode."""
     from job_hunter.config import get_mode
-    from job_hunter.config.loader import ROOT, get_config, load_api_config
+    from job_hunter.config.loader import ROOT, get_api_config, get_config
     from job_hunter.core.url_liveness import UrlLivenessCache
     from job_hunter.pipeline.orchestrator import run as orch_run
     from job_hunter.pipeline.tailor import run_tailor
@@ -120,7 +120,7 @@ def dispatch_tailor(
     if mode == "agent":
         jobs, existing_urls, existing_titles = run_tailor(
             ns,
-            load_api_config(),
+            get_api_config(),
             get_config("job_hunter"),
             UrlLivenessCache(),
             use_llm=False,

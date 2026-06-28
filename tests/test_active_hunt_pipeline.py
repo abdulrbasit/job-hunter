@@ -85,17 +85,17 @@ def test_policy_rejects_invalid_future_and_stale_dates() -> None:
     policy = JobPolicy({"exclusions": {}})
     today = datetime.now(UTC)
 
-    assert policy.rejection_reason(_posting(posted="not-a-date").to_dict(), ["Product Manager"]) == "invalid_date"
+    assert policy.rejection_reason(_posting(posted="not-a-date").model_dump(), ["Product Manager"]) == "invalid_date"
     assert (
         policy.rejection_reason(
-            _posting(posted=(today + timedelta(days=3)).date().isoformat()).to_dict(),
+            _posting(posted=(today + timedelta(days=3)).date().isoformat()).model_dump(),
             ["Product Manager"],
         )
         == "future_date"
     )
     assert (
         policy.rejection_reason(
-            _posting(posted=(today - timedelta(days=46)).date().isoformat()).to_dict(),
+            _posting(posted=(today - timedelta(days=46)).date().isoformat()).model_dump(),
             ["Product Manager"],
         )
         == "stale_date"
@@ -178,7 +178,7 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
 
 
 def test_enrichment_never_replaces_known_identity_with_unknown_values() -> None:
-    job = _posting(source="Arbeitsagentur").to_dict()
+    job = _posting(source="Arbeitsagentur").model_dump()
 
     result = enrichment.enrich_snippets(
         [job],
@@ -230,7 +230,7 @@ def test_jobicy_fetches_once_and_filters_all_titles(monkeypatch) -> None:
         ]
     }
     get = MagicMock(return_value=response)
-    monkeypatch.setattr(jobicy_source, "load_api_config", lambda: {"http": {"job_boards": {"jobicy": {}}}})
+    monkeypatch.setattr(jobicy_source, "get_api_config", lambda: {"http": {"job_boards": {"jobicy": {}}}})
     monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _source: True)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
     monkeypatch.setattr(jobicy_source, "_read_cache", lambda _geo: None)
@@ -263,7 +263,7 @@ def test_jobicy_uses_fresh_cache_without_network(monkeypatch) -> None:
         }
     ]
     get = MagicMock()
-    monkeypatch.setattr(jobicy_source, "load_api_config", lambda: {"http": {"job_boards": {"jobicy": {}}}})
+    monkeypatch.setattr(jobicy_source, "get_api_config", lambda: {"http": {"job_boards": {"jobicy": {}}}})
     monkeypatch.setattr(jobicy_source, "_read_cache", lambda _geo: cached)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
 
@@ -288,7 +288,7 @@ def test_careerjet_stops_after_terminal_http_error(monkeypatch) -> None:
     response.raise_for_status.side_effect = error
     get = MagicMock(return_value=response)
     config = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": "test"}}}}
-    monkeypatch.setattr(careerjet_source, "load_api_config", lambda: config)
+    monkeypatch.setattr(careerjet_source, "get_api_config", lambda: config)
     monkeypatch.setattr(careerjet_source.requests, "get", get)
 
     jobs = careerjet_source.CareerjetSource().fetch(
@@ -306,7 +306,7 @@ def test_careerjet_stops_after_terminal_http_error(monkeypatch) -> None:
 
 
 def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch, tmp_path) -> None:
-    job = _posting().to_dict()
+    job = _posting().model_dump()
     stats = ScrapeStats(total_fetched=2, total_after_dedup=1, total_after_policy=1, duration_seconds=1.25)
     saved: list[set[str]] = []
 

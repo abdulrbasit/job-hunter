@@ -10,7 +10,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -110,7 +110,7 @@ class JobStreetSource(JobSourceAdapter):
         return "jobstreet"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobstreet", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobstreet", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -122,7 +122,7 @@ class JobStreetSource(JobSourceAdapter):
         if iso not in _SEA_CONFIG:
             return []
 
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jobstreet", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobstreet", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

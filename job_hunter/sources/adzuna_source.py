@@ -18,7 +18,7 @@ from datetime import datetime
 
 import requests
 
-from job_hunter.config.loader import ADZUNA_API_KEY, ADZUNA_APP_ID, get_timeout, load_api_config
+from job_hunter.config.loader import ADZUNA_API_KEY, ADZUNA_APP_ID, get_api_config, get_timeout
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
@@ -81,7 +81,7 @@ class AdzunaSource(JobSourceAdapter):
         return "adzuna"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -93,7 +93,7 @@ class AdzunaSource(JobSourceAdapter):
             logger.warning("[adzuna] ADZUNA_APP_ID or ADZUNA_API_KEY not set — skipping")
             return []
 
-        adzuna_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
+        adzuna_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
         if not adzuna_cfg.get("enabled", True):
             return []
 

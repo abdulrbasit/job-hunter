@@ -6,7 +6,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -23,12 +23,12 @@ class TheMuseSource(JobSourceAdapter):
         return "the_muse"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("the_muse", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("the_muse", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch jobs from The Muse's free public API."""
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("the_muse", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("the_muse", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

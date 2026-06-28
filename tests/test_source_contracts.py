@@ -44,7 +44,7 @@ def test_all_adapters_accept_shared_search_contract() -> None:
 def test_job_board_source_config_reads_named_board_config() -> None:
     config = {"http": {"job_boards": {"example": {"enabled": False, "timeout_seconds": 9}}}}
 
-    with patch("job_hunter.sources.source_config.load_api_config", return_value=config):
+    with patch("job_hunter.sources.source_config.get_api_config", return_value=config):
         assert job_board_source_config("example") == {"enabled": False, "timeout_seconds": 9}
         assert job_board_enabled("example") is False
 
@@ -53,7 +53,7 @@ def test_job_board_timeout_uses_source_timeout_before_default() -> None:
     config = {"http": {"job_boards": {"example": {"timeout_seconds": 9}, "fallback": {}}}}
 
     with (
-        patch("job_hunter.sources.source_config.load_api_config", return_value=config),
+        patch("job_hunter.sources.source_config.get_api_config", return_value=config),
         patch("job_hunter.sources.source_config.get_timeout", return_value=4),
     ):
         assert job_board_timeout("example") == 9

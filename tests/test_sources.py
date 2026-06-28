@@ -106,7 +106,7 @@ def test_jobicy_maps_de_region_to_geo_slug(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(
         jobicy_source,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"job_boards": {"jobicy": {"enabled": True}}}},
     )
     monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _provider: True)
@@ -149,7 +149,7 @@ def test_jobicy_skips_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         jobicy_source,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"job_boards": {"jobicy": {"enabled": True}}}},
     )
     monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _provider: True)
@@ -180,7 +180,7 @@ def test_jobstreet_uses_same_page_for_playwright_fallback_after_block(
 
     monkeypatch.setattr(
         jobstreet_source,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"job_boards": {"jobstreet": {"enabled": True}}}},
     )
     monkeypatch.setattr(jobstreet_source.requests, "get", lambda *args, **kwargs: Response())
@@ -339,7 +339,7 @@ def test_jsearch_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         job_boards,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": 1}}}},
     )
 
@@ -359,7 +359,7 @@ def test_adzuna_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         adzuna_source,
-        "load_api_config",
+        "get_api_config",
         lambda: {
             "http": {
                 "job_boards": {"adzuna": {"enabled": True, "results_per_page": 50}},
@@ -439,7 +439,7 @@ def test_jsearch_quota_error_disables_provider_for_month(tmp_path, monkeypatch: 
     monkeypatch.setattr(api_budget, "ROOT", tmp_path)
     monkeypatch.setattr(
         job_boards,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": 1}}}},
     )
     calls = {"count": 0}
@@ -464,7 +464,7 @@ def test_adzuna_quota_error_disables_provider_for_month(tmp_path, monkeypatch: p
     monkeypatch.setattr(api_budget, "ROOT", tmp_path)
     monkeypatch.setattr(
         adzuna_source,
-        "load_api_config",
+        "get_api_config",
         lambda: {
             "http": {
                 "job_boards": {"adzuna": {"enabled": True, "results_per_page": 50}},
@@ -1007,7 +1007,7 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
 
     monkeypatch.setattr(
         _ats_mod,
-        "load_api_config",
+        "get_api_config",
         lambda: {
             "http": {
                 "search_providers": {
@@ -1362,7 +1362,7 @@ def test_lightpanda_career_jobs_parse_rendered_html(
     monkeypatch.setattr(search_providers.subprocess, "run", lambda *a, **k: Completed())
     monkeypatch.setattr(
         _fetchers_mod,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"lightpanda": {"timeout_seconds": 8}}},
     )
 
@@ -1406,7 +1406,7 @@ def test_firecrawl_career_jobs_require_key_and_budget(
     monkeypatch.setattr(search_providers.requests, "post", post)
     monkeypatch.setattr(
         _fetchers_mod,
-        "load_api_config",
+        "get_api_config",
         lambda: {"http": {"firecrawl": {"timeout_seconds": 20}}},
     )
 

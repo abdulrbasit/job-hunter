@@ -26,12 +26,16 @@ def _sample_posting() -> JobPosting:
 
 def test_round_trip() -> None:
     jp = _sample_posting()
-    assert type(jp).from_dict(jp.to_dict()) == jp
+    from job_hunter.models import JobPosting
+
+    assert JobPosting.model_validate(jp.model_dump()) == jp
 
 
 def test_extra_keys_dropped() -> None:
     jp = _sample_posting()
-    d = jp.to_dict()
+    from job_hunter.models import JobPosting
+
+    d = jp.model_dump()
     d["unknown_field"] = "should be dropped"
-    result = type(jp).from_dict(d)
+    result = JobPosting.model_validate(d)
     assert result == jp

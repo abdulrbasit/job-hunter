@@ -10,7 +10,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from job_hunter.config.loader import get_config, load_api_config, profile_path
+from job_hunter.config.loader import get_api_config, get_config, profile_path
 from job_hunter.constants import LLM_REPAIR_INPUT_CHARS
 from job_hunter.core.latex_utils import compact_latex_resume as _compact_latex_resume
 from job_hunter.core.llm_utils import get_llm_role_settings
@@ -219,7 +219,7 @@ def score_and_filter_jobs(
         logger.error(f"[scorer] Cannot initialise scoring client — SDK missing: {e}")
         raise
 
-    api_cfg = load_api_config()
+    api_cfg = get_api_config()
     max_workers = int(api_cfg.get("llm", {}).get("max_workers", 5))
 
     counter = 0

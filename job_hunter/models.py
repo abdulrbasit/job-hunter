@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -56,14 +56,6 @@ class JobPosting(BaseModel):
     score: int | None = None
     matched_keywords: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return self.model_dump()
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> JobPosting:
-        known = set(cls.model_fields)
-        return cls(**{k: v for k, v in d.items() if k in known})
 
 
 class Company(BaseModel):

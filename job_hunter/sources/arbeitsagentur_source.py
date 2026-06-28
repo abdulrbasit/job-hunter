@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
@@ -41,7 +41,7 @@ class ArbeitsagenturSource(JobSourceAdapter):
         return "arbeitsagentur"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("arbeitsagentur", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("arbeitsagentur", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -49,7 +49,7 @@ class ArbeitsagenturSource(JobSourceAdapter):
         if params.country.upper() != "DE":
             return []
 
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("arbeitsagentur", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("arbeitsagentur", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

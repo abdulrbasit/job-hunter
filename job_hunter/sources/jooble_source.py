@@ -13,7 +13,7 @@ import logging
 
 import requests
 
-from job_hunter.config.loader import JOOBLE_API_KEY, get_timeout, load_api_config
+from job_hunter.config.loader import JOOBLE_API_KEY, get_api_config, get_timeout
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
@@ -44,7 +44,7 @@ class JoobleSource(JobSourceAdapter):
         return "jooble"
 
     def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
+        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -53,7 +53,7 @@ class JoobleSource(JobSourceAdapter):
             logger.warning("[jooble] JOOBLE_API_KEY not set — skipping")
             return []
 
-        source_cfg = load_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
+        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
         if not source_cfg.get("enabled", True):
             return []
 

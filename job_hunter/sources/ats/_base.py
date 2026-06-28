@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from job_hunter.config.loader import get_timeout, load_api_config
+from job_hunter.config.loader import get_api_config, get_timeout
 
 _TIMEOUT = get_timeout("ats_scraper")
-_ATS_CFG = load_api_config().get("http", {}).get("ats_scraper", {}) or {}
+_ATS_CFG = get_api_config().get("http", {}).get("ats_scraper", {}) or {}
 _SNIPPET_CHARS = int(_ATS_CFG.get("snippet_chars", 2000))
 
 

@@ -186,7 +186,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             from job_hunter.sources.search_providers.ats_discovery import discover_ats_jobs_by_search
 
             ats_raw = discover_ats_jobs_by_search(job_titles, regions, excluded_title_terms, disabled=run_disabled)
-            _add_unique([JobPosting.from_dict(j) for j in ats_raw], "ats_discovery")
+            _add_unique([JobPosting.model_validate(j) for j in ats_raw], "ats_discovery")
         except Exception as exc:
             logger.warning("[orchestrator] ATS discovery failed: %s", exc)
 
