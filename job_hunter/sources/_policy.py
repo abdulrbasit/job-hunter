@@ -239,6 +239,12 @@ def normalize_employment_type(val: str) -> str:
     return _EMPLOYMENT_TYPE_CANONICAL.get(key, key)
 
 
+def derive_country_code(location: str) -> str:
+    """Return best-guess ISO alpha-2 country code from raw location string. Empty if none found."""
+    codes = _codes_from_location_text(location)
+    return next(iter(codes), "")
+
+
 def normalize_company_name(company: str) -> str:
     company = _COMPANY_NOISE_SUFFIX_RE.sub("", company or "")
     normalized = _CORPORATE_SUFFIX_RE.sub("", company)

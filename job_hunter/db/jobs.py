@@ -210,7 +210,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
             conn.execute(
                 """INSERT INTO jobs (
                     url, canonical_url, status, run_id,
-                    title, company, location, snippet, source,
+                    title, company, location, country_code, snippet, source,
                     posted, date_status, region, query,
                     employment_type, fetch_status,
                     location_restrictions, ats_platform, enrichment_source,
@@ -219,7 +219,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     discovered_at, created_at, updated_at
                 ) VALUES (
                     ?, ?, 'discovered', ?,
-                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?,
                     ?, ?, ?,
@@ -230,6 +230,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     status          = CASE WHEN jobs.status = 'candidate' THEN 'discovered' ELSE jobs.status END,
                     run_id          = COALESCE(excluded.run_id, jobs.run_id),
                     employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
+                    country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
                     snippet         = COALESCE(excluded.snippet, jobs.snippet),
                     fetch_status    = COALESCE(excluded.fetch_status, jobs.fetch_status),
                     jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
@@ -241,6 +242,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     str(job.get("title") or ""),
                     str(job.get("company") or ""),
                     str(job.get("location") or ""),
+                    str(job.get("country_code") or ""),
                     str(job.get("snippet") or ""),
                     str(job.get("source") or ""),
                     str(job.get("posted") or ""),

@@ -36,6 +36,7 @@ class JobPosting(BaseModel):
     company: str
     url: str
     location: str = ""
+    country_code: str = ""
     snippet: str = ""
     source: str = ""
     posted: str = ""

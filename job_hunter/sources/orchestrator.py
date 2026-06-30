@@ -20,7 +20,7 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
-from job_hunter.sources._policy import JobPolicy, normalize_employment_type
+from job_hunter.sources._policy import JobPolicy, derive_country_code, normalize_employment_type
 from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
 from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.sources.search_providers.preflight import probe_search_providers
@@ -131,6 +131,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                     update={
                         "date_status": policy.posting_date_status(jp.posted),
                         "employment_type": normalize_employment_type(jp.employment_type),
+                        "country_code": derive_country_code(jp.location),
                     }
                 )
             )
