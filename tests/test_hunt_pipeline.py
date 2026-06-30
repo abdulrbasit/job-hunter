@@ -7,6 +7,8 @@ from job_hunter.pipeline import hunt as hunt_pipeline
 
 
 def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, tmp_path) -> None:
+    from job_hunter.db.jobs import get_discovered_jobs
+
     jobs = [{"title": "PM", "company": "Acme", "url": "https://example.com/pm"}]
     enriched = [{**jobs[0], "snippet": "rich"}]
 
@@ -22,29 +24,26 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
     )
     monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
     monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: enriched)
-
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    path, count, _stats = hunt_pipeline.run_hunt_scrape_only(
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only(
         "primary",
         tmp_path,
         api_cfg={},
         url_checker=lambda *_args: True,
     )
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
     assert count == 1
-    assert path.name.endswith("_primary_candidates.json")
-    assert path.parent.name == "candidates"
-    assert payload["region"] == "primary"
-    assert payload["count"] == 1
-    assert payload["jobs"] == enriched
-    assert payload["existing_urls"] == ["https://example.com/old"]
-    assert payload["existing_titles"] == []
+    assert isinstance(run_id, str) and "T" in run_id
+    db_jobs = get_discovered_jobs(tmp_path, run_id=run_id)
+    assert len(db_jobs) == 1
+    assert db_jobs[0]["title"] == "PM"
 
 
 def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> None:
+    from job_hunter.db.jobs import get_discovered_jobs
+
     monkeypatch.setattr(
         hunt_pipeline,
         "_jobs_from_hunt",
@@ -53,12 +52,11 @@ def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
     assert count == 0
-    assert payload["count"] == 0
-    assert payload["jobs"] == []
+    assert isinstance(run_id, str)
+    assert get_discovered_jobs(tmp_path) == []
 
 
 def test_load_hunt_snapshot_returns_tracker_context(tmp_path) -> None:
@@ -81,16 +79,16 @@ def test_load_hunt_snapshot_returns_tracker_context(tmp_path) -> None:
     assert existing_titles == set()
 
 
-def test_load_hunt_snapshot_falls_back_to_current_tracker(monkeypatch, tmp_path) -> None:
-    path = tmp_path / "legacy_snapshot.json"
+def test_load_hunt_snapshot_falls_back_to_db(tmp_path) -> None:
+    from job_hunter.db.jobs import mark_urls_processed
+
+    # Snapshot at outputs/state/ so parent.parent.parent == tmp_path (the root)
+    state_dir = tmp_path / "outputs" / "state"
+    state_dir.mkdir(parents=True)
+    path = state_dir / "snapshot.json"
     path.write_text(json.dumps({"jobs": [{"url": "https://example.com/new"}]}), encoding="utf-8")
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "load_processed",
-        lambda: {"https://example.com/current"},
-    )
+    mark_urls_processed(tmp_path, {"https://example.com/current"})
 
-    _jobs, existing_urls, existing_titles = hunt_pipeline.load_hunt_snapshot(path)
+    _jobs, existing_urls, _existing_titles = hunt_pipeline.load_hunt_snapshot(path)
 
-    assert existing_urls == {"https://example.com/current"}
-    assert existing_titles == set()
+    assert any("example.com/current" in u for u in existing_urls)

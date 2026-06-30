@@ -16,14 +16,12 @@ from job_hunter.agent_context._types import (
 )
 from job_hunter.agent_context._utils import _resolve_path, _root
 from job_hunter.agent_context.candidates import (
-    _load_processed_for_root,
     build_candidate_queue,
     candidate_from_queue,
 )
 from job_hunter.agent_context.score_context import _read_job_folder
 from job_hunter.pipeline.enrichment import classify_jd_snippet
 from job_hunter.sources.search_providers import canonicalize_url
-from job_hunter.tracking._io import _read_state, _write_state
 
 
 def validate_score_file(path: Path) -> dict[str, Any]:
@@ -64,27 +62,17 @@ def validate_score_file(path: Path) -> dict[str, Any]:
     return {"valid": True, "path": path.as_posix(), "score": score}
 
 
-def _processed_state_path(root: Path) -> Path:
-    return root / "outputs" / "state" / "discovered_urls.yml"
-
-
-def _save_processed_for_root(root: Path, urls: set[str], titles: set[str]) -> None:
-    path = _processed_state_path(root)
-    existing = _read_state(path)
-    candidate_urls = set(existing.get("candidate_urls", []) or [])
-    _write_state(path, urls, candidate_urls)
-
-
 def _mark_candidate_processed(root: Path, candidate: dict[str, Any]) -> dict[str, int]:
-    urls, _ = _load_processed_for_root(root)
-    before_urls = len(urls)
+    from job_hunter.db.jobs import get_processed_urls, mark_urls_processed
+
     url = canonicalize_url(str(candidate.get("url") or ""))
+    before = len(get_processed_urls(root))
     if url:
-        urls.add(url)
-    _save_processed_for_root(root, urls, set())
+        mark_urls_processed(root, {url})
+    after = len(get_processed_urls(root))
     return {
-        "new_urls": len(urls) - before_urls,
-        "total_urls": len(urls),
+        "new_urls": after - before,
+        "total_urls": after,
     }
 
 

@@ -191,12 +191,11 @@ def test_job_hunter_router_skill_contract() -> None:
     assert fm["category"] == "workflow"
 
     # All required modes present in argument-hint
-    for mode in ("brief", "batch", "tailor", "finalize", "help"):
+    for mode in ("batch", "tailor", "finalize", "help"):
         assert mode in fm["argument-hint"], f"mode '{mode}' missing from argument-hint"
 
     # Routes to correct router mode paths.
     for child in (
-        "brief",
         "batch",
         "one",
         "search",
@@ -217,7 +216,6 @@ def test_job_hunter_router_skill_contract() -> None:
 
     # All required /job-hunter commands present in the command menu
     for command in (
-        "/job-hunter brief",
         "/job-hunter dashboard",
         "/job-hunter batch",
         "/job-hunter one <url>",

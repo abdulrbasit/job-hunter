@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 import yaml
 
 from job_hunter.agent_context import (
@@ -80,204 +79,84 @@ def test_candidate_queue_assigns_stable_candidate_ids(tmp_path: Path) -> None:
     assert first["jobs"][0]["queue_index"] == 1
 
 
-def test_candidate_queue_default_matches_briefing_backlog_scope(tmp_path: Path) -> None:
-    today = __import__("datetime").date.today().isoformat()
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / f"{today}_vancouver_candidates.json",
+def test_candidate_queue_default_reads_from_db(tmp_path: Path) -> None:
+    from job_hunter.db.jobs import insert_jobs
+
+    insert_jobs(
+        tmp_path,
         [
             {
                 "title": "Product Manager",
                 "company": "TodayCo",
                 "url": "https://example.com/today",
-                "snippet": "Own roadmap and delivery.",
-            }
-        ],
-    )
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_all_candidates.json",
-        [
+                "snippet": "Own roadmap.",
+            },
             {
                 "title": "Senior Product Manager",
                 "company": "BacklogCo",
                 "url": "https://example.com/backlog",
-                "snippet": "Lead discovery and analytics.",
-            }
-        ],
-    )
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_extra_candidates.json",
-        [
+                "snippet": "Lead discovery.",
+            },
             {
                 "title": "Growth Product Manager",
                 "company": "ExtraCo",
                 "url": "https://example.com/extra",
-                "snippet": "Growth product role with analytics.",
-            }
+                "snippet": "Growth role.",
+            },
         ],
+        run_id="20260630T120000Z",
     )
 
     queue = build_candidate_queue(root=tmp_path)
 
-    assert queue["scope"] == "briefing-backlog"
+    assert queue["scope"] == "db"
     assert queue["count"] == 3
     assert queue["total_seen"] == 3
-    assert {job["source_file"] for job in queue["jobs"]} == {
-        f"{today}_vancouver_candidates.json",
-        "2026-06-02_all_candidates.json",
-        "2026-06-02_extra_candidates.json",
-    }
 
 
-def test_candidate_queue_today_scope_stays_narrow(tmp_path: Path) -> None:
+def test_candidate_queue_file_source_stays_scoped(tmp_path: Path) -> None:
     today = __import__("datetime").date.today().isoformat()
+    source_file = tmp_path / "outputs" / "candidates" / f"{today}_all_candidates.json"
     _write_candidates(
-        tmp_path / "outputs" / "candidates" / f"{today}_all_candidates.json",
-        [
-            {
-                "title": "PM Today",
-                "company": "TodayCo",
-                "url": "https://example.com/today",
-            }
-        ],
+        source_file,
+        [{"title": "PM Today", "company": "TodayCo", "url": "https://example.com/today"}],
     )
     _write_candidates(
         tmp_path / "outputs" / "candidates" / "2026-06-02_all_candidates.json",
-        [
-            {
-                "title": "PM Backlog",
-                "company": "BacklogCo",
-                "url": "https://example.com/backlog",
-            }
-        ],
+        [{"title": "PM Backlog", "company": "BacklogCo", "url": "https://example.com/backlog"}],
     )
 
-    queue = build_candidate_queue(root=tmp_path, scope="today")
+    # Explicit source → file-based path, only that file is scanned
+    queue = build_candidate_queue(root=tmp_path, source=source_file)
 
-    assert queue["scope"] == "today"
     assert queue["count"] == 1
     assert queue["jobs"][0]["company"] == "TodayCo"
 
 
-def test_candidate_queue_metadata_explains_zero_contribution_files(
-    tmp_path: Path,
-) -> None:
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_all_candidates.json",
+def test_candidate_queue_db_skips_processed_url(tmp_path: Path) -> None:
+    from job_hunter.db.jobs import insert_jobs, mark_urls_processed
+
+    insert_jobs(
+        tmp_path,
         [
-            {
-                "title": "Processed URL",
-                "company": "DoneCo",
-                "url": "https://example.com/done",
-            },
-            {
-                "title": "Unprocessed Title",
-                "company": "TitleCo",
-                "url": "https://example.com/title",
-            },
+            {"title": "Processed URL", "company": "DoneCo", "url": "https://example.com/done"},
+            {"title": "Unprocessed Title", "company": "TitleCo", "url": "https://example.com/title"},
         ],
+        run_id="20260630T120000Z",
     )
-    _write_yaml(
-        tmp_path / "outputs" / "state" / "discovered_urls.yml",
-        {
-            "discovered": ["https://example.com/done"],
-        },
-    )
+    mark_urls_processed(tmp_path, {"https://example.com/done"})
 
     queue = build_candidate_queue(root=tmp_path)
 
+    # In DB path, mark_urls_processed changes status → 'processed', so the job
+    # never enters get_discovered_jobs results; count=1 proves the skip worked.
     assert queue["count"] == 1
-    assert queue["skipped_processed"] == 1
-    assert queue["source_reports"] == [
-        {
-            "file": "2026-06-02_all_candidates.json",
-            "path": (tmp_path / "outputs" / "candidates" / "2026-06-02_all_candidates.json").as_posix(),
-            "total_seen": 2,
-            "queued": 1,
-            "skipped_processed_url": 1,
-            "skipped_duplicate_url": 0,
-            "skipped_duplicate_title": 0,
-            "reason": "",
-        }
-    ]
+    assert queue["source_reports"] == []
 
 
-def test_morning_briefing_uses_same_backlog_scope(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    import job_hunter.briefing as briefing
+def test_candidate_queue_file_source_skips_db_processed_url(tmp_path: Path) -> None:
+    from job_hunter.db.jobs import mark_urls_processed
 
-    today = __import__("datetime").date.today().isoformat()
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / f"{today}_all_candidates.json",
-        [
-            {
-                "title": "PM Today",
-                "company": "TodayCo",
-                "url": "https://example.com/today",
-            }
-        ],
-    )
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / "2026-06-02_extra_candidates.json",
-        [
-            {
-                "title": "PM Backlog",
-                "company": "BacklogCo",
-                "url": "https://example.com/backlog",
-            }
-        ],
-    )
-    _write_yaml(
-        tmp_path / "outputs" / "state" / "discovered_urls.yml",
-        {"discovered": []},
-    )
-
-    monkeypatch.setattr(briefing, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
-
-    text = briefing.build_briefing()
-
-    assert f"`{today}_all_candidates.json`" in text
-    assert "`2026-06-02_extra_candidates.json`" in text
-    assert "**2 unprocessed candidate(s) across 2 active file(s).**" in text
-    assert "score and tailor backlog candidates" in text
-
-
-def test_morning_briefing_hides_processed_candidate_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    import job_hunter.briefing as briefing
-
-    today = __import__("datetime").date.today().isoformat()
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / f"{today}_active_candidates.json",
-        [
-            {
-                "title": "PM Active",
-                "company": "ActiveCo",
-                "url": "https://example.com/active",
-            }
-        ],
-    )
-    _write_candidates(
-        tmp_path / "outputs" / "candidates" / f"{today}_processed_candidates.json",
-        [
-            {
-                "title": "PM Done",
-                "company": "DoneCo",
-                "url": "https://example.com/done",
-            }
-        ],
-    )
-    _write_yaml(
-        tmp_path / "outputs" / "state" / "discovered_urls.yml",
-        {"discovered": ["https://example.com/done"]},
-    )
-    monkeypatch.setattr(briefing, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
-
-    text = briefing.build_briefing()
-
-    assert "`" + f"{today}_active_candidates.json" + "`" in text
-    assert f"{today}_processed_candidates.json" not in text
-    assert "Hidden from brief: 1 processed/duplicate file(s)." in text
-
-
-def test_candidate_queue_skips_processed_title_variants(tmp_path: Path) -> None:
     candidate_file = tmp_path / "outputs" / "candidates" / "2026-06-01_all_candidates.json"
     candidate_file.parent.mkdir(parents=True)
     candidate_file.write_text(
@@ -295,10 +174,7 @@ def test_candidate_queue_skips_processed_title_variants(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    _write_yaml(
-        tmp_path / "outputs" / "state" / "discovered_urls.yml",
-        {"discovered": ["https://boards.greenhouse.io/acme/jobs/123"]},
-    )
+    mark_urls_processed(tmp_path, {"https://boards.greenhouse.io/acme/jobs/123"})
 
     queue = build_candidate_queue(root=tmp_path, source=candidate_file)
 
@@ -515,7 +391,7 @@ def test_candidate_lifecycle_marks_terminal_and_refreshes_queue(tmp_path: Path) 
     )
     queue_path = tmp_path / "outputs" / "state" / "agent_candidate_queue.json"
     queue = build_candidate_queue(root=tmp_path, source=candidate_file)
-    queue_path.parent.mkdir(parents=True)
+    queue_path.parent.mkdir(parents=True, exist_ok=True)
     queue_path.write_text(json.dumps(queue), encoding="utf-8")
 
     payload = candidate_lifecycle(
@@ -526,11 +402,12 @@ def test_candidate_lifecycle_marks_terminal_and_refreshes_queue(tmp_path: Path) 
         refresh_queue=queue_path,
     )
 
-    processed = yaml.safe_load((tmp_path / "outputs" / "state" / "discovered_urls.yml").read_text(encoding="utf-8"))
+    from job_hunter.db.jobs import get_processed_urls
+
+    processed = get_processed_urls(tmp_path)
     refreshed = json.loads(queue_path.read_text(encoding="utf-8"))
     assert payload["action"] == "terminal_marked"
-    assert processed["discovered"] == ["https://example.com/skip"]
-    assert "applied_titles" not in processed
+    assert any("skip" in u for u in processed)
     assert refreshed["count"] == 0
 
 

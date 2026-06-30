@@ -7,8 +7,6 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
-import yaml
-
 from job_hunter.agent_context._utils import _read_yaml
 from job_hunter.tracker import repo_path
 
@@ -42,11 +40,6 @@ class ApplicationRecord(TypedDict, total=False):
     updated_at: str
 
 
-def applications_path(root: Path | None = None) -> Path:
-    base = root or repo_path()
-    return base / "outputs" / "applications.yml"
-
-
 def utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
@@ -74,25 +67,11 @@ def normalize_status(status: str) -> str:
 
 
 def load_applications(root: Path | None = None) -> dict[str, Any]:
-    path = applications_path(root)
-    if not path.exists():
-        return {"applications": []}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    apps = data.get("applications", [])
-    if not isinstance(apps, list):
-        apps = []
+    from job_hunter.db.jobs import get_jobs
+
+    base = root or repo_path()
+    apps = get_jobs(base, statuses=CANONICAL_STATUSES)
     return {"applications": apps}
-
-
-def save_applications(data: dict[str, Any], root: Path | None = None) -> Path:
-    path = applications_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"applications": list(data.get("applications", []) or [])}
-    path.write_text(
-        yaml.safe_dump(payload, sort_keys=False, allow_unicode=False),
-        encoding="utf-8",
-    )
-    return path
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -119,6 +98,8 @@ def application_from_job(
     job_dir = base / "outputs" / "jobs" / slug
     meta = _read_json(job_dir / "meta.json")
     score = _read_yaml(job_dir / "score.yml")
+    jd_path = job_dir / "jd.md"
+    jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
     now = utc_now()
     return {
         "slug": slug,
@@ -131,13 +112,10 @@ def application_from_job(
         "status": normalize_status(status),
         "score": score.get("score"),
         "decision": score.get("decision") or score.get("status") or "",
-        "files": {
-            "job_dir": f"outputs/jobs/{slug}/",
-            "resume_pdf": _first_existing(job_dir, ("resume_tailored.pdf",)),
-            "resume_tex": _first_existing(job_dir, ("resume_tailored.tex",)),
-            "cover_letter": _first_existing(job_dir, ("cover_letter.md",)),
-            "evaluation": _first_existing(job_dir, ("evaluation.md",)),
-        },
+        "fetch_status": meta.get("fetch_status") or "",
+        "jd_text": jd_text,
+        "resume_pdf_path": _first_existing(job_dir, ("resume_tailored.pdf",)),
+        "resume_tex_path": _first_existing(job_dir, ("resume_tailored.tex",)),
         "notes": [note] if note else [],
         "created_at": now,
         "updated_at": now,
@@ -164,54 +142,22 @@ def _status_from_score(score: dict[str, Any]) -> str:
 
 
 def backfill_applications_from_jobs(root: Path | None = None) -> list[dict[str, Any]]:
+    from job_hunter.db.jobs import sync_from_job_folders
+
     base = root or repo_path()
-    jobs_dir = base / "outputs" / "jobs"
-    if not jobs_dir.exists():
-        return []
-    created: list[dict[str, Any]] = []
-    for job_dir in sorted(path for path in jobs_dir.iterdir() if path.is_dir()):
-        score = _read_yaml(job_dir / "score.yml")
-        status = _status_from_score(score)
-        if not status:
-            continue
-        entry = application_from_job(
-            job_dir.name,
-            root=base,
-            status=status,
-            note="Backfilled from existing job folder",
-        )
-        created.append(upsert_application(entry, root=base))
-    return created
+    synced = sync_from_job_folders(base)
+    return [{"synced": synced}]
 
 
 def ensure_applications(root: Path | None = None) -> dict[str, Any]:
-    data = load_applications(root)
-    if data["applications"]:
-        return data
-    backfill_applications_from_jobs(root)
     return load_applications(root)
 
 
 def upsert_application(entry: dict[str, Any], root: Path | None = None) -> dict[str, Any]:
-    data = load_applications(root)
-    apps = data["applications"]
-    key_slug = str(entry.get("slug") or "")
-    key_url = str(entry.get("url") or "")
-    now = utc_now()
-    for idx, app in enumerate(apps):
-        if (key_slug and app.get("slug") == key_slug) or (key_url and app.get("url") == key_url):
-            merged = {**app, **entry}
-            old_notes = list(app.get("notes") or [])
-            new_notes = [n for n in list(entry.get("notes") or []) if n and n not in old_notes]
-            merged["notes"] = old_notes + new_notes
-            merged["created_at"] = app.get("created_at") or entry.get("created_at") or now
-            merged["updated_at"] = now
-            apps[idx] = merged
-            save_applications(data, root)
-            return merged
-    apps.append(entry)
-    save_applications(data, root)
-    return entry
+    from job_hunter.db.jobs import upsert_job
+
+    base = root or repo_path()
+    return upsert_job(base, entry)
 
 
 def upsert_application_from_job(
@@ -234,22 +180,16 @@ def update_application_status(
     root: Path | None = None,
     note: str = "",
 ) -> dict[str, Any]:
-    data = load_applications(root)
-    target_status = normalize_status(status)
-    for app in data["applications"]:
-        if app.get("slug") == slug:
-            app["status"] = target_status
-            app["updated_at"] = utc_now()
-            if note:
-                notes = list(app.get("notes") or [])
-                notes.append(note)
-                app["notes"] = notes
-            save_applications(data, root)
-            from job_hunter.pipeline.readme_writer import update_readme_from_applications
+    from job_hunter.db.jobs import update_job_status
 
-            update_readme_from_applications(data["applications"], root or repo_path(), date.today().isoformat())
-            return app
-    raise KeyError(f"application not found: {slug}")
+    base = root or repo_path()
+    target_status = normalize_status(status)
+    app = update_job_status(base, slug, target_status, note)
+    apps = load_applications(base)["applications"]
+    from job_hunter.pipeline.readme_writer import update_readme_from_applications
+
+    update_readme_from_applications(apps, base, date.today().isoformat())
+    return app
 
 
 def filtered_applications(
@@ -259,24 +199,21 @@ def filtered_applications(
     region: str = "",
     since: str = "",
 ) -> list[dict[str, Any]]:
-    apps = ensure_applications(root)["applications"]
-    apps = [
-        app
-        for app in apps
-        if str(app.get("status") or "") in CANONICAL_STATUSES
-        and str(app.get("status") or "") not in HIDDEN_LEGACY_STATUSES
-    ]
-    if status:
-        wanted = normalize_status(status)
-        apps = [app for app in apps if app.get("status") == wanted]
-    if region:
-        apps = [app for app in apps if str(app.get("region") or "").lower() == region.lower()]
-    if since:
-        apps = [app for app in apps if str(app.get("date") or "") >= since]
+    from job_hunter.db.jobs import get_jobs
+
+    base = root or repo_path()
+    apps = get_jobs(
+        base,
+        status=normalize_status(status) if status else "",
+        statuses=CANONICAL_STATUSES if not status else (),
+        region=region,
+        since=since,
+    )
+    apps = [app for app in apps if str(app.get("status") or "") not in HIDDEN_LEGACY_STATUSES]
     return sorted(
         apps,
         key=lambda app: (
-            str(app.get("date") or ""),
+            str(app.get("discovered_at") or app.get("created_at") or ""),
             str(app.get("company") or ""),
         ),
         reverse=True,
@@ -287,10 +224,10 @@ def delete_application(slug: str, root: Path | None = None) -> None:
     import logging
     import shutil
 
+    from job_hunter.db.jobs import delete_job
+
     base = root or repo_path()
-    data = load_applications(root)
-    data["applications"] = [a for a in data["applications"] if a.get("slug") != slug]
-    save_applications(data, root)
+    delete_job(base, slug)
     job_dir = base / "outputs" / "jobs" / slug
     if job_dir.exists():
         try:
@@ -301,15 +238,16 @@ def delete_application(slug: str, root: Path | None = None) -> None:
                 job_dir,
                 exc,
             )
+    apps = load_applications(base)["applications"]
     from job_hunter.pipeline.readme_writer import update_readme_from_applications
 
-    update_readme_from_applications(data["applications"], base, date.today().isoformat())
+    update_readme_from_applications(apps, base, date.today().isoformat())
 
 
 def active_application_count(root: Path | None = None) -> int:
-    return sum(
-        1 for app in ensure_applications(root)["applications"] if str(app.get("status") or "") in ACTIVE_STATUSES
-    )
+    from job_hunter.db.jobs import count_active
+
+    return count_active(root or repo_path())
 
 
 def render_applications_table(apps: list[dict[str, Any]]) -> str:
@@ -321,7 +259,7 @@ def render_applications_table(apps: list[dict[str, Any]]) -> str:
         role = f"{app.get('company', 'Unknown')} - {app.get('title', 'Unknown')}"
         rows.append(
             f"{i:<3} "
-            f"{str(app.get('date') or '')[:10]:<10} "
+            f"{str(app.get('discovered_at') or app.get('created_at') or '')[:10]:<10} "
             f"{str(app.get('status') or ''):<11} "
             f"{score_text:<6} "
             f"{str(app.get('region') or app.get('location') or '')[:12]:<12} "

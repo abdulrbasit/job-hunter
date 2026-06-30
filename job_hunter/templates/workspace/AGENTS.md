@@ -18,14 +18,12 @@ Set `mode:` in `config/job_hunter.yml`.
 job-hunter config check
 job-hunter doctor
 job-hunter hunt --region primary
-job-hunter brief
 job-hunter dashboard --no-interactive
 ```
 
 ## Agent Skills
 
 ```text
-/job-hunter brief
 /job-hunter batch
 /job-hunter one <url>
 /job-hunter search
@@ -45,8 +43,8 @@ Skills are in `.claude/skills/`. Open the workspace in Claude Code or Codex to u
 - `profile/story_bank.md`: reusable STAR stories.
 - `.env`: local secrets copied from `.env.example`.
 
-Generated files live under `outputs/`. URL dedup is
-`outputs/state/discovered_urls.yml`; same company with a different URL is not
-blocked.
+Generated files live under `outputs/`. Job state (URL dedup, candidates,
+application lifecycle) is in `outputs/state/jobs.db`. Same company with a
+different URL is not blocked.
 
 Main package and docs: https://github.com/abdulrbasit/job-hunter

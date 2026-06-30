@@ -1,23 +1,19 @@
-"""Hunt pipeline — full autonomous chain (llm-api mode) or scrape+snapshot (agent mode).
+"""Hunt pipeline — full autonomous chain (llm-api mode) or scrape+DB write (agent mode).
 
 Stage order (llm-api): resolve region → scrape → dedup → enrich → validate → score → tailor → cover → pdf → readme → track
-Stage order (agent):   resolve region → scrape → dedup → enrich → snapshot → exit
-
-CLI routes here via pipeline/orchestrator.py based on config mode.
-Original hunt_pipeline.py logic preserved below; mode dispatch added above it.
+Stage order (agent):   resolve region → scrape → dedup → enrich → write to DB → exit
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import UTC, datetime
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.core.url_liveness import UrlLivenessCache
+from job_hunter.db.jobs import get_processed_urls, insert_jobs
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
 from job_hunter.pipeline.pre_llm_gate import apply_pre_enrichment_gate
@@ -26,7 +22,7 @@ from job_hunter.sources.jd_fetcher import fetch_jd
 from job_hunter.sources.orchestrator import scrape_with_stats
 from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.tracking.discovery_cache import load_cached_candidate_urls, save_cached_candidate_urls
-from job_hunter.tracking.tracker import filter_new_jobs, load_processed
+from job_hunter.tracking.tracker import filter_new_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +81,7 @@ def run_hunt(
     scoring_cfg: dict[str, Any],
     url_liveness: UrlLivenessCache,
 ) -> tuple[list[dict[str, Any]], set[str], set[str]]:
-    """
-    Execute the hunt mode: scrape, URL-check, enrich.
-
-    Returns (jobs, existing_urls, existing_titles) ready for downstream processing,
-    or ([], set(), set()) when there is nothing to process.
-    """
+    """Execute the hunt mode: scrape, URL-check, enrich."""
     logger.info("[pipeline] Step 1: Scraping and deduplicating jobs...")
     jobs, existing_urls, existing_titles, _stats = _jobs_from_hunt(args["region"], depth=args.get("depth", "standard"))
     if not jobs:
@@ -115,25 +106,21 @@ def run_hunt(
     return jobs, existing_urls, existing_titles
 
 
-def _snapshot_path(root: str | Path, date: str, region: str | None) -> Path:
-    candidates_dir = Path(root) / "outputs" / "candidates"
-    candidates_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    return candidates_dir / f"{timestamp}_{region or 'all'}_candidates.json"
-
-
 def run_hunt_scrape_only(
     region: str | None = None,
     root: str | Path = REPO_ROOT,
     api_cfg: dict[str, Any] | None = None,
     url_checker: Any = None,
     depth: str = "standard",
-) -> tuple[Path, int, ScrapeStats]:
-    """Run scrape, dedup, URL check, and enrichment, then write a handoff snapshot."""
+) -> tuple[str, int, ScrapeStats]:
+    """Run scrape, dedup, URL check, enrichment, then write jobs to DB.
+
+    Returns (run_id, candidate_count, stats).
+    """
+    root = Path(root)
     now = datetime.now(UTC)
-    today = now.date().isoformat()
     run_id = now.strftime("%Y%m%dT%H%M%SZ")
-    jobs, existing_urls, existing_titles, stats = _jobs_from_hunt(region, depth=depth)
+    jobs, _existing_urls, _existing_titles, stats = _jobs_from_hunt(region, depth=depth)
 
     if jobs:
         jobs = _drop_dead_urls(jobs, api_cfg or {}, url_checker)
@@ -154,46 +141,28 @@ def run_hunt_scrape_only(
             logger.info("[pipeline] Objective screen rejected %s job(s)", len(rejected))
     stats.total_after_policy = len(jobs)
 
-    payload = {
-        "date": today,
-        "created_at": now.isoformat(),
-        "run_id": run_id,
-        "package_version": _package_version(),
-        "region": region or "all",
-        "count": len(jobs),
-        "jobs": jobs,
-        "stats": stats.model_dump(),
-        "existing_urls": sorted(existing_urls),
-        "existing_titles": sorted(existing_titles),
-    }
-    path = _snapshot_path(root, today, region)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # Write to DB (replaces snapshot JSON)
+    if jobs:
+        inserted = insert_jobs(root, jobs, run_id=run_id)
+        logger.info("[pipeline] Wrote %s job(s) to DB (run_id=%s)", inserted, run_id)
+
+    # Update discovery cache
     cached = load_cached_candidate_urls()
     cached.update(canonicalize_url(job.get("url", "")) for job in jobs if job.get("url"))
     save_cached_candidate_urls(cached)
-    logger.info("[pipeline] Scrape snapshot written: %s", path)
-    return path, len(jobs), stats
 
-
-def _package_version() -> str:
-    try:
-        return version("job-hunter-kit")
-    except PackageNotFoundError:
-        return "development"
+    logger.info("[pipeline] Hunt complete: run_id=%s candidates=%s", run_id, len(jobs))
+    return run_id, len(jobs), stats
 
 
 def load_hunt_snapshot(path: str | Path) -> tuple[list[dict[str, Any]], set[str], set[str]]:
-    """Load a scrape handoff snapshot for downstream hunt processing."""
+    """Load a scrape handoff snapshot for downstream hunt processing (llm-api mode)."""
+    import json
+
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     jobs = data.get("jobs") or []
-    existing_urls_raw = data.get("existing_urls")
-    existing_titles_raw = data.get("existing_titles")
-    if existing_urls_raw is None:
-        existing_urls = load_processed()
-        existing_titles = set()
-    else:
-        existing_urls = set(existing_urls_raw or [])
-        existing_titles = set(existing_titles_raw or [])
+    existing_urls = set(data.get("existing_urls") or []) or get_processed_urls(Path(path).parent.parent.parent)
+    existing_titles = set(data.get("existing_titles") or [])
     return jobs, existing_urls, existing_titles
 
 
@@ -209,9 +178,9 @@ def run(inp: HuntInput) -> HuntOutput:
                 stats=ScrapeStats(total_fetched=len(jobs)),
                 mode=inp.mode,
             )
-        path, count, stats = run_hunt_scrape_only(region, depth=inp.depth)
+        run_id, count, stats = run_hunt_scrape_only(region, depth=inp.depth)
         return HuntOutput(
-            snapshot_path=path,
+            run_id=run_id,
             stats=stats,
             mode=inp.mode,
         )

@@ -59,15 +59,6 @@ def dash() -> None:
 
 
 @app.command()
-def brief() -> None:
-    """Generate today's job search briefing."""
-    from job_hunter.briefing import write_today_briefing
-
-    artifact = write_today_briefing()
-    typer.echo(artifact.as_posix())
-
-
-@app.command()
 def hunt(
     region: str | None = typer.Option(None, "--region", "-r", help="Region key from config/job_hunter.yml"),
     depth: str = typer.Option("standard", "--depth", help="Scan depth: fast|standard|deep"),
@@ -228,11 +219,6 @@ def commit_job(
         mark_processed([meta], existing_urls)
 
     subprocess.run(["git", "add", str(folder)], check=True, cwd=root)
-    subprocess.run(
-        ["git", "add", str(repo_path("outputs", "state", "discovered_urls.yml"))],
-        check=True,
-        cwd=root,
-    )
     result = subprocess.run(["git", "diff", "--staged", "--quiet"], cwd=root)
     if result.returncode != 0:
         subprocess.run(["git", "commit", "-m", f"chore(jobs): tailor {job}"], check=True, cwd=root)

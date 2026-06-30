@@ -10,14 +10,6 @@ import typer
 from job_hunter.cli import agent_context_app
 
 
-@agent_context_app.command("brief")
-def agent_context_brief() -> None:
-    """Print briefing context for agent skills."""
-    from job_hunter import agent_context
-
-    print(agent_context.brief_context())
-
-
 @agent_context_app.command("candidates")
 def agent_context_candidates(
     source: str | None = typer.Option(None, "--source"),
@@ -27,6 +19,7 @@ def agent_context_candidates(
     limit: int = typer.Option(50, "--limit"),
     max_snippet_chars: int = typer.Option(500, "--max-snippet-chars"),
     write_queue: str = typer.Option("outputs/state/agent_candidate_queue.json", "--write-queue"),
+    run_id: str = typer.Option("", "--run-id"),
 ) -> None:
     """Build candidate queue and write it to disk."""
     from job_hunter import agent_context
@@ -38,14 +31,12 @@ def agent_context_candidates(
         scope=scope,
         limit=limit,
         max_snippet_chars=max_snippet_chars,
+        run_id=run_id,
     )
     output_path = Path(write_queue)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(queue, indent=2), encoding="utf-8")
-    typer.echo(
-        f"Candidate queue: {queue['count']} of {queue['total_seen']} candidate(s) "
-        f"from {len(queue['source_files'])} file(s) -> {output_path.as_posix()}"
-    )
+    typer.echo(f"Candidate queue: {queue['count']} of {queue['total_seen']} candidate(s) -> {output_path.as_posix()}")
 
 
 @agent_context_app.command("candidate")

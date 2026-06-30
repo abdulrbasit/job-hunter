@@ -1,4 +1,4 @@
-"""Candidate queue building and retrieval helpers."""
+"""Candidate queue building from DB."""
 
 from __future__ import annotations
 
@@ -14,18 +14,20 @@ from job_hunter.agent_context._types import (
 from job_hunter.agent_context._utils import (
     _clip,
     _read_json_or_yaml,
-    _read_yaml,
     _root,
 )
 from job_hunter.pipeline.enrichment import classify_jd_snippet
 from job_hunter.sources._policy import normalize_company_name
 from job_hunter.sources.search_providers import canonicalize_url
 
+# ---------------------------------------------------------------------------
+# Legacy snapshot-file helpers (kept for tailor --links flow and --from-snapshot)
+# ---------------------------------------------------------------------------
+
 
 def _candidate_files(root: Path, *, today_only: bool = False, source: Path | None = None) -> list[Path]:
     if source:
         return [source]
-
     candidate_dir = root / "outputs" / "candidates"
     files: list[Path] = []
     for pattern in ("*_candidates.json", "*_candidates.yml", "*_candidates.yaml"):
@@ -34,16 +36,6 @@ def _candidate_files(root: Path, *, today_only: bool = False, source: Path | Non
         today = date.today().isoformat()
         files = [path for path in files if today in path.name]
     return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
-
-
-def _today_only_from_scope(scope: str, today_only: bool = False) -> bool:
-    if today_only:
-        return True
-    if scope == "briefing-backlog":
-        return False
-    if scope == "today":
-        return True
-    raise ValueError("scope must be 'briefing-backlog' or 'today'")
 
 
 def _jobs_from_candidate_file(path: Path) -> list[dict[str, Any]]:
@@ -57,10 +49,14 @@ def _jobs_from_candidate_file(path: Path) -> list[dict[str, Any]]:
 
 
 def _load_processed_for_root(root: Path) -> tuple[set[str], set[str]]:
-    data = _read_yaml(root / "outputs" / "state" / "discovered_urls.yml")
-    if not isinstance(data, dict):
-        return set(), set()
-    return {canonicalize_url(u) for u in data.get("discovered", []) if u}, set()
+    from job_hunter.db.jobs import get_processed_urls
+
+    return get_processed_urls(root), set()
+
+
+# ---------------------------------------------------------------------------
+# Candidate ID (stable hash from URL)
+# ---------------------------------------------------------------------------
 
 
 def _title_key(job: dict[str, Any]) -> str:
@@ -69,22 +65,19 @@ def _title_key(job: dict[str, Any]) -> str:
     return f"{company}::{title}"
 
 
-def _candidate_id(path: Path, source_ordinal: int, job: dict[str, Any]) -> str:
-    canonical_url = canonicalize_url(str(job.get("url") or ""))
-    identity = "|".join(
-        (
-            canonical_url,
-            path.name,
-            str(source_ordinal),
-            _title_key(job),
-        )
-    )
-    digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()  # noqa: S324
+def _candidate_id(job: dict[str, Any]) -> str:
+    url = canonicalize_url(str(job.get("url") or "")) or str(job.get("url") or "")
+    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()  # noqa: S324
     return f"cand_{digest[:12]}"
 
 
 def _normalized_title(job: dict[str, Any]) -> str:
     return _title_key(job).split("::", 1)[-1]
+
+
+# ---------------------------------------------------------------------------
+# Main queue builder — reads from DB, falls back to snapshot files
+# ---------------------------------------------------------------------------
 
 
 def build_candidate_queue(
@@ -96,9 +89,118 @@ def build_candidate_queue(
     scope: str = DEFAULT_CANDIDATE_SCOPE,
     limit: int = 100,
     max_snippet_chars: int = MAX_SNIPPET_CHARS,
+    run_id: str = "",
 ) -> dict[str, Any]:
     base = _root(root)
-    resolved_today_only = _today_only_from_scope(scope, today_only)
+
+    # If a snapshot file is explicitly provided (tailor --links flow), use it
+    if source and source.exists():
+        return _build_queue_from_files(
+            base,
+            source=source,
+            latest=latest,
+            today_only=today_only,
+            scope=scope,
+            limit=limit,
+            max_snippet_chars=max_snippet_chars,
+        )
+
+    # Primary path: read from DB
+    return _build_queue_from_db(base, run_id=run_id, limit=limit, max_snippet_chars=max_snippet_chars)
+
+
+def _build_queue_from_db(
+    base: Path,
+    *,
+    run_id: str = "",
+    limit: int = 100,
+    max_snippet_chars: int = MAX_SNIPPET_CHARS,
+) -> dict[str, Any]:
+    from job_hunter.config import get_config
+    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.pipeline.screening import screen_jobs_by_rules
+
+    raw_jobs = get_discovered_jobs(base, run_id=run_id or None)
+    processed_urls, _ = _load_processed_for_root(base)
+
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+    queued: list[dict[str, Any]] = []
+    skipped_processed = 0
+    skipped_duplicate = 0
+
+    for job in raw_jobs:
+        url = str(job.get("url") or "")
+        title_key = _title_key(job)
+        canonical = canonicalize_url(url) if url else ""
+        if url and (canonical in processed_urls or url in seen_urls):
+            skipped_processed += 1
+            continue
+        if title_key in seen_titles:
+            skipped_duplicate += 1
+            continue
+        if len(queued) >= limit:
+            break
+        seen_urls.add(url)
+        seen_titles.add(title_key)
+        snippet = str(job.get("snippet") or job.get("jd_text") or "")
+        queued.append(
+            {
+                "candidate_id": _candidate_id(job),
+                "queue_index": len(queued) + 1,
+                "title": str(job.get("title") or ""),
+                "company": str(job.get("company") or ""),
+                "url": url,
+                "canonical_url": canonical,
+                "normalized_company": normalize_company_name(str(job.get("company") or "")),
+                "normalized_title": _normalized_title(job),
+                "location": str(job.get("location") or ""),
+                "region": str(job.get("region") or ""),
+                "posted": str(job.get("posted") or ""),
+                "source": str(job.get("source") or ""),
+                "jd_status": classify_jd_snippet(snippet),
+                "source_file": "db",
+                "source_ordinal": 0,
+                "snippet": _clip(snippet, max_snippet_chars),
+            }
+        )
+
+    cfg = get_config("job_hunter") if base == _root() else {}
+    queued, _hard_rejected = screen_jobs_by_rules(queued, cfg)
+
+    return {
+        "generated": date.today().isoformat(),
+        "scope": "db",
+        "source_files": [],
+        "source_paths": [],
+        "total_seen": len(raw_jobs),
+        "skipped_processed": skipped_processed,
+        "skipped_duplicate": skipped_duplicate,
+        "skipped_hard_screen": len(_hard_rejected),
+        "count": len(queued),
+        "source_reports": [],
+        "jobs": queued,
+    }
+
+
+def _build_queue_from_files(
+    base: Path,
+    *,
+    source: Path | None = None,
+    latest: bool = False,
+    today_only: bool = False,
+    scope: str = DEFAULT_CANDIDATE_SCOPE,
+    limit: int = 100,
+    max_snippet_chars: int = MAX_SNIPPET_CHARS,
+) -> dict[str, Any]:
+    """Legacy snapshot-file queue builder (used when --source is given)."""
+    from job_hunter.config import get_config
+    from job_hunter.pipeline.screening import screen_jobs_by_rules
+
+    resolved_today_only = today_only
+    if scope == "today":
+        resolved_today_only = True
+
     files = _candidate_files(base, today_only=resolved_today_only, source=source)
     if latest and files:
         files = files[:1]
@@ -115,88 +217,74 @@ def build_candidate_queue(
     for path in files:
         source_total = 0
         source_queued = 0
-        source_skipped_processed_url = 0
-        source_skipped_duplicate_url = 0
-        source_skipped_duplicate_title = 0
+        source_skip_proc = 0
+        source_skip_dup_url = 0
+        source_skip_dup_title = 0
         for source_ordinal, job in enumerate(_jobs_from_candidate_file(path), start=1):
             source_total += 1
             total_seen += 1
             url = str(job.get("url") or "")
             title_key = _title_key(job)
-            canonical_url_check = canonicalize_url(url) if url else ""
-            if url and (canonical_url_check in processed_urls or url in seen_urls):
-                if canonical_url_check in processed_urls:
-                    source_skipped_processed_url += 1
+            canonical = canonicalize_url(url) if url else ""
+            if url and (canonical in processed_urls or url in seen_urls):
+                if canonical in processed_urls:
+                    source_skip_proc += 1
                     skipped_processed += 1
                 else:
-                    source_skipped_duplicate_url += 1
+                    source_skip_dup_url += 1
                     skipped_duplicate += 1
                 continue
             if title_key in seen_titles:
-                source_skipped_duplicate_title += 1
+                source_skip_dup_title += 1
                 skipped_duplicate += 1
                 continue
             if len(queued) < limit:
                 seen_urls.add(url)
                 seen_titles.add(title_key)
-                canonical_url = canonicalize_url(url)
+                snippet = str(job.get("snippet") or job.get("description") or "")
                 queued.append(
                     {
-                        "candidate_id": _candidate_id(path, source_ordinal, job),
+                        "candidate_id": _candidate_id(job),
                         "queue_index": len(queued) + 1,
                         "title": str(job.get("title") or ""),
                         "company": str(job.get("company") or ""),
                         "url": url,
-                        "canonical_url": canonical_url,
+                        "canonical_url": canonical,
                         "normalized_company": normalize_company_name(str(job.get("company") or "")),
                         "normalized_title": _normalized_title(job),
                         "location": str(job.get("location") or ""),
                         "region": str(job.get("region") or ""),
                         "posted": str(job.get("posted") or ""),
                         "source": str(job.get("source") or ""),
-                        "jd_status": str(
-                            job.get("jd_status")
-                            or classify_jd_snippet(job.get("snippet") or job.get("description") or "")
-                        ),
+                        "jd_status": str(job.get("jd_status") or classify_jd_snippet(snippet)),
                         "source_file": path.name,
                         "source_ordinal": source_ordinal,
-                        "snippet": _clip(
-                            job.get("snippet") or job.get("description") or "",
-                            max_snippet_chars,
-                        ),
+                        "snippet": _clip(snippet, max_snippet_chars),
                     }
                 )
                 source_queued += 1
 
-        source_skipped = source_skipped_processed_url + source_skipped_duplicate_url + source_skipped_duplicate_title
-        source_reason = ""
+        source_skipped = source_skip_proc + source_skip_dup_url + source_skip_dup_title
+        reason = ""
         if source_total == 0:
-            source_reason = "no_candidates"
+            reason = "no_candidates"
         elif source_queued == 0:
-            if source_skipped == source_total:
-                source_reason = "all_processed_or_duplicate"
-            elif len(queued) >= limit:
-                source_reason = "queue_limit_reached"
-            else:
-                source_reason = "no_queueable_candidates"
+            reason = "all_processed_or_duplicate" if source_skipped == source_total else "no_queueable_candidates"
         source_reports.append(
             {
                 "file": path.name,
                 "path": path.as_posix(),
                 "total_seen": source_total,
                 "queued": source_queued,
-                "skipped_processed_url": source_skipped_processed_url,
-                "skipped_duplicate_url": source_skipped_duplicate_url,
-                "skipped_duplicate_title": source_skipped_duplicate_title,
-                "reason": source_reason,
+                "skipped_processed_url": source_skip_proc,
+                "skipped_duplicate_url": source_skip_dup_url,
+                "skipped_duplicate_title": source_skip_dup_title,
+                "reason": reason,
             }
         )
 
-    from job_hunter.config import get_config
-    from job_hunter.pipeline.screening import screen_jobs_by_rules
-
-    _cfg = get_config("job_hunter") if base == _root() else _read_yaml(base / "config" / "job_hunter.yml")
-    queued, _hard_rejected = screen_jobs_by_rules(queued, _cfg)
+    cfg = get_config("job_hunter") if base == _root() else {}
+    queued, _hard_rejected = screen_jobs_by_rules(queued, cfg)
 
     return {
         "generated": date.today().isoformat(),

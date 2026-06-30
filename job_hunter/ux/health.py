@@ -327,19 +327,17 @@ def _readme_link_errors(root: Path) -> list[str]:
 
 
 def _processed_consistency_errors(root: Path, apps: list[dict[str, Any]]) -> list[str]:
-    state_path = root / "outputs" / "state" / "discovered_urls.yml"
-    if not state_path.exists():
+    db = root / "outputs" / "state" / "jobs.db"
+    if not db.exists():
         return []
-    try:
-        state = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
-    except Exception as exc:
-        return [f"{state_path.as_posix()}: invalid YAML: {exc}"]
+    from job_hunter.db.jobs import get_all_known_urls
+
+    known = get_all_known_urls(root)
     errors = []
-    discovered = set(state.get("discovered") or [])
     for app in apps:
         url = str(app.get("url") or "")
-        if url and app.get("status") in CANONICAL_STATUSES and canonicalize_url(url) not in discovered:
-            errors.append(f"discovered_urls.yml: missing discovered URL for {app.get('slug')}")
+        if url and app.get("status") in CANONICAL_STATUSES and canonicalize_url(url) not in known:
+            errors.append(f"jobs.db: missing URL for {app.get('slug')}")
     return errors
 
 

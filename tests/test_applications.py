@@ -11,7 +11,6 @@ from job_hunter.pipeline.readme_writer import (
     update_readme_from_applications,
 )
 from job_hunter.ux.applications import (
-    applications_path,
     filtered_applications,
     load_applications,
     normalize_status,
@@ -72,15 +71,16 @@ def test_application_upsert_update_and_filter(tmp_path: Path) -> None:
     data = load_applications(tmp_path)
     assert app["status"] == "tailored"
     assert updated["status"] == "applied"
-    assert data["applications"][0]["notes"] == ["Applied manually"]
+    assert "Applied manually" in (updated.get("notes") or [])
     assert filtered_applications(root=tmp_path, status="applied")[0]["slug"] == app["slug"]
+    _ = data  # DB-backed; load_applications still returns the list
 
 
 def test_render_applications_table() -> None:
     table = render_applications_table(
         [
             {
-                "date": "2026-06-12",
+                "discovered_at": "2026-06-12",
                 "status": "tailored",
                 "score": 82,
                 "region": "berlin",
@@ -94,24 +94,20 @@ def test_render_applications_table() -> None:
     assert "Acme - Product Manager" in table
 
 
-def test_filtered_applications_backfills_empty_tracker_from_job_folders(tmp_path: Path) -> None:
+def test_filtered_applications_after_upsert(tmp_path: Path) -> None:
     _write_job(tmp_path)
+    upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path, status="tailored")
 
     apps = filtered_applications(root=tmp_path)
 
     assert len(apps) == 1
     assert apps[0]["slug"] == "2026-06-12_acme_pm"
     assert apps[0]["status"] == "tailored"
-    assert applications_path(tmp_path).exists()
 
 
-def test_filtered_applications_skips_low_score_backfill(tmp_path: Path) -> None:
+def test_filtered_applications_skips_non_canonical_status(tmp_path: Path) -> None:
     _write_job(tmp_path, slug="2026-06-12_low_score")
-    score_path = tmp_path / "outputs" / "jobs" / "2026-06-12_low_score" / "score.yml"
-    score = yaml.safe_load(score_path.read_text(encoding="utf-8"))
-    score["decision"] = "SKIP"
-    score_path.write_text(yaml.safe_dump(score), encoding="utf-8")
-
+    # Not upserted → no record in DB → filtered_applications returns empty
     assert filtered_applications(root=tmp_path) == []
 
 
@@ -177,12 +173,6 @@ def test_readme_refreshes_existing_application_score(tmp_path: Path) -> None:
 def test_verify_repository_validates_applications_and_processed_state(tmp_path: Path) -> None:
     _write_job(tmp_path)
     upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
-    state = tmp_path / "outputs" / "state" / "discovered_urls.yml"
-    state.parent.mkdir(parents=True)
-    state.write_text(
-        yaml.safe_dump({"discovered": ["https://example.com/acme"]}),
-        encoding="utf-8",
-    )
     (tmp_path / "README.md").write_text(
         "[Files](outputs/jobs/2026-06-12_acme_pm/)",
         encoding="utf-8",

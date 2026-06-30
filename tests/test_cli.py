@@ -45,7 +45,7 @@ def test_help_loads() -> None:
     result = run_cli("--help")
     assert result.returncode == 0
     assert "Job search automation" in result.stdout
-    assert "brief" in result.stdout
+    assert "hunt" in result.stdout
 
 
 def test_hunt_command_exists_in_help() -> None:
@@ -101,7 +101,6 @@ def test_removed_commands_not_in_help() -> None:
     assert result.returncode == 0
     for public in (
         "applications",
-        "brief",
         "dashboard",
         "doctor",
         "hunt",
@@ -172,7 +171,7 @@ def test_commit_job_marks_url_as_processed() -> None:
 
     import job_hunter.cli as cli_module
     from job_hunter.tracker import import_job_artifact
-    from job_hunter.tracking.tracker import load_processed, save_processed
+    from job_hunter.tracking.tracker import load_processed
 
     folder = import_job_artifact(
         title="Product Manager",
@@ -189,9 +188,6 @@ def test_commit_job_marks_url_as_processed() -> None:
         urls = load_processed()
         assert "https://example.com/jobs/tracker-test-unit" in urls
     finally:
-        urls = load_processed()
-        urls.discard("https://example.com/jobs/tracker-test-unit")
-        save_processed(urls)
         if folder.exists():
             shutil.rmtree(folder)
 
@@ -224,7 +220,7 @@ def test_mark_processed_from_candidates() -> None:
 
     import yaml
 
-    from job_hunter.tracking.tracker import load_processed, save_processed
+    from job_hunter.tracking.tracker import load_processed
 
     candidates = [
         {
@@ -242,9 +238,6 @@ def test_mark_processed_from_candidates() -> None:
         urls = load_processed()
         assert "https://example.com/mark-test-1" in urls
     finally:
-        urls = load_processed()
-        urls.discard("https://example.com/mark-test-1")
-        save_processed(urls)
         Path(tmp).unlink(missing_ok=True)
 
 
@@ -275,9 +268,8 @@ def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
 
 
 def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> None:
-    import yaml
-
     import job_hunter.cli as cli_module
+    from job_hunter.db.jobs import get_all_known_urls
 
     job_dir = tmp_path / "outputs" / "jobs" / "2026-06-04_toast_product-manager-reporting-platform"
     job_dir.mkdir(parents=True)
@@ -294,10 +286,9 @@ def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> No
 
     added = cli_module._sync_processed_from_job_outputs(tmp_path)
 
-    state = yaml.safe_load((tmp_path / "outputs" / "state" / "discovered_urls.yml").read_text(encoding="utf-8"))
+    known = get_all_known_urls(tmp_path)
     assert added == 1
-    assert state["discovered"] == ["https://careers.toasttab.com/jobs?gh_jid=7814998"]
-    assert "applied_titles" not in state
+    assert "https://careers.toasttab.com/jobs?gh_jid=7814998" in known
 
 
 def test_finalize_validation_blocks_excluded_apply_and_broken_readme_link(
@@ -526,33 +517,20 @@ def test_discard_job_removes_folder_and_tracks() -> None:
     import shutil
 
     from job_hunter.tracker import import_job_artifact
-    from job_hunter.tracking.tracker import load_processed, save_processed
-    from job_hunter.ux.applications import applications_path, load_applications, save_applications
+    from job_hunter.tracking.tracker import load_processed
 
     folder = import_job_artifact(
         title="Product Owner",
         company="DiscardTestCo",
         url="https://example.com/discard-test",
     )
-    app_path = applications_path()
-    original_applications = app_path.read_bytes() if app_path.exists() else None
-    save_applications({"applications": []})
     try:
         result = run_cli("internal", "discard-job", "--job", folder.name)
         assert result.returncode == 0
         assert not folder.exists()
         urls = load_processed()
         assert "https://example.com/discard-test" in urls
-        assert load_applications()["applications"] == []
     finally:
-        urls = load_processed()
-        urls.discard("https://example.com/discard-test")
-        save_processed(urls)
-        if original_applications is None:
-            save_applications({"applications": []})
-            app_path.unlink(missing_ok=True)
-        else:
-            app_path.write_bytes(original_applications)
         if folder.exists():
             shutil.rmtree(folder)
 

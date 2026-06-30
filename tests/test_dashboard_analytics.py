@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from job_hunter.ux.analytics import analyze_pipeline
-from job_hunter.ux.applications import save_applications
+from job_hunter.ux.applications import upsert_application
 from job_hunter.ux.dashboard import dashboard_summary, render_dashboard
 
 
@@ -27,26 +27,25 @@ def test_dashboard_summary_and_render() -> None:
 
 def test_analyze_pipeline_reports_counts_and_followups(tmp_path: Path) -> None:
     old = (datetime.now(UTC) - timedelta(days=10)).replace(microsecond=0).isoformat()
-    save_applications(
+    upsert_application(
         {
-            "applications": [
-                {
-                    "slug": "low",
-                    "status": "tailored",
-                    "score": 55,
-                    "region": "berlin",
-                    "url": "https://jobs.example.com/low",
-                    "updated_at": old,
-                },
-                {
-                    "slug": "applied",
-                    "status": "applied",
-                    "score": 82,
-                    "region": "remote",
-                    "url": "https://boards.greenhouse.io/acme",
-                    "updated_at": old,
-                },
-            ]
+            "slug": "low",
+            "status": "tailored",
+            "score": 55,
+            "region": "berlin",
+            "url": "https://jobs.example.com/low",
+            "updated_at": old,
+        },
+        root=tmp_path,
+    )
+    upsert_application(
+        {
+            "slug": "applied",
+            "status": "applied",
+            "score": 82,
+            "region": "remote",
+            "url": "https://boards.greenhouse.io/acme",
+            "updated_at": old,
         },
         root=tmp_path,
     )

@@ -59,11 +59,9 @@ def dispatch_hunt(
         f"\n[hunt] mode={result.mode} fetched={result.stats.total_fetched} "
         f"duration={result.stats.duration_seconds:.1f}s"
     )
-    if result.snapshot_path:
-        print(f"[hunt] snapshot: {result.snapshot_path}")
-        print(f"snapshot_path={result.snapshot_path.as_posix()}")
-        print(f"candidate_count={result.stats.total_after_policy}")
-        print(f"has_candidates={str(result.stats.total_after_policy > 0).lower()}")
+    print(f"run_id={result.run_id}")
+    print(f"candidate_count={result.stats.total_after_policy}")
+    print(f"has_candidates={str(result.stats.total_after_policy > 0).lower()}")
     if result.mode == "agent":
         print("[hunt] Ready for agent skills -> run /job-hunter batch or /job-hunter one <url>")
 

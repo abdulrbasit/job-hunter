@@ -119,7 +119,8 @@ class HuntOutput(BaseModel):
 
     jobs: list[JobPosting] = Field(default_factory=list)
     stats: ScrapeStats = Field(default_factory=ScrapeStats)
-    snapshot_path: Path | None = None
+    run_id: str = ""
+    snapshot_path: Path | None = None  # legacy: kept for llm-api --from-snapshot compat
     mode: Literal["agent", "llm-api"] = "agent"
 
 

@@ -6,8 +6,6 @@ All external HTTP calls are monkeypatched out.
 
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime
 from pathlib import Path
 
 from job_hunter import agent_context
@@ -38,7 +36,9 @@ _FAKE_JOBS = [
 
 
 def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -> None:
-    """run_hunt_scrape_only writes to outputs/candidates/{date}_{region}_candidates.json."""
+    """run_hunt_scrape_only inserts jobs into DB and returns (run_id, count, stats)."""
+    from job_hunter.db.jobs import get_discovered_jobs
+
     monkeypatch.setattr(
         hunt_pipeline,
         "_jobs_from_hunt",
@@ -54,20 +54,14 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    today = datetime.now(UTC).date().isoformat()
-    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     assert count == 2
-    assert path.parent == tmp_path / "outputs" / "candidates"
-    assert path.name.startswith(f"{today}T")
-    assert path.name.endswith("_primary_candidates.json")
-    assert path.exists()
-
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["count"] == 2
-    assert payload["region"] == "primary"
-    assert len(payload["jobs"]) == 2
-    assert payload["jobs"][0]["title"] == "Product Manager"
+    assert isinstance(run_id, str) and "T" in run_id
+    jobs = get_discovered_jobs(tmp_path, run_id=run_id)
+    assert len(jobs) == 2
+    titles = {j["title"] for j in jobs}
+    assert "Product Manager" in titles
 
 
 def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) -> None:
@@ -101,7 +95,9 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
 
 
 def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: Path) -> None:
-    """Even with 0 results, the candidates file is written so the workflow step can read count=0."""
+    """Even with 0 results, run_hunt_scrape_only returns count=0 and run_id string."""
+    from job_hunter.db.jobs import get_discovered_jobs
+
     monkeypatch.setattr(
         hunt_pipeline,
         "_jobs_from_hunt",
@@ -110,10 +106,8 @@ def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: P
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    path, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
 
     assert count == 0
-    assert path.exists()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["count"] == 0
-    assert payload["jobs"] == []
+    assert isinstance(run_id, str)
+    assert get_discovered_jobs(tmp_path) == []

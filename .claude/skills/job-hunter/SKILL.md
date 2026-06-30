@@ -2,7 +2,7 @@
 name: job-hunter
 description: "Primary job search command center. Routes to individual skills for all job search work."
 when_to_use: "Use for all job search work: running hunts, processing candidates, tailoring, researching, and managing the pipeline."
-argument-hint: "[brief|batch|one <url>|search|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
+argument-hint: "[batch|one <url>|search|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
 disable-model-invocation: true
 allowed-tools: Bash Read Edit Write WebSearch WebFetch
 author: "Abdul Basit (@abdulrbasit)"
@@ -25,7 +25,7 @@ Arguments: `$ARGUMENTS`
 | Story bank | `profile/story_bank.md` |
 | Candidate queue | `outputs/state/agent_candidate_queue.json` |
 | Job outputs | `outputs/jobs/<slug>/` |
-| Processed log | `outputs/state/discovered_urls.yml` |
+| Job DB | `outputs/state/jobs.db` |
 | Config | `config/job_hunter.yml` |
 
 ## Safety Rules
@@ -37,7 +37,7 @@ Arguments: `$ARGUMENTS`
 
 ## Initialization
 
-Before any mode that reads profile files (batch, one, tailor, score, brief), run:
+Before any mode that reads profile files (batch, one, tailor, score), run:
 
 ```bash
 job-hunter internal compile-profile
@@ -50,7 +50,6 @@ This compiles profile files into minified versions for the session. Silent on fa
 Normalize the first argument to lowercase. Empty argument → `help`.
 
 **Daily workflow**
-- `brief`, `today`, `status`: execute `.claude/skills/job-hunter/modes/brief.md` inline.
 - `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
 - `batch`, `batch lite`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
@@ -78,7 +77,6 @@ Unknown mode → print the command menu and ask the user to choose a listed mode
 Job Hunter Command Center
 
 ── Daily Workflow ──────────────────────────────────────────────────────
-/job-hunter brief              Pull latest and show today's candidate brief
 /job-hunter dashboard          Show the application tracker dashboard
 /job-hunter batch              Process the next frozen candidate batch
 /job-hunter batch lite         Lite batch: skip semantic screen, research, and cover letters

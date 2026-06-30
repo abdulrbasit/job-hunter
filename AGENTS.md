@@ -21,7 +21,7 @@ Set `mode:` in `config/job_hunter.yml`.
 - `config/schemas/job_hunter.schema.json`: schema for `job_hunter.yml`.
 - `job_hunter/templates/workspace/profile/`: canonical starter profile and resume templates.
 - `examples/profile/`: filled fictional examples; not a template source.
-- `outputs/state/discovered_urls.yml`: URL-only dedup state.
+- `outputs/state/jobs.db`: SQLite — single source of truth for all job state (URL dedup, scraped candidates, application lifecycle).
 
 ## Skills
 
@@ -91,7 +91,7 @@ Human career and writing guidance lives in `profile/career_context.md`: about-me
 notes, targeting, resume style, cover-letter style, LinkedIn positioning,
 outreach tone, and calibration.
 
-`outputs/state/discovered_urls.yml` is URL-only dedup. Same company with a
+`outputs/state/jobs.db` is the single source of truth for all job state. Same company with a
 different URL is never blocked.
 
 ## LLM API Mode

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -306,6 +305,8 @@ def test_careerjet_stops_after_terminal_http_error(monkeypatch) -> None:
 
 
 def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch, tmp_path) -> None:
+    from job_hunter.db.jobs import get_discovered_jobs
+
     job = _posting().model_dump()
     stats = ScrapeStats(total_fetched=2, total_after_dedup=1, total_after_policy=1, duration_seconds=1.25)
     saved: list[set[str]] = []
@@ -316,13 +317,11 @@ def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch,
     monkeypatch.setattr(hunt, "load_cached_candidate_urls", lambda: {"https://example.com/jobs/old"})
     monkeypatch.setattr(hunt, "save_cached_candidate_urls", lambda urls: saved.append(urls))
 
-    path, count, returned_stats = hunt.run_hunt_scrape_only("berlin", tmp_path, api_cfg={})
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    run_id, count, returned_stats = hunt.run_hunt_scrape_only("berlin", tmp_path, api_cfg={})
 
     assert count == 1
     assert returned_stats == stats
-    assert "T" in payload["created_at"]
-    assert payload["stats"]["total_after_policy"] == 1
-    assert path.name.startswith("2026-")
-    assert path.name.endswith("_berlin_candidates.json")
+    assert isinstance(run_id, str) and "T" in run_id
     assert saved == [{"https://example.com/jobs/old", "https://example.com/jobs/pm"}]
+    db_jobs = get_discovered_jobs(tmp_path, run_id=run_id)
+    assert len(db_jobs) == 1

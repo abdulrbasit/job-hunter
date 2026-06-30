@@ -12,13 +12,11 @@ FINALIZE_PATHS = (
     "README.md",
     "config",
     "profile",
-    "outputs/applications.yml",
-    "outputs/candidates",
     "outputs/jobs",
     "outputs/linkedin",
     "outputs/state/api_usage.json",
     "outputs/state/dev_token_metrics.json",
-    "outputs/state/discovered_urls.yml",
+    "outputs/state/jobs.db",
 )
 TRANSIENT_STATE_PATHS = (
     "outputs/state/agent_candidate_queue.json",
@@ -47,44 +45,9 @@ def cleanup_transient_state(root: Path, *, label: str) -> int:
 
 
 def sync_processed_from_job_outputs(root: Path) -> int:
-    import yaml
+    from job_hunter.db.jobs import sync_from_job_folders
 
-    jobs_dir = root / "outputs" / "jobs"
-    if not jobs_dir.exists():
-        return 0
-
-    state_path = root / "outputs" / "state" / "discovered_urls.yml"
-    if state_path.exists():
-        state = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
-    else:
-        state = {}
-    urls = set(state.get("discovered", []) or [])
-    before = len(urls)
-
-    for meta_path in sorted(jobs_dir.glob("*/meta.json")):
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        url = str(meta.get("url") or "")
-        if url:
-            urls.add(url)
-
-    added = len(urls) - before
-    if not added:
-        return 0
-
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    header = (
-        "# URL-only dedup state. Each entry is a canonical job URL.\n"
-        "# Automatically updated after each run.\n"
-        "# Remove a URL manually to rediscover or reprocess that job.\n\n"
-    )
-    state_path.write_text(
-        header + yaml.safe_dump({"discovered": sorted(urls)}, default_flow_style=False, allow_unicode=True),
-        encoding="utf-8",
-    )
-    return added
+    return sync_from_job_folders(root)
 
 
 def _score_file_error(score_path: Path, meta: dict, job_dir: Path, policy: Any) -> str:
