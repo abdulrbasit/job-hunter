@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile current LaTeX resume with Docker",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--volume",
+        "${fileDirname}:/work",
+        "--workdir",
+        "/work",
+        "texlive/texlive:latest-full",
+        "pdflatex",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "${fileBasename}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

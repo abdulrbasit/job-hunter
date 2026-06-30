@@ -34,6 +34,12 @@ def test_strip_latex_comments_strips_inline_comments() -> None:
     assert "Foo" in result
 
 
+def test_strip_latex_comments_preserves_escaped_percent() -> None:
+    result = strip_latex_comments("\\item{Contributed 15\\% to engineering} % note")
+    assert "15\\% to engineering" in result
+    assert "note" not in result
+
+
 def test_compact_latex_resume_strips_commands() -> None:
     tex = textwrap.dedent("""\
         \\documentclass[10pt]{altacv}
@@ -48,6 +54,52 @@ def test_compact_latex_resume_strips_commands() -> None:
     assert "Experience" in result
     assert "Acme" in result
     assert "pipeline" in result
+
+
+def test_compact_latex_resume_keeps_only_document_content() -> None:
+    tex = textwrap.dedent("""\
+        \\definecolor{PrimaryColor}{HTML}{1B2A4E}
+        \\renewcommand{\\cvevent}[4]{layout internals}
+        \\begin{document}
+        \\name{Abdul Basit}
+        \\item{Contributed 15\\% to Software Engineering}
+        \\item{AI \\& Speech}
+        \\end{document}
+    """)
+    result = compact_latex_resume(tex)
+    assert "PrimaryColor" not in result
+    assert "layout internals" not in result
+    assert "Abdul Basit" in result
+    assert "15% to Software Engineering" in result
+    assert "AI & Speech" in result
+
+
+def test_compact_latex_resume_drops_layout_only_commands() -> None:
+    tex = textwrap.dedent("""\
+        \\begin{document}
+        \\photoR{2.8cm}{profile}
+        \\columnratio{0.70}
+        \\setlength{\\columnsep}{0.8cm}
+        \\cvsection{Experience}
+        \\item{Built products}
+        \\end{document}
+    """)
+    result = compact_latex_resume(tex)
+    assert "2.8cm" not in result
+    assert "profile" not in result
+    assert "0.70" not in result
+    assert "0.8cm" not in result
+    assert "Experience" in result
+    assert "Built products" in result
+
+
+def test_compact_latex_resume_cleans_math_separator_and_blank_lines() -> None:
+    tex = "\\begin{document}\nGitHub $\\cdot$ PyPI\\\\[6pt]\n\\divider\n\n\nText\n\\end{document}"
+    result = compact_latex_resume(tex)
+    assert "$" not in result
+    assert "GitHub · PyPI" in result
+    assert "[6pt]" not in result
+    assert "\n\n\n" not in result
 
 
 def test_compact_latex_resume_collapses_whitespace() -> None:

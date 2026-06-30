@@ -11,9 +11,7 @@ profile:
   latex_class: "profile/altacv.cls"
   profile_image: "profile/profile.png"
 
-job_titles:
-  - "Product Manager"
-  - "Product Owner"
+job_titles: []
 
 regions:
   primary:
@@ -33,18 +31,8 @@ regions:
 
 exclusions:
   companies: []
-  title_terms:
-    - intern
-    - internship
-    - trainee
-    - working student
-    - werkstudent
-    - junior
-    - principal
-    - expert
-    - chief product
-  languages:
-    - german
+  title_terms: []
+  languages: []
   industries: []
 
 scoring:

@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Office/Business",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
   "typer>=0.12",
   "anthropic>=0.50.0",
@@ -60,7 +60,6 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/SETUP.md",
   "workspace/AGENTS.md",
   "workspace/CLAUDE.md",
-  "workspace/GEMINI.md",
   "workspace/README.md",
   "workspace/COMMANDS.md",
   "workspace/.env.example",

@@ -13,6 +13,10 @@ Works interactively inside Claude Code or Codex (VS Code extensions), or runs fu
 
 ## Install
 
+Requires [Python 3.12 or 3.13](https://www.python.org/downloads/). See the
+complete beginner-friendly [SETUP.md](job_hunter/templates/workspace/SETUP.md)
+for installation, PATH troubleshooting, API-key links, and agent permissions.
+
 ```bash
 uv tool install job-hunter-kit
 ```

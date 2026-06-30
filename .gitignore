@@ -53,6 +53,8 @@ job_hunter/templates/workspace/profile/*.pdf
 
 # IDE
 .vscode/
+!job_hunter/templates/workspace/.vscode/
+!job_hunter/templates/workspace/.vscode/*.json
 .idea/
 *.swp
 
