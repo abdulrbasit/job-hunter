@@ -14,6 +14,8 @@ from job_hunter.workspace.manifest import (
     WORKSPACE_VERSION,
     WorkspaceManifest,
     _package_version,
+    is_protected,
+    read_manifest,
     sha256_bytes,
     write_manifest,
 )
@@ -36,15 +38,43 @@ def iter_template_skill_files() -> list[tuple[str, bytes]]:
 
 
 def update_skills(workspace: Path) -> SkillsUpdateResult:
-    """Copy bundled skill files into a workspace for all supported agent CLIs."""
+    """Copy bundled skill files into a workspace, deleting stale removed files."""
     workspace = workspace.resolve()
     result = SkillsUpdateResult()
 
-    for rel_path, content in iter_template_skill_files():
+    # Collect current template skills
+    current_skills = {rel: content for rel, content in iter_template_skill_files()}
+
+    # Delete skills that were previously managed but no longer exist in the template
+    try:
+        manifest = read_manifest(workspace)
+        stale = set(manifest.managed_files.keys()) - set(current_skills.keys())
+        for rel in sorted(stale):
+            dest = workspace / rel
+            unchanged = dest.is_file() and sha256_bytes(dest.read_bytes()) == manifest.managed_files[rel]
+            if unchanged and not is_protected(rel):
+                dest.unlink()
+                typer.echo(f"[ok] Removed stale skill: {rel}")
+            elif dest.is_file():
+                typer.echo(f"[warn] Preserved modified stale skill: {rel}")
+    except FileNotFoundError:
+        pass  # no manifest — old workspace, skip cleanup
+
+    # Write all current skills and update manifest
+    new_managed: dict[str, str] = {}
+    for rel_path, content in current_skills.items():
         dest = workspace / rel_path
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
         result.written.append(rel_path)
+        new_managed[rel_path] = sha256_bytes(content)
+
+    try:
+        manifest = read_manifest(workspace)
+        manifest.managed_files = new_managed
+        write_manifest(workspace, manifest)
+    except FileNotFoundError:
+        pass  # no manifest — old workspace, skip
 
     typer.echo(f"[ok] Updated {len(result.written)} skill file(s) in {workspace / '.claude' / 'skills'}")
     return result

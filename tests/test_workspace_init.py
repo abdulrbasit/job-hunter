@@ -5,6 +5,7 @@ from pathlib import Path
 
 import yaml
 
+from job_hunter.workspace import _ops as workspace_ops
 from job_hunter.workspace._assets import iter_managed_files, iter_packaged_resource_files
 from job_hunter.workspace._ops import iter_template_skill_files, run_init, update_skills
 from job_hunter.workspace.manifest import MANIFEST_PATH
@@ -133,6 +134,37 @@ def test_update_skills_writes_only_skill_files_and_preserves_user_data(tmp_path:
     assert output.read_text(encoding="utf-8") == "user output stays\n"
     assert custom_skill.read_text(encoding="utf-8") == "custom skill stays\n"
     assert bundled_skill.read_text(encoding="utf-8") != "old bundled skill\n"
+
+
+def test_update_skills_removes_unchanged_stale_managed_skill(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+    stale_rel = ".claude/skills/setup/SKILL.md"
+    stale = workspace / stale_rel
+    current = [(rel, content) for rel, content in iter_template_skill_files() if rel != stale_rel]
+    monkeypatch.setattr(workspace_ops, "iter_template_skill_files", lambda: current)
+
+    update_skills(workspace)
+
+    manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
+    assert not stale.exists()
+    assert stale_rel not in manifest["managed_files"]
+
+
+def test_update_skills_preserves_modified_stale_managed_skill(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+    stale_rel = ".claude/skills/setup/SKILL.md"
+    stale = workspace / stale_rel
+    stale.write_text("user customization\n", encoding="utf-8")
+    current = [(rel, content) for rel, content in iter_template_skill_files() if rel != stale_rel]
+    monkeypatch.setattr(workspace_ops, "iter_template_skill_files", lambda: current)
+
+    update_skills(workspace)
+
+    manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
+    assert stale.read_text(encoding="utf-8") == "user customization\n"
+    assert stale_rel not in manifest["managed_files"]
 
 
 def test_template_skill_files_are_subset_of_workspace_assets() -> None:
