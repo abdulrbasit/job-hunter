@@ -74,6 +74,7 @@ def fetch_smartrecruiters_jobs(
                 "posted": posting.get("releasedDate", ""),
                 "location": location_str,
                 "snippet": snippet,
+                "employment_type": (posting.get("typeOfEmployment") or {}).get("label", ""),
                 "source": "SmartRecruiters API",
             }
         )

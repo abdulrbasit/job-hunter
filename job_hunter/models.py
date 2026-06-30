@@ -52,6 +52,7 @@ class JobPosting(BaseModel):
     employment_type: str = ""
     seniority: list[str] = Field(default_factory=list)
     fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
+    llm_open_check: str = ""  # advisory: "open"|"closed"|"unknown" — set for date_status="missing" jobs
     # Set by score stage
     score: int | None = None
     matched_keywords: list[str] = Field(default_factory=list)

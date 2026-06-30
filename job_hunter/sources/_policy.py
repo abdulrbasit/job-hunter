@@ -204,6 +204,41 @@ _COMPANY_NOISE_SUFFIX_RE = re.compile(
 )
 
 
+_EMPLOYMENT_TYPE_CANONICAL: dict[str, str] = {
+    "full_time": "full_time",
+    "full-time": "full_time",
+    "fulltime": "full_time",
+    "full time": "full_time",
+    "permanent": "full_time",
+    "employee": "full_time",
+    "part_time": "part_time",
+    "part-time": "part_time",
+    "parttime": "part_time",
+    "part time": "part_time",
+    "contract": "contract",
+    "contractor": "contract",
+    "freelance": "contract",
+    "freelancer": "contract",
+    "temporary": "temporary",
+    "temp": "temporary",
+    "casual": "temporary",
+    "seasonal": "temporary",
+    "apprenticeship": "temporary",
+    "internship": "internship",
+    "intern": "internship",
+    "werkstudent": "internship",
+    "werkstudentin": "internship",
+}
+
+
+def normalize_employment_type(val: str) -> str:
+    """Map raw employment-type strings to canonical values (full_time/part_time/contract/temporary/internship)."""
+    if not val:
+        return ""
+    key = re.sub(r"[-\s]+", "_", val.lower().strip())
+    return _EMPLOYMENT_TYPE_CANONICAL.get(key, key)
+
+
 def normalize_company_name(company: str) -> str:
     company = _COMPANY_NOISE_SUFFIX_RE.sub("", company or "")
     normalized = _CORPORATE_SUFFIX_RE.sub("", company)

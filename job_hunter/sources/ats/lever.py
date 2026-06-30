@@ -69,6 +69,7 @@ def fetch_lever_jobs(
                 "snippet": (
                     f"{display_location} - {plain[:_SNIPPET_CHARS]}" if display_location else plain[:_SNIPPET_CHARS]
                 ),
+                "employment_type": categories.get("commitment", ""),
                 "source": "Lever API",
             }
         )

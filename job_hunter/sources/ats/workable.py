@@ -49,6 +49,7 @@ def fetch_workable_jobs(
                 "posted": posting.get("published_on", ""),
                 "location": location_str,
                 "snippet": f"{location_str} - {posting.get('department', '')}",
+                "employment_type": posting.get("employment_type", ""),
                 "source": "Workable API",
             }
         )

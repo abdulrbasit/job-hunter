@@ -85,7 +85,16 @@ def _conn(root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(root))
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    new_cols = [("llm_open_check", "TEXT DEFAULT ''")]
+    for col_name, col_def in new_cols:
+        if col_name not in existing:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {col_name} {col_def}")  # noqa: S608
 
 
 def _now() -> str:
@@ -206,7 +215,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     employment_type, fetch_status,
                     location_restrictions, ats_platform, enrichment_source,
                     score, matched_keywords, gaps,
-                    jd_text,
+                    jd_text, llm_open_check,
                     discovered_at, created_at, updated_at
                 ) VALUES (
                     ?, ?, 'discovered', ?,
@@ -215,15 +224,16 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     ?, ?,
                     ?, ?, ?,
                     ?, ?, ?,
-                    ?,
+                    ?, ?,
                     ?, ?, ?
                 ) ON CONFLICT(url) DO UPDATE SET
-                    status      = CASE WHEN jobs.status = 'candidate' THEN 'discovered' ELSE jobs.status END,
-                    run_id      = COALESCE(excluded.run_id, jobs.run_id),
-                    snippet     = COALESCE(excluded.snippet, jobs.snippet),
-                    fetch_status= COALESCE(excluded.fetch_status, jobs.fetch_status),
-                    jd_text     = COALESCE(excluded.jd_text, jobs.jd_text),
-                    updated_at  = excluded.updated_at""",
+                    status          = CASE WHEN jobs.status = 'candidate' THEN 'discovered' ELSE jobs.status END,
+                    run_id          = COALESCE(excluded.run_id, jobs.run_id),
+                    employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
+                    snippet         = COALESCE(excluded.snippet, jobs.snippet),
+                    fetch_status    = COALESCE(excluded.fetch_status, jobs.fetch_status),
+                    jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
+                    updated_at      = excluded.updated_at""",
                 (
                     url,
                     canonical,
@@ -246,6 +256,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     json.dumps(mk) if mk is not None else None,
                     json.dumps(gaps) if gaps is not None else None,
                     str(job.get("snippet") or ""),  # jd_text seeded from snippet
+                    str(job.get("llm_open_check") or ""),
                     now,
                     now,
                     now,
@@ -514,3 +525,13 @@ def sync_from_job_folders(root: Path) -> int:
         upsert_job(root, entry)
         synced += 1
     return synced
+
+
+def set_llm_open_check(root: Path, url: str, result: str) -> None:
+    """Store advisory open-check result ('open'|'closed'|'unknown') for a job URL."""
+    now = _now()
+    with _conn(root) as conn:
+        conn.execute(
+            "UPDATE jobs SET llm_open_check = ?, updated_at = ? WHERE url = ? OR canonical_url = ?",
+            (result, now, url, url),
+        )

@@ -44,6 +44,7 @@ def fetch_personio_jobs(
             if value:
                 descriptions.append(f"{label}: {value}" if label else value)
         body = " ".join(descriptions)
+        employment_type = (position.findtext("schedule") or position.findtext("employment_type") or "").strip()
         jobs.append(
             {
                 "title": title,
@@ -54,6 +55,7 @@ def fetch_personio_jobs(
                 "posted": "",
                 "location": location,
                 "snippet": _build_snippet(location, body),
+                "employment_type": employment_type,
                 "source": "Personio XML",
             }
         )

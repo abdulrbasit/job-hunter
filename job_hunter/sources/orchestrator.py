@@ -20,7 +20,7 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
-from job_hunter.sources._policy import JobPolicy
+from job_hunter.sources._policy import JobPolicy, normalize_employment_type
 from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
 from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.sources.search_providers.preflight import probe_search_providers
@@ -126,7 +126,14 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                 reject("incompatible_location_metadata")
                 continue
             seen_urls.add(url)
-            results.append(jp.model_copy(update={"date_status": policy.posting_date_status(jp.posted)}))
+            results.append(
+                jp.model_copy(
+                    update={
+                        "date_status": policy.posting_date_status(jp.posted),
+                        "employment_type": normalize_employment_type(jp.employment_type),
+                    }
+                )
+            )
             stats.total_after_policy += 1
             stats.accepted_by_source[source] = stats.accepted_by_source.get(source, 0) + 1
         if source_rejected:

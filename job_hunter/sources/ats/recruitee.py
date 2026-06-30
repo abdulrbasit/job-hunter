@@ -47,6 +47,7 @@ def fetch_recruitee_jobs(
                 "posted": (offer.get("published_at") or "")[:10],
                 "location": str(location),
                 "snippet": _build_snippet(location, body),
+                "employment_type": offer.get("kind", ""),
                 "source": "Recruitee API",
             }
         )

@@ -184,6 +184,40 @@ def strategic_override_companies(config: dict) -> list[str]:
     ]
 
 
+_OPEN_CHECK_SYSTEM = (
+    "You are screening job postings. "
+    'Return ONLY valid JSON: {"open": bool, "reason": str}. '
+    "Set open=true if the posting appears to be actively accepting applications. "
+    "Set open=false if it shows signs of being closed, filled, or expired. "
+    "Set open=null if genuinely uncertain."
+)
+
+
+def check_job_open(snippet: str, config: dict | None = None) -> str:
+    """Advisory check: is this posting still open? Returns 'open'|'closed'|'unknown'."""
+    if config is None:
+        config = load_runtime_config()
+    stage = LLMStage(
+        "scoring",
+        response_format="json",
+        client_factory=get_llm_client,
+        settings_factory=get_llm_role_settings,
+    )
+    prompt = f"Is this job posting still accepting applications?\n\n{snippet[:2000]}"
+    try:
+        raw = stage.complete(system=_OPEN_CHECK_SYSTEM, user=prompt)
+        result = stage.parse_json_object(raw, "open-check response must be a JSON object")
+        open_val = result.get("open")
+        if open_val is True:
+            return "open"
+        if open_val is False:
+            return "closed"
+        return "unknown"
+    except Exception as exc:
+        logger.debug("[scorer] open-check failed: %s", exc)
+        return "unknown"
+
+
 def score_and_filter_jobs(
     jobs: list[dict],
     min_score: int | None = None,

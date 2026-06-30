@@ -141,6 +141,7 @@ class ReedSource(JobSourceAdapter):
                             posted=_parse_date(item.get("date")),
                             location=location_str,
                             snippet=snippet,
+                            employment_type=item.get("contractType", ""),
                             source="Reed",
                             query=f"{title} @ {params.region_key}",
                             region=params.region_key,
