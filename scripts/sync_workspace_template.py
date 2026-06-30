@@ -34,6 +34,10 @@ _ROOT_DIRS = [
     "config",
 ]
 
+# Files within _ROOT_DIRS that are workspace-only and must NOT be synced.
+# job_hunter.yml: template ships with blank defaults; root copy has personal data.
+_SKIP_IN_DIRS: frozenset[str] = frozenset({"config/job_hunter.yml"})
+
 # Dev-only skills — must match _DEV_SKILL_DIRS in job_hunter/workspace/_assets.py
 _DEV_SKILL_DIRS = frozenset({"code", "commit", "dev-skills", "dev-tools", "refactor", "test"})
 
@@ -91,7 +95,10 @@ def sync(*, check: bool = False) -> int:  # noqa: C901
             if not child.is_file():
                 continue
             rel = child.relative_to(src)
-            items.append((child, TEMPLATE / name / rel, f"{name}/{rel.as_posix()}"))
+            label = f"{name}/{rel.as_posix()}"
+            if label in _SKIP_IN_DIRS:
+                continue
+            items.append((child, TEMPLATE / name / rel, label))
         _sync_items(items, check, changes)
 
     # User skills

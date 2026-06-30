@@ -37,7 +37,7 @@ _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/
 
 # Dev-only skills — excluded from the user workspace template.
 _DEV_SKILL_DIRS: frozenset[str] = frozenset({"code", "commit", "dev-skills", "dev-tools", "refactor", "test"})
-_UPDATE_ASSETS = ("README.md", "SETUP.md", "config/career_pages.yml")
+_UPDATE_ASSETS = ("README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml")
 _README_BLOCKS = (
     ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
     ("<!-- JOBS_TABLE_START -->", "<!-- JOBS_TABLE_END -->"),

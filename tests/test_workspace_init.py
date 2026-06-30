@@ -196,7 +196,10 @@ def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path:
     import yaml
 
     assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "User Company"}]
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
+    # user job_hunter.yml is merged: user values preserved, new template keys injected
+    job_cfg = tmp_path / "config" / "job_hunter.yml"
+    assert job_cfg.exists()
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
@@ -207,7 +210,8 @@ def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) 
     packaged = dict(iter_packaged_resource_files())
     assert (tmp_path / "SETUP.md").read_bytes() == packaged["SETUP.md"]
     assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
+    assert (tmp_path / "config" / "job_hunter.yml").exists()
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
 
 
 def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_path: Path) -> None:
@@ -230,7 +234,7 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
     assert "**Application stats:** 1 job tracked." in updated
     assert "[PM @ Acme](https://example.com/job)" in updated
     assert (tmp_path / "SETUP.md").exists()
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml"]
+    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
 
 
 def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(tmp_path: Path) -> None:
