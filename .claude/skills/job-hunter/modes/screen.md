@@ -19,7 +19,9 @@ and `judgment_signals`.
 - `PASS`: plausible target role.
 - `SKIP`: excluded employer industry, functionally engineering rather than product,
   too senior, explicit experience exceeds configured limit without strategic override,
-  or another career-context dealbreaker clearly applies.
+  another career-context dealbreaker clearly applies, or the posting shows clear signs
+  of being closed/filled (e.g., "position filled", "no longer accepting applications",
+  "requisition closed" in snippet — especially when `date_status=missing`).
 
 Industry terms are signals, never proof. Distinguish employer industry from customers,
 features, compliance responsibilities, and prior experience. Ambiguous evidence passes.

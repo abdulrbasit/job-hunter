@@ -44,12 +44,16 @@ def test_workspace_template_config_is_valid_yaml() -> None:
 def test_workspace_onboarding_is_input_driven_and_documents_prerequisites() -> None:
     files = dict(iter_managed_files())
     onboard = files[".claude/skills/setup/modes/onboard.md"].decode("utf-8")
+    onboard_agent = files[".claude/skills/setup/modes/onboard_agent.md"].decode("utf-8")
+    onboard_llm = files[".claude/skills/setup/modes/onboard_llm_api.md"].decode("utf-8")
     setup = files["SETUP.md"].decode("utf-8")
     tasks = json.loads(files[".vscode/tasks.json"])
 
+    # onboard.md is a thin router — asks which mode (A = agent, B = llm-api)
     assert "which mode" in onboard.lower()
-    assert "which llm provider" in onboard.lower()
-    assert "profile photo" in onboard.lower()
+    # mode-specific details live in sub-files
+    assert "llm provider" in onboard_llm.lower()
+    assert "profile photo" in onboard_agent.lower() or "profile photo" in onboard_llm.lower()
     assert "https://www.python.org/downloads/" in setup
     assert "command not found" in setup.lower()
     assert "auto-approve" in setup.lower()
@@ -199,7 +203,14 @@ def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path:
     # user job_hunter.yml is merged: user values preserved, new template keys injected
     job_cfg = tmp_path / "config" / "job_hunter.yml"
     assert job_cfg.exists()
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
+    assert written == [
+        "README.md",
+        "SETUP.md",
+        "SETUP_AGENT.md",
+        "SETUP_LLM_API.md",
+        "config/career_pages.yml",
+        "config/job_hunter.yml",
+    ]
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
@@ -211,7 +222,14 @@ def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) 
     assert (tmp_path / "SETUP.md").read_bytes() == packaged["SETUP.md"]
     assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
     assert (tmp_path / "config" / "job_hunter.yml").exists()
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
+    assert written == [
+        "README.md",
+        "SETUP.md",
+        "SETUP_AGENT.md",
+        "SETUP_LLM_API.md",
+        "config/career_pages.yml",
+        "config/job_hunter.yml",
+    ]
 
 
 def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_path: Path) -> None:
@@ -234,7 +252,14 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
     assert "**Application stats:** 1 job tracked." in updated
     assert "[PM @ Acme](https://example.com/job)" in updated
     assert (tmp_path / "SETUP.md").exists()
-    assert written == ["README.md", "SETUP.md", "config/career_pages.yml", "config/job_hunter.yml"]
+    assert written == [
+        "README.md",
+        "SETUP.md",
+        "SETUP_AGENT.md",
+        "SETUP_LLM_API.md",
+        "config/career_pages.yml",
+        "config/job_hunter.yml",
+    ]
 
 
 def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(tmp_path: Path) -> None:

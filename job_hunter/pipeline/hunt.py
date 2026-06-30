@@ -13,7 +13,7 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.core.url_liveness import UrlLivenessCache
-from job_hunter.db.jobs import get_processed_urls, insert_jobs, set_llm_open_check
+from job_hunter.db.jobs import get_processed_urls, insert_jobs
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
 from job_hunter.pipeline.pre_llm_gate import apply_pre_enrichment_gate
@@ -106,28 +106,6 @@ def run_hunt(
     return jobs, existing_urls, existing_titles
 
 
-def _run_open_checks(root: Path, jobs: list[dict]) -> None:
-    """Advisory LLM open-check for jobs with date_status='missing'. Non-blocking."""
-    missing_date = [j for j in jobs if j.get("date_status") == "missing" and j.get("url")]
-    if not missing_date:
-        return
-    try:
-        from job_hunter.pipeline.scorer import check_job_open
-    except ImportError:
-        return
-    logger.info("[pipeline] Running open-check for %d no-date job(s)", len(missing_date))
-    for job in missing_date:
-        snippet = str(job.get("snippet") or job.get("jd_text") or "")
-        result = check_job_open(snippet)
-        set_llm_open_check(root, job["url"], result)
-        if result == "closed":
-            logger.info(
-                "[pipeline] open-check: possible closed posting — %s @ %s",
-                job.get("title", "?"),
-                job.get("company", "?"),
-            )
-
-
 def run_hunt_scrape_only(
     region: str | None = None,
     root: str | Path = REPO_ROOT,
@@ -167,7 +145,6 @@ def run_hunt_scrape_only(
     if jobs:
         inserted = insert_jobs(root, jobs, run_id=run_id)
         logger.info("[pipeline] Wrote %s job(s) to DB (run_id=%s)", inserted, run_id)
-        _run_open_checks(root, jobs)
 
     # Update discovery cache
     cached = load_cached_candidate_urls()
