@@ -4,12 +4,11 @@ Fetch and parse a job description from a raw URL or pasted text.
 Staged pipeline for URL fetching:
   1. ATS-specific JSON API (Greenhouse, Ashby, Lever, SmartRecruiters, Workable) — returns
      structured data directly, no HTML scraping needed.
-  2. HTTP GET + strip HTML. If the page is JS-rendered and yields too little text, or the
-     server returns 401/403/429, fall back to Playwright browser rendering.
+  2. HTTP GET + strip HTML.
   3. LLM parses the resulting plain text into structured fields (only when use_llm=True).
 
-Playwright is optional — install it only when needed:
-  python -m pip install playwright && playwright install chromium
+Playwright browser rendering is reserved for the company browser hunt
+(career_pages/__init__.py) and is not used in the main hunt pipeline.
 """
 
 from __future__ import annotations
@@ -39,8 +38,6 @@ from job_hunter.sources._jd_ats import (
 from job_hunter.sources.ats_urls import company_name_from_url
 
 logger = logging.getLogger(__name__)
-
-BROWSER_FETCH_STATUS_CODES = {401, 403, 429}
 
 # Minimum body-text length before we consider the static extraction sufficient.
 _MIN_TEXT_LENGTH = 300
@@ -118,37 +115,6 @@ def _fetch_html(url: str, timeout: int = 12) -> tuple[str | None, int | None]:
     return None, None
 
 
-def _fetch_playwright(url: str, timeout_ms: int = 20_000) -> str | None:
-    """Render a JS-gated page with Playwright and return plain text.
-
-    Returns None if playwright is not installed or rendering fails.
-    """
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.debug("[jd_fetcher] playwright not installed; JS rendering unavailable")
-        return None
-
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            try:
-                page = browser.new_page(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-                    )
-                )
-                page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-                html = page.content()
-                return strip_html(html)
-            finally:
-                browser.close()
-    except Exception as e:
-        logger.warning("[jd_fetcher] Playwright failed for %s: %s", url, e)
-    return None
-
-
 # ---------------------------------------------------------------------------
 # LLM extraction (generic fallback for non-ATS URLs)
 # ---------------------------------------------------------------------------
@@ -210,7 +176,6 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
     cfg_raw = _jd_config()
 
     timeout = int(cfg_raw.get("timeout_seconds", get_timeout("ats_scraper")))
-    min_text_length = int(cfg_raw.get("min_text_length", _MIN_TEXT_LENGTH))
     max_description_chars = int(cfg_raw.get("max_description_chars", _FALLBACK_DESC_MAX_CHARS))
     title_min_chars = int(cfg_raw.get("title_min_chars", 8))
     title_max_chars = int(cfg_raw.get("title_max_chars", 100))
@@ -263,22 +228,6 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
     # Generic HTTP fallback (non-ATS or ATS API failure)
     html, status_code = _fetch_html(url, timeout=timeout)
     plain_text = strip_html(html or "")
-
-    needs_browser = (
-        status_code in BROWSER_FETCH_STATUS_CODES
-        or len(plain_text) < min_text_length
-        or (is_greenhouse and not plain_text)
-    )
-    if needs_browser:
-        logger.info(
-            "[jd_fetcher] Static fetch status=%s content=%s chars from %s; trying Playwright",
-            status_code,
-            len(plain_text),
-            url,
-        )
-        pw_text = _fetch_playwright(url, timeout_ms=int(get_timeout("playwright") * 1000))
-        if pw_text and len(pw_text) > len(plain_text):
-            plain_text = pw_text
 
     if not plain_text:
         return None

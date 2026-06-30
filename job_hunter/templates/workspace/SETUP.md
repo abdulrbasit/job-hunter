@@ -7,7 +7,16 @@ Job Hunter supports two complete ways of working:
 - **Agent mode**: recommended. You review jobs interactively in VS Code with Claude Code or Codex.
 - **LLM API mode**: fully automated. GitHub Actions scores jobs, tailors resumes, writes cover letters, and creates application files.
 
-The normal `job-hunter-kit` installation supports both modes. You choose a mode in `config/job_hunter.yml`.
+The normal `job-hunter-kit` installation supports both modes. Guided
+onboarding asks which mode and provider you want, then creates
+`config/job_hunter.yml` from your answers.
+
+Fastest path:
+
+1. Install [Python 3.12+](https://www.python.org/downloads/).
+2. Install Job Hunter.
+3. Create and open your workspace.
+4. Run `/setup onboard` in Claude Code or Codex.
 
 ---
 
@@ -45,11 +54,14 @@ Install these tools before continuing.
 
 Download links:
 
-- Python: <https://www.python.org/downloads/>
+- Python 3.12+: <https://www.python.org/downloads/>
 - VS Code: <https://code.visualstudio.com/>
 - Git: <https://git-scm.com/downloads>
 - GitHub Desktop: <https://desktop.github.com/>
 - Docker Desktop: <https://www.docker.com/products/docker-desktop/>
+- Claude Code extension: <https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code>
+- Codex extension: <https://marketplace.visualstudio.com/items?itemName=openai.chatgpt>
+- LaTeX Workshop extension: <https://marketplace.visualstudio.com/items?itemName=James-Yu.latex-workshop>
 
 ### Check Python version
 
@@ -65,7 +77,7 @@ Expected result:
 Python 3.12.x
 ```
 
-Python 3.13 also works. Python 3.11 and older are not supported.
+Python 3.13 also works. Python 3.14 is not yet supported — use 3.12 or 3.13. Python 3.11 and older are not supported.
 
 ### Windows terminal
 
@@ -129,6 +141,33 @@ On Windows, the pip warning normally shows the missing Scripts directory. Add th
 
 On macOS or Linux, use uv if possible because it handles the command path more reliably.
 
+### `job-hunter` command not found
+
+For a uv installation, run:
+
+```bash
+python -m uv tool update-shell
+```
+
+Close every terminal and VS Code window, reopen them, then run:
+
+```bash
+job-hunter version
+```
+
+If still missing, print uv's executable directory:
+
+```bash
+python -m uv tool dir --bin
+```
+
+Add that directory to your user `PATH`, then restart the terminal. Reinstall
+only if `python -m uv tool list` does not show `job-hunter-kit`:
+
+```bash
+python -m uv tool install --force job-hunter-kit
+```
+
 ### What gets installed
 
 The standard package includes:
@@ -139,7 +178,7 @@ The standard package includes:
 - job-board and ATS adapters;
 - configuration validation;
 - workspace templates;
-- bundled Claude Code, Codex, and Gemini-compatible skills.
+- bundled Claude Code and Codex skills.
 
 Optional extras:
 
@@ -188,7 +227,6 @@ outputs/      discovered jobs and application files
 .github/      GitHub Actions workflows
 .claude/      interactive agent skills
 .agents/      Codex-compatible skills
-.gemini/      Gemini-compatible skills
 ```
 
 Run the first health check:
@@ -217,12 +255,14 @@ If `code` is not recognized:
 
 Install one AI extension:
 
-- **Claude Code**: search for Claude Code in VS Code Extensions.
-- **Codex**: search for Codex in VS Code Extensions.
+- [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code)
+- [Codex](https://marketplace.visualstudio.com/items?itemName=openai.chatgpt)
 
 Sign in using the extension's instructions.
 
 Agent mode can use the extension subscription/account flow. It does not require LLM API keys for normal interactive processing.
+
+**Recommended model tier:** For Claude Code, choose **claude-sonnet-4-6** or the equivalent Standard/Sonnet tier in the model selector. For Codex, choose **gpt-4o-mini** or the Standard tier. Both balance quality and cost well for daily job-search use.
 
 ---
 
@@ -270,29 +310,9 @@ Never make a workspace repository public unless you have removed all personal da
 
 ## 5. Choose your mode
 
-Open:
-
-```text
-config/job_hunter.yml
-```
-
-Find:
-
-```yaml
-mode: agent
-```
-
-Use one of:
-
-```yaml
-mode: agent
-```
-
-or:
-
-```yaml
-mode: llm-api
-```
+Run `/setup onboard`; it asks for
+`agent` or `llm-api`, asks which provider you want, then writes only relevant
+values to `config/job_hunter.yml`.
 
 ### Agent mode
 
@@ -355,6 +375,7 @@ This configures:
 - maximum experience requirement;
 - batch size;
 - preferred resume layout;
+- optional profile photo;
 - LLM provider and models used by API mode.
 
 When asked for a country, use a two-letter country code such as:
@@ -471,9 +492,10 @@ Recommended method:
 1. Start Docker Desktop.
 2. Install the LaTeX Workshop VS Code extension.
 3. Open the resume `.tex` file.
-4. Press `Ctrl+Alt+B` on Windows/Linux or `Cmd+Alt+B` on macOS.
+4. Run **Terminal → Run Build Task** or press `Ctrl+Shift+B`.
 
-The workspace includes VS Code settings for Docker-based LaTeX compilation.
+The workspace build task runs `pdflatex` inside
+`texlive/texlive:latest-full`; no local LaTeX installation is needed.
 
 ### Step 7: Final setup check
 
@@ -505,25 +527,9 @@ Enable **Auto** mode in the Claude Code panel before running batch. The mode sel
 
 #### Codex (VS Code extension)
 
-Open VS Code settings (`Ctrl+,`), search **Codex**, and set the approval policy to auto-approve for file and terminal operations. Alternatively, check `.codex/` in your workspace for a settings file and set the approval mode there.
+Use the built-in approval setting in the Codex extension panel. Look for **"Approve for me"** or the equivalent auto-approve toggle in the extension sidebar — no config file changes are needed.
 
-> **Disclaimer**: With auto-approve enabled, Codex runs terminal commands and writes files without prompting. No commits or pushes happen during batch.
-
-#### Gemini CLI
-
-Pass the `--yolo` flag when starting a batch session to auto-approve all tool calls:
-
-```bash
-gemini --yolo
-```
-
-Or set it permanently for the workspace by adding to `GEMINI.md`:
-
-```
-Always run with --yolo for /job-hunter batch sessions.
-```
-
-> **Disclaimer**: `--yolo` skips all tool-call confirmations for the session. Gemini CLI can execute shell commands and write files without prompting. Job Hunter batch does not commit or push.
+> **Disclaimer**: Auto-approve lets Codex run commands and write files without per-step confirmation. Keep the workspace private and review generated changes. Job Hunter batch does not commit, push, or send messages.
 
 ---
 
@@ -545,7 +551,7 @@ Supported providers:
 
 - Anthropic;
 - OpenAI;
-- Google;
+- Google (LLM API mode only — requires `GOOGLE_API_KEY`);
 - Ollama.
 
 Example:
@@ -594,6 +600,42 @@ job-hunter hunt --region primary
 
 Doctor checks whether selected provider SDK is available. Hunt confirms the complete configured pipeline.
 
+### Onboarding without Claude Code or Codex (LLM API mode)
+
+If you chose LLM API mode and don't have Claude Code or Codex installed, you cannot run `/setup` skills. Build your profile files manually using a browser AI instead.
+
+Open [Claude](https://claude.ai) or [ChatGPT](https://chatgpt.com) in your browser. Create each file in order.
+
+**1. career_context.md**
+
+Paste this prompt:
+
+> I need to fill in a career context file for a job search tool. This file tells the AI how to write my resume bullets, cover letters, and LinkedIn posts. Ask me questions about my background, target roles, writing style, and career goals — one topic at a time. Then format the result as a markdown file with these sections: About Me, Target Roles, Key Achievements (verified facts only — no invented metrics), Resume Style, Cover Letter Style, LinkedIn Voice, Writing Rules.
+
+Work through the conversation. Paste the final result into `profile/career_context.md`.
+
+**2. story_bank.md**
+
+Paste this prompt:
+
+> I need to create a story bank for a job search tool. Each story should follow STAR format (Situation, Task, Action, Result) with a unique ID like `story-001`. Ask me to share my work achievements and experiences one at a time. Only include verified facts — no invented metrics or approximations. Format each as a STAR story with the ID, a short title, and a rating from 1–10.
+
+Work through your stories. Paste the result into `profile/story_bank.md`.
+
+**3. Resume**
+
+The workspace includes starter LaTeX templates at `profile/resume_double_column.tex` and `profile/resume_single_column.tex`. Open one in a text editor and replace the placeholder sections with your name, contact info, and content from your career context and story bank.
+
+For help with specific resume sections, paste the section into your browser AI with:
+
+> Rewrite this resume section using only verified facts from my career context below. No invented metrics.
+
+Then paste your career_context.md content.
+
+**After building profile files**
+
+Edit `config/job_hunter.yml` to set `mode: llm-api`, your provider, and your API key path. Then continue from [Section 8 (GitHub Secrets)](#8-github-secrets).
+
 ---
 
 ## 8. GitHub Secrets
@@ -608,25 +650,25 @@ GitHub Actions cannot read your local `.env` file. Add required keys as GitHub S
 
 LLM provider secrets:
 
-| Secret | Provider |
-|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic |
-| `OPENAI_API_KEY` | OpenAI |
-| `GOOGLE_API_KEY` | Google |
+| Secret | Provider | Create key |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic | [Anthropic Console](https://console.anthropic.com/) |
+| `OPENAI_API_KEY` | OpenAI | [OpenAI API keys](https://platform.openai.com/api-keys) |
+| `GOOGLE_API_KEY` | Google | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 
 Optional search-source secrets:
 
-| Secret | Service |
-|---|---|
-| `BRAVE_API_KEY` | Brave Search |
-| `TAVILY_API_KEY` | Tavily |
-| `EXA_API_KEY` | Exa |
-| `FIRECRAWL_API_KEY` | Firecrawl |
-| `RAPIDAPI_KEY` | JSearch/RapidAPI |
-| `ADZUNA_APP_ID` | Adzuna |
-| `ADZUNA_API_KEY` | Adzuna |
-| `JOOBLE_API_KEY` | Jooble |
-| `REED_API_KEY` | Reed |
+| Secret | Service | Create key |
+|---|---|---|
+| `BRAVE_API_KEY` | Brave Search | [Brave Search API](https://api-dashboard.search.brave.com/app/keys) |
+| `TAVILY_API_KEY` | Tavily | [Tavily](https://app.tavily.com/) |
+| `EXA_API_KEY` | Exa | [Exa](https://dashboard.exa.ai/api-keys) |
+| `FIRECRAWL_API_KEY` | Firecrawl | [Firecrawl](https://www.firecrawl.dev/app/api-keys) |
+| `RAPIDAPI_KEY` | JSearch/RapidAPI | [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) |
+| `ADZUNA_APP_ID` | Adzuna | [Adzuna Developer](https://developer.adzuna.com/) |
+| `ADZUNA_API_KEY` | Adzuna | [Adzuna Developer](https://developer.adzuna.com/) |
+| `JOOBLE_API_KEY` | Jooble | [Jooble REST API](https://jooble.org/api/about) |
+| `REED_API_KEY` | Reed | [Reed API](https://www.reed.co.uk/developers) |
 
 You do not need every source key. Job Hunter also uses free feeds, public career pages, ATS discovery, and available providers.
 

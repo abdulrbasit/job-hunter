@@ -20,8 +20,8 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
     assert ".agents/skills/setup/SKILL.md" in paths
-    assert ".gemini/skills/setup/SKILL.md" in paths
     assert ".env.example" in paths
+    assert ".vscode/tasks.json" in paths
     assert ".gitignore" in paths
     assert "outputs/state/discovered_urls.yml" in paths
     assert "data/.gitkeep" not in paths
@@ -33,9 +33,36 @@ def test_workspace_template_config_is_valid_yaml() -> None:
 
     assert config["profile"]["resume_tex"] == "profile/resume_double_column.tex"
     assert "career_context" in config["profile"]
+    assert config["job_titles"] == []
+    assert config["exclusions"]["title_terms"] == []
+    assert config["exclusions"]["languages"] == []
     assert "linkedin" not in config
     assert "tailoring" not in config
     assert "cover_letter" not in config
+
+
+def test_workspace_onboarding_is_input_driven_and_documents_prerequisites() -> None:
+    files = dict(iter_managed_files())
+    onboard = files[".claude/skills/setup/modes/onboard.md"].decode("utf-8")
+    setup = files["SETUP.md"].decode("utf-8")
+    tasks = json.loads(files[".vscode/tasks.json"])
+
+    assert "which mode" in onboard.lower()
+    assert "which llm provider" in onboard.lower()
+    assert "profile photo" in onboard.lower()
+    assert "https://www.python.org/downloads/" in setup
+    assert "command not found" in setup.lower()
+    assert "auto-approve" in setup.lower()
+    assert "https://platform.openai.com/api-keys" in setup
+    assert "https://console.anthropic.com/" in setup
+    assert tasks["tasks"][0]["command"] == "docker"
+    assert "pdflatex" in tasks["tasks"][0]["args"]
+
+
+def test_project_readme_links_setup_guide() -> None:
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "[SETUP.md](job_hunter/templates/workspace/SETUP.md)" in readme
 
 
 def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -> None:
@@ -50,7 +77,6 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
     assert (workspace / ".agents" / "skills" / "setup" / "SKILL.md").exists()
-    assert (workspace / ".gemini" / "skills" / "setup" / "SKILL.md").exists()
     assert (workspace / "profile" / "resume_double_column.tex").exists()
     assert (workspace / "profile" / "resume_single_column.tex").exists()
     assert (workspace / "profile" / "career_context.md").exists()
@@ -119,7 +145,7 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
     root = Path(__file__).resolve().parents[1]
     packaged = dict(iter_packaged_resource_files())
 
-    canonical_files = ("config/career_pages.yml", "config/job_hunter.yml")
+    canonical_files = ("config/career_pages.yml",)
     for rel in canonical_files:
         assert packaged[rel] == (root / rel).read_bytes(), f"packaged workspace asset drifted: {rel}"
 

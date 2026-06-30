@@ -44,37 +44,48 @@ def _disable_site(site: str) -> None:
 
 # ISO 3166-1 alpha-2 → jobspy Indeed country name
 _ISO_TO_INDEED: dict[str, str] = {
+    "AR": "argentina",
     "AU": "australia",
     "AT": "austria",
-    "BE": "belgium",
-    "BR": "brazil",
     "BH": "bahrain",
+    "BD": "bangladesh",
+    "BE": "belgium",
+    "BG": "bulgaria",
+    "BR": "brazil",
     "CA": "canada",
     "CL": "chile",
     "CN": "china",
     "CO": "colombia",
-    "CR": "costarica",
-    "CZ": "czechrepublic",
+    "CR": "costa rica",
+    "HR": "croatia",
+    "CY": "cyprus",
+    "CZ": "czech republic",
     "DK": "denmark",
     "EC": "ecuador",
     "EG": "egypt",
+    "EE": "estonia",
     "FI": "finland",
     "FR": "france",
     "DE": "germany",
     "GR": "greece",
-    "HK": "hongkong",
+    "HK": "hong kong",
     "HU": "hungary",
+    "IN": "india",
     "ID": "indonesia",
     "IE": "ireland",
+    "IL": "israel",
     "IT": "italy",
     "JP": "japan",
     "KW": "kuwait",
+    "LV": "latvia",
+    "LT": "lithuania",
     "LU": "luxembourg",
     "MY": "malaysia",
+    "MT": "malta",
     "MX": "mexico",
     "MA": "morocco",
     "NL": "netherlands",
-    "NZ": "newzealand",
+    "NZ": "new zealand",
     "NG": "nigeria",
     "NO": "norway",
     "OM": "oman",
@@ -86,20 +97,23 @@ _ISO_TO_INDEED: dict[str, str] = {
     "PT": "portugal",
     "QA": "qatar",
     "RO": "romania",
-    "SA": "saudiarabia",
+    "SA": "saudi arabia",
     "SG": "singapore",
-    "ZA": "southafrica",
-    "KR": "southkorea",
+    "SK": "slovakia",
+    "SI": "slovenia",
+    "ZA": "south africa",
+    "KR": "south korea",
     "ES": "spain",
     "SE": "sweden",
     "CH": "switzerland",
     "TW": "taiwan",
     "TH": "thailand",
     "TR": "turkey",
-    "AE": "unitedarabemirates",
     "UA": "ukraine",
+    "AE": "united arab emirates",
     "GB": "uk",
     "US": "usa",
+    "UY": "uruguay",
     "VE": "venezuela",
     "VN": "vietnam",
 }
@@ -117,6 +131,12 @@ def _row_to_job(row: Any, region_name: str) -> dict | None:
     url = _str(row.get("job_url"))
     if not title or not url:
         return None
+
+    # Prefer direct ATS URL (Greenhouse, Lever, Ashby, etc.) over the aggregator listing URL.
+    # job_url_direct is populated by jobspy when LinkedIn/Indeed expose the source link.
+    direct = _str(row.get("job_url_direct"))
+    if direct:
+        url = direct
 
     site = _str(row.get("site")).lower()
     return {

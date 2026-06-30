@@ -22,16 +22,17 @@ _CANONICAL_DIRS = (
 )
 
 # Agent CLIs that mirror .claude/skills/ at install time (no stored copies).
-_AGENT_SKILL_CLI_PREFIXES: tuple[str, ...] = (".agents", ".gemini")
+_AGENT_SKILL_CLI_PREFIXES: tuple[str, ...] = (".agents",)
 _CANONICAL_FILES = (
     "AGENTS.md",
     "CLAUDE.md",
-    "GEMINI.md",
     "README.md",
 )
+# Obsolete agent CLI dirs removed from new installs and cleaned on update.
+_OBSOLETE_CLI_DIRS: tuple[str, ...] = (".gemini",)
 # Files/dirs that only exist in the bundled template (no canonical root counterpart).
 # .gitignore: workspace version differs from the dev repo .gitignore.
-_RESOURCE_ONLY_FILES: frozenset[str] = frozenset({".gitignore", "SETUP.md"})
+_RESOURCE_ONLY_FILES: frozenset[str] = frozenset({".gitignore", "SETUP.md", "config/job_hunter.yml"})
 _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/", "outputs/", "profile/")
 
 # Dev-only skills — excluded from the user workspace template.
@@ -103,6 +104,14 @@ def _preserve_readme_blocks(existing: bytes, template: bytes) -> bytes:
 
 def update_workspace_assets(workspace: Path) -> list[str]:
     """Update workspace assets: system docs overwritten, YAML configs deep-merged."""
+    import shutil
+
+    workspace = workspace.resolve()
+    for cli in _OBSOLETE_CLI_DIRS:
+        obsolete = workspace / cli
+        if obsolete.is_dir():
+            shutil.rmtree(obsolete)
+
     assets = dict(iter_packaged_resource_files())
     written: list[str] = []
     for rel in _UPDATE_ASSETS:
@@ -136,6 +145,8 @@ def _iter_source_checkout_files(root: Path) -> Iterator[tuple[str, bytes]]:
         path = root / rel_dir
         if path.is_dir():
             for rel, content in _walk_path(path, rel_dir):
+                if rel in _RESOURCE_ONLY_FILES:
+                    continue
                 parts = rel.split("/")
                 # Skip dev-only skills — not user-facing.
                 if parts[:2] == [".claude", "skills"] and len(parts) > 2 and parts[2] in _DEV_SKILL_DIRS:

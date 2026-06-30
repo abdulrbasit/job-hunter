@@ -18,8 +18,10 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.sources._policy import JobPolicy
+from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
 from job_hunter.sources.search_providers import canonicalize_url
 from job_hunter.sources.search_providers.preflight import probe_search_providers
 from job_hunter.sources.search_providers.router import set_run_disabled
@@ -180,7 +182,18 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
 
-    # Step 2: ATS discovery (once per run, not per region)
+    # Step 2: Harvest slugs from board results, persist, query ATS APIs directly (no keys needed)
+    if depth != "fast":
+        try:
+            new_slugs = harvest_slugs(results)
+            update_slug_store(_WORKSPACE_ROOT, new_slugs)
+            slug_store = load_slug_store(_WORKSPACE_ROOT)
+            slug_jobs = query_ats_by_slugs(slug_store, job_titles, regions, excluded_title_terms)
+            _add_unique([JobPosting.model_validate(j) for j in slug_jobs], "ats_slug")
+        except Exception as exc:
+            logger.warning("[orchestrator] ATS slug cache query failed: %s", exc)
+
+    # Step 3: ATS discovery via search (once per run, discovers new companies)
     if depth != "fast":
         try:
             from job_hunter.sources.search_providers.ats_discovery import discover_ats_jobs_by_search

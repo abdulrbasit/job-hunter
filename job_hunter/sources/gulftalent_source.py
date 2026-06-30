@@ -103,30 +103,6 @@ def _parse_cards(
     return jobs
 
 
-def _fetch_with_playwright(url: str, params: dict, timeout_ms: int) -> str:
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.debug("[gulftalent] playwright not installed; skipping rendered fallback")
-        return ""
-    from urllib.parse import urlencode
-
-    full_url = url + "?" + urlencode(params)
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            try:
-                page = browser.new_page(user_agent=_HEADERS["User-Agent"])
-                page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)
-                html = page.content()
-            finally:
-                browser.close()
-        return html
-    except Exception as exc:
-        logger.debug("[gulftalent] Playwright render failed for %s: %s", full_url, exc)
-        return ""
-
-
 class GulfTalentSource(JobSourceAdapter):
     @property
     def source_name(self) -> str:
@@ -137,7 +113,7 @@ class GulfTalentSource(JobSourceAdapter):
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
-        """Fetch jobs from GulfTalent using requests→Playwright fallback.
+        """Fetch jobs from GulfTalent (static HTTP only).
 
         Only runs for Gulf regions (AE, SA, QA, KW, BH, OM).
         """
@@ -150,7 +126,6 @@ class GulfTalentSource(JobSourceAdapter):
             return []
 
         timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
-        timeout_ms = timeout * 1000
         country_name = _COUNTRY_NAMES.get(iso, iso)
         jobs: list[JobPosting] = []
 
@@ -174,10 +149,6 @@ class GulfTalentSource(JobSourceAdapter):
                     logger.warning("[gulftalent] stopping after terminal HTTP error: %s", exc)
                     return jobs
                 logger.debug("[gulftalent] requests failed for %r in %s: %s", title, params.region_key, exc)
-
-            if not html:
-                logger.debug("[gulftalent] falling back to Playwright for %r in %s", title, params.region_key)
-                html = _fetch_with_playwright(_SEARCH_URL, req_params, timeout_ms)
 
             if not html:
                 logger.warning("[gulftalent] no HTML for %r in %s", title, params.region_key)

@@ -1,8 +1,8 @@
 # Job Hunter
 
-This is the agent context source of truth for the product repo. CLAUDE.md, GEMINI.md, and any other per-agent files defer here. Keep durable operating context in this file, skills, config, or code; do not add separate architecture docs.
+This is the agent context source of truth for the product repo. CLAUDE.md and any other per-agent files defer here. Keep durable operating context in this file, skills, config, or code; do not add separate architecture docs.
 
-This repo combines the Python engine (`job_hunter/`) and the agent skill layer (`.claude/skills/`, `.agents/skills/`, `.gemini/skills/`).
+This repo combines the Python engine (`job_hunter/`) and the agent skill layer (`.claude/skills/`, `.agents/skills/`).
 
 ## Execution Modes
 
@@ -16,7 +16,7 @@ Set `mode:` in `config/job_hunter.yml`.
 ## Repo Map
 
 - `job_hunter/`: Python package, CLI, pipeline, source adapters, LLM API mode.
-- `.claude/skills/`: skills for Claude Code and Gemini CLI (GEMINI.md delegates here).
+- `.claude/skills/`: skills for Claude Code (mirrored to `.agents/skills/` for Codex).
 - `config/job_hunter.yml`: user-editable machine config.
 - `config/schemas/job_hunter.schema.json`: schema for `job_hunter.yml`.
 - `job_hunter/templates/workspace/profile/`: canonical starter profile and resume templates.

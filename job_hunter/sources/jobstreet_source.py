@@ -56,54 +56,6 @@ def _headers(domain: str) -> dict[str, str]:
     }
 
 
-def _fetch_page_playwright(domain: str, site_key: str, title: str, page: int, timeout_ms: int) -> list[dict]:
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.debug("[jobstreet] playwright not installed; skipping rendered fallback")
-        return []
-
-    search_url = f"https://www.{domain}/jobs/{title.lower().replace(' ', '-')}?pg={page}"
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            try:
-                page_obj = browser.new_page(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Safari/537.36"
-                    )
-                )
-                page_obj.goto(search_url, wait_until="networkidle", timeout=timeout_ms)
-                # Try to intercept the chalice API response from the rendered page
-                html = page_obj.content()
-            finally:
-                browser.close()
-    except Exception as exc:
-        logger.debug("[jobstreet] Playwright render failed for %s: %s", search_url, exc)
-        return []
-
-    # Extract job data from embedded JSON in HTML
-    import re
-
-    matches = re.findall(r'"jobId"\s*:\s*"([^"]+)"', html)
-    if not matches:
-        return []
-
-    # Return minimal stubs; full data not parseable without deeper extraction
-    jobs = []
-    for job_id in matches:
-        jobs.append(
-            {
-                "_id": job_id,
-                "_domain": domain,
-                "_stub": True,
-            }
-        )
-    return jobs
-
-
 class JobStreetSource(JobSourceAdapter):
     @property
     def source_name(self) -> str:
@@ -114,7 +66,7 @@ class JobStreetSource(JobSourceAdapter):
         return bool(cfg.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
-        """Fetch jobs from JobStreet using REST API with Playwright fallback.
+        """Fetch jobs from JobStreet (REST API, static only).
 
         Only runs for SEA regions (SG, MY, ID, PH, VN).
         """
@@ -127,7 +79,6 @@ class JobStreetSource(JobSourceAdapter):
             return []
 
         timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
-        timeout_ms = timeout * 1000
         max_pages = source_page_cap()
         page_delay = source_page_delay()
 
@@ -156,40 +107,12 @@ class JobStreetSource(JobSourceAdapter):
                         return jobs
                     if resp.status_code in (403, 503):
                         logger.debug(
-                            "[jobstreet] %d for %r in %s; switching to Playwright",
+                            "[jobstreet] %d for %r in %s; skipping page",
                             resp.status_code,
                             title,
                             params.region_key,
                         )
-                        stubs = _fetch_page_playwright(domain, site_key, title, page, timeout_ms)
-                        before = len(jobs)
-                        for stub in stubs:
-                            if stub.get("_stub"):
-                                job_id = stub["_id"]
-                                jobs.append(
-                                    JobPosting(
-                                        title=title,
-                                        company="",
-                                        url=_job_url(domain, job_id),
-                                        posted="",
-                                        location=params.location or iso,
-                                        snippet="",
-                                        source="JobStreet",
-                                        query=f"{title} @ {params.region_key}",
-                                        region=params.region_key,
-                                    )
-                                )
-                        logger.info(
-                            "[jobstreet] +%d stubs via Playwright for %r in %s page %d/%d",
-                            len(jobs) - before,
-                            title,
-                            params.region_key,
-                            page,
-                            max_pages,
-                        )
-                        if not stubs:
-                            return jobs
-                        break  # Playwright fallback is single-page only
+                        break
                     resp.raise_for_status()
                     data = resp.json()
                 except Exception as exc:

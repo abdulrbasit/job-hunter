@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from conftest import mk_params
 
-from job_hunter.sources.jobspy_source import JobSpySource
+from job_hunter.sources.jobspy_source import _ISO_TO_INDEED, JobSpySource
 
 _BASE_CFG = {
     "http": {
@@ -21,6 +21,81 @@ _BASE_CFG = {
 _DE = {"DE": {"country": "DE", "location": "Berlin"}}
 _ZZ = {"ZZ": {"country": "ZZ", "location": "Somewhere"}}
 _US = {"US": {"country": "US", "location": "Austin"}}
+
+_JOBSPY_INDEED_COUNTRIES = {
+    "AR": "argentina",
+    "AU": "australia",
+    "AT": "austria",
+    "BH": "bahrain",
+    "BD": "bangladesh",
+    "BE": "belgium",
+    "BG": "bulgaria",
+    "BR": "brazil",
+    "CA": "canada",
+    "CL": "chile",
+    "CN": "china",
+    "CO": "colombia",
+    "CR": "costa rica",
+    "HR": "croatia",
+    "CY": "cyprus",
+    "CZ": "czech republic",
+    "DK": "denmark",
+    "EC": "ecuador",
+    "EG": "egypt",
+    "EE": "estonia",
+    "FI": "finland",
+    "FR": "france",
+    "DE": "germany",
+    "GR": "greece",
+    "HK": "hong kong",
+    "HU": "hungary",
+    "IN": "india",
+    "ID": "indonesia",
+    "IE": "ireland",
+    "IL": "israel",
+    "IT": "italy",
+    "JP": "japan",
+    "KW": "kuwait",
+    "LV": "latvia",
+    "LT": "lithuania",
+    "LU": "luxembourg",
+    "MY": "malaysia",
+    "MT": "malta",
+    "MX": "mexico",
+    "MA": "morocco",
+    "NL": "netherlands",
+    "NZ": "new zealand",
+    "NG": "nigeria",
+    "NO": "norway",
+    "OM": "oman",
+    "PK": "pakistan",
+    "PA": "panama",
+    "PE": "peru",
+    "PH": "philippines",
+    "PL": "poland",
+    "PT": "portugal",
+    "QA": "qatar",
+    "RO": "romania",
+    "SA": "saudi arabia",
+    "SG": "singapore",
+    "SK": "slovakia",
+    "SI": "slovenia",
+    "ZA": "south africa",
+    "KR": "south korea",
+    "ES": "spain",
+    "SE": "sweden",
+    "CH": "switzerland",
+    "TW": "taiwan",
+    "TH": "thailand",
+    "TR": "turkey",
+    "UA": "ukraine",
+    "AE": "united arab emirates",
+    "GB": "uk",
+    "US": "usa",
+    "UY": "uruguay",
+    "VE": "venezuela",
+    "VN": "vietnam",
+}
 
 
 class _Rows:
@@ -168,6 +243,9 @@ class TestJobSpyCircuitBreaker:
 
 
 class TestJobSpyAutoSelection:
+    def test_indeed_country_mapping_matches_jobspy_country_enum(self) -> None:
+        assert _ISO_TO_INDEED == _JOBSPY_INDEED_COUNTRIES
+
     def test_google_and_indeed_selected_for_mapped_country(self, monkeypatch) -> None:
         import job_hunter.sources.jobspy_source as jspy_mod
 

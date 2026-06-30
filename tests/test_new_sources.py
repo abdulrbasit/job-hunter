@@ -101,7 +101,7 @@ class TestJobicySource:
             patch("job_hunter.sources.jobicy_source.requests.get", get_mock),
         ):
             jobs = JobicySource().fetch(
-                mk_params(["Software Engineer"], {"my": {"country": "MY", "location": "Kuala Lumpur"}})
+                mk_params(["Software Engineer"], {"sd": {"country": "SD", "location": "Khartoum"}})
             )
         assert jobs == []
         get_mock.assert_not_called()
@@ -388,32 +388,6 @@ class TestJobStreetSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "JobStreet"
-
-    def test_fetch_uses_same_page_for_playwright_fallback_after_block(self) -> None:
-        blocked = _make_response(json_data={}, status_code=403)
-        fallback_pages: list[int] = []
-
-        def fallback(_domain, _site_key, _title, page, _timeout_ms):
-            fallback_pages.append(page)
-            return [{"_stub": True, "_id": "js-1"}]
-
-        with (
-            patch(
-                "job_hunter.sources.jobstreet_source.get_api_config",
-                return_value=_EMPTY_CFG,
-            ),
-            patch(
-                "job_hunter.sources.jobstreet_source.requests.get",
-                return_value=blocked,
-            ),
-            patch(
-                "job_hunter.sources.jobstreet_source._fetch_page_playwright",
-                fallback,
-            ),
-        ):
-            jobs = JobStreetSource().fetch(mk_params(["Product Manager"], _MY))
-        assert len(jobs) == 1
-        assert fallback_pages == [1]
 
 
 class TestMyCareersFutureSource:

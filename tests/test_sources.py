@@ -12,7 +12,6 @@ from job_hunter.sources import (
     jd_fetcher,
     job_boards,
     jobicy_source,
-    jobstreet_source,
     jooble_source,
     reed_source,
     search_providers,
@@ -156,42 +155,11 @@ def test_jobicy_skips_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(jobicy_source.requests, "get", get)
 
     jobs = jobicy_source.JobicySource().fetch(
-        mk_params(["Software Engineer"], {"my": {"country": "MY", "location": "Kuala Lumpur"}})
+        mk_params(["Software Engineer"], {"sd": {"country": "SD", "location": "Khartoum"}})
     )
 
     assert jobs == []
     assert calls == []
-
-
-def test_jobstreet_uses_same_page_for_playwright_fallback_after_block(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fallback_pages: list[int] = []
-
-    class Response:
-        status_code = 403
-
-        def raise_for_status(self) -> None:
-            raise AssertionError("blocked response should switch before raise_for_status")
-
-    def fallback(_domain, _site_key, _title, page, _timeout_ms):
-        fallback_pages.append(page)
-        return [{"_stub": True, "_id": "js-1"}]
-
-    monkeypatch.setattr(
-        jobstreet_source,
-        "get_api_config",
-        lambda: {"http": {"job_boards": {"jobstreet": {"enabled": True}}}},
-    )
-    monkeypatch.setattr(jobstreet_source.requests, "get", lambda *args, **kwargs: Response())
-    monkeypatch.setattr(jobstreet_source, "_fetch_page_playwright", fallback)
-
-    jobs = jobstreet_source.JobStreetSource().fetch(
-        mk_params(["Product Manager"], {"malaysia": {"country": "MY", "location": "Kuala Lumpur"}})
-    )
-
-    assert len(jobs) == 1
-    assert fallback_pages == [1]
 
 
 def test_ats_url_helpers_cover_supported_platforms() -> None:
@@ -815,8 +783,6 @@ def test_greenhouse_api_does_not_repair_to_generic_product_role(
     monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"min_text_length": 300})
     monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: responses.pop(0))
     monkeypatch.setattr(jd_fetcher, "_fetch_html", lambda *args, **kwargs: (None, 404))
-    monkeypatch.setattr(jd_fetcher, "_fetch_playwright", lambda *args, **kwargs: None)
-
     job = jd_fetcher.fetch_jd(
         "https://boards.greenhouse.io/acme/jobs/123",
         expected_title="Product Manager",
@@ -850,43 +816,6 @@ def test_greenhouse_listing_text_fallback_returns_none(
     )
 
     assert job is None
-
-
-def test_greenhouse_403_uses_playwright(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
-
-    def fake_playwright(url: str, timeout_ms: int = 20_000) -> str:
-        calls.append(url)
-        return "Senior Product Manager\nResponsibilities include AI product delivery and stakeholder alignment."
-
-    monkeypatch.setattr(
-        jd_fetcher,
-        "_jd_config",
-        lambda: {"min_text_length": 300, "max_description_chars": 4000},
-    )
-    monkeypatch.setattr(jd_fetcher, "get_timeout", lambda _section: 10)
-    monkeypatch.setattr(jd_fetcher, "_fetch_greenhouse_api", lambda *args, **kwargs: None)
-    monkeypatch.setattr(jd_fetcher, "_fetch_html", lambda *args, **kwargs: (None, 403))
-    monkeypatch.setattr(jd_fetcher, "_fetch_playwright", fake_playwright)
-
-    job = jd_fetcher.fetch_jd("https://boards.greenhouse.io/acme/jobs/123")
-
-    assert job is not None
-    assert calls == ["https://boards.greenhouse.io/acme/jobs/123"]
-    assert job["title"] == "Senior Product Manager"
-    assert job["source"] == "direct_link"
-
-
-def test_greenhouse_403_playwright_failure_returns_none(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"min_text_length": 300})
-    monkeypatch.setattr(jd_fetcher, "get_timeout", lambda _section: 10)
-    monkeypatch.setattr(jd_fetcher, "_fetch_greenhouse_api", lambda *args, **kwargs: None)
-    monkeypatch.setattr(jd_fetcher, "_fetch_html", lambda *args, **kwargs: (None, 403))
-    monkeypatch.setattr(jd_fetcher, "_fetch_playwright", lambda *args, **kwargs: None)
-
-    assert jd_fetcher.fetch_jd("https://boards.greenhouse.io/acme/jobs/123") is None
 
 
 def test_greenhouse_403_is_browser_fetchable_not_dead(

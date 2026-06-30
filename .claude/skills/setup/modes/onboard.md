@@ -14,8 +14,8 @@ Interactive first-time setup for a new Job Hunter workspace. Walk the user throu
 
 Read `config/job_hunter.yml` and note:
 - Is `location: "Your City"` still there? → region is NOT configured
-- Are job titles still `["Product Manager", "Product Owner"]`? → likely template defaults
-- Is `languages: [german]` in exclusions? → template default, must ask the user
+- Is `job_titles` still an empty list? → must fill before first run
+- Are `exclusions.title_terms` and `exclusions.languages` still empty? → ask the user
 
 ---
 
@@ -26,7 +26,7 @@ Ask:
 > Welcome to Job Hunter onboarding. Let's get your workspace configured.
 >
 > First: which mode are you setting up?
-> - **agent** — you review jobs interactively each day using Claude Code, Codex, or Gemini CLI
+> - **agent** — you review jobs interactively each day using Claude Code or Codex
 > - **llm-api** — the full pipeline runs automatically (score, tailor, cover letter, PDF, tracker) — great for GitHub Actions or unattended runs
 >
 > Type `agent` or `llm-api`.
@@ -62,6 +62,15 @@ Ask:
 Update `profile.resume_tex`:
 - Double column → `"profile/resume_double_column.tex"`
 - Single column → `"profile/resume_single_column.tex"`
+
+Then ask:
+
+> Do you want a profile photo on the resume?
+> - If yes, add a square PNG or JPG under `profile/` and tell me its filename.
+> - If no, the resume will omit the photo.
+
+Set `profile.profile_image` to the workspace-relative path when supplied;
+otherwise set it to an empty string.
 
 ---
 
@@ -130,6 +139,15 @@ Ask:
 
 Update `exclusions.companies` if provided.
 
+### Industry exclusions
+
+Ask:
+
+> Any industries you always want to skip? (Optional — examples: gambling,
+> tobacco, defense. Press Enter to leave empty.)
+
+Set `exclusions.industries` from the answer.
+
 ---
 
 ## Step 6 — Scoring Thresholds
@@ -146,6 +164,12 @@ Ask:
 
 Update `scoring.min_fit_score` and/or `scoring.max_years_experience_required` if changed.
 
+Then ask:
+
+> How many top candidates should one batch process? (Default: `15`)
+
+Set `scoring.batch_size` to the positive integer supplied, or `15` when blank.
+
 ---
 
 ## Step 7 — LLM Provider
@@ -157,7 +181,7 @@ Ask:
 > Which LLM provider do you want to use as your primary?
 > - **anthropic** — Claude models (requires `ANTHROPIC_API_KEY`)
 > - **openai** — GPT models (requires `OPENAI_API_KEY`)
-> - **google** — Gemini models (requires `GOOGLE_API_KEY`)
+> - **google** — Google models via `GOOGLE_API_KEY` (LLM API mode only)
 >
 > You can mix providers per task, but pick a primary default.
 
@@ -169,7 +193,7 @@ Then ask:
 >
 > Suggested defaults by provider:
 > - Anthropic: `claude-sonnet-4-6`
-> - OpenAI: `gpt-4o`
+> - OpenAI: `gpt-4o-mini`
 > - Google: `gemini-2.0-flash`
 >
 > (Enter to keep the current default)

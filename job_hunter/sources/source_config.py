@@ -65,6 +65,17 @@ _JOBICY_GEO_BY_ISO: dict[str, str] = {
     "US": "usa",
     "VN": "vietnam",
     "AE": "united-arab-emirates",
+    # Extended coverage
+    "CO": "colombia",
+    "EG": "egypt",
+    "ID": "indonesia",
+    "IN": "india",
+    "KE": "kenya",
+    "MY": "malaysia",
+    "NG": "nigeria",
+    "PK": "pakistan",
+    "RU": "russia",
+    "ZA": "south-africa",
 }
 
 

@@ -73,8 +73,20 @@ _ISO_TO_LOCALE: dict[str, str] = {
     "TW": "zh_TW",
     "UA": "uk_UA",
     "US": "en_US",
+    "VE": "es_VE",
     "VN": "vi_VN",
     "ZA": "en_ZA",
+    # Extended coverage
+    "CL": "es_CL",
+    "CO": "es_CO",
+    "DZ": "ar_DZ",
+    "EG": "ar_EG",
+    "JO": "ar_JO",
+    "LB": "ar_LB",
+    "LU": "fr_LU",
+    "MA": "fr_MA",
+    "NG": "en_NG",
+    "PE": "es_PE",
 }
 
 

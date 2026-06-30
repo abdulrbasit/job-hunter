@@ -6,7 +6,7 @@ Product code lives in the `job-hunter` Python package, not in this workspace.
 
 ## Modes
 
-- `agent`: Python gathers candidates; agent skills process them (Claude Code, Codex, Gemini CLI).
+- `agent`: Python gathers candidates; agent skills process them (Claude Code or Codex).
 - `llm-api`: Python runs scoring, tailoring, cover letters, PDFs, README, and
   tracking without an agent session.
 
@@ -34,7 +34,7 @@ job-hunter dashboard --no-interactive
 /setup doctor
 ```
 
-Skills are in `.claude/skills/`. Open the workspace in Claude Code or Gemini CLI to use them.
+Skills are in `.claude/skills/`. Open the workspace in Claude Code or Codex to use them.
 
 ## Files To Edit
 
