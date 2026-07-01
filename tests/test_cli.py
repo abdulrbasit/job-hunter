@@ -151,6 +151,65 @@ def test_internal_commands_remain_available_but_hidden() -> None:
     assert "agent-context" in internal.stdout
 
 
+# Full registered command surface — every public and internal command name.
+# Update this set deliberately when a command is added, renamed, or removed.
+KNOWN_PUBLIC_COMMANDS = {
+    "applications",
+    "dash",
+    "dashboard",
+    "doctor",
+    "hunt",
+    "init",
+    "tailor",
+    "update",
+    "version",
+}
+KNOWN_INTERNAL_COMMANDS = {
+    "agent-context",
+    "linkedin",
+    "update-safety",
+    "import-job",
+    "compile-pdf",
+    "commit-job",
+    "update-readme",
+    "write-research",
+    "mark-processed",
+    "finalize-run",
+    "cleanup-transient",
+    "discard-job",
+    "compile-profile",
+    "analytics",
+    "verify",
+}
+
+
+def test_cli_command_registration_matches_known_surface() -> None:
+    top_level = run_cli("--help")
+    internal = run_cli("internal", "--help")
+    assert top_level.returncode == 0
+    assert internal.returncode == 0
+
+    for name in KNOWN_PUBLIC_COMMANDS:
+        assert name in top_level.stdout, f"expected public command missing from --help: {name}"
+    for name in KNOWN_INTERNAL_COMMANDS:
+        assert name in internal.stdout, f"expected internal command missing from `internal --help`: {name}"
+
+
+def test_internal_commands_referenced_by_skills_are_all_registered() -> None:
+    """Guards skill/CLI drift: every `job-hunter internal <cmd>` a skill calls must exist."""
+    import re
+
+    skills_root = ROOT / ".claude" / "skills"
+    referenced: set[str] = set()
+    for path in skills_root.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        referenced.update(re.findall(r"job-hunter internal ([a-z][a-z-]*)", text))
+
+    unregistered = referenced - KNOWN_INTERNAL_COMMANDS
+    assert not unregistered, f"skills reference unregistered internal command(s): {unregistered}"
+    assert referenced, "expected at least one skill to reference an internal command"
+
+
 def test_update_replaces_specialized_update_commands() -> None:
     result = run_cli("update", "--help")
 
