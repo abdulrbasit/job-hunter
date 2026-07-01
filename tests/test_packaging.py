@@ -67,6 +67,10 @@ def test_every_workspace_managed_file_has_a_package_data_glob() -> None:
 
 
 def test_profile_package_data_excludes_latex_build_artifacts() -> None:
+    """.xmpi/.pdf are pdflatex build output like .aux/.log/etc — gitignored, never committed,
+    so a package-data glob for them would silently match nothing in a clean checkout. Users
+    build their own PDF locally via the bundled pdflatex task instead of getting one prebuilt.
+    """
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     globs = set(project["tool"]["setuptools"]["package-data"]["job_hunter.templates"])
     excluded = set(project["tool"]["setuptools"]["exclude-package-data"]["job_hunter.templates"])
@@ -77,8 +81,6 @@ def test_profile_package_data_excludes_latex_build_artifacts() -> None:
         "workspace/profile/*.md",
         "workspace/profile/*.tex",
         "workspace/profile/*.cls",
-        "workspace/profile/*.xmpi",
-        "workspace/profile/*.pdf",
     } <= globs
     assert {
         "workspace/profile/*.aux",
@@ -87,6 +89,8 @@ def test_profile_package_data_excludes_latex_build_artifacts() -> None:
         "workspace/profile/*.log",
         "workspace/profile/*.out",
         "workspace/profile/*.synctex.gz",
+        "workspace/profile/*.xmpi",
+        "workspace/profile/*.pdf",
     } <= excluded
 
 

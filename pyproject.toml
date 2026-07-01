@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "job-hunter-kit"
-version = "0.14"
+version = "0.15"
 description = "Job search automation with LLM API pipeline mode and AI agent mode."
 readme = "README.md"
 license = {text = "MIT"}
@@ -74,8 +74,6 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/profile/*.md",
   "workspace/profile/*.tex",
   "workspace/profile/*.cls",
-  "workspace/profile/*.xmpi",
-  "workspace/profile/*.pdf",
   "workspace/.claude/skills/caveman/**/*",
   "workspace/.claude/skills/job-hunter/**/*",
   "workspace/.claude/skills/linkedin/**/*",
@@ -92,6 +90,8 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/profile/*.log",
   "workspace/profile/*.out",
   "workspace/profile/*.synctex.gz",
+  "workspace/profile/*.xmpi",
+  "workspace/profile/*.pdf",
 ]
 
 [tool.uv]
