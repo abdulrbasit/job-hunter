@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from job_hunter.cli import applications_app
+from job_hunter.cli.app import applications_app
 
 
 @applications_app.command("list")

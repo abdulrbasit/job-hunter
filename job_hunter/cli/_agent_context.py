@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-from job_hunter.cli import agent_context_app
+from job_hunter.cli.app import agent_context_app
 
 
 @agent_context_app.command("candidates")

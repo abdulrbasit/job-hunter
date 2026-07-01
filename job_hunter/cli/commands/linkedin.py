@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from job_hunter.cli import linkedin_app
+from job_hunter.cli.app import linkedin_app
 
 
 @linkedin_app.command("ideas")

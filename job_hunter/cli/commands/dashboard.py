@@ -6,7 +6,17 @@ from pathlib import Path
 
 import typer
 
-from job_hunter.cli import app, internal_app
+from job_hunter.cli.app import app, internal_app
+from job_hunter.cli.options import JSON_OPTION, WORKSPACE_OPTION
+
+
+@app.command()
+def dash() -> None:
+    """Open interactive dashboard (Applications · Insights · Analytics)."""
+    from job_hunter.config.loader import ROOT
+    from job_hunter.ux.webdash import launch
+
+    launch(ROOT)
 
 
 @app.command()
@@ -32,7 +42,7 @@ def dashboard(
 @internal_app.command()
 def analytics(
     days: int = typer.Option(30, "--days"),
-    json_output: bool = typer.Option(False, "--json"),
+    json_output: bool = JSON_OPTION,
 ) -> None:
     """Show pipeline analytics."""
     from job_hunter.tracker import repo_path
@@ -45,8 +55,8 @@ def analytics(
 
 @app.command()
 def doctor(
-    workspace: str = typer.Option(".", "--workspace", "-w"),
-    json_output: bool = typer.Option(False, "--json"),
+    workspace: str = WORKSPACE_OPTION,
+    json_output: bool = JSON_OPTION,
 ) -> None:
     """Run health checks on the workspace and report setup status."""
     from job_hunter.tracker import repo_path
@@ -68,7 +78,7 @@ def doctor(
 
 @internal_app.command()
 def verify(
-    json_output: bool = typer.Option(False, "--json"),
+    json_output: bool = JSON_OPTION,
 ) -> None:
     """Verify repository integrity."""
     from job_hunter.tracker import repo_path

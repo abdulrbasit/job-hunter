@@ -1,10 +1,13 @@
 """Workspace lifecycle CLI commands."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import typer
 
-from job_hunter.cli import app, internal_app
+from job_hunter.cli.app import app, internal_app
+from job_hunter.cli.options import WORKSPACE_OPTION
 
 
 @app.command()
@@ -19,7 +22,7 @@ def init(
 
 
 @internal_app.command(name="update-skills")
-def update_skills(workspace: str = typer.Option(".", "--workspace", "-w")) -> None:
+def update_skills(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled agent skills only."""
     from job_hunter.workspace._ops import update_skills as run_update_skills
 
@@ -27,7 +30,7 @@ def update_skills(workspace: str = typer.Option(".", "--workspace", "-w")) -> No
 
 
 @internal_app.command(name="update-workflows")
-def update_workflows(workspace: str = typer.Option(".", "--workspace", "-w")) -> None:
+def update_workflows(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled GitHub workflows only."""
     from job_hunter.workspace._ops import update_workflows as run_update_workflows
 

@@ -327,7 +327,7 @@ def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
 
 
 def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> None:
-    import job_hunter.cli as cli_module
+    from job_hunter.cli.commands import internal as cli_module
     from job_hunter.db.jobs import get_all_known_urls
 
     job_dir = tmp_path / "outputs" / "jobs" / "2026-06-04_toast_product-manager-reporting-platform"
@@ -357,7 +357,7 @@ def test_finalize_validation_blocks_excluded_apply_and_broken_readme_link(
 
     import yaml
 
-    import job_hunter.cli as cli_module
+    from job_hunter.cli.commands import internal as cli_module
 
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "job_hunter.yml").write_text(
@@ -595,7 +595,7 @@ def test_discard_job_removes_folder_and_tracks() -> None:
 
 
 def test_cleanup_transient_removes_batch_scratch_files(tmp_path: Path, monkeypatch) -> None:
-    import job_hunter.cli as cli_module
+    from job_hunter.cli.commands import internal as cli_module
 
     monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
     for rel in cli_module.TRANSIENT_STATE_PATHS:
