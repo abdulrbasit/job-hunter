@@ -75,8 +75,19 @@ from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
 - `job-hunter dash` — open web dashboard in a native window (Applications, Insights, Analytics)
 - `job-hunter dashboard`, `applications` — terminal dashboard and application list
 - `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
+- `job-hunter update --dry-run` — preview the old-workspace bridge migration (see below) without writing anything
 - `job-hunter update --skills-only` or `--workflows-only` — targeted refresh
 - `job-hunter version` — version and upgrade guidance
+
+### Old workspace migration
+
+Workspaces created before the package's Phase 8-13 refactor may still have a
+few files the product no longer ships (for example `COMMANDS.md`). Running
+`uv tool upgrade job-hunter-kit` then `job-hunter update` cleans these up
+automatically: unmodified obsolete files are removed, and anything you
+edited yourself is preserved with a `[warn]` message instead of being
+deleted. Use `job-hunter update --dry-run` first if you want to see what
+would happen before it runs for real.
 
 Bundled skills use hidden `job-hunter internal ...` commands. They are not part of normal user workflow.
 

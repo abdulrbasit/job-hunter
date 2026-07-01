@@ -1,7 +1,12 @@
 """System-wide data contracts.
 
-Every package boundary uses types defined here. No raw dicts cross module
-boundaries — callers must construct the appropriate model.
+Types defined here are the canonical contract for job/profile/config data.
+Some pipeline and serialization boundaries still pass `dict[str, Any]`
+(job records flowing through scrape/score/gate stages) rather than these
+models — that's pre-existing pipeline shape, not something this module
+claims to have eliminated. Narrowing those remaining dict boundaries to
+typed models is future cleanup, not required for new code to use these
+types at the boundaries that already do.
 """
 
 from __future__ import annotations

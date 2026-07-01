@@ -3,8 +3,15 @@
 What `job-hunter update` actually does, for anyone debugging an update or
 changing what it touches.
 
-## The three steps (`cli/commands/update.py::update`)
+## The steps (`cli/commands/update.py::update`)
 
+0. **Bridge migration** — `workspace/bridge_migration.py::run_bridge_migration`.
+   Temporary (see that file's module docstring for the removal checklist):
+   removes files obsoleted by the pre-refactor workspace layout, but only if
+   your copy is byte-identical to a known shipped version; anything you
+   edited is preserved with a `[warn]` instead. `job-hunter update --dry-run`
+   previews **this step only** — it does not preview steps 1-4 below, since
+   those are merge-based and never delete anything.
 1. **Workspace assets** — `workspace/assets.py::update_workspace_assets`.
    Iterates `_UPDATE_ASSETS` (currently `README.md`, `SETUP.md`,
    `SETUP_AGENT.md`, `SETUP_LLM_API.md`, `config/career_pages.yml`,
@@ -15,6 +22,9 @@ changing what it touches.
    - YAML files are deep-merged (`_merge_yaml`): new template keys are
      added, your existing values win on every conflict, lists and scalars
      included.
+   - `_OBSOLETE_CLI_DIRS` (currently just `.gemini/`) is removed outright
+     first, if present — an old mirrored agent-CLI skill tree with no user
+     data in it.
 2. **Skills** — `workspace/operations.py::update_skills`. Overwrites every
    file under `.claude/skills/` (and its `.agents/skills/` mirror) with the
    current template. Compares against `manifest.managed_files` (a
@@ -26,8 +36,19 @@ changing what it touches.
    `.github/` files, but `_preserve_user_schedule` carries forward any
    active (uncommented) `cron:` line from your existing `find-jobs.yml` so
    enabling a schedule survives updates.
+4. **Telemetry** — `workspace/operations.py::install_telemetry`. Merges
+   OTel hook config into `.claude/settings.json` and `.codex/hooks.json`
+   (workspace-local), and into `~/.codex/config.toml` (global, once per
+   machine — left alone if it already has non-Job-Hunter `[otel]` config).
 
 `--skills-only` / `--workflows-only` run just step 2 or step 3.
+
+**`--dry-run` backlog:** it currently only previews step 0. Extending it to
+preview steps 1-4 without writing would mean threading a `dry_run` flag
+through `update_workspace_assets`, `update_skills`, `update_workflows`, and
+both telemetry-install functions (one of which touches the global Codex
+config outside the workspace) — real plumbing across five functions, not a
+small change. Worth doing if a real need shows up; not done speculatively.
 
 ## What never gets touched
 
@@ -36,11 +57,23 @@ set (deep-merge preserves it). See [DATA_CONTRACT.md](../DATA_CONTRACT.md).
 
 ## Workspace manifest
 
-`job-hunter init` writes `.job-hunter-manifest.json`
+`job-hunter init` writes `.job-hunter/manifest.json`
 (`workspace/manifest.py`): `workspace_version` (currently `"1.0"`),
-`package_version_created_with`, and `managed_files` (the skill
-path → sha256 map used for stale-file cleanup above). It's a small bit of
-system-owned state, not something to hand-edit.
+`package_version_created_with`, `managed_files`, and `applied_migrations`.
+
+`managed_files` tracks **skill files only** (the path → sha256 map used for
+stale-skill cleanup in step 2 above) — it is not a record of every file the
+steps above write. Workspace assets, workflows, and telemetry files are not
+tracked in the manifest; they're either deep-merged (safe to re-derive every
+run) or, for the one-off bridge-migration cleanup, checked against a fixed
+hash table in `bridge_migration.py` instead.
+
+`applied_migrations` is a list of migration IDs (currently just
+`bridge_migration.BRIDGE_MIGRATION_ID`) recorded after a successful
+non-dry-run `job-hunter update`, so `doctor`/support tooling can tell which
+one-off migrations a workspace has already been through.
+
+It's a small bit of system-owned state, not something to hand-edit.
 
 ## Dev-time vs. runtime sync — two different things
 

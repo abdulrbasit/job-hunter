@@ -30,6 +30,7 @@ class WorkspaceManifest:
     generated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     managed_files: dict[str, str] = field(default_factory=dict)
     protected_paths: list[str] = field(default_factory=lambda: list(PROTECTED_PATHS))
+    applied_migrations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -42,6 +43,7 @@ class WorkspaceManifest:
             generated_at=data.get("generated_at", ""),
             managed_files=data.get("managed_files", {}),
             protected_paths=data.get("protected_paths", list(PROTECTED_PATHS)),
+            applied_migrations=data.get("applied_migrations", []),
         )
 
 

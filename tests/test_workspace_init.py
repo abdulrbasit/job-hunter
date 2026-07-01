@@ -72,6 +72,19 @@ def test_project_readme_links_setup_guide() -> None:
     assert "[SETUP.md](job_hunter/templates/workspace/SETUP.md)" in readme
 
 
+def test_workspace_updates_doc_uses_real_manifest_path() -> None:
+    root = Path(__file__).resolve().parents[1]
+    doc = (root / "docs" / "workspace-updates.md").read_text(encoding="utf-8")
+    assert MANIFEST_PATH in doc
+    assert ".job-hunter-manifest.json" not in doc
+
+
+def test_workspace_updates_doc_does_not_overclaim_manifest_scope() -> None:
+    root = Path(__file__).resolve().parents[1]
+    doc = (root / "docs" / "workspace-updates.md").read_text(encoding="utf-8")
+    assert "skill files only" in doc
+
+
 def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
 
