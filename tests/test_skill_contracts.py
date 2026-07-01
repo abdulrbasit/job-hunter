@@ -191,3 +191,39 @@ def test_tailor_skill_enforces_tailoring_rules() -> None:
     assert "project_rules" in text
     assert "keywords" in text
     assert "gaps" in text
+
+
+def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template() -> None:
+    """.claude/skills/ is the source of truth; the bundled workspace template copy must match.
+
+    Dev-only skills (job_hunter.workspace._assets._DEV_SKILL_DIRS) are intentionally excluded
+    from the template and are skipped here.
+    """
+    from job_hunter.workspace._assets import _DEV_SKILL_DIRS
+
+    root_skills = ROOT / ".claude" / "skills"
+    template_skills = ROOT / "job_hunter" / "templates" / "workspace" / ".claude" / "skills"
+
+    mismatches: list[str] = []
+    for skill_dir in sorted(p for p in root_skills.iterdir() if p.is_dir()):
+        if skill_dir.name in _DEV_SKILL_DIRS:
+            continue
+        for source_file in skill_dir.rglob("*"):
+            if not source_file.is_file():
+                continue
+            rel = source_file.relative_to(root_skills)
+            mirrored = template_skills / rel
+            if not mirrored.exists():
+                mismatches.append(f"missing in template: {rel.as_posix()}")
+            elif mirrored.read_bytes() != source_file.read_bytes():
+                mismatches.append(f"content drift: {rel.as_posix()}")
+
+    assert mismatches == [], f"skill/template drift: {mismatches}"
+
+
+def test_rules_md_is_the_file_agents_md_flags_as_manually_mirrored() -> None:
+    """Guards the specific drift risk AGENTS.md calls out by name."""
+    root_rules = ROOT / ".claude" / "skills" / "job-hunter" / "_rules.md"
+    template_rules = ROOT / "job_hunter" / "templates" / "workspace" / ".claude" / "skills" / "job-hunter" / "_rules.md"
+
+    assert root_rules.read_text(encoding="utf-8") == template_rules.read_text(encoding="utf-8")
