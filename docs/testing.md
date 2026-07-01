@@ -54,7 +54,7 @@ uv run ty check job_hunter tests
 Package-boundary rules are enforced by ruff's `flake8-tidy-imports`
 banned-api list in `pyproject.toml` (`sources/` can't import `pipeline/`,
 nothing can import `cli/` or `ux/` except their own package — see
-`ARCHITECTURE.md` §1) and by `tests/test_dependency_boundaries.py`.
+`architecture.md#dependency-boundaries`) and by `tests/test_dependency_boundaries.py`.
 
 `ty` is strict (`error`, not `ignore`) only for `job_hunter/models.py` and
 `job_hunter/config/**` (`[[tool.ty.overrides]]` in `pyproject.toml`);

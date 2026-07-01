@@ -66,6 +66,30 @@ def test_every_workspace_managed_file_has_a_package_data_glob() -> None:
     assert missing == [], f"workspace file(s) managed by the CLI but missing from package-data: {missing}"
 
 
+def test_profile_package_data_excludes_latex_build_artifacts() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    globs = set(project["tool"]["setuptools"]["package-data"]["job_hunter.templates"])
+    excluded = set(project["tool"]["setuptools"]["exclude-package-data"]["job_hunter.templates"])
+
+    assert project["tool"]["setuptools"]["include-package-data"] is False
+    assert "workspace/profile/**/*" not in globs
+    assert {
+        "workspace/profile/*.md",
+        "workspace/profile/*.tex",
+        "workspace/profile/*.cls",
+        "workspace/profile/*.xmpi",
+        "workspace/profile/*.pdf",
+    } <= globs
+    assert {
+        "workspace/profile/*.aux",
+        "workspace/profile/*.fdb_latexmk",
+        "workspace/profile/*.fls",
+        "workspace/profile/*.log",
+        "workspace/profile/*.out",
+        "workspace/profile/*.synctex.gz",
+    } <= excluded
+
+
 def test_list_module_imports_script_runs_and_finds_known_edge() -> None:
     """Smoke test for scripts/list_module_imports.py — a refactor-support helper, not shipped code."""
     result = subprocess.run(

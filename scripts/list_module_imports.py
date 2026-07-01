@@ -1,6 +1,6 @@
 """List every job_hunter module and which other job_hunter modules it imports.
 
-Supports the ARCHITECTURE.md migration: run before moving a file to see who would break.
+Supports architecture audits: run before moving a file to see who would break.
 
     uv run python scripts/list_module_imports.py
     uv run python scripts/list_module_imports.py --target job_hunter.pipeline.runner

@@ -1,4 +1,4 @@
-"""Guards the package layering from ARCHITECTURE.md §1: tracking/ is the state API;
+"""Guards package layering from docs/architecture.md: tracking/ is the state API;
 pipeline/ and agent_context/ must not depend on ux/ (the presentation layer, outermost).
 
 ruff's TID251 banned-api rule enforces this at lint time too (pyproject.toml); this test

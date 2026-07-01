@@ -34,7 +34,6 @@ dependencies = [
   "jsonschema>=4.0",
   "headroom-ai>=0.1.0; sys_platform != 'win32'",
   "pywebview>=4.4",
-  "claude-agent-sdk>=0.1",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +49,9 @@ job-hunter = "job_hunter.cli:app"
 Homepage = "https://github.com/abdulrbasit/job-hunter"
 Repository = "https://github.com/abdulrbasit/job-hunter"
 Issues = "https://github.com/abdulrbasit/job-hunter/issues"
+
+[tool.setuptools]
+include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -69,7 +71,11 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/config/**/*",
   "workspace/outputs/**/*",
   "workspace/.github/**/*",
-  "workspace/profile/**/*",
+  "workspace/profile/*.md",
+  "workspace/profile/*.tex",
+  "workspace/profile/*.cls",
+  "workspace/profile/*.xmpi",
+  "workspace/profile/*.pdf",
   "workspace/.claude/skills/caveman/**/*",
   "workspace/.claude/skills/job-hunter/**/*",
   "workspace/.claude/skills/linkedin/**/*",
@@ -77,6 +83,16 @@ include = ["job_hunter", "job_hunter.*"]
 ]
 "job_hunter.linkedin" = ["defaults.yml"]
 "job_hunter.ux.web" = ["*.html"]
+
+[tool.setuptools.exclude-package-data]
+"job_hunter.templates" = [
+  "workspace/profile/*.aux",
+  "workspace/profile/*.fdb_latexmk",
+  "workspace/profile/*.fls",
+  "workspace/profile/*.log",
+  "workspace/profile/*.out",
+  "workspace/profile/*.synctex.gz",
+]
 
 [tool.uv]
 override-dependencies = [
@@ -108,12 +124,12 @@ select = ["E", "F", "UP", "B", "I", "TID251", "W", "S", "C901"]
 ignore = ["E501", "S101"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-# Import-boundary guards (ARCHITECTURE.md §1). Both bans are already true of the codebase today —
+# Import-boundary guards (docs/architecture.md). Both bans are already true of the codebase today —
 # this locks them so a future change can't silently introduce the dependency. Exemptions below are
 # every current legitimate (or currently-existing) caller, not a blanket carve-out.
 "job_hunter.cli" = { msg = "cli/ is the composition root — nothing else may depend on it. If you need a CLI helper elsewhere, move it out of cli/ first." }
-"job_hunter.pipeline" = { msg = "sources/ must not depend on pipeline/ (sources is a lower layer). Elsewhere, prefer tracking/ over reaching into pipeline/ directly — see ARCHITECTURE.md §1." }
-# Phase 10: tracking/ is the state API (ARCHITECTURE.md §1) — pipeline/, tracking/, and
+"job_hunter.pipeline" = { msg = "sources/ must not depend on pipeline/ (sources is a lower layer). Elsewhere, prefer tracking/ over reaching into pipeline/ directly — see docs/architecture.md." }
+# tracking/ is the state API (docs/architecture.md) — pipeline/, tracking/, and
 # agent_context/ must not depend on ux/ (the presentation layer, outermost). This was already true
 # of the codebase after Phase 10's readme-writer/applications split; locking it in here.
 "job_hunter.ux" = { msg = "ux/ is the presentation layer — pipeline/, tracking/, and agent_context/ must not depend on it. If logic is shared, it belongs in tracking/ or pipeline/, not ux/." }
@@ -190,8 +206,7 @@ replace-imports-with-any = [
 # Project-wide default: relaxed. Phase 3 (2026-07-01) verified all 11 rules below already pass clean
 # for job_hunter/models.py + job_hunter/config/** with zero code changes — see the override below,
 # which promotes them to "error" for just those two locations. Widening the override to pipeline/
-# or sources/ is a real code-fixing pass, not a config change — tracked in ARCHITECTURE.md's backlog,
-# not done here.
+# or sources/ is a real code-fixing pass, not a config change.
 invalid-argument-type = "ignore"
 invalid-assignment = "ignore"
 invalid-return-type = "ignore"

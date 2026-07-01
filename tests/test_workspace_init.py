@@ -84,6 +84,8 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
     assert (workspace / ".agents" / "skills" / "setup" / "SKILL.md").exists()
+    assert (workspace / ".claude" / "settings.json").exists()
+    assert (workspace / ".codex" / "hooks.json").exists()
     assert (workspace / "profile" / "resume_double_column.tex").exists()
     assert (workspace / "profile" / "resume_single_column.tex").exists()
     assert (workspace / "profile" / "career_context.md").exists()
@@ -320,6 +322,18 @@ def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(
     assert result["mode"] == "llm-api"  # user value preserved
     assert result["companies"] == [{"name": "ACME"}]  # user list preserved
     assert result["new_feature"] is True  # new template key injected
+
+
+def test_init_configures_codex_telemetry_in_codex_home(tmp_path: Path, monkeypatch) -> None:
+    codex_home = tmp_path / "codex-home"
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    run_init(tmp_path / "workspace")
+    first = (codex_home / "config.toml").read_text(encoding="utf-8")
+    run_init(tmp_path / "second-workspace")
+
+    assert (codex_home / "config.toml").read_text(encoding="utf-8") == first
+    assert "127.0.0.1:4318" in first
 
 
 def test_deep_merge_user_wins_on_scalar_and_list() -> None:

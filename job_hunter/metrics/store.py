@@ -69,6 +69,7 @@ def record_run(
 def get_runs(db_path: Path, limit: int = 50) -> list[dict[str, Any]]:
     if not db_path.exists():
         return []
+    init_db(db_path)
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT * FROM pipeline_runs ORDER BY ts DESC LIMIT ?", (limit,)).fetchall()

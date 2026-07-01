@@ -45,6 +45,7 @@ def update(
 ) -> None:
     """Update workspace assets after a package upgrade."""
     from job_hunter.workspace.assets import update_workspace_assets
+    from job_hunter.workspace.operations import install_telemetry
     from job_hunter.workspace.operations import update_skills as run_update_skills
     from job_hunter.workspace.operations import update_workflows as run_update_workflows
 
@@ -64,6 +65,7 @@ def update(
     typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
     run_update_skills(root)
     run_update_workflows(root)
+    install_telemetry(root)
 
 
 @app.command()

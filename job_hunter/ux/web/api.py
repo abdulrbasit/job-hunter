@@ -118,10 +118,11 @@ class DashAPI:
 
     def get_analytics(self) -> dict[str, Any]:
         from job_hunter.metrics.store import get_runs
+        from job_hunter.metrics.telemetry import get_telemetry_summary
 
         db_path = self._root / "outputs" / "state" / "metrics.db"
         runs = get_runs(db_path)
-        return {"runs": runs}
+        return {"runs": runs, "telemetry": get_telemetry_summary(db_path)}
 
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""

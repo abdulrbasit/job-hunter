@@ -193,6 +193,22 @@ def test_tailor_skill_enforces_tailoring_rules() -> None:
     assert "gaps" in text
 
 
+def test_job_hunter_modes_emit_telemetry_phase_markers() -> None:
+    modes = ROOT / ".claude" / "skills" / "job-hunter" / "modes"
+    expected = {
+        "batch.md": "screening",
+        "score.md": "scoring",
+        "research.md": "research",
+        "tailor.md": "tailoring",
+        "finalize.md": "finalization",
+    }
+    for filename, phase in expected.items():
+        text = (modes / filename).read_text(encoding="utf-8")
+        assert f"telemetry-mark --phase {phase}" in text
+        assert "--state start" in text
+        assert "--state end" in text
+
+
 def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template() -> None:
     """.claude/skills/ is the source of truth; the bundled workspace template copy must match.
 

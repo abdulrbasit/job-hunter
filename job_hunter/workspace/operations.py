@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -186,6 +187,7 @@ def run_init(path: Path, force: bool = False) -> None:
         managed_files=managed,
     )
     write_manifest(workspace, manifest)
+    install_telemetry(workspace)
 
     typer.echo(f"\n[ok] Workspace created at: {workspace}")
     typer.echo("\nNext steps:")
@@ -193,6 +195,18 @@ def run_init(path: Path, force: bool = False) -> None:
     typer.echo("  job-hunter doctor")
     typer.echo("  # Open this folder in VS Code and run /setup onboard")
     typer.echo("  # Commit and push setup, then run GitHub Actions > Find Jobs")
+
+
+def install_telemetry(workspace: Path) -> None:
+    from job_hunter.metrics.setup import configure_codex_telemetry, install_workspace_telemetry
+
+    install_workspace_telemetry(workspace)
+    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+    result = configure_codex_telemetry(codex_home / "config.toml")
+    if result == "conflict":
+        typer.echo("[warn] Existing Codex OTel config preserved; Job Hunter token telemetry is not enabled for Codex.")
+    elif result == "invalid":
+        typer.echo("[warn] Invalid Codex config preserved; Job Hunter token telemetry is not enabled for Codex.")
 
 
 def _promote_examples(workspace: Path) -> None:

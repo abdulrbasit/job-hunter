@@ -152,7 +152,7 @@ def test_hunt_input_requires_valid_mode() -> None:
 
 
 def test_models_module_has_no_dependency_on_config_cli_ux_or_sources() -> None:
-    """Domain models are the lowest layer (ARCHITECTURE.md §1) — importing config/cli/ux/sources
+    """Domain models are the lowest layer (docs/architecture.md) — importing config/cli/ux/sources
     into models.py would make a data contract depend on the code that produces or renders it."""
     import ast
     from pathlib import Path

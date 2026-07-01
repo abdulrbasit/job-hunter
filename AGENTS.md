@@ -22,7 +22,7 @@ Set `mode:` in `config/job_hunter.yml`.
 - `job_hunter/templates/workspace/profile/`: canonical starter profile and resume templates.
 - `examples/profile/`: filled fictional examples; not a template source.
 - `outputs/state/jobs.db`: SQLite — single source of truth for all job state (URL dedup, scraped candidates, application lifecycle).
-- `ARCHITECTURE.md`: target package structure and migration table for the in-progress refactor. Update its migration-table status column as phases land; don't duplicate its content here.
+- `docs/architecture.md`: current package ownership, dependency boundaries, pipeline, state, and template architecture.
 
 ## Skills
 

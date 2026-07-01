@@ -68,7 +68,7 @@ def test_fetch_never_raises_when_fetch_impl_fails() -> None:
 
 
 def test_all_adapters_declare_joblisting_return_contract() -> None:
-    """Source adapters must return JobPosting contracts (ARCHITECTURE.md §5), not raw dicts."""
+    """Source adapters must return JobPosting contracts (docs/architecture.md), not raw dicts."""
     for adapter_type in BOARD_REGISTRY.values():
         annotation = signature(adapter_type._fetch).return_annotation
         assert "JobPosting" in str(annotation), f"{adapter_type.__name__}._fetch must return list[JobPosting]"

@@ -17,7 +17,8 @@ Slug: `$ARGUMENTS`
 
 ## Steps
 
-1. Run `job-hunter internal agent-context tailor-context --job <slug>`.
+1. Run `job-hunter internal telemetry-mark --phase tailoring --job <slug> --state start`, then
+   `job-hunter internal agent-context tailor-context --job <slug>`.
    Apply every field exactly as delivered — these are the same constraints that llm-api mode uses.
 2. Read `outputs/state/compiled/career_context.min.md` (if present) else `profile/career_context.md`
    for resume style, cover-letter style, and evidence boundaries.
@@ -46,7 +47,9 @@ Slug: `$ARGUMENTS`
    - After all edits: read back each changed line. If any employer, title, date, metric, or
      skill appears that was not in the base resume or matched Final stories, revert that line
      to the original base resume text. Do not substitute an alternative — revert.
-6. Write `outputs/jobs/<slug>/cover_letter.md`:
+6. Run `job-hunter internal telemetry-mark --phase tailoring --state end`, then
+   `job-hunter internal telemetry-mark --phase cover-letter --job <slug> --state start`.
+   Write `outputs/jobs/<slug>/cover_letter.md`:
    - Tone: `cover_constraints.tone`.
    - Length: target `cover_constraints.target_words` words,
      hard max `cover_constraints.max_words` words,
@@ -56,12 +59,16 @@ Slug: `$ARGUMENTS`
    - Follow every rule in `cover_constraints.style_rules`.
    - No story IDs, no markdown headers, no bullet points — plain text only.
    - Start directly with the first sentence of the letter body.
-7. Run:
+7. Run `job-hunter internal telemetry-mark --phase cover-letter --state end`, then
+   `job-hunter internal telemetry-mark --phase pdf --job <slug> --state start`, then:
    ```bash
    job-hunter internal compile-pdf --job <slug>
    ```
    This copies configured `altacv.cls` and profile image into the job folder before compiling.
-8. If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.
+8. Run `job-hunter internal telemetry-mark --phase pdf --state end` after compilation.
+   Run `job-hunter internal telemetry-outcome --job <slug> --tailored` when the tailored `.tex` exists.
+   If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.
+   Telemetry marker failures are non-blocking.
 
 ## Hard Rules
 

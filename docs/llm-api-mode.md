@@ -9,7 +9,7 @@
 involved: discovery (`sources/`) → enrichment → screening → validation →
 pre-LLM gate → scoring → tailoring → cover letter → PDF compile → README
 update → tracker. `pipeline/runner.py` is the mode dispatcher; it calls
-each stage module in order (see `ARCHITECTURE.md` §4 for exact file
+each stage module in order (see [architecture.md](architecture.md#pipeline) for
 ownership).
 
 ## LLM client

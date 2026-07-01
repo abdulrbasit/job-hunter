@@ -36,4 +36,5 @@ from job_hunter.cli.commands import hunt as _hunt_commands  # noqa: E402,F401
 from job_hunter.cli.commands import internal as _internal_commands  # noqa: E402,F401
 from job_hunter.cli.commands import linkedin as _linkedin_commands  # noqa: E402,F401
 from job_hunter.cli.commands import tailor as _tailor_commands  # noqa: E402,F401
+from job_hunter.cli.commands import telemetry as _telemetry_commands  # noqa: E402,F401
 from job_hunter.cli.commands import update as _update_commands  # noqa: E402,F401

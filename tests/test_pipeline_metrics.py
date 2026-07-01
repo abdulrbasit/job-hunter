@@ -37,3 +37,21 @@ def test_persist_metrics_calls_record_run_with_run_context() -> None:
     assert kwargs["jobs_found"] == 5
     assert kwargs["jobs_tailored"] == 2
     assert kwargs["duration_s"] == 3.5
+
+
+def test_persist_metrics_normalizes_llm_api_role_tokens(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("job_hunter.config.loader.ROOT", tmp_path)
+    with (
+        patch("job_hunter.config.loader.get_mode", return_value="llm-api"),
+        patch(
+            "job_hunter.llm.token_usage.get_token_totals",
+            return_value={"scoring": {"in": 100, "out": 20, "cached": 40}},
+        ),
+    ):
+        metrics.persist_metrics(_ctx(), jobs_found=5, jobs_tailored=2, elapsed=3.5)
+
+    from job_hunter.metrics.telemetry import get_telemetry_summary
+
+    summary = get_telemetry_summary(tmp_path / "outputs" / "state" / "metrics.db")
+    assert summary["by_backend"]["llm-api"]["input_tokens"] == 100
+    assert summary["by_phase"]["scoring"]["output_tokens"] == 20

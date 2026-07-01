@@ -5,6 +5,7 @@ Score one imported job against bounded JD context, configured base resume, and v
 Run:
 
 ```bash
+job-hunter internal telemetry-mark --phase scoring --job <slug> --state start
 job-hunter internal agent-context score --mode full --job <slug>
 ```
 
@@ -43,3 +44,6 @@ job-hunter internal agent-context validate-score --path outputs/jobs/<slug>/scor
 
 `APPLY` only when score meets live threshold or strategic override; otherwise `SKIP`.
 Credit only evidence present in base resume or selected Final stories. Never fabricate.
+Run `job-hunter internal telemetry-mark --phase scoring --state end` after validation.
+Run `job-hunter internal telemetry-outcome --job <slug> --decision <APPLY|SKIP>` with the validated decision.
+Telemetry marker failures are non-blocking.

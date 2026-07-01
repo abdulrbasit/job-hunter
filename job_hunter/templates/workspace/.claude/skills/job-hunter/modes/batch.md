@@ -23,6 +23,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 - Never mark an entire source file processed after systemic fetch failures; mark only specific terminal URLs.
 - One compact line per phase to chat. Durable data (scores, stories, resume, cover letter in full mode; scores and resume in lite mode) to files only.
 - Silent for per-job SKIPs; report counts in batch totals only.
+- Telemetry marker failures are non-blocking; continue the workflow.
 
 ## Steps
 
@@ -30,6 +31,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 
 2. Build queue and freeze batch:
    ```bash
+   job-hunter internal telemetry-mark --phase screening --state start
    job-hunter internal agent-context batch --scope briefing-backlog --batch-size 15 \
      --write-queue outputs/state/agent_candidate_queue.json \
      --write-batch outputs/state/agent_candidate_batch.json
@@ -39,6 +41,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
    ```
    **Full mode only:** Execute `screen.md` inline against every retained candidate.
    **Lite mode:** Do not execute `screen.md`. Accept all candidates that pass the Python hard screen.
+   Run `job-hunter internal telemetry-mark --phase screening --state end`.
    Print only: `Batch [lite: ]<N> loaded, N [hard-]screen skips, M retained`.
 
 3. Pre-load shared context once:

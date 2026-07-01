@@ -30,7 +30,7 @@ docs/                  Deep-dive reference docs, linked from README.md
 scripts/               Dev-only tooling (not shipped in the package)
 ```
 
-Full module ownership and package boundaries: [ARCHITECTURE.md](ARCHITECTURE.md).
+Full module ownership and package boundaries: [docs/architecture.md](docs/architecture.md).
 
 `job_hunter/templates/workspace/` is what `job-hunter init` copies into a
 new user workspace. `CLAUDE.md`, `GEMINI.md`, `config/`, and every

@@ -1044,6 +1044,11 @@ const ROLE_LABELS = {
 
 function renderAnalytics(data, container) {
   const runs = data.runs || [];
+  const telemetry = data.telemetry || {};
+  const normalizedTotals = telemetry.totals || {};
+  const outcomes = telemetry.outcomes || {};
+  const normalizedTokenCount = (normalizedTotals.input_tokens || 0) + (normalizedTotals.output_tokens || 0);
+  const tokensPerTailored = outcomes.tailored ? Math.round(normalizedTokenCount / outcomes.tailored) : 0;
   const latest = runs[0];
 
   let headerHtml;
@@ -1067,8 +1072,8 @@ function renderAnalytics(data, container) {
   // token chart data
   const tokenTotals = latest?.token_totals || {};
   const hasTokens = Object.keys(tokenTotals).length > 0;
-  const tokenNote = latest?.exec_mode === 'agent' && !hasTokens
-    ? `<div class="agent-note">Agent mode run — LLM tokens are tracked by the Claude Code runtime, not captured here. Migrate to <code>claude_agent_sdk</code> for programmatic token capture.</div>`
+  const tokenNote = latest?.exec_mode === 'agent' && !hasTokens && !normalizedTokenCount
+    ? `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup.</div>`
     : '';
 
   const roles = Object.keys(ROLE_LABELS).filter(r => tokenTotals[r]);
@@ -1076,6 +1081,14 @@ function renderAnalytics(data, container) {
   const outputData = roles.map(r => tokenTotals[r]?.out || 0);
   const cachedData = roles.map(r => tokenTotals[r]?.cached || 0);
   const roleLabels = roles.map(r => ROLE_LABELS[r] || r);
+  const metricRows = group => Object.entries(group || {})
+    .sort((a, b) => (b[1].input_tokens + b[1].output_tokens) - (a[1].input_tokens + a[1].output_tokens))
+    .map(([name, value]) => `<tr>
+      <td>${name}</td><td>${(value.input_tokens || 0).toLocaleString()}</td>
+      <td>${(value.output_tokens || 0).toLocaleString()}</td>
+      <td>${(value.cached_tokens || 0).toLocaleString()}</td>
+      <td>${(value.reasoning_tokens || 0).toLocaleString()}</td>
+    </tr>`).join('') || `<tr><td colspan="5" class="no-data">No data</td></tr>`;
 
   // run history table
   const historyRows = runs.slice(0, 20).map((r, i) => {
@@ -1098,6 +1111,17 @@ function renderAnalytics(data, container) {
 
     ${tokenNote}
 
+    <div class="run-header">
+      <div class="run-stat"><div class="run-stat-label">Agent/API Input</div><div class="run-stat-value">${(normalizedTotals.input_tokens || 0).toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Output</div><div class="run-stat-value">${(normalizedTotals.output_tokens || 0).toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Cached</div><div class="run-stat-value">${(normalizedTotals.cached_tokens || 0).toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Reasoning</div><div class="run-stat-value">${(normalizedTotals.reasoning_tokens || 0).toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Processed</div><div class="run-stat-value">${outcomes.processed || 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">APPLY / SKIP</div><div class="run-stat-value">${outcomes.apply || 0} / ${outcomes.skip || 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Tokens / Tailored</div><div class="run-stat-value">${tokensPerTailored.toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Failures</div><div class="run-stat-value">${outcomes.failed || 0}</div></div>
+    </div>
+
     <div class="analytics-grid">
       <div class="chart-card" style="grid-column: ${hasTokens ? '1' : '1 / -1'}">
         <h3>Token Usage — Latest Run ${hasTokens ? `(${latest.mode} / ${latest.exec_mode})` : ''}</h3>
@@ -1105,6 +1129,26 @@ function renderAnalytics(data, container) {
           ? `<div class="chart-wrap"><canvas id="token-chart" height="200"></canvas></div>`
           : `<div class="no-data">No token data for latest run.</div>`
         }
+      </div>
+      <div class="chart-card">
+        <h3>Tokens by Mode</h3>
+        <table class="data-table"><thead><tr><th>Mode</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+        <tbody>${metricRows(telemetry.by_mode)}</tbody></table>
+      </div>
+      <div class="chart-card">
+        <h3>Tokens by Phase</h3>
+        <table class="data-table"><thead><tr><th>Phase</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+        <tbody>${metricRows(telemetry.by_phase)}</tbody></table>
+      </div>
+      <div class="chart-card">
+        <h3>Tokens by Backend</h3>
+        <table class="data-table"><thead><tr><th>Backend</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+        <tbody>${metricRows(telemetry.by_backend)}</tbody></table>
+      </div>
+      <div class="chart-card">
+        <h3>Tokens by Job</h3>
+        <table class="data-table"><thead><tr><th>Job</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+        <tbody>${metricRows(telemetry.by_job)}</tbody></table>
       </div>
     </div>
 

@@ -68,3 +68,20 @@ Before a run, `job_hunter/tools/compile_profile.py` compiles
 `outputs/state/compiled/*.min.md` and `resume.compact.txt`. Context loaders
 prefer these compiled files when present; the directory is cleaned up
 after each run, so it's transient, not a second source of truth.
+
+## Token and skill metrics
+
+Workspace setup installs Claude Code and Codex lifecycle hooks plus a localhost-only
+OpenTelemetry receiver. Existing `/job-hunter ...` commands do not change. For each
+run, `outputs/state/metrics.db` records input, output, cached, and reasoning tokens
+by backend, top-level mode, nested phase, and job slug. It also records APPLY/SKIP,
+tailored, failed, and interrupted outcomes.
+
+Prompt text, model responses, resume contents, and tool arguments are never stored.
+Only token counts, model/session identifiers, phase labels, slugs, and outcome
+counters are retained. Telemetry errors never block job processing.
+
+`job-hunter init` configures project hooks automatically. Codex requires its OTel
+exporter in `$CODEX_HOME/config.toml` (normally `~/.codex/config.toml`); an existing
+unrelated `[otel]` section is preserved and reported instead of overwritten. Restart
+Claude Code or Codex after setup, then use the dashboard Analytics tab to compare runs.

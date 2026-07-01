@@ -32,6 +32,7 @@ os.environ.setdefault("BRAVE_API_KEY", "test-brave-key")
 os.environ.setdefault("RAPIDAPI_KEY", "test-rapidapi-key")
 
 runtime_root = Path(tempfile.mkdtemp(prefix="job-hunter-test-root-"))
+os.environ.setdefault("CODEX_HOME", str(runtime_root / ".codex"))
 config_dir = runtime_root / "config"
 config_dir.mkdir(parents=True)
 (config_dir / "job_hunter.yml").write_text(

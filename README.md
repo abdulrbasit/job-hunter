@@ -105,7 +105,7 @@ MIT licensed. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — package structure and module boundaries
+- [docs/architecture.md](docs/architecture.md) — package structure and module boundaries
 - [DATA_CONTRACT.md](DATA_CONTRACT.md) — user vs. system-owned files
 - [docs/config.md](docs/config.md) — every `config/job_hunter.yml` key
 - [docs/sources.md](docs/sources.md) — job boards, career pages, search providers

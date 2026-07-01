@@ -122,6 +122,20 @@ def test_get_analytics_reads_metrics_store(tmp_path: Path) -> None:
     assert payload["runs"][0]["mode"] == "hunt"
 
 
+def test_get_analytics_includes_normalized_telemetry(tmp_path: Path) -> None:
+    from job_hunter.metrics.telemetry import TelemetryEvent, begin_run, end_run, ingest_otlp
+
+    db_path = tmp_path / "outputs" / "state" / "metrics.db"
+    run_id = begin_run(db_path, backend="codex", session_id="s", mode="batch")
+    ingest_otlp(db_path, [TelemetryEvent(backend="codex", session_id="s", input_tokens=50, output_tokens=10)])
+    end_run(db_path, run_id, status="completed")
+
+    payload = DashAPI(tmp_path).get_analytics()
+
+    assert payload["telemetry"]["totals"]["input_tokens"] == 50
+    assert payload["telemetry"]["by_mode"]["batch"]["output_tokens"] == 10
+
+
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir()
