@@ -145,7 +145,7 @@ def get_processed_urls(root: Path) -> set[str]:
 
 def insert_candidate_urls(root: Path, urls: set[str]) -> None:
     """Insert broad-discovery URLs as status='candidate' (no full job data yet)."""
-    from job_hunter.sources.search_providers import canonicalize_url
+    from job_hunter.sources.search import canonicalize_url
 
     now = _now()
     with _conn(root) as conn:
@@ -185,7 +185,7 @@ def get_candidate_urls_with_metadata(root: Path) -> dict[str, dict[str, Any]]:
 
 def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int:
     """Insert scrape results as status='discovered'. Returns count of new rows."""
-    from job_hunter.sources.search_providers import canonicalize_url
+    from job_hunter.sources.search import canonicalize_url
 
     now = _now()
     inserted = 0
@@ -286,7 +286,7 @@ def mark_urls_processed(root: Path, urls: set[str]) -> None:
 
     Inserts a minimal row if the URL is not already in the DB.
     """
-    from job_hunter.sources.search_providers import canonicalize_url
+    from job_hunter.sources.search import canonicalize_url
 
     now = _now()
     with _conn(root) as conn:
@@ -308,7 +308,7 @@ def mark_urls_processed(root: Path, urls: set[str]) -> None:
 
 def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
     """Upsert a job (from import-job or application tracking)."""
-    from job_hunter.sources.search_providers import canonicalize_url
+    from job_hunter.sources.search import canonicalize_url
 
     url = str(entry.get("url") or "")
     slug = str(entry.get("slug") or "")

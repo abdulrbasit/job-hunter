@@ -1,13 +1,13 @@
-"""Tests for tracking/tracker.py — uses temp DB, no API calls."""
+"""Tests for tracking/processed_urls.py — uses temp DB, no API calls."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch
 
-import job_hunter.tracking.tracker as tracker
-from job_hunter.db.jobs import get_all_known_urls, mark_urls_processed
-from job_hunter.tracking.tracker import filter_new_jobs, load_processed, mark_processed
+import job_hunter.tracking.processed_urls as tracker
+from job_hunter.tracking.processed_urls import filter_new_jobs, load_processed, mark_processed
+from job_hunter.tracking.repository import get_all_known_urls, mark_urls_processed
 
 
 def _with_tmp_root(tmp_path: Path):
@@ -31,7 +31,7 @@ def test_load_processed_returns_urls_from_db(tmp_path: Path) -> None:
 
 def test_save_processed_inserts_urls(tmp_path: Path) -> None:
     with _with_tmp_root(tmp_path):
-        from job_hunter.tracking.tracker import save_processed
+        from job_hunter.tracking.processed_urls import save_processed
 
         save_processed({"https://b.com", "https://a.com"})
     known = get_all_known_urls(tmp_path)

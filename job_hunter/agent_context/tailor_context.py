@@ -9,21 +9,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from job_hunter.agent_context._utils import _read_yaml, _root
+from job_hunter.agent_context._utils import _root
+from job_hunter.core.utils import read_yaml
 
 
 def _score(root: Path, job: str) -> dict[str, Any]:
     path = root / "outputs" / "jobs" / job / "score.yml"
     if not path.exists():
         raise FileNotFoundError(f"score.yml not found: {path}")
-    return _read_yaml(path)
+    return read_yaml(path)
 
 
-def _cover_constraints(cover_cfg: dict[str, Any]) -> dict[str, Any]:
-    tone = cover_cfg.get("tone", []) or []
-    content = cover_cfg.get("content", {}) or {}
-    forbidden = cover_cfg.get("forbidden", {}) or {}
-    structure = cover_cfg.get("structure", {}) or {}
+def _cover_constraints(cover_config: dict[str, Any]) -> dict[str, Any]:
+    tone = cover_config.get("tone", []) or []
+    content = cover_config.get("content", {}) or {}
+    forbidden = cover_config.get("forbidden", {}) or {}
+    structure = cover_config.get("structure", {}) or {}
     paragraphs = int(content.get("paragraphs", 4))
     return {
         "tone": ", ".join(tone) if tone else "formal, confident, and substantive",
@@ -55,18 +56,18 @@ def tailor_context(job: str, root: Path | None = None) -> dict[str, Any]:
     )
 
     base = _root(root)
-    cfg = get_config("job_hunter")
+    config = get_config("job_hunter")
     score = _score(base, job)
 
     base_tex = _load_profile_text("resume_tex", "resume.tex")
-    stories_cfg = (cfg.get("tailoring") or {}).get("stories") or {}
-    story_bank = _load_profile_text("story_bank", stories_cfg.get("story_bank", "story_bank.md"))
+    stories_config = (config.get("tailoring") or {}).get("stories") or {}
+    story_bank = _load_profile_text("story_bank", stories_config.get("story_bank", "story_bank.md"))
 
     return {
         "keywords": list(score.get("matched", score.get("matched_keywords", []))),
         "gaps": list(score.get("gaps", [])),
-        "tailoring_rules": _build_tailoring_rules(cfg),
-        "positioning_rules": _build_positioning_rules(cfg),
-        "project_rules": _build_project_rules(cfg, base_tex, story_bank),
-        "cover_constraints": _cover_constraints(cfg.get("cover_letter") or {}),
+        "tailoring_rules": _build_tailoring_rules(config),
+        "positioning_rules": _build_positioning_rules(config),
+        "project_rules": _build_project_rules(config, base_tex, story_bank),
+        "cover_constraints": _cover_constraints(config.get("cover_letter") or {}),
     }

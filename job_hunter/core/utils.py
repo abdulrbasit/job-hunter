@@ -1,10 +1,21 @@
-"""Core string, HTML, and URL utilities."""
+"""Core string, HTML, URL, and file-reading utilities."""
 
 from __future__ import annotations
 
 import re
+from pathlib import Path
+from typing import Any
 
 import requests  # noqa: F401 — exposed so tests can patch utils.requests.head
+
+
+def read_yaml(path: Path) -> Any:
+    """Read a YAML file, returning {} if it doesn't exist."""
+    import yaml
+
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
 def strip_html(html: str) -> str:

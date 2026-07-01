@@ -79,7 +79,7 @@ def deterministic_rejection_reason(snippet: str, max_years: int) -> str | None:
 def validate(
     jobs: list[dict],
     max_years: int,
-    api_cfg: dict | None = None,
+    api_config: dict | None = None,
     *,
     url_checker: Callable[[str, int], bool] = url_is_alive,
     max_years_bypass_companies: list[str] | None = None,
@@ -92,8 +92,8 @@ def validate(
     Jobs where LLM validation fails are passed through (fail-open) to avoid
     false negatives from transient API errors.
     """
-    if api_cfg is None:
-        api_cfg = get_api_config()
+    if api_config is None:
+        api_config = get_api_config()
 
     stage = LLMStage(
         "validation",
@@ -102,11 +102,11 @@ def validate(
         settings_factory=resolve_model_config,
     )
 
-    url_cfg = api_cfg.get("http", {}).get("url_verification", {})
-    check_urls = url_cfg.get("enabled", True)
-    url_timeout = url_cfg.get("timeout_seconds", 5)
+    url_config = api_config.get("http", {}).get("url_verification", {})
+    check_urls = url_config.get("enabled", True)
+    url_timeout = url_config.get("timeout_seconds", 5)
 
-    max_workers = int(api_cfg.get("llm", {}).get("max_workers", 5))
+    max_workers = int(api_config.get("llm", {}).get("max_workers", 5))
     bypass_companies = [company.lower() for company in (max_years_bypass_companies or [])]
 
     counter = 0
@@ -160,7 +160,7 @@ def validate(
             raw = stage.complete(
                 system=_SYSTEM,
                 user=prompt,
-                api_cfg=api_cfg,
+                api_config=api_config,
             )
             try:
                 result = stage.parse_json_object(raw, "validation response must be a JSON object")
@@ -169,7 +169,7 @@ def validate(
                 repaired = stage.complete(
                     system=_SYSTEM,
                     user=_REPAIR_PROMPT.format(raw=raw[:VALIDATION_SNIPPET_CHARS]),
-                    api_cfg=api_cfg,
+                    api_config=api_config,
                 )
                 result = stage.parse_json_object(repaired, "validation response must be a JSON object")
 

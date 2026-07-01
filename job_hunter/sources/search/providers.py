@@ -6,21 +6,21 @@ import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.config.secrets import BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY
-from job_hunter.sources.search_providers._constants import (
+from job_hunter.sources.search._constants import (
     BRAVE_SUPPORTED_COUNTRIES,
     BRAVE_URL,
     EXA_URL,
     TAVILY_URL,
     USER_AGENT,
 )
-from job_hunter.sources.search_providers._result import SearchResult, normalize_web_results
+from job_hunter.sources.search._result import SearchResult, normalize_web_results
 
 
 def _timeout(section: str) -> int:
     return get_timeout(section)
 
 
-def _search_cfg() -> dict:
+def _search_config() -> dict:
     return get_api_config().get("http", {}).get("search_providers", {}) or {}
 
 
@@ -39,11 +39,11 @@ class SearchProvider:
 class SearxngProvider(SearchProvider):
     name = "searxng"
 
-    def __init__(self, cfg: dict | None = None) -> None:
-        self.search_cfg = cfg if cfg is not None else _search_cfg()
+    def __init__(self, config: dict | None = None) -> None:
+        self.search_config = config if config is not None else _search_config()
         import os
 
-        self.base_url = (os.environ.get("SEARXNG_BASE_URL") or self.search_cfg.get("searxng_base_url") or "").rstrip(
+        self.base_url = (os.environ.get("SEARXNG_BASE_URL") or self.search_config.get("searxng_base_url") or "").rstrip(
             "/"
         )
 
@@ -55,9 +55,9 @@ class SearxngProvider(SearchProvider):
             "q": query,
             "format": "json",
             "safesearch": 0,
-            "categories": self.search_cfg.get("searxng_categories", "general"),
+            "categories": self.search_config.get("searxng_categories", "general"),
         }
-        engines = self.search_cfg.get("searxng_engines")
+        engines = self.search_config.get("searxng_engines")
         if engines:
             params["engines"] = ",".join(engines) if isinstance(engines, list) else str(engines)
         if region_config.get("search_lang"):

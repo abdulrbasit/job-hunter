@@ -4,22 +4,22 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Never
 
 from job_hunter.config.defaults import HTTP_DEFAULTS
-from job_hunter.sources import search_providers
-from job_hunter.sources.search_providers import (
+from job_hunter.sources import search
+from job_hunter.sources.search import (
     ats_discovery as _ats_mod,
 )
-from job_hunter.sources.search_providers import (
+from job_hunter.sources.search import (
     fetchers as _fetchers_mod,
 )
-from job_hunter.sources.search_providers import (
+from job_hunter.sources.search import (
     providers as _prov_mod,
 )
-from job_hunter.sources.search_providers import (
+from job_hunter.sources.search import (
     router as _router_mod,
 )
 
 
-class FailingProvider(search_providers.SearchProvider):
+class FailingProvider(search.SearchProvider):
     name = "failing"
 
     def __init__(self) -> None:
@@ -30,7 +30,7 @@ class FailingProvider(search_providers.SearchProvider):
         raise RuntimeError("boom")
 
 
-class EmptyProvider(search_providers.SearchProvider):
+class EmptyProvider(search.SearchProvider):
     name = "empty"
 
     def __init__(self) -> None:
@@ -41,18 +41,18 @@ class EmptyProvider(search_providers.SearchProvider):
         return []
 
 
-class StaticProvider(search_providers.SearchProvider):
+class StaticProvider(search.SearchProvider):
     name = "static"
 
     def search(self, query: str, region_config: dict, count: int = 10):
         return [
-            search_providers.SearchResult(
+            search.SearchResult(
                 url="https://jobs.smartrecruiters.com/TestCo/123456-product-manager",
                 title="Product Manager",
                 description="Dublin product role",
                 source="SearXNG",
             ),
-            search_providers.SearchResult(
+            search.SearchResult(
                 url="https://jobs.smartrecruiters.com/TestCo",
                 title="Product Manager jobs",
                 description="Listing page",
@@ -69,10 +69,10 @@ def test_default_provider_orders_reserve_semantic_search_for_ats_discovery() -> 
 
 
 def test_router_skips_provider_after_configured_consecutive_failures() -> None:
-    search_providers._PROVIDER_STATE.failures.clear()
+    search._PROVIDER_STATE.failures.clear()
     failing = FailingProvider()
     fallback = EmptyProvider()
-    router = search_providers.SearchRouter(providers=[failing, fallback])
+    router = search.SearchRouter(providers=[failing, fallback])
     router.max_consecutive_failures = 3
 
     for _ in range(4):
@@ -83,21 +83,21 @@ def test_router_skips_provider_after_configured_consecutive_failures() -> None:
 
 
 def test_router_failure_counter_is_thread_safe() -> None:
-    search_providers._PROVIDER_STATE.failures.clear()
-    router = search_providers.SearchRouter(providers=[FailingProvider()])
+    search._PROVIDER_STATE.failures.clear()
+    router = search.SearchRouter(providers=[FailingProvider()])
     router.max_consecutive_failures = 100
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(lambda _: router.search("query", {}, count=1), range(20)))
 
-    assert search_providers._PROVIDER_STATE.failures["failing"] == 20
+    assert search._PROVIDER_STATE.failures["failing"] == 20
 
 
 def test_canonicalize_url_strips_tracking_for_dedupe() -> None:
     left = "https://www.example.com/jobs/123/?utm_source=x&b=2&a=1#details"
     right = "https://example.com/jobs/123?a=1&b=2"
 
-    assert search_providers.canonicalize_url(left) == search_providers.canonicalize_url(right)
+    assert search.canonicalize_url(left) == search.canonicalize_url(right)
 
 
 def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -> None:
@@ -114,7 +114,7 @@ def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -
     monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
     monkeypatch.setattr(
         _ats_mod,
-        "_search_cfg",
+        "_search_config",
         lambda: {
             "ats_discovery": {
                 "enabled": True,
@@ -125,7 +125,7 @@ def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -
     )
     monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
 
-    jobs = search_providers.discover_ats_jobs_by_search(
+    jobs = search.discover_ats_jobs_by_search(
         ["Product Manager"],
         {"dublin": {"location": "Dublin"}},
         provider_order=["searxng", "brave"],
@@ -152,7 +152,7 @@ def test_discover_ats_jobs_respects_query_caps(monkeypatch) -> None:
     monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
     monkeypatch.setattr(
         _ats_mod,
-        "_search_cfg",
+        "_search_config",
         lambda: {
             "ats_discovery": {
                 "enabled": True,
@@ -165,7 +165,7 @@ def test_discover_ats_jobs_respects_query_caps(monkeypatch) -> None:
     )
     monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
 
-    jobs = search_providers.discover_ats_jobs_by_search(
+    jobs = search.discover_ats_jobs_by_search(
         ["Product Manager", "Product Owner"],
         {
             "berlin": {"location": "Berlin"},
@@ -196,16 +196,16 @@ def test_brave_provider_uses_shared_search_provider_timeout(monkeypatch) -> None
         return FakeResponse()
 
     monkeypatch.setattr(_prov_mod, "_timeout", fake_timeout)
-    monkeypatch.setattr(search_providers.requests, "get", fake_get)
+    monkeypatch.setattr(search.requests, "get", fake_get)
 
-    assert search_providers.BraveProvider().search("query", {}, count=1) == []
+    assert search.BraveProvider().search("query", {}, count=1) == []
     assert sections == ["search_providers"]
 
 
 # ── Task 2: Exhausted provider fallback ──────────────────────────────────────
 
 
-class ExhaustedProvider(search_providers.SearchProvider):
+class ExhaustedProvider(search.SearchProvider):
     """Simulates a provider whose quota is exhausted (reserve_api_call returns False)."""
 
     name = "exhausted_provider"
@@ -218,7 +218,7 @@ class ExhaustedProvider(search_providers.SearchProvider):
         return []
 
 
-class GoodProvider(search_providers.SearchProvider):
+class GoodProvider(search.SearchProvider):
     """Provider that always returns one result."""
 
     name = "good_provider"
@@ -229,7 +229,7 @@ class GoodProvider(search_providers.SearchProvider):
     def search(self, query: str, region_config: dict, count: int = 10):
         self.calls += 1
         return [
-            search_providers.SearchResult(
+            search.SearchResult(
                 url="https://example.com/job/1",
                 title="Product Manager",
                 description="Great role",
@@ -240,19 +240,19 @@ class GoodProvider(search_providers.SearchProvider):
 
 def test_router_skips_exhausted_provider_and_continues_to_next(monkeypatch) -> None:
     """When a provider is pre-marked exhausted, the router skips it and tries the next one."""
-    search_providers._PROVIDER_STATE.failures.clear()
+    search._PROVIDER_STATE.failures.clear()
 
     exhausted = ExhaustedProvider()
     good = GoodProvider()
 
     # Mark exhausted_provider as quota-exhausted without a real state file
     monkeypatch.setattr(
-        search_providers.SearchRouter,
+        search.SearchRouter,
         "_is_exhausted",
         lambda self, provider: provider.name == "exhausted_provider",
     )
 
-    router = search_providers.SearchRouter(providers=[exhausted, good])
+    router = search.SearchRouter(providers=[exhausted, good])
     results = router.search("query", {}, count=5)
 
     assert exhausted.calls == 0, "exhausted provider must not be called"
@@ -262,9 +262,9 @@ def test_router_skips_exhausted_provider_and_continues_to_next(monkeypatch) -> N
 
 def test_router_quota_exhaustion_exception_does_not_suppress_next_provider(monkeypatch) -> None:
     """A quota-exhaustion exception resets the failure counter and continues to the next provider."""
-    search_providers._PROVIDER_STATE.failures.clear()
+    search._PROVIDER_STATE.failures.clear()
 
-    class QuotaProvider(search_providers.SearchProvider):
+    class QuotaProvider(search.SearchProvider):
         name = "quota_provider"
         calls = 0
 
@@ -291,26 +291,26 @@ def test_router_quota_exhaustion_exception_does_not_suppress_next_provider(monke
         lambda exc: getattr(getattr(exc, "response", None), "status_code", None) == 402,
     )
     monkeypatch.setattr(
-        search_providers.SearchRouter,
+        search.SearchRouter,
         "_is_exhausted",
         lambda self, provider: False,  # not pre-exhausted; let the exception path trigger
     )
 
-    router = search_providers.SearchRouter(providers=[quota, good])
+    router = search.SearchRouter(providers=[quota, good])
     results = router.search("query", {}, count=5)
 
     assert quota.calls == 1
     assert good.calls == 1
     assert len(results) == 1
     # Failure counter for quota_provider must be 0 (reset after quota exc, not incremented)
-    assert search_providers._PROVIDER_STATE.failures.get("quota_provider", 0) == 0
+    assert search._PROVIDER_STATE.failures.get("quota_provider", 0) == 0
 
 
 def test_router_no_key_provider_skipped_silently() -> None:
     """A provider with no credentials is skipped at DEBUG level without noisy warnings."""
-    search_providers._PROVIDER_STATE.failures.clear()
+    search._PROVIDER_STATE.failures.clear()
 
-    class NoKeyProvider(search_providers.SearchProvider):
+    class NoKeyProvider(search.SearchProvider):
         name = "no_key"
         calls = 0
 
@@ -324,7 +324,7 @@ def test_router_no_key_provider_skipped_silently() -> None:
     no_key = NoKeyProvider()
     good = GoodProvider()
 
-    router = search_providers.SearchRouter(providers=[no_key, good])
+    router = search.SearchRouter(providers=[no_key, good])
     results = router.search("query", {}, count=5)
 
     assert no_key.calls == 0
@@ -347,9 +347,9 @@ def test_all_providers_exhausted_returns_false_with_budget(monkeypatch) -> None:
     """Returns False when an ATS discovery provider is available."""
     _reset_exhaustion_state()
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
-    monkeypatch.setattr(search_providers.BraveProvider, "enabled", lambda self: True)
+    monkeypatch.setattr(search.BraveProvider, "enabled", lambda self: True)
 
-    result = search_providers.all_providers_exhausted()
+    result = search.all_providers_exhausted()
     assert result is False
 
     _reset_exhaustion_state()
@@ -359,9 +359,9 @@ def test_all_providers_exhausted_returns_true_when_all_exhausted(monkeypatch) ->
     """Returns True when ATS discovery providers are unavailable."""
     _reset_exhaustion_state()
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "exa"})
-    monkeypatch.setattr(search_providers.SearxngProvider, "enabled", lambda self: False)
+    monkeypatch.setattr(search.SearxngProvider, "enabled", lambda self: False)
 
-    result = search_providers.all_providers_exhausted()
+    result = search.all_providers_exhausted()
     assert result is True
 
     _reset_exhaustion_state()
@@ -373,16 +373,16 @@ def test_discover_ats_jobs_by_search_returns_empty_when_exhausted(monkeypatch, c
 
     _reset_exhaustion_state()
 
-    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda api_cfg=None: True)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda api_config=None: True)
     monkeypatch.setattr(
         _ats_mod,
-        "_search_cfg",
+        "_search_config",
         lambda: {"ats_discovery": {"enabled": True}},
     )
     monkeypatch.setattr(_ats_mod, "get_api_config", lambda: {})
 
     with caplog.at_level(logging.INFO, logger=_ats_mod.logger.name):
-        result = search_providers.discover_ats_jobs_by_search(
+        result = search.discover_ats_jobs_by_search(
             ["Software Engineer"],
             {"EU": {"location": "Europe"}},
         )
@@ -395,7 +395,7 @@ def test_discover_ats_jobs_by_search_returns_empty_when_exhausted(monkeypatch, c
 
 def test_searxng_uses_configured_engines_without_zero_penalty(monkeypatch) -> None:
     """Empty SearXNG results should not globally mark the provider as unavailable."""
-    import job_hunter.sources.search_providers as sp
+    import job_hunter.sources.search as sp
 
     _reset_exhaustion_state()
     calls = []
@@ -411,10 +411,10 @@ def test_searxng_uses_configured_engines_without_zero_penalty(monkeypatch) -> No
         calls.append(kwargs["params"])
         return FakeResponse()
 
-    monkeypatch.setattr(search_providers.requests, "get", fake_get)
+    monkeypatch.setattr(search.requests, "get", fake_get)
     monkeypatch.setattr(
         _prov_mod,
-        "_search_cfg",
+        "_search_config",
         lambda: {
             "searxng_base_url": "http://localhost:8888",
             "searxng_categories": "general",
@@ -435,7 +435,7 @@ def test_searxng_uses_configured_engines_without_zero_penalty(monkeypatch) -> No
 
 
 def test_ats_search_queries_split_grouped_site_queries() -> None:
-    queries = search_providers._ats_search_queries(
+    queries = search._ats_search_queries(
         "site:boards.greenhouse.io OR site:job-boards.greenhouse.io",
         "Product Manager",
         "Berlin",
@@ -458,7 +458,7 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
 
         def search(self, query: str, region_config: dict, count: int = 10):
             return [
-                search_providers.SearchResult(
+                search.SearchResult(
                     url="https://boards.greenhouse.io/acme/jobs/123",
                     title="Jobs at Acme",
                     description="Current openings",
@@ -469,7 +469,7 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
     monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
     monkeypatch.setattr(
         _ats_mod,
-        "_search_cfg",
+        "_search_config",
         lambda: {
             "ats_discovery": {
                 "enabled": True,
@@ -490,7 +490,7 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
         },
     )
 
-    jobs = search_providers.discover_ats_jobs_by_search(
+    jobs = search.discover_ats_jobs_by_search(
         ["Product Manager"],
         {"berlin": {"location": "Berlin"}},
         provider_order=["searxng"],
@@ -506,15 +506,15 @@ def test_lightpanda_career_jobs_parse_rendered_html(monkeypatch) -> None:
         returncode = 0
         stdout = '<a href="/jobs/product-manager-berlin">Product Manager</a>'
 
-    monkeypatch.setattr(search_providers.shutil, "which", lambda _name: "lightpanda")
-    monkeypatch.setattr(search_providers.subprocess, "run", lambda *a, **k: Completed())
+    monkeypatch.setattr(search.shutil, "which", lambda _name: "lightpanda")
+    monkeypatch.setattr(search.subprocess, "run", lambda *a, **k: Completed())
     monkeypatch.setattr(
         _fetchers_mod,
         "get_api_config",
         lambda: {"http": {"lightpanda": {"timeout_seconds": 8}}},
     )
 
-    jobs = search_providers.fetch_lightpanda_career_jobs(
+    jobs = search.fetch_lightpanda_career_jobs(
         {"name": "ExampleCo", "career_url": "https://example.com/careers", "location": "Berlin"},
         ["Product Manager"],
     )
@@ -545,14 +545,14 @@ def test_firecrawl_career_jobs_require_key_and_budget(monkeypatch) -> None:
 
     monkeypatch.setattr(_fetchers_mod, "FIRECRAWL_API_KEY", "key")
     monkeypatch.setattr(_fetchers_mod, "reserve_api_call", reserve)
-    monkeypatch.setattr(search_providers.requests, "post", post)
+    monkeypatch.setattr(search.requests, "post", post)
     monkeypatch.setattr(
         _fetchers_mod,
         "get_api_config",
         lambda: {"http": {"firecrawl": {"timeout_seconds": 20}}},
     )
 
-    jobs = search_providers.fetch_firecrawl_career_jobs(
+    jobs = search.fetch_firecrawl_career_jobs(
         {"name": "ExampleCo", "career_url": "https://example.com/careers", "location": "Berlin"},
         ["Product Manager"],
     )

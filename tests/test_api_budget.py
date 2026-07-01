@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 # ---------------------------------------------------------------------------
 
 
-def _make_cfg(
+def _make_config(
     tmp_path: Path,
     *,
     enabled: bool = True,
@@ -39,18 +39,18 @@ def _import_budget():
 
 def test_reserve_returns_true_when_under_limit(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, monthly_limits={"brave": 10})
-    result = budget.reserve_api_call("brave", api_cfg={"http": {"api_budgets": cfg}})
+    config = _make_config(tmp_path, monthly_limits={"brave": 10})
+    result = budget.reserve_api_call("brave", api_config={"http": {"api_budgets": config}})
     assert result is True
 
 
 def test_reserve_increments_counter(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, monthly_limits={"brave": 10})
-    api_cfg = {"http": {"api_budgets": cfg}}
-    budget.reserve_api_call("brave", api_cfg=api_cfg)
-    budget.reserve_api_call("brave", api_cfg=api_cfg)
-    state_file = Path(cfg["state_path"])
+    config = _make_config(tmp_path, monthly_limits={"brave": 10})
+    api_config = {"http": {"api_budgets": config}}
+    budget.reserve_api_call("brave", api_config=api_config)
+    budget.reserve_api_call("brave", api_config=api_config)
+    state_file = Path(config["state_path"])
     data = json.loads(state_file.read_text(encoding="utf-8"))
     assert data["providers"]["brave"] == 2
 
@@ -62,21 +62,21 @@ def test_reserve_increments_counter(tmp_path: Path) -> None:
 
 def test_reserve_returns_false_at_limit(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, monthly_limits={"brave": 2})
-    api_cfg = {"http": {"api_budgets": cfg}}
-    budget.reserve_api_call("brave", api_cfg=api_cfg)
-    budget.reserve_api_call("brave", api_cfg=api_cfg)
+    config = _make_config(tmp_path, monthly_limits={"brave": 2})
+    api_config = {"http": {"api_budgets": config}}
+    budget.reserve_api_call("brave", api_config=api_config)
+    budget.reserve_api_call("brave", api_config=api_config)
     # third call should be blocked
-    result = budget.reserve_api_call("brave", api_cfg=api_cfg)
+    result = budget.reserve_api_call("brave", api_config=api_config)
     assert result is False
 
 
 def test_reserve_returns_true_for_unlimited_provider(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, monthly_limits={})  # no limit for "tavily"
-    api_cfg = {"http": {"api_budgets": cfg}}
+    config = _make_config(tmp_path, monthly_limits={})  # no limit for "tavily"
+    api_config = {"http": {"api_budgets": config}}
     for _ in range(50):
-        assert budget.reserve_api_call("tavily", api_cfg=api_cfg) is True
+        assert budget.reserve_api_call("tavily", api_config=api_config) is True
 
 
 # ---------------------------------------------------------------------------
@@ -95,11 +95,11 @@ def test_monthly_reset_clears_state(tmp_path: Path) -> None:
     }
     state_file.write_text(json.dumps(old_state), encoding="utf-8")
 
-    cfg = _make_cfg(tmp_path, monthly_limits={"brave": 10})
-    api_cfg = {"http": {"api_budgets": cfg}}
+    config = _make_config(tmp_path, monthly_limits={"brave": 10})
+    api_config = {"http": {"api_budgets": config}}
 
     # reserve_api_call should see a fresh state for the current month
-    result = budget.reserve_api_call("brave", api_cfg=api_cfg)
+    result = budget.reserve_api_call("brave", api_config=api_config)
     assert result is True
     data = json.loads(state_file.read_text(encoding="utf-8"))
     assert data["providers"]["brave"] == 1
@@ -113,19 +113,19 @@ def test_monthly_reset_clears_state(tmp_path: Path) -> None:
 
 def test_mark_exhausted_prevents_future_calls(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, monthly_limits={"reed": 1000})
-    api_cfg = {"http": {"api_budgets": cfg}}
+    config = _make_config(tmp_path, monthly_limits={"reed": 1000})
+    api_config = {"http": {"api_budgets": config}}
 
-    budget.mark_api_exhausted("reed", reason="quota hit", api_cfg={"http": {"api_budgets": cfg}})
-    result = budget.reserve_api_call("reed", api_cfg=api_cfg)
+    budget.mark_api_exhausted("reed", reason="quota hit", api_config={"http": {"api_budgets": config}})
+    result = budget.reserve_api_call("reed", api_config=api_config)
     assert result is False
 
 
 def test_mark_exhausted_writes_reason(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path)
-    budget.mark_api_exhausted("adzuna", reason="402 Payment Required", api_cfg={"http": {"api_budgets": cfg}})
-    state_file = Path(cfg["state_path"])
+    config = _make_config(tmp_path)
+    budget.mark_api_exhausted("adzuna", reason="402 Payment Required", api_config={"http": {"api_budgets": config}})
+    state_file = Path(config["state_path"])
     data = json.loads(state_file.read_text(encoding="utf-8"))
     assert "adzuna" in data["exhausted"]
     assert data["exhausted"]["adzuna"]["reason"] == "402 Payment Required"
@@ -134,10 +134,10 @@ def test_mark_exhausted_writes_reason(tmp_path: Path) -> None:
 def test_mark_exhausted_idempotent(tmp_path: Path) -> None:
     """Calling mark_api_exhausted twice does not raise or corrupt state."""
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path)
-    budget.mark_api_exhausted("exa", reason="first", api_cfg={"http": {"api_budgets": cfg}})
-    budget.mark_api_exhausted("exa", reason="second", api_cfg={"http": {"api_budgets": cfg}})
-    state_file = Path(cfg["state_path"])
+    config = _make_config(tmp_path)
+    budget.mark_api_exhausted("exa", reason="first", api_config={"http": {"api_budgets": config}})
+    budget.mark_api_exhausted("exa", reason="second", api_config={"http": {"api_budgets": config}})
+    state_file = Path(config["state_path"])
     data = json.loads(state_file.read_text(encoding="utf-8"))
     # reason should remain from first call
     assert data["exhausted"]["exa"]["reason"] == "first"
@@ -196,15 +196,15 @@ def test_no_response_is_not_quota_exhausted() -> None:
 
 def test_disabled_budget_always_allows(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, enabled=False, monthly_limits={"brave": 0})
-    api_cfg = {"http": {"api_budgets": cfg}}
-    assert budget.reserve_api_call("brave", api_cfg=api_cfg) is True
+    config = _make_config(tmp_path, enabled=False, monthly_limits={"brave": 0})
+    api_config = {"http": {"api_budgets": config}}
+    assert budget.reserve_api_call("brave", api_config=api_config) is True
 
 
 def test_disabled_budget_ignores_mark_exhausted(tmp_path: Path) -> None:
     budget = _import_budget()
-    cfg = _make_cfg(tmp_path, enabled=False)
-    budget.mark_api_exhausted("brave", reason="test", api_cfg={"http": {"api_budgets": cfg}})
-    state_file = Path(cfg["state_path"])
+    config = _make_config(tmp_path, enabled=False)
+    budget.mark_api_exhausted("brave", reason="test", api_config={"http": {"api_budgets": config}})
+    state_file = Path(config["state_path"])
     # File should NOT have been written (budget is disabled)
     assert not state_file.exists()

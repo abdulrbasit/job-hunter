@@ -25,7 +25,7 @@ from job_hunter.core.api_budget import (
 )
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
     source_page_cap,
@@ -59,9 +59,9 @@ class ReedSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "reed"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """
@@ -75,11 +75,11 @@ class ReedSource(JobSourceAdapter):
         if params.country.upper() not in _REED_COUNTRIES:
             return []
 
-        reed_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
-        if not reed_cfg.get("enabled", True):
+        reed_config = get_api_config().get("http", {}).get("job_boards", {}).get("reed", {}) or {}
+        if not reed_config.get("enabled", True):
             return []
 
-        results_wanted = int(reed_cfg.get("results_wanted", 50))
+        results_wanted = int(reed_config.get("results_wanted", 50))
         max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
         location = params.location
         jobs: list[JobPosting] = []

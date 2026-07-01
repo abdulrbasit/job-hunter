@@ -12,12 +12,12 @@ class DashAPI:
         self._root = root
 
     def get_applications(self) -> list[dict[str, Any]]:
-        from job_hunter.ux.applications import filtered_applications
+        from job_hunter.tracking.applications import filtered_applications
 
         return [dict(app) for app in filtered_applications(root=self._root)]
 
     def get_job_detail(self, slug: str) -> dict[str, Any]:
-        from job_hunter.db.jobs import get_job_by_slug
+        from job_hunter.tracking.repository import get_job_by_slug
 
         record = get_job_by_slug(self._root, slug) or {}
         if record:
@@ -64,28 +64,40 @@ class DashAPI:
 
         return {"slug": slug, "meta": meta, "score": score, "jd": jd_text}
 
+    def _refresh_readme(self) -> None:
+        from datetime import date
+
+        from job_hunter.pipeline.stages.readme import update_readme_from_applications
+        from job_hunter.tracking.applications import load_applications
+
+        apps = load_applications(self._root)["applications"]
+        update_readme_from_applications(apps, self._root, date.today().isoformat())
+
     def update_status(self, slug: str, status: str, note: str = "") -> dict[str, Any]:
-        from job_hunter.ux.applications import update_application_status
+        from job_hunter.tracking.applications import update_application_status
 
         try:
-            return dict(update_application_status(slug, status, root=self._root, note=note))
+            result = dict(update_application_status(slug, status, root=self._root, note=note))
         except (ValueError, KeyError) as exc:
             return {"error": str(exc)}
+        self._refresh_readme()
+        return result
 
     def delete_application(self, slug: str) -> bool:
-        from job_hunter.ux.applications import delete_application
+        from job_hunter.tracking.applications import delete_application
 
         try:
             delete_application(slug, self._root)
-            return True
         except Exception:  # noqa: BLE001
             return False
+        self._refresh_readme()
+        return True
 
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict
 
+        from job_hunter.tracking.applications import filtered_applications
         from job_hunter.ux.analytics import analyze_pipeline
-        from job_hunter.ux.applications import filtered_applications
 
         report = analyze_pipeline(self._root)
         weekly: dict[str, int] = defaultdict(int)
@@ -117,8 +129,8 @@ class DashAPI:
 
         from job_hunter.config.loader import get_config
 
-        cfg = get_config("job_hunter")
-        tex_rel = cfg.get("profile", {}).get("resume_tex", "profile/resume_double_column.tex")
+        config = get_config("job_hunter")
+        tex_rel = config.get("profile", {}).get("resume_tex", "profile/resume_double_column.tex")
         tex_path = self._root / tex_rel
         if tex_path.exists():
             m = re.search(r"\\name\{([^}]+)\}", tex_path.read_text(encoding="utf-8"))

@@ -7,7 +7,7 @@ import json
 from bs4 import BeautifulSoup
 
 from job_hunter.constants import CAREER_PAGE_SNIPPET_CHARS
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search import canonicalize_url
 
 
 def extract_jsonld_jobs(

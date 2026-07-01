@@ -1,4 +1,8 @@
-"""Canonical application lifecycle tracker for Job Hunter."""
+"""Canonical application lifecycle state — the query/mutation API for outputs/jobs/*.
+
+Pure state: read/write job records. Report generation (README, dashboards) is
+triggered by callers after a mutation, not by this module.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
-from job_hunter.agent_context._utils import _read_yaml
+from job_hunter.core.utils import read_yaml
 from job_hunter.tracker import repo_path
 
 CANONICAL_STATUSES = (
@@ -67,7 +71,7 @@ def normalize_status(status: str) -> str:
 
 
 def load_applications(root: Path | None = None) -> dict[str, Any]:
-    from job_hunter.db.jobs import get_jobs
+    from job_hunter.tracking.repository import get_jobs
 
     base = root or repo_path()
     apps = get_jobs(base, statuses=CANONICAL_STATUSES)
@@ -97,7 +101,7 @@ def application_from_job(
     base = root or repo_path()
     job_dir = base / "outputs" / "jobs" / slug
     meta = _read_json(job_dir / "meta.json")
-    score = _read_yaml(job_dir / "score.yml")
+    score = read_yaml(job_dir / "score.yml")
     jd_path = job_dir / "jd.md"
     jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
     now = utc_now()
@@ -142,7 +146,7 @@ def _status_from_score(score: dict[str, Any]) -> str:
 
 
 def backfill_applications_from_jobs(root: Path | None = None) -> list[dict[str, Any]]:
-    from job_hunter.db.jobs import sync_from_job_folders
+    from job_hunter.tracking.repository import sync_from_job_folders
 
     base = root or repo_path()
     synced = sync_from_job_folders(base)
@@ -154,7 +158,7 @@ def ensure_applications(root: Path | None = None) -> dict[str, Any]:
 
 
 def upsert_application(entry: dict[str, Any], root: Path | None = None) -> dict[str, Any]:
-    from job_hunter.db.jobs import upsert_job
+    from job_hunter.tracking.repository import upsert_job
 
     base = root or repo_path()
     return upsert_job(base, entry)
@@ -180,16 +184,13 @@ def update_application_status(
     root: Path | None = None,
     note: str = "",
 ) -> dict[str, Any]:
-    from job_hunter.db.jobs import update_job_status
+    """Update an application's status. Callers that need the README refreshed must call
+    pipeline.stages.readme.update_readme_from_applications() themselves after this returns."""
+    from job_hunter.tracking.repository import update_job_status
 
     base = root or repo_path()
     target_status = normalize_status(status)
-    app = update_job_status(base, slug, target_status, note)
-    apps = load_applications(base)["applications"]
-    from job_hunter.pipeline.readme_writer import update_readme_from_applications
-
-    update_readme_from_applications(apps, base, date.today().isoformat())
-    return app
+    return update_job_status(base, slug, target_status, note)
 
 
 def filtered_applications(
@@ -199,7 +200,7 @@ def filtered_applications(
     region: str = "",
     since: str = "",
 ) -> list[dict[str, Any]]:
-    from job_hunter.db.jobs import get_jobs
+    from job_hunter.tracking.repository import get_jobs
 
     base = root or repo_path()
     apps = get_jobs(
@@ -221,10 +222,12 @@ def filtered_applications(
 
 
 def delete_application(slug: str, root: Path | None = None) -> None:
+    """Delete an application's DB record and job folder. Callers that need the README
+    refreshed must call pipeline.stages.readme.update_readme_from_applications() themselves after this."""
     import logging
     import shutil
 
-    from job_hunter.db.jobs import delete_job
+    from job_hunter.tracking.repository import delete_job
 
     base = root or repo_path()
     delete_job(base, slug)
@@ -238,31 +241,9 @@ def delete_application(slug: str, root: Path | None = None) -> None:
                 job_dir,
                 exc,
             )
-    apps = load_applications(base)["applications"]
-    from job_hunter.pipeline.readme_writer import update_readme_from_applications
-
-    update_readme_from_applications(apps, base, date.today().isoformat())
 
 
 def active_application_count(root: Path | None = None) -> int:
-    from job_hunter.db.jobs import count_active
+    from job_hunter.tracking.repository import count_active
 
     return count_active(root or repo_path())
-
-
-def render_applications_table(apps: list[dict[str, Any]]) -> str:
-    rows = ["#   Date       Status      Score  Region       Company - Role"]
-    rows.append("-" * 82)
-    for i, app in enumerate(apps, 1):
-        score = app.get("score")
-        score_text = "" if score in (None, "") else str(score)
-        role = f"{app.get('company', 'Unknown')} - {app.get('title', 'Unknown')}"
-        rows.append(
-            f"{i:<3} "
-            f"{str(app.get('discovered_at') or app.get('created_at') or '')[:10]:<10} "
-            f"{str(app.get('status') or ''):<11} "
-            f"{score_text:<6} "
-            f"{str(app.get('region') or app.get('location') or '')[:12]:<12} "
-            f"{role}"
-        )
-    return "\n".join(rows)

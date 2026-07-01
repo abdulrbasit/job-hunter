@@ -120,16 +120,16 @@ def test_linkedin_internal_defaults_are_packaged_and_parse() -> None:
 
 
 def test_disabled_linkedin_discovery_exits_without_search_or_llm(tmp_path) -> None:
-    cfg = _config(tmp_path)
-    data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    config = _config(tmp_path)
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
     data["linkedin"]["enabled"] = False
-    cfg.write_text(yaml.safe_dump(data), encoding="utf-8")
+    config.write_text(yaml.safe_dump(data), encoding="utf-8")
 
     with (
         patch("job_hunter.linkedin.engagement.search_web") as search,
         patch("job_hunter.linkedin.engagement.complete_linkedin") as llm,
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert result == {"people": [], "recruiters": []}
     search.assert_not_called()
@@ -137,7 +137,7 @@ def test_disabled_linkedin_discovery_exits_without_search_or_llm(tmp_path) -> No
 
 
 def test_generate_ideas_appends_public_safe_items(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     payload = json.dumps(
         [
             {
@@ -152,7 +152,7 @@ def test_generate_ideas_appends_public_safe_items(tmp_path) -> None:
     )
 
     with patch("job_hunter.linkedin.ideas.complete_linkedin", return_value=payload):
-        rendered = generate_ideas.generate(cfg)
+        rendered = generate_ideas.generate(config)
 
     ideas = (tmp_path / "ideas.md").read_text(encoding="utf-8")
     assert len(rendered) == 1
@@ -161,11 +161,11 @@ def test_generate_ideas_appends_public_safe_items(tmp_path) -> None:
 
 
 def test_generate_ideas_prompt_does_not_assume_pm_or_po(tmp_path) -> None:
-    cfg = _config(tmp_path)
-    data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    config = _config(tmp_path)
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
     data["linkedin"]["positioning"] = "Cloud infrastructure engineer focused on reliability."
     data["linkedin"]["content_pillars"] = ["incident response", "distributed systems"]
-    cfg.write_text(yaml.safe_dump(data), encoding="utf-8")
+    config.write_text(yaml.safe_dump(data), encoding="utf-8")
     captured = {}
 
     def fake_complete(_system, prompt):
@@ -173,14 +173,14 @@ def test_generate_ideas_prompt_does_not_assume_pm_or_po(tmp_path) -> None:
         return json.dumps([])
 
     with patch("job_hunter.linkedin.ideas.complete_linkedin", side_effect=fake_complete):
-        generate_ideas.generate(cfg)
+        generate_ideas.generate(config)
 
     assert "Do not assume the user is a PM or PO" in captured["prompt"]
     assert "Cloud infrastructure engineer" in captured["prompt"]
 
 
 def test_draft_posts_creates_draft_and_marks_idea_converted(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     (tmp_path / "ideas.md").write_text(
         """# Ideas
 
@@ -211,7 +211,7 @@ Versioning and adoption matter.
     )
 
     with patch("job_hunter.linkedin.drafts.complete_linkedin", return_value=payload):
-        created = draft_posts.draft(cfg)
+        created = draft_posts.draft(config)
 
     assert len(created) == 1
     assert created[0].exists()
@@ -221,7 +221,7 @@ Versioning and adoption matter.
 
 
 def test_discover_networking_writes_networking_queue(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     search_result = [
         {
             "url": "https://www.linkedin.com/in/example",
@@ -248,7 +248,7 @@ def test_discover_networking_writes_networking_queue(tmp_path) -> None:
             side_effect=[_strategy_payload(), payload],
         ),
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert len(result["people"]) == 1
     assert "Example Product Leader" in (tmp_path / "networking.md").read_text(encoding="utf-8")
@@ -256,7 +256,7 @@ def test_discover_networking_writes_networking_queue(tmp_path) -> None:
 
 
 def test_discover_networking_falls_back_on_malformed_json(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     search_result = [
         {
             "url": "https://www.linkedin.com/in/example",
@@ -274,7 +274,7 @@ def test_discover_networking_falls_back_on_malformed_json(tmp_path) -> None:
             side_effect=[_strategy_payload(), '{"people": [{"name": "broken"}]'],
         ),
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert len(result["people"]) == 1
     person = result["people"][0]
@@ -289,7 +289,7 @@ def test_discover_networking_falls_back_on_malformed_json(tmp_path) -> None:
 
 
 def test_search_strategy_uses_existing_job_hunter_context(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     captured = {}
 
     def fake_complete(_system, prompt):
@@ -306,7 +306,9 @@ def test_search_strategy_uses_existing_job_hunter_context(tmp_path) -> None:
             "job_hunter.linkedin.engagement.complete_linkedin",
             side_effect=fake_complete,
         ):
-            strategy = discover_engagement._search_strategy(yaml.safe_load(cfg.read_text(encoding="utf-8"))["linkedin"])
+            strategy = discover_engagement._search_strategy(
+                yaml.safe_load(config.read_text(encoding="utf-8"))["linkedin"]
+            )
 
     assert "TARGET JOB TITLES FROM JOB HUNTER CONFIG" in captured["prompt"]
     assert "Product Manager" in captured["prompt"]
@@ -314,10 +316,10 @@ def test_search_strategy_uses_existing_job_hunter_context(tmp_path) -> None:
 
 
 def test_discovery_defaults_can_follow_non_pm_profiles(tmp_path) -> None:
-    cfg = _config(tmp_path)
-    data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    config = _config(tmp_path)
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
     data["linkedin"]["positioning"] = "Cloud infrastructure engineer focused on reliability."
-    cfg.write_text(yaml.safe_dump(data), encoding="utf-8")
+    config.write_text(yaml.safe_dump(data), encoding="utf-8")
     search_result = [
         {
             "url": "https://www.linkedin.com/in/sre",
@@ -334,14 +336,14 @@ def test_discovery_defaults_can_follow_non_pm_profiles(tmp_path) -> None:
             side_effect=[_strategy_payload(), '{"people": []}'],
         ),
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert len(result["people"]) == 1
     assert result["people"][0]["relationship_type"] == "role_adjacent_professional"
 
 
 def test_discovery_dedupes_seen_people(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     state = {
         "seen_people": ["https://www.linkedin.com/in/seen"],
         "skipped_urls": [],
@@ -364,14 +366,14 @@ def test_discovery_dedupes_seen_people(tmp_path) -> None:
             return_value=_strategy_payload(),
         ) as llm,
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert result == {"people": [], "recruiters": []}
     llm.assert_called_once()
 
 
 def test_recruiters_are_prioritized_with_specific_messages(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     search_result = [
         {
             "url": "https://www.linkedin.com/in/recruiter",
@@ -400,7 +402,7 @@ def test_recruiters_are_prioritized_with_specific_messages(tmp_path) -> None:
             side_effect=[_strategy_payload(), payload],
         ),
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
 
     assert len(result["recruiters"]) == 1
     assert result["recruiters"][0]["relationship_type"] == "recruiter_intro"
@@ -408,7 +410,7 @@ def test_recruiters_are_prioritized_with_specific_messages(tmp_path) -> None:
 
 
 def test_llm_caps_limit_generation_candidates(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     search_result = [
         {
             "url": f"https://www.linkedin.com/in/person-{idx}",
@@ -433,13 +435,13 @@ def test_llm_caps_limit_generation_candidates(tmp_path) -> None:
             side_effect=fake_complete,
         ),
     ):
-        discover_engagement.discover(cfg)
+        discover_engagement.discover(config)
 
     assert captured["prompts"][-1].count("linkedin.com/in/person-") == 5
 
 
 def test_login_wall_results_are_filtered(tmp_path) -> None:
-    cfg = _config(tmp_path)
+    config = _config(tmp_path)
     search_result = [
         {
             "url": "https://www.linkedin.com/in/login-wall-profile",
@@ -456,6 +458,6 @@ def test_login_wall_results_are_filtered(tmp_path) -> None:
             side_effect=[_strategy_payload(), "{}"],
         ),
     ):
-        result = discover_engagement.discover(cfg)
+        result = discover_engagement.discover(config)
     assert len(result["people"]) == 0
     assert len(result["recruiters"]) == 0

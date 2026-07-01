@@ -36,7 +36,7 @@ def test_every_user_facing_skill_has_a_package_data_glob() -> None:
     """Guards the caveman-skill bug: a skill dir can exist in the workspace template and still
     be silently dropped from real wheel installs if pyproject.toml's package-data list forgets it.
     """
-    from job_hunter.workspace._assets import _DEV_SKILL_DIRS
+    from job_hunter.workspace.assets import _DEV_SKILL_DIRS
 
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     globs = set(project["tool"]["setuptools"]["package-data"]["job_hunter.templates"])

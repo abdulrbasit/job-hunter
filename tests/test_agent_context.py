@@ -80,7 +80,7 @@ def test_candidate_queue_assigns_stable_candidate_ids(tmp_path: Path) -> None:
 
 
 def test_candidate_queue_default_reads_from_db(tmp_path: Path) -> None:
-    from job_hunter.db.jobs import insert_jobs
+    from job_hunter.tracking.repository import insert_jobs
 
     insert_jobs(
         tmp_path,
@@ -134,7 +134,7 @@ def test_candidate_queue_file_source_stays_scoped(tmp_path: Path) -> None:
 
 
 def test_candidate_queue_db_skips_processed_url(tmp_path: Path) -> None:
-    from job_hunter.db.jobs import insert_jobs, mark_urls_processed
+    from job_hunter.tracking.repository import insert_jobs, mark_urls_processed
 
     insert_jobs(
         tmp_path,
@@ -155,7 +155,7 @@ def test_candidate_queue_db_skips_processed_url(tmp_path: Path) -> None:
 
 
 def test_candidate_queue_file_source_skips_db_processed_url(tmp_path: Path) -> None:
-    from job_hunter.db.jobs import mark_urls_processed
+    from job_hunter.tracking.repository import mark_urls_processed
 
     candidate_file = tmp_path / "outputs" / "candidates" / "2026-06-01_all_candidates.json"
     candidate_file.parent.mkdir(parents=True)
@@ -402,7 +402,7 @@ def test_candidate_lifecycle_marks_terminal_and_refreshes_queue(tmp_path: Path) 
         refresh_queue=queue_path,
     )
 
-    from job_hunter.db.jobs import get_processed_urls
+    from job_hunter.tracking.repository import get_processed_urls
 
     processed = get_processed_urls(tmp_path)
     refreshed = json.loads(queue_path.read_text(encoding="utf-8"))

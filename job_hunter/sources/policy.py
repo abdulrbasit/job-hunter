@@ -19,7 +19,7 @@ from job_hunter.config.defaults import (
 )
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search import canonicalize_url
 
 logger = logging.getLogger(__name__)
 MAX_POSTING_AGE_DAYS = 45
@@ -307,11 +307,11 @@ def _is_broad_location_restriction(value: object, allowed_codes: set[str]) -> bo
     return False
 
 
-def _looks_like_remote_city_region(region_cfg: dict) -> bool:
-    locations = region_cfg.get("locations") or []
+def _looks_like_remote_city_region(region_config: dict) -> bool:
+    locations = region_config.get("locations") or []
     if isinstance(locations, str):
         locations = [locations]
-    location = _norm_location_text(region_cfg.get("location") or " ".join(str(item) for item in locations))
+    location = _norm_location_text(region_config.get("location") or " ".join(str(item) for item in locations))
     return "remote" in location or location in _BROAD_LOCATION_RESTRICTIONS
 
 
@@ -435,19 +435,19 @@ class JobPolicy:
             return date_status
         return ""
 
-    def _region_locations(self, region_cfg: dict) -> list[str]:
-        locations = region_cfg.get("locations") or []
+    def _region_locations(self, region_config: dict) -> list[str]:
+        locations = region_config.get("locations") or []
         if isinstance(locations, str):
             locations = [locations]
-        if not locations and region_cfg.get("location"):
-            locations = [region_cfg.get("location")]
+        if not locations and region_config.get("location"):
+            locations = [region_config.get("location")]
         return [str(location) for location in locations if str(location or "").strip()]
 
-    def has_wrong_location(self, job: dict, region_cfg: dict) -> bool:
-        """Return True if job location doesn't match any allowed location in region_cfg."""
-        if self.location_metadata_matches_region(job, region_cfg):
+    def has_wrong_location(self, job: dict, region_config: dict) -> bool:
+        """Return True if job location doesn't match any allowed location in region_config."""
+        if self.location_metadata_matches_region(job, region_config):
             return False
-        allowed = self._region_locations(region_cfg)
+        allowed = self._region_locations(region_config)
         if not allowed:
             return False
         job_location = str(job.get("location") or "")
@@ -457,8 +457,8 @@ class JobPolicy:
 
         return not any(location_matches(job_location, loc) for loc in allowed)
 
-    def location_metadata_matches_region(self, job: dict, region_cfg: dict) -> bool:
-        allowed_codes = {str(region_cfg.get("country") or "").strip().upper()}
+    def location_metadata_matches_region(self, job: dict, region_config: dict) -> bool:
+        allowed_codes = {str(region_config.get("country") or "").strip().upper()}
         allowed_codes.discard("")
         restrictions = [str(value) for value in job.get("location_restrictions", []) or [] if str(value).strip()]
         if not restrictions or not allowed_codes:
@@ -469,15 +469,15 @@ class JobPolicy:
             for value in restrictions
         )
 
-    def has_incompatible_location_metadata(self, job: dict, region_cfg: dict) -> bool:
-        allowed_codes = {str(region_cfg.get("country") or "").strip().upper()}
+    def has_incompatible_location_metadata(self, job: dict, region_config: dict) -> bool:
+        allowed_codes = {str(region_config.get("country") or "").strip().upper()}
         allowed_codes.discard("")
-        if not region_cfg or not allowed_codes:
+        if not region_config or not allowed_codes:
             return False
 
         restrictions = [str(value) for value in job.get("location_restrictions", []) or [] if str(value).strip()]
         if restrictions:
-            return not self.location_metadata_matches_region(job, region_cfg)
+            return not self.location_metadata_matches_region(job, region_config)
 
         combined = " ".join(str(job.get(key) or "") for key in ("url", "title", "snippet", "location"))
         mentioned_codes = _restricted_codes_from_slug_text(combined)
@@ -485,7 +485,7 @@ class JobPolicy:
             return True
 
         location = _norm_location_text(job.get("location"))
-        if location in _REMOTE_ONLY_LOCATIONS and not _looks_like_remote_city_region(region_cfg):
+        if location in _REMOTE_ONLY_LOCATIONS and not _looks_like_remote_city_region(region_config):
             return True
         return False
 
@@ -525,9 +525,9 @@ class JobPolicy:
     def _allowed_country_codes(self) -> set[str]:
         regions = self.config.get("regions", {}) or {}
         codes: set[str] = set()
-        for region_cfg in regions.values() if isinstance(regions, dict) else []:
-            if isinstance(region_cfg, dict) and region_cfg.get("enabled", True):
-                country = (region_cfg.get("country") or "").strip().upper()
+        for region_config in regions.values() if isinstance(regions, dict) else []:
+            if isinstance(region_config, dict) and region_config.get("enabled", True):
+                country = (region_config.get("country") or "").strip().upper()
                 if country:
                     codes.add(country)
         return codes

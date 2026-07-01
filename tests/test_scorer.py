@@ -221,7 +221,7 @@ def _score_result(score_val, years=3, company="TestCo"):
 
 
 @pytest.mark.parametrize(
-    "score_kwargs, job_override, cfg, null_years, expected_count",
+    "score_kwargs, job_override, config, null_years, expected_count",
     [
         # score=85, standard job → passes threshold (80)
         ({"score_val": 85}, None, CONFIG, False, 1),
@@ -237,13 +237,13 @@ def _score_result(score_val, years=3, company="TestCo"):
         ({"score_val": 90}, None, CONFIG, True, 1),
     ],
 )
-def test_score_and_filter_jobs(score_kwargs, job_override, cfg, null_years, expected_count) -> None:
+def test_score_and_filter_jobs(score_kwargs, job_override, config, null_years, expected_count) -> None:
     job = {**JOB, **(job_override or {})}
     result = _score_result(**score_kwargs)
     if null_years:
         result["years_exp_required"] = None
     with patch.object(scorer, "score", return_value=result):
-        matches = scorer.score_and_filter_jobs([job], config=cfg)
+        matches = scorer.score_and_filter_jobs([job], config=config)
     assert len(matches) == expected_count
 
 
@@ -278,8 +278,8 @@ def test_strategic_override_companies_respects_bypass_flag() -> None:
 
 
 def test_strategic_override_companies_excluded_when_key_absent() -> None:
-    cfg = {"scoring": {"strategic_overrides": [{"company": "Bosch", "reason": "x", "min_score_override": 70}]}}
-    assert scorer.strategic_override_companies(cfg) == []
+    config = {"scoring": {"strategic_overrides": [{"company": "Bosch", "reason": "x", "min_score_override": 70}]}}
+    assert scorer.strategic_override_companies(config) == []
 
 
 @pytest.mark.parametrize(

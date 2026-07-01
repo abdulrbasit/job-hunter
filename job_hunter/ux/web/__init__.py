@@ -11,10 +11,10 @@ def launch(root: Path) -> None:
 
     import webview
 
-    from job_hunter.ux.webdash.api import DashAPI
+    from job_hunter.ux.web.api import DashAPI
 
     api = DashAPI(root)
-    html_path = importlib.resources.files("job_hunter.ux.webdash").joinpath("dashboard.html")
+    html_path = importlib.resources.files("job_hunter.ux.web").joinpath("dashboard.html")
     html_content = html_path.read_text(encoding="utf-8")
 
     window = webview.create_window(

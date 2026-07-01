@@ -20,11 +20,11 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
-from job_hunter.sources._policy import JobPolicy, derive_country_code, normalize_employment_type
 from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
-from job_hunter.sources.search_providers import canonicalize_url
-from job_hunter.sources.search_providers.preflight import probe_search_providers
-from job_hunter.sources.search_providers.router import set_run_disabled
+from job_hunter.sources.policy import JobPolicy, derive_country_code, normalize_employment_type
+from job_hunter.sources.search import canonicalize_url
+from job_hunter.sources.search.preflight import probe_search_providers
+from job_hunter.sources.search.router import set_run_disabled
 from job_hunter.sources.source_config import enabled_regions as resolve_regions
 from job_hunter.sources.source_config import load_search_config
 from job_hunter.tracking.discovery_cache import load_cached_candidate_urls
@@ -40,25 +40,25 @@ def board_adapters() -> list[Any]:
 
 def _params_for_region(
     region_key: str,
-    region_cfg: dict[str, Any],
+    region_config: dict[str, Any],
     job_titles: list[str],
     excluded_title_terms: list[str],
 ) -> SearchParams:
     return SearchParams(
         region_key=region_key,
-        country=region_cfg.get("country", ""),
-        location=region_cfg.get("location", ""),
-        search_lang=region_cfg.get("search_lang", "en"),
+        country=region_config.get("country", ""),
+        location=region_config.get("location", ""),
+        search_lang=region_config.get("search_lang", "en"),
         job_titles=job_titles,
         excluded_title_terms=excluded_title_terms,
     )
 
 
 def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> tuple[list[JobPosting], ScrapeStats]:
-    cfg = load_search_config()
-    job_titles: list[str] = cfg.get("job_titles", []) or []
-    excluded_title_terms: list[str] = (cfg.get("exclusions", {}) or {}).get("title_terms", []) or []
-    regions = resolve_regions(cfg, region)
+    config = load_search_config()
+    job_titles: list[str] = config.get("job_titles", []) or []
+    excluded_title_terms: list[str] = (config.get("exclusions", {}) or {}).get("title_terms", []) or []
+    regions = resolve_regions(config, region)
 
     if not job_titles:
         logger.warning("[orchestrator] job_titles is empty; no sources will run")
@@ -74,7 +74,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
 
     seen_urls: set[str] = set()
     cached_urls = load_cached_candidate_urls()
-    policy = JobPolicy(cfg)
+    policy = JobPolicy(config)
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
 
@@ -83,7 +83,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
         source: str,
         *,
         search_lang: str = "en",
-        region_cfg: dict[str, Any] | None = None,
+        region_config: dict[str, Any] | None = None,
     ) -> None:
         source_rejected: Counter[str] = Counter()
 
@@ -115,14 +115,14 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
                 reject("excluded_by_search_lang")
                 continue
-            effective_region_cfg = region_cfg or regions.get(jp.region, {})
-            if policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_cfg):
+            effective_region_config = region_config or regions.get(jp.region, {})
+            if policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_config):
                 reject("incompatible_location_metadata")
                 continue
-            if policy.has_wrong_location(jp.model_dump(), effective_region_cfg):
+            if policy.has_wrong_location(jp.model_dump(), effective_region_config):
                 reject("wrong_location")
                 continue
-            if not effective_region_cfg and policy.has_incompatible_location_for_global_feed(jp.model_dump()):
+            if not effective_region_config and policy.has_incompatible_location_for_global_feed(jp.model_dump()):
                 reject("incompatible_location_metadata")
                 continue
             seen_urls.add(url)
@@ -164,28 +164,32 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                     stats.failed_sources.append(source)
                     logger.warning("[orchestrator] %s raised: %s", source, exc)
     elif global_adapters:
-        for region_key, region_cfg in regions.items():
-            params = _params_for_region(region_key, region_cfg, job_titles, excluded_title_terms)
+        for region_key, region_config in regions.items():
+            params = _params_for_region(region_key, region_config, job_titles, excluded_title_terms)
             with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
                 futures = {pool.submit(adapter.fetch, params): adapter.source_name for adapter in global_adapters}
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(future.result(), source, search_lang=params.search_lang, region_cfg=region_cfg)
+                        _add_unique(
+                            future.result(), source, search_lang=params.search_lang, region_config=region_config
+                        )
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     # Step 1: per-region board dispatch in parallel
     if regional_adapters:
-        for region_key, region_cfg in regions.items():
-            params = _params_for_region(region_key, region_cfg, job_titles, excluded_title_terms)
+        for region_key, region_config in regions.items():
+            params = _params_for_region(region_key, region_config, job_titles, excluded_title_terms)
             with ThreadPoolExecutor(max_workers=min(len(regional_adapters), 8)) as pool:
                 futures = {pool.submit(a.fetch, params): a.source_name for a in regional_adapters}
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(future.result(), source, search_lang=params.search_lang, region_cfg=region_cfg)
+                        _add_unique(
+                            future.result(), source, search_lang=params.search_lang, region_config=region_config
+                        )
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
@@ -204,7 +208,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     # Step 3: ATS discovery via search (once per run, discovers new companies)
     if depth != "fast":
         try:
-            from job_hunter.sources.search_providers.ats_discovery import discover_ats_jobs_by_search
+            from job_hunter.sources.search.ats_discovery import discover_ats_jobs_by_search
 
             ats_raw = discover_ats_jobs_by_search(job_titles, regions, excluded_title_terms, disabled=run_disabled)
             _add_unique([JobPosting.model_validate(j) for j in ats_raw], "ats_discovery")

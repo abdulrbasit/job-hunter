@@ -22,8 +22,8 @@ _TIMEOUT_DEFAULTS: dict[str, int] = {
 @cache
 def get_api_config() -> dict[str, Any]:
     """Return code-owned API/runtime settings with user LLM settings merged in."""
-    cfg = get_job_hunter_config()
-    llm = cfg.get("llm", {}) or {}
+    config = get_job_hunter_config()
+    llm = config.get("llm", {}) or {}
     return {
         "llm": {
             "provider": llm.get("default_provider", "anthropic"),
@@ -36,7 +36,7 @@ def get_api_config() -> dict[str, Any]:
             "ollama": llm.get("ollama", {}) or {},
         },
         "http": HTTP_DEFAULTS,
-        "profile": cfg.get("profile", {}) or {},
+        "profile": config.get("profile", {}) or {},
     }
 
 

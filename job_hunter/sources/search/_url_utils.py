@@ -5,7 +5,7 @@ from __future__ import annotations
 from html import unescape
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from job_hunter.sources.search_providers._constants import (
+from job_hunter.sources.search._constants import (
     JOB_HINTS,
     TRACKING_QUERY_KEYS,
     TRACKING_QUERY_PREFIXES,

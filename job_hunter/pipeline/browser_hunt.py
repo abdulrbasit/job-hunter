@@ -23,12 +23,12 @@ def run() -> int:
         logger.error("[browser-hunt] %s not found — create it from the template", companies_path)
         return 1
 
-    cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    companies_cfg = yaml.safe_load(companies_path.read_text(encoding="utf-8")) or {}
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    companies_config = yaml.safe_load(companies_path.read_text(encoding="utf-8")) or {}
 
-    titles = cfg.get("job_titles", [])
-    exclusions = (cfg.get("exclusions") or {}).get("title_terms", [])
-    companies = companies_cfg.get("companies") or []
+    titles = config.get("job_titles", [])
+    exclusions = (config.get("exclusions") or {}).get("title_terms", [])
+    companies = companies_config.get("companies") or []
 
     if not companies:
         logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)

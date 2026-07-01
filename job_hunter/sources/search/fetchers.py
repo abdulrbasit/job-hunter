@@ -15,8 +15,8 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.config.secrets import FIRECRAWL_API_KEY
 from job_hunter.core.api_budget import reserve_api_call
 from job_hunter.core.utils import title_matches
-from job_hunter.sources.search_providers._constants import USER_AGENT
-from job_hunter.sources.search_providers._url_utils import (
+from job_hunter.sources.search._constants import USER_AGENT
+from job_hunter.sources.search._url_utils import (
     _location_match,
     _looks_like_job_url,
     _with_scheme,
@@ -199,12 +199,12 @@ def fetch_firecrawl_career_jobs(
     if not reserve_api_call("firecrawl"):
         return []
 
-    cfg = get_api_config().get("http", {}).get("firecrawl", {}) or {}
-    timeout_seconds = int(cfg.get("timeout_seconds", 20))
+    config = get_api_config().get("http", {}).get("firecrawl", {}) or {}
+    timeout_seconds = int(config.get("timeout_seconds", 20))
     url = _with_scheme(company["career_url"])
     try:
         resp = requests.post(
-            cfg.get("api_url", "https://api.firecrawl.dev/v2/scrape"),
+            config.get("api_url", "https://api.firecrawl.dev/v2/scrape"),
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "url": url,

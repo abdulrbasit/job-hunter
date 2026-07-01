@@ -7,11 +7,12 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from job_hunter.agent_context._utils import _read_yaml, _root
+from job_hunter.agent_context._utils import _root
 from job_hunter.agent_context.candidates import _title_key
 from job_hunter.config import get_config
 from job_hunter.constants import DEFAULT_BATCH_SIZE
-from job_hunter.sources._policy import JobPolicy
+from job_hunter.core.utils import read_yaml
+from job_hunter.sources.policy import JobPolicy
 
 
 def build_candidate_batch(
@@ -39,7 +40,7 @@ def _applied_title_keys(root: Path) -> set[str]:
     (active-status entries only). README.md is intentionally excluded — it is a
     display artifact and can be stale after deletions.
     """
-    from job_hunter.ux.applications import ACTIVE_STATUSES, load_applications
+    from job_hunter.tracking.applications import ACTIVE_STATUSES, load_applications
 
     keys: set[str] = set()
     jobs_dir = root / "outputs" / "jobs"
@@ -64,8 +65,8 @@ def _applied_title_keys(root: Path) -> set[str]:
 
 def _region_config(search_config: dict[str, Any], region: str) -> dict[str, Any]:
     regions = search_config.get("regions", {}) or {}
-    cfg = regions.get(region, {})
-    return cfg if isinstance(cfg, dict) else {}
+    config = regions.get(region, {})
+    return config if isinstance(config, dict) else {}
 
 
 def screen_candidate_batch(
@@ -74,7 +75,7 @@ def screen_candidate_batch(
     root: Path | None = None,
 ) -> dict[str, Any]:
     base = _root(root)
-    search_config = get_config("job_hunter") if base == _root() else _read_yaml(base / "config" / "job_hunter.yml")
+    search_config = get_config("job_hunter") if base == _root() else read_yaml(base / "config" / "job_hunter.yml")
     policy = JobPolicy(search_config)
     title_filters = search_config.get("job_titles", []) or []
     applied_keys = _applied_title_keys(base)
@@ -96,12 +97,12 @@ def screen_candidate_batch(
                 reasons.append("excluded_title")
             if not reasons:
                 reasons.append("title_not_matched")
-        region_cfg = _region_config(search_config, region)
-        if policy.has_incompatible_location_metadata(candidate, region_cfg):
+        region_config = _region_config(search_config, region)
+        if policy.has_incompatible_location_metadata(candidate, region_config):
             reasons.append("incompatible_location_metadata")
-        if "incompatible_location_metadata" not in reasons and policy.has_wrong_location(candidate, region_cfg):
+        if "incompatible_location_metadata" not in reasons and policy.has_wrong_location(candidate, region_config):
             reasons.append("wrong_location")
-        if policy.excluded_by_search_lang(title, snippet, region_cfg.get("search_lang", "en")):
+        if policy.excluded_by_search_lang(title, snippet, region_config.get("search_lang", "en")):
             reasons.append("excluded_by_search_lang")
         if policy.is_location_restricted(title, snippet):
             reasons.append("location_restricted")

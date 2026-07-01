@@ -9,7 +9,7 @@ from pathlib import Path
 
 import typer
 
-from job_hunter.workspace._assets import _AGENT_SKILL_CLI_PREFIXES, iter_managed_files
+from job_hunter.workspace.assets import _AGENT_SKILL_CLI_PREFIXES, iter_managed_files
 from job_hunter.workspace.manifest import (
     WORKSPACE_VERSION,
     WorkspaceManifest,

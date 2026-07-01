@@ -73,7 +73,7 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/.claude/skills/setup/**/*",
 ]
 "job_hunter.linkedin" = ["defaults.yml"]
-"job_hunter.ux.webdash" = ["*.html"]
+"job_hunter.ux.web" = ["*.html"]
 
 [tool.uv]
 override-dependencies = [
@@ -109,27 +109,38 @@ ignore = ["E501", "S101"]
 # this locks them so a future change can't silently introduce the dependency. Exemptions below are
 # every current legitimate (or currently-existing) caller, not a blanket carve-out.
 "job_hunter.cli" = { msg = "cli/ is the composition root — nothing else may depend on it. If you need a CLI helper elsewhere, move it out of cli/ first." }
-"job_hunter.pipeline" = { msg = "sources/ must not depend on pipeline/ (sources is a lower layer). Elsewhere, prefer tracking/ or db/ over reaching into pipeline/ directly — see ARCHITECTURE.md §1." }
+"job_hunter.pipeline" = { msg = "sources/ must not depend on pipeline/ (sources is a lower layer). Elsewhere, prefer tracking/ over reaching into pipeline/ directly — see ARCHITECTURE.md §1." }
+# Phase 10: tracking/ is the state API (ARCHITECTURE.md §1) — pipeline/, tracking/, and
+# agent_context/ must not depend on ux/ (the presentation layer, outermost). This was already true
+# of the codebase after Phase 10's readme-writer/applications split; locking it in here.
+"job_hunter.ux" = { msg = "ux/ is the presentation layer — pipeline/, tracking/, and agent_context/ must not depend on it. If logic is shared, it belongs in tracking/ or pipeline/, not ux/." }
+# Phase 11: tracking/ is the state API and must not depend on agent_context/ (agent-mode-specific,
+# higher layer) for generic helpers — found agent_context/_utils.py::_read_yaml being imported by
+# tracking/applications.py and ux/health.py; extracted to core/utils.py::read_yaml instead.
+"job_hunter.agent_context" = { msg = "tracking/ must not depend on agent_context/ — shared file-reading helpers belong in core/, not agent_context/_utils.py." }
 
 [tool.ruff.lint.per-file-ignores]
 # S105/S603/S607: test fixtures use literal fake secrets and shell out to git/python by design.
 # TID251: tests legitimately import job_hunter.cli (CliRunner) and job_hunter.pipeline directly.
 "tests/**" = ["S105", "S603", "S607", "TID251"]
-# TID251: cli/ is the composition root; its own submodules import job_hunter.cli (app, internal_app).
+# TID251: cli/ is the composition root; its own submodules import job_hunter.cli (app, internal_app),
+# and CLI commands call ux/ services (job_hunter.ux is banned everywhere except cli/ and ux/ itself).
 "job_hunter/cli/**" = ["TID251"]
 # TID251: pipeline/ submodules import job_hunter.pipeline internally.
 "job_hunter/pipeline/**" = ["TID251"]
+# TID251: ux/ submodules import job_hunter.ux internally (e.g. ux/terminal/dashboard.py importing
+# ux/terminal/applications.py). ux/terminal/dashboard.py and ux/web/api.py also call
+# pipeline.stages.readme.update_readme_from_applications explicitly after a tracking/applications.py
+# state change, to refresh README.md — a legitimate call into a self-contained report generator (no
+# pipeline execution state involved), not a "mutate pipeline internals" violation. Phase 10 moved
+# this call out of the data layer (was ux/applications.py — that hidden side effect is gone;
+# tracking/applications.py mutations are now pure) and made it explicit at these two call sites.
+"job_hunter/ux/**" = ["TID251"]
 # TID251: agent_context/ is agent-mode's context builder — a legitimate current caller of pipeline
 # stages (enrichment, screening, tailorer), not a boundary violation.
 "job_hunter/agent_context/**" = ["TID251"]
 # TID251: tracker.py classifies JD status via pipeline.enrichment — pre-existing, not newly allowed.
 "job_hunter/tracker.py" = ["TID251"]
-# TID251: pre-existing exception, not newly allowed — ux/applications.py calls
-# pipeline.readme_writer.update_readme_from_applications to render README updates. This is exactly
-# the "UX should read via tracking/query services, not mutate pipeline internals" boundary this rule
-# exists to prevent; it's grandfathered here rather than silently broken. Real fix is moving
-# update_readme_from_applications's caller relationship, tracked in ARCHITECTURE.md, not done here.
-"job_hunter/ux/applications.py" = ["TID251"]
 # S603/S607: cli/commands/internal.py intentionally shells out to git for commit/push/status.
 # Phase 4 (2026-07-01): B008 dropped from this list — verified it doesn't fire on typer.Option(...)
 # defaults anywhere in cli/, so the old blanket ignore here was never load-bearing.
@@ -151,10 +162,10 @@ ignore = ["E501", "S101"]
 ]
 "job_hunter/sources/{job_boards,jd_fetcher,orchestrator}.py" = ["C901"]
 "job_hunter/sources/career_pages/{__init__,_jsonld}.py" = ["C901"]
-"job_hunter/sources/search_providers/{ats_discovery,router}.py" = ["C901"]
-"job_hunter/ux/dashboard.py" = ["C901"]
+"job_hunter/sources/search/{ats_discovery,router}.py" = ["C901"]
+"job_hunter/ux/terminal/dashboard.py" = ["C901"]
 "job_hunter/ux/health.py" = ["C901"]
-"job_hunter/workspace/_assets.py" = ["C901"]
+"job_hunter/workspace/assets.py" = ["C901"]
 # S314: ATS adapters parse third-party XML/HTML feeds; defusedxml migration tracked separately, not
 # a Phase 3 concern (would be a real code change, not a tooling-config tightening).
 "job_hunter/sources/ats/*.py" = ["S314"]

@@ -25,9 +25,9 @@ def _get_base_tex() -> str:
     return profile_path("resume_tex", "resume.tex").read_text(encoding="utf-8")
 
 
-def _build_tailoring_rules(tailoring_cfg: dict) -> str:
+def _build_tailoring_rules(tailoring_config: dict) -> str:
     """Build the strict tailoring rules section from job_hunter.yml."""
-    tailoring = tailoring_cfg.get("tailoring", {})
+    tailoring = tailoring_config.get("tailoring", {})
     rules = tailoring.get("rules", {})
 
     lines = []
@@ -42,9 +42,9 @@ def _build_tailoring_rules(tailoring_cfg: dict) -> str:
         allowed_items = "; ".join(f"({chr(97 + i)}) {m.replace('_', ' ')}" for i, m in enumerate(allowed))
         lines.append(f"Only modify: {allowed_items}.")
 
-    keyword_cfg = tailoring.get("keyword_strategy", {})
-    aggressiveness = keyword_cfg.get("aggressiveness", "natural")
-    avoid_kw = keyword_cfg.get("avoid_keywords", [])
+    keyword_config = tailoring.get("keyword_strategy", {})
+    aggressiveness = keyword_config.get("aggressiveness", "natural")
+    avoid_kw = keyword_config.get("avoid_keywords", [])
     lines.append(f"Mirror JD keywords {aggressiveness}ly where context allows.")
     if avoid_kw:
         lines.append(f"Never introduce these terms: {', '.join(avoid_kw)}.")
@@ -81,8 +81,8 @@ def _has_active_project_section(tex: str) -> bool:
     return False
 
 
-def _build_project_rules(tailoring_cfg: dict, tex: str, story_bank: str) -> str:
-    rules = tailoring_cfg.get("tailoring", {}).get("rules", {}).get("projects", {})
+def _build_project_rules(tailoring_config: dict, tex: str, story_bank: str) -> str:
+    rules = tailoring_config.get("tailoring", {}).get("rules", {}).get("projects", {})
     max_projects = rules.get("max_projects", 4)
     min_bullets = rules.get("min_bullets_per_project", 3)
     max_bullets = rules.get("max_bullets_per_project", 5)
@@ -116,8 +116,8 @@ def _build_project_rules(tailoring_cfg: dict, tex: str, story_bank: str) -> str:
     )
 
 
-def _build_positioning_rules(tailoring_cfg: dict) -> str:
-    rules = tailoring_cfg.get("tailoring", {}).get("rules", {})
+def _build_positioning_rules(tailoring_config: dict) -> str:
+    rules = tailoring_config.get("tailoring", {}).get("rules", {})
     summary = rules.get("summary", {})
     bullets = rules.get("bullets", {})
     lines = []
@@ -168,21 +168,21 @@ def tailor(match_result: dict) -> str:
     job = match_result["job"]
     keywords = ", ".join(match_result.get("matched_keywords", []))
     gaps = ", ".join(match_result.get("gaps", []))
-    tailoring_cfg = _load_runtime_config()
-    stories_cfg = tailoring_cfg.get("tailoring", {}).get("stories", {})
+    tailoring_config = _load_runtime_config()
+    stories_config = tailoring_config.get("tailoring", {}).get("stories", {})
     story_bank = _load_profile_text(
         "story_bank",
-        stories_cfg.get("story_bank", "story_bank.md"),
+        stories_config.get("story_bank", "story_bank.md"),
         warn="[tailor] Story bank not found; project tailoring disabled",
     )
     career_context = _load_profile_text("career_context", "profile/career_context.md")
-    story_bank_limit = int(stories_cfg.get("max_chars_for_tailoring", 16000))
+    story_bank_limit = int(stories_config.get("max_chars_for_tailoring", 16000))
     matched_ids = match_result.get("matched_story_ids") or []
     if matched_ids:
         story_bank = _filter_story_bank(story_bank, matched_ids)
-    tailoring_rules = _build_tailoring_rules(tailoring_cfg)
-    positioning_rules = _build_positioning_rules(tailoring_cfg)
-    project_rules = _build_project_rules(tailoring_cfg, _get_base_tex(), story_bank)
+    tailoring_rules = _build_tailoring_rules(tailoring_config)
+    positioning_rules = _build_positioning_rules(tailoring_config)
+    project_rules = _build_project_rules(tailoring_config, _get_base_tex(), story_bank)
 
     stage = LLMStage(
         "tailoring",

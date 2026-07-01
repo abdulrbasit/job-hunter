@@ -26,28 +26,28 @@ def _current_month() -> str:
     return datetime.now().strftime("%Y-%m")
 
 
-def _resolve_budget_cfg(api_cfg: dict | None) -> dict:
-    if api_cfg is not None:
-        return api_cfg.get("http", {}).get("api_budgets", {}) or {}
+def _resolve_budget_config(api_config: dict | None) -> dict:
+    if api_config is not None:
+        return api_config.get("http", {}).get("api_budgets", {}) or {}
     try:
         from job_hunter.config.loader import get_api_config
 
-        cfg = get_api_config()
-        return cfg.get("http", {}).get("api_budgets", {}) or {}
+        config = get_api_config()
+        return config.get("http", {}).get("api_budgets", {}) or {}
     except Exception:
         return {}
 
 
-def _state_path(budget_cfg: dict) -> Path:
-    rel = budget_cfg.get("state_path", "outputs/state/api_usage.json")
+def _state_path(budget_config: dict) -> Path:
+    rel = budget_config.get("state_path", "outputs/state/api_usage.json")
     path = Path(rel)
     if path.is_absolute():
         return path
     return ROOT / rel
 
 
-def _load(budget_cfg: dict) -> dict:
-    path = _state_path(budget_cfg)
+def _load(budget_config: dict) -> dict:
+    path = _state_path(budget_config)
     month = _current_month()
     try:
         if path.exists():
@@ -59,29 +59,29 @@ def _load(budget_cfg: dict) -> dict:
     return {"month": month, "providers": {}, "exhausted": {}}
 
 
-def _save(state: dict, budget_cfg: dict) -> None:
+def _save(state: dict, budget_config: dict) -> None:
     try:
-        path = _state_path(budget_cfg)
+        path = _state_path(budget_config)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(state, indent=2), encoding="utf-8")
     except Exception as exc:
         logger.debug("[api_budget] failed to save state: %s", exc)
 
 
-def reserve_api_call(source: str, *, api_cfg: dict | None = None) -> bool:
+def reserve_api_call(source: str, *, api_config: dict | None = None) -> bool:
     """Reserve one API call for source. Returns False if monthly budget is exhausted."""
-    budget_cfg = _resolve_budget_cfg(api_cfg)
-    if not budget_cfg.get("enabled", True):
+    budget_config = _resolve_budget_config(api_config)
+    if not budget_config.get("enabled", True):
         return True
 
     with _lock:
-        state = _load(budget_cfg)
+        state = _load(budget_config)
         exhausted = state.get("exhausted", {})
         if source in exhausted:
             logger.debug("[api_budget] %s is exhausted for this month", source)
             return False
 
-        limit = budget_cfg.get("monthly_limits", {}).get(source)
+        limit = budget_config.get("monthly_limits", {}).get(source)
         if limit is None:
             return True
 
@@ -91,37 +91,37 @@ def reserve_api_call(source: str, *, api_cfg: dict | None = None) -> bool:
             exhausted[source] = {"reason": "monthly_limit", "marked_on": date.today().isoformat()}
             state["exhausted"] = exhausted
             logger.warning("[api_budget] %s monthly limit (%d) reached", source, limit)
-            _save(state, budget_cfg)
+            _save(state, budget_config)
             return False
         providers[source] = current + 1
-        _save(state, budget_cfg)
+        _save(state, budget_config)
         return True
 
 
 def mark_api_exhausted(
-    source: str, *, reason: str = "", api_cfg: dict | None = None, exc: Exception | None = None
+    source: str, *, reason: str = "", api_config: dict | None = None, exc: Exception | None = None
 ) -> None:
     """Mark source as quota-exhausted for the rest of this calendar month."""
-    budget_cfg = _resolve_budget_cfg(api_cfg)
-    if not budget_cfg.get("enabled", True):
+    budget_config = _resolve_budget_config(api_config)
+    if not budget_config.get("enabled", True):
         return
 
     effective_reason = reason or (str(exc) if exc else "quota_exhausted")
     with _lock:
-        state = _load(budget_cfg)
+        state = _load(budget_config)
         exhausted = state.setdefault("exhausted", {})
         if source not in exhausted:
             exhausted[source] = {"reason": effective_reason, "marked_on": date.today().isoformat()}
             logger.warning("[api_budget] marking %s exhausted: %s", source, effective_reason)
-            _save(state, budget_cfg)
+            _save(state, budget_config)
 
 
-def is_provider_exhausted_for_month(source: str, *, api_cfg: dict | None = None) -> bool:
+def is_provider_exhausted_for_month(source: str, *, api_config: dict | None = None) -> bool:
     """Return True if source has been marked quota-exhausted for this calendar month."""
-    budget_cfg = _resolve_budget_cfg(api_cfg)
-    if not budget_cfg.get("enabled", True):
+    budget_config = _resolve_budget_config(api_config)
+    if not budget_config.get("enabled", True):
         return False
-    state = _load(budget_cfg)
+    state = _load(budget_config)
     return source in state.get("exhausted", {})
 
 

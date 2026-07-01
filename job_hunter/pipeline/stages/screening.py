@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from job_hunter.core.utils import title_matches
-from job_hunter.sources._policy import JobPolicy
+from job_hunter.sources.policy import JobPolicy
 
 # Snippet phrases that explicitly mark a fixed-term/contract posting.
 _CONTRACT_PHRASES: frozenset[str] = frozenset(

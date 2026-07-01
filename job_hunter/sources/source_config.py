@@ -107,9 +107,9 @@ def job_board_timeout(name: str) -> int:
     return int(job_board_source_config(name).get("timeout_seconds") or get_timeout("job_boards"))
 
 
-def jobicy_geo_slug(region_cfg: dict[str, Any]) -> str:
+def jobicy_geo_slug(region_config: dict[str, Any]) -> str:
     """Map ISO country codes to Jobicy's documented geo slugs."""
-    country = str(region_cfg.get("country") or "").upper()
+    country = str(region_config.get("country") or "").upper()
     slug = _JOBICY_GEO_BY_ISO.get(country, "")
     if not slug and country:
         logger.debug("[jobicy] no documented geo slug for country=%s; skipping", country)

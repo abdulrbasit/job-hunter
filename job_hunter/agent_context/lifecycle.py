@@ -21,7 +21,7 @@ from job_hunter.agent_context.candidates import (
 )
 from job_hunter.agent_context.score_context import _read_job_folder
 from job_hunter.pipeline.enrichment import classify_jd_snippet
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search import canonicalize_url
 
 
 def validate_score_file(path: Path) -> dict[str, Any]:
@@ -63,7 +63,7 @@ def validate_score_file(path: Path) -> dict[str, Any]:
 
 
 def _mark_candidate_processed(root: Path, candidate: dict[str, Any]) -> dict[str, int]:
-    from job_hunter.db.jobs import get_processed_urls, mark_urls_processed
+    from job_hunter.tracking.repository import get_processed_urls, mark_urls_processed
 
     url = canonicalize_url(str(candidate.get("url") or ""))
     before = len(get_processed_urls(root))

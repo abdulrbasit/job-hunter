@@ -1,18 +1,18 @@
 """Search and career-page provider strategies.
 
-Re-exports all public symbols from the search_providers package so that
+Re-exports all public symbols from this package's submodules so that
 existing import sites require no changes.
 """
 
 from __future__ import annotations
 
 import logging
-import shutil  # noqa: F401 — exposed so tests can patch search_providers.shutil.which
-import subprocess  # noqa: F401 — exposed so tests can patch search_providers.subprocess.run
+import shutil  # noqa: F401 — exposed so tests can patch search.shutil.which
+import subprocess  # noqa: F401 — exposed so tests can patch search.subprocess.run
 
-import requests  # noqa: F401 — exposed so tests can patch search_providers.requests.get/post
+import requests  # noqa: F401 — exposed so tests can patch search.requests.get/post
 
-from job_hunter.sources.search_providers._constants import (
+from job_hunter.sources.search._constants import (
     BRAVE_SUPPORTED_COUNTRIES,
     BRAVE_URL,
     EXA_URL,
@@ -22,28 +22,28 @@ from job_hunter.sources.search_providers._constants import (
     TRACKING_QUERY_PREFIXES,
     USER_AGENT,
 )
-from job_hunter.sources.search_providers._result import (
+from job_hunter.sources.search._result import (
     SearchResult,
     normalize_web_results,
 )
-from job_hunter.sources.search_providers._url_utils import (
+from job_hunter.sources.search._url_utils import (
     _location_match,
     _looks_like_job_url,
     _text,
     _with_scheme,
     canonicalize_url,
 )
-from job_hunter.sources.search_providers.ats_discovery import (
+from job_hunter.sources.search.ats_discovery import (
     _ats_search_queries,
     _discover_region,
     _enrich_ats_discovery_job,
     discover_ats_jobs_by_search,
 )
-from job_hunter.sources.search_providers.discovery import (
+from job_hunter.sources.search.discovery import (
     discover_company_homepage,
     search_career_urls,
 )
-from job_hunter.sources.search_providers.fetchers import (
+from job_hunter.sources.search.fetchers import (
     _jobs_from_markdown_links,
     extract_jobs_from_html,
     fetch_firecrawl_career_jobs,
@@ -51,7 +51,7 @@ from job_hunter.sources.search_providers.fetchers import (
     fetch_playwright_career_jobs,
     fetch_static_career_jobs,
 )
-from job_hunter.sources.search_providers.providers import (
+from job_hunter.sources.search.providers import (
     BraveProvider,
     ExaProvider,
     SearchProvider,
@@ -59,7 +59,7 @@ from job_hunter.sources.search_providers.providers import (
     TavilyProvider,
     _timeout,
 )
-from job_hunter.sources.search_providers.router import (
+from job_hunter.sources.search.router import (
     _PROVIDER_STATE,
     ProviderSearchRouter,
     ProviderState,

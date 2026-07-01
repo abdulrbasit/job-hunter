@@ -13,16 +13,16 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.core.url_liveness import UrlLivenessCache
-from job_hunter.db.jobs import get_processed_urls, insert_jobs
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
 from job_hunter.pipeline.pre_llm_gate import apply_pre_enrichment_gate
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.jd_fetcher import fetch_jd
 from job_hunter.sources.orchestrator import scrape_with_stats
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search import canonicalize_url
 from job_hunter.tracking.discovery_cache import load_cached_candidate_urls, save_cached_candidate_urls
-from job_hunter.tracking.tracker import filter_new_jobs
+from job_hunter.tracking.processed_urls import filter_new_jobs
+from job_hunter.tracking.repository import get_processed_urls, insert_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +52,18 @@ def _jobs_from_hunt(
 
 def _drop_dead_urls(
     jobs: list[dict[str, Any]],
-    api_cfg: dict[str, Any],
+    api_config: dict[str, Any],
     url_checker: Any = None,
 ) -> list[dict[str, Any]]:
     return drop_dead_urls_before_enrichment(
         jobs,
-        api_cfg,
+        api_config,
         url_checker=url_checker or UrlLivenessCache().is_alive,
     )
 
 
-def _enrich(jobs: list[dict[str, Any]], api_cfg: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    return enrich_snippets(jobs, api_cfg, fetcher=fetch_jd)
+def _enrich(jobs: list[dict[str, Any]], api_config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    return enrich_snippets(jobs, api_config, fetcher=fetch_jd)
 
 
 def _drop_closed_postings(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -77,8 +77,8 @@ def _drop_closed_postings(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def run_hunt(
     args: dict,
-    api_cfg: dict[str, Any],
-    scoring_cfg: dict[str, Any],
+    api_config: dict[str, Any],
+    scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
 ) -> tuple[list[dict[str, Any]], set[str], set[str]]:
     """Execute the hunt mode: scrape, URL-check, enrich."""
@@ -88,19 +88,19 @@ def run_hunt(
         logger.warning("[pipeline] No new jobs found. Exiting.")
         return [], set(), set()
 
-    jobs = _drop_dead_urls(jobs, api_cfg, url_liveness.is_alive)
+    jobs = _drop_dead_urls(jobs, api_config, url_liveness.is_alive)
     if not jobs:
         logger.warning("[pipeline] All scraped jobs failed URL verification before enrichment.")
         return [], set(), set()
 
-    jobs, pre_enrich_rejected = apply_pre_enrichment_gate(jobs, scoring_cfg)
+    jobs, pre_enrich_rejected = apply_pre_enrichment_gate(jobs, scoring_config)
     if pre_enrich_rejected:
         logger.info("[pipeline] Pre-enrichment gate dropped %s job(s)", len(pre_enrich_rejected))
 
     logger.info("[pipeline] Step 1b: Enriching sparse job descriptions...")
-    jobs = _enrich(jobs, api_cfg)
+    jobs = _enrich(jobs, api_config)
     jobs = _drop_closed_postings(jobs)
-    jobs, rejected = screen_jobs_by_rules(jobs, scoring_cfg)
+    jobs, rejected = screen_jobs_by_rules(jobs, scoring_config)
     if rejected:
         logger.info("[pipeline] Objective screen rejected %s job(s)", len(rejected))
     return jobs, existing_urls, existing_titles
@@ -109,7 +109,7 @@ def run_hunt(
 def run_hunt_scrape_only(
     region: str | None = None,
     root: str | Path = REPO_ROOT,
-    api_cfg: dict[str, Any] | None = None,
+    api_config: dict[str, Any] | None = None,
     url_checker: Any = None,
     depth: str = "standard",
 ) -> tuple[str, int, ScrapeStats]:
@@ -123,15 +123,15 @@ def run_hunt_scrape_only(
     jobs, _existing_urls, _existing_titles, stats = _jobs_from_hunt(region, depth=depth)
 
     if jobs:
-        jobs = _drop_dead_urls(jobs, api_cfg or {}, url_checker)
+        jobs = _drop_dead_urls(jobs, api_config or {}, url_checker)
     if jobs:
         from job_hunter.config import get_config
 
-        _scoring_cfg = get_config("job_hunter")
-        jobs, pre_enrich_rejected = apply_pre_enrichment_gate(jobs, _scoring_cfg)
+        _scoring_config = get_config("job_hunter")
+        jobs, pre_enrich_rejected = apply_pre_enrichment_gate(jobs, _scoring_config)
         if pre_enrich_rejected:
             logger.info("[pipeline] Pre-enrichment gate dropped %s job(s)", len(pre_enrich_rejected))
-        jobs = _enrich(jobs, api_cfg or {})
+        jobs = _enrich(jobs, api_config or {})
         jobs = _drop_closed_postings(jobs)
     if jobs:
         from job_hunter.config import get_config

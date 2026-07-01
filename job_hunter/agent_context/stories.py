@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.agent_context._types import RATING_RE, STORY_HEADING_RE, StoryBlock
-from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_yaml, _root
+from job_hunter.agent_context._utils import _clip, _prefer_compiled, _root
+from job_hunter.core.utils import read_yaml
 
 
 def _plain_summary(block: str) -> str:
@@ -31,7 +32,7 @@ def _extract_tags(block: str) -> list[str]:
 
 
 def _story_blocks(root: Path) -> list[StoryBlock]:
-    profile = _read_yaml(root / "config" / "job_hunter.yml").get("profile", {})
+    profile = read_yaml(root / "config" / "job_hunter.yml").get("profile", {})
     story_bank = Path(profile.get("story_bank", "profile/story_bank.md"))
     path = story_bank if story_bank.is_absolute() else root / story_bank
     path = _prefer_compiled(path, root)

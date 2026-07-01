@@ -185,12 +185,12 @@ class LLMClient:
         if self._provider == "google":
             from google.genai import types
 
-            cfg: dict[str, Any] = {"max_output_tokens": max_tokens}
+            config: dict[str, Any] = {"max_output_tokens": max_tokens}
             if system:
-                cfg["system_instruction"] = system
+                config["system_instruction"] = system
             if response_format == "json":
-                cfg["response_mime_type"] = "application/json"
-            config = types.GenerateContentConfig(**cfg)
+                config["response_mime_type"] = "application/json"
+            config = types.GenerateContentConfig(**config)
             resp = self._raw.models.generate_content(model=model, contents=user, config=config)
             return (resp.text or "").strip(), 0, 0, 0
 
@@ -210,8 +210,8 @@ def get_client(role: str) -> LLMClient:
     from job_hunter.config import get_config, get_secret
     from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS, resolve_provider
 
-    cfg = get_config("job_hunter")
-    llm = cfg.get("llm", {})
+    config = get_config("job_hunter")
+    llm = config.get("llm", {})
     provider = resolve_provider(role, llm)
 
     with _lock:

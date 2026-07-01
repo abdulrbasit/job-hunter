@@ -16,8 +16,8 @@ import requests
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._dates import truncate_date_text
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -48,14 +48,14 @@ class HHSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "hh"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("hh", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("hh", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch jobs from hh.ru for Russia/CIS regions."""
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("hh", {}) or {}
-        if not cfg.get("enabled", True):
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("hh", {}) or {}
+        if not config.get("enabled", True):
             return []
 
         iso = params.country.upper()
@@ -63,7 +63,7 @@ class HHSource(JobSourceAdapter):
         if area_id is None:
             return []
 
-        timeout = int(cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = int(config.get("timeout_seconds") or get_timeout("job_boards"))
         max_pages = source_page_cap()
         jobs: list[JobPosting] = []
 

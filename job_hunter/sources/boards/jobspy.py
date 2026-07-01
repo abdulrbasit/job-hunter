@@ -18,7 +18,7 @@ from typing import Any
 from job_hunter.config.loader import get_api_config
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.base import JobSourceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +156,9 @@ class JobSpySource(JobSourceAdapter):
     def source_name(self) -> str:
         return "jobspy"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """
@@ -172,11 +172,11 @@ class JobSpySource(JobSourceAdapter):
         """
         from jobspy import scrape_jobs
 
-        jobspy_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
-        if not jobspy_cfg.get("enabled", True):
+        jobspy_config = get_api_config().get("http", {}).get("job_boards", {}).get("jobspy", {}) or {}
+        if not jobspy_config.get("enabled", True):
             return []
 
-        hours_old = int(jobspy_cfg.get("hours_old", 72))
+        hours_old = int(jobspy_config.get("hours_old", 72))
         location = params.location
         iso = params.country.upper()
         country_indeed = _ISO_TO_INDEED.get(iso, "")

@@ -16,9 +16,9 @@ No code moved, renamed, or behavior-changed by this document. Phase 3+ execute t
 | `pipeline/` | Hunt/tailor orchestration, per-stage business logic (validate, score, tailor, cover letter, PDF) | Calls `sources/`, `llm/`, `tracking/`, `config/` |
 | `sources/` | Job discovery adapters (board APIs, ATS APIs, career-page scraping, web search) | Calls `config/`, `core/` only — must not import `pipeline/` |
 | `llm/` | LLM client, response caching | Called by `pipeline/`, `linkedin/` |
-| `tracking/` + `db/` | Job/application state persistence, URL dedup | Called by `pipeline/`, `cli/`, `ux/` |
+| `tracking/` | Job/application state persistence, URL dedup — the state API (Phase 10; `db/` folded in) | Called by `pipeline/`, `cli/`, `ux/` — must not import `pipeline/` or `ux/` |
 | `workspace/` | Init/update a user workspace, safety gating, template asset assembly | Called by `cli/` only |
-| `ux/` | Terminal dashboard, web dashboard, analytics rendering, health checks | Reads `tracking/`, `db/`, `metrics/` |
+| `ux/` | Terminal dashboard, web dashboard, analytics rendering, health checks | Reads `tracking/`, `metrics/` — must not be depended on by `pipeline/`, `tracking/`, or `agent_context/` |
 | `linkedin/` | LinkedIn content generation (no browser automation, no auto-posting) | Calls `llm/`, `config/` |
 | `agent_context/` | Builds context objects consumed by Claude Code skills (agent mode only) | Calls `pipeline/`, `sources/`, `tracking/` |
 | `tools/` | One-off: profile compilation for the current run | Standalone |
@@ -42,7 +42,7 @@ else in this repo is a pragmatic pipeline, not a strict layered architecture.
 | Command | Module |
 |---|---|
 | `hunt`, `tailor` | `cli/__init__.py` (definition) + `cli/_dispatch.py` (mode routing) |
-| `dash` | `cli/__init__.py` → `ux/webdash/` |
+| `dash` | `cli/__init__.py` → `ux/web/` |
 | `dashboard`, `internal analytics`, `doctor`, `internal verify` | `cli/_health_commands.py` |
 | `applications list`, `applications update` | `cli/_application_commands.py` |
 | `init`, `update`, `internal update-skills`, `internal update-workflows`, `version` | `cli/_workspace.py` |
@@ -65,13 +65,13 @@ name in different packages. Rename on move (see migration table).
 
 ## 5. Source Adapter Contract
 
-`sources/_base.py::JobSourceAdapter` (ABC): `source_name` (abstract property), `tier` (`"free"|"api"|
-"search"|"browser"`, controls `--depth` filtering), `is_enabled(api_cfg)`, `_fetch(params) -> list[
-JobPosting]` (abstract, may raise), `fetch(params)` (public entry point, never raises — wraps `_fetch` in
-try/except, returns `[]` on failure). `.name` is a backward-compat alias for `.source_name` (see §8).
-Every adapter accepts the shared `SearchParams` contract — enforced today by
-`tests/test_source_contracts.py::test_all_adapters_accept_shared_search_contract`. ATS adapters
-(`sources/ats/*.py`) currently do **not** share a base class beyond two helpers in `sources/ats/_base.py` —
+`sources/base.py::JobSourceAdapter` (ABC, renamed from `sources/_base.py` — Phase 11): `source_name`
+(abstract property), `tier` (`"free"|"api"|"search"|"browser"`, controls `--depth` filtering),
+`is_enabled(api_config)`, `_fetch(params) -> list[JobPosting]` (abstract, may raise), `fetch(params)`
+(public entry point, never raises — wraps `_fetch` in try/except, returns `[]` on failure). `.name` is a
+backward-compat alias for `.source_name` (see §8). Every adapter accepts the shared `SearchParams`
+contract — enforced today by `tests/test_source_contracts.py::test_all_adapters_accept_shared_search_contract`.
+ATS adapters (`sources/ats/*.py`) currently do **not** share a base class beyond two helpers in `sources/ats/_base.py` —
 this is the weakest part of the contract and the first real refactor target (Phase 3 backlog).
 
 ## 6. Data Contract
@@ -144,7 +144,7 @@ job_hunter/
   sources/
     base.py            (was sources/_base.py — public: JobSourceAdapter is an external contract)
     policy.py           (was sources/_policy.py — public: pipeline/screening.py imports it across packages)
-    _http.py             # STAYS private — only sources/*_source.py import it (see §12.3)
+    _http.py             # STAYS private — only sources/boards/{himalayas,remotive}.py import it (see §12.3)
     boards/
       registry.py        (was sources/boards/__init__.py::BOARD_REGISTRY)
       adzuna.py  careerjet.py  gulftalent.py  hh.py  himalayas.py  jd_fetcher.py  job_boards.py
@@ -167,9 +167,10 @@ job_hunter/
 
   tracking/
     repository.py          (was db/jobs.py — jobs.db)
-    metrics_store.py        (was metrics/store.py — same SQLite-repository shape, same package)
-    applications.py         (data half of ux/applications.py: load/filter/update — no rendering)
+    applications.py         (data half of ux/applications.py: load/filter/update — no rendering,
+                             no report-generation side effect — see §10 row for readme_writer.py)
     processed_urls.py       (was tracking/tracker.py::load_processed/mark_processed)
+    # metrics/store.py deliberately NOT moved here (Phase 10) — see §10 row below
     discovery_cache.py      (legacy YAML dedup — unchanged location, see §13 for removal plan)
 
   workspace/
@@ -183,10 +184,13 @@ job_hunter/
   ux/
     terminal/
       dashboard.py           applications.py  (rendering half only — render_dashboard, render_applications_table)
+      analytics.py             render_analytics only (terminal presentation half)
     web/                      (was ux/webdash/)
     health.py                 # STAYS flat — doctor/verify serve both terminal and --json/programmatic
                                # consumers, not terminal-only presentation (deviation from ux/analytics/ split)
-    analytics.py               # STAYS flat — 2 functions today, a package would be an empty-drawer
+    analytics.py               # STAYS flat (Phase 10 confirmed the "empty-drawer" call below) — holds
+                               # analyze_pipeline (compute) only; both ux/terminal/analytics.py::render_analytics
+                               # and ux/web/api.py::get_insights consume it, so it can't move under terminal/
 
   linkedin/
     config.py  (was linkedin/_config.py — nothing outside linkedin/ imports it either way; renamed only
@@ -226,33 +230,35 @@ executing this table row-by-row; catching it up here rather than letting it keep
 | `pipeline/tailor.py` + `pipeline/tailorer.py` | `pipeline/stages/tailoring.py` | two files, one stage — verify no name clash between `run_tailor` and `tailor()` before merging | public | `test_tailor_pipeline.py`, `test_tailorer.py`, `test_tailorer_story_filter.py` | medium | not done |
 | `pipeline/cover_writer.py` | `pipeline/stages/cover_letter.py` | naming convention | public | `test_cover_writer.py` | low | not done |
 | `pipeline/pdf_compiler.py` | `pipeline/stages/pdf.py` | naming convention | public | `test_pdf_compiler.py` | low | not done |
-| `pipeline/readme_writer.py` | `pipeline/stages/readme.py` | **not** `tracking.py` — avoids collision with `tracking/` package | public | `test_orchestrator.py` (readme tests live there today) | low | not done — `readme_writer.py` unmoved; its functions are called from `pipeline/stages/processing.py` |
+| `pipeline/readme_writer.py` | `pipeline/stages/readme.py` | **not** `tracking.py` — avoids collision with `tracking/` package | public | `test_readme.py` (renamed from readme tests in `test_applications.py`) | low | done (Phase 10) — considered moving to `ux/readme.py` instead (README refresh is triggered by UX), but `pipeline/stages/processing.py`'s own autonomous-mode stage calls `update_readme()` (the from-matches variant) too, so keeping it in `pipeline/` avoids a new `pipeline → ux` dependency that didn't exist before |
 | `core/metrics.py` | `pipeline/timing.py` | it's a pipeline-stage timing helper, not a generic core util; avoids name collision with `metrics/store.py` | private→private, path only | none (no direct tests found) | low | not done |
-| `sources/_base.py` | `sources/base.py` | public: `JobSourceAdapter` is an external contract, imported by every adapter + tests | public | `test_source_contracts.py`, `test_sources.py`, all adapter tests | **medium** (import fan-out across ~20 files) | not done — stays `_base.py` for now |
-| `sources/_policy.py` | `sources/policy.py` | public: `pipeline/screening.py` and `sources/orchestrator.py` already import it across the package boundary | public | `test_job_policy.py`, `test_orchestrator.py` | medium | not done |
-| `sources/_http.py` | unchanged | **not moved** — only `himalayas_source.py`/`remotive_source.py` import it; stays private | private | `test_http_helpers.py` (no path change) | none | done (already correct, no action needed) |
+| `sources/_base.py` | `sources/base.py` | public: `JobSourceAdapter` is an external contract, imported by every adapter + tests | public | `test_source_contracts.py`, `test_sources.py`, all adapter tests | **medium** (import fan-out across ~20 files) | done (Phase 11) — verified only `tests/test_source_contracts.py` reaches it from outside `sources/` in production code (the rest of the fan-out is `sources/` internal); renamed anyway since `JobSourceAdapter` is conceptually the package's public contract |
+| `sources/_policy.py` | `sources/policy.py` | public: `pipeline/screening.py` and `sources/orchestrator.py` already import it across the package boundary | public | `test_job_policy.py`, `test_orchestrator.py` | medium | done (Phase 11) — also imported by `agent_context/batch.py`, `agent_context/candidates.py`, `cli/_run_artifacts.py` |
+| `sources/_http.py` | unchanged | **not moved** — only `sources/boards/{himalayas,remotive}.py` import it; stays private | private | `test_http_helpers.py` (no path change) | none | done (already correct, no action needed) — reconfirmed Phase 11 |
 | `sources/*_source.py` (18 files)* | `sources/boards/<name>.py` | one adapter, one file, under the package that owns the registry; drop redundant `_source` suffix | public | every `test_*_source.py` file + `test_sources.py`, `test_new_sources.py`, `test_job_boards.py` | **high** (18 files, do 3-4 per commit, diff fixture output per adapter — matches Phase 0 backlog Phase 2) | done (Phase 7) |
 | `sources/boards/__init__.py::BOARD_REGISTRY` | `sources/boards/registry.py` | separates registry from package `__init__` | public | `test_source_contracts.py` | low | done (Phase 7) |
-| `sources/search_providers/` | `sources/search/` | naming convention (shorter, matches target tree) | public | `test_search_providers.py` (rename import) | low | not done |
+| `sources/search_providers/` | `sources/search/` | naming convention (shorter, matches target tree) | public | `test_search.py` (renamed from `test_search_providers.py`), `test_sources.py`, `test_active_hunt_pipeline.py`, `test_preflight.py`, `test_config.py` | low | done (Phase 11) — `http.search_providers` config-section key name deliberately left unchanged (it's a runtime config key, not the Python module path) |
 | `core/config_schema.py` | `config/schema.py` | belongs with the config it validates | public | `test_config.py` | low | done (Phase 8) |
 | `core/api_budget.py` | unchanged | **scope correction (Phase 9)** — it's HTTP job-board call budgeting (Adzuna/Jooble/etc. monthly quotas), not LLM spend; moving it into `llm/` would be a category error | public | `test_api_budget.py` | none | done (Phase 9) — confirmed this file stays in `core/` |
 | `core/llm_utils.py::get_llm_role_settings` + `pipeline/llm_stage.py` (whole module, incl. `get_token_totals/reset_token_totals`) | `llm/providers.py` (routing), `llm/token_usage.py` (accounting), `llm/stage.py` (the `LLMStage` class itself), `llm/types.py` (contracts), `llm/prompts/` (new) | `sources/jd_fetcher.py` needed `LLMStage` but `sources/ must not depend on pipeline/` (§1) — moving the whole typed-service layer into `llm/` fixes the boundary and gives every LLM concern one home; `core/llm_utils.py` keeps only `extract_json_object` (generic response-text parsing, not LLM-routing). No LLM spend-cap module was added — provider consoles (Anthropic/OpenAI/etc.) already offer spend limits, so a code-side budget cap would be redundant product surface | public | `test_llm_types.py`, `test_llm_providers.py`, `test_llm_token_usage.py`, `test_llm_stage.py`, `test_llm_client.py`, `test_llm_utils.py` | medium (7 call sites migrated: scoring, validation, tailoring, cover_letter, company_research, jd_extraction, linkedin) | done (Phase 9) — also fixed two pre-existing bugs found during the move: `jd_fetcher.py` and `linkedin/_config.py` were calling `LLMClient.complete()` with the wrong signature (old dict-style kwargs instead of `LLMRequest`), silently falling back every time in production, masked by tests that mocked around the bug instead of through it |
-| `db/jobs.py` | `tracking/repository.py` | same package as the other state stores | public | `test_tracker.py` and anything importing `job_hunter.db.jobs` | **medium** (539 lines, widely imported — do as its own commit) | not done |
-| `metrics/store.py` | `tracking/metrics_store.py` | same SQLite-repository shape as `db/jobs.py`, belongs in the same package | public | `test_metrics_store.py` | low | not done |
-| `tracking/tracker.py::load_processed/mark_processed` | `tracking/processed_urls.py` | matches target tree name exactly | public | `test_cli.py`, `test_tracker.py` | low | not done |
+| `db/jobs.py` | `tracking/repository.py` | same package as the other state stores | public | `test_processed_urls.py` (renamed from `test_tracker.py`) and ~28 call sites across `agent_context/`, `pipeline/`, `ux/`, `cli/`, tests | **medium** (539 lines, widely imported — done as its own commit) | done (Phase 10) — pure rename, zero schema/logic change; `db/` package removed (empty after the move) |
+| `metrics/store.py` | `tracking/metrics_store.py` | same SQLite-repository shape as `db/jobs.py`, belongs in the same package | public | `test_metrics_store.py` | low | **not done, deviated (Phase 10)** — task explicitly allowed "stays or moves cleanly"; kept in `metrics/` since it's small (84 lines), self-contained, and has exactly one caller (`ux/web/api.py::get_analytics`) — moving it added ceremony with no boundary-cleanup value, unlike `db/jobs.py` which had ~28 call sites tangled across every layer |
+| `tracking/tracker.py::load_processed/mark_processed` | `tracking/processed_urls.py` | matches target tree name exactly | public | `test_cli.py`, `test_processed_urls.py` (renamed from `test_tracker.py`) | low | done (Phase 10) |
 | `tracker.py` (top-level `repo_path`) | `config/paths.py` | it's a path-resolution helper, not a tracking concern — resolves the confusing `tracker.py` vs `tracking/tracker.py` naming collision that exists **today** | public | almost every test file (`repo_path` is imported everywhere) | **high** (highest fan-out in the whole migration — do last, mechanical import-path change only, no logic change) | **partially done** (Phase 8) — `config/paths.py` now exists (root resolution, `profile_path`), but `tracker.py::repo_path` itself is unmoved; still the highest-fan-out item in this table |
 | `tracker.py::import_job_artifact` | `pipeline/artifacts.py` | it writes pipeline job-folder artifacts, not tracking state | public | `test_cli.py`, `test_tracker.py` | medium | not done |
 | `data_contract.py` + `update_safety.py` | `workspace/safety.py` (merged) | always used together (classify → report → gate); nothing outside `workspace/`+`cli/` imports either separately | public | `test_data_contract.py` (rename import, logic unchanged) | low | done (Phase 8) — test renamed to `test_workspace_safety.py` |
-| `workspace/_ops.py::run_init` | `workspace/init.py` | matches target tree | public | `test_workspace_init.py` | low | not done |
-| `workspace/_ops.py::update_skills/update_workflows/_preserve_user_schedule` | `workspace/update.py` | matches target tree | public | `test_workspace_init.py` | low | not done |
-| `workspace/_assets.py` | `workspace/assets.py` | public: `cli/_workspace.py` already imports it across the package boundary | public | `test_workspace_init.py`, `test_skill_contracts.py` (Phase 1 parity test), `test_packaging.py` | medium | not done |
-| `ux/webdash/` | `ux/web/` | matches target tree | public | none found (no direct tests) | low | not done |
-| `ux/dashboard.py` | `ux/terminal/dashboard.py` | groups with the other terminal-only renderer | public | `test_dashboard_analytics.py` | low | not done |
-| `ux/applications.py` (rendering fns: `render_dashboard`, `render_applications_table`) | `ux/terminal/applications.py` | presentation half of the module | public | `test_applications.py` | medium (split, not move — verify no shared private state between the two halves) |
-| `ux/applications.py` (data fns: `load_applications`, `filtered_applications`, `update_application_status`, `upsert_application_from_job`) | `tracking/applications.py` | data-access half belongs with the other repositories | public | `test_applications.py`, `test_orchestrator.py` (readme test uses `upsert_application_from_job`) | medium |
-| `ux/health.py` | unchanged | **not** split into `ux/terminal/` — serves `--json` output too, not terminal-only | public | `test_health.py` | none |
-| `ux/analytics.py` | unchanged | **not** a package — 2 functions today | public | `test_dashboard_analytics.py` | none |
-| `linkedin/_config.py` | `linkedin/config.py` | rename only, for consistency with target tree; still nothing outside `linkedin/` imports it | private→public in name only | `test_linkedin.py` | low |
+| `workspace/_ops.py` | `workspace/operations.py` | public: `cli/commands/update.py` imports it across the package boundary | public | `test_workspace_init.py` | low | **partially done, deviated (Phase 11)** — dropped the underscore only; did **not** do the further split into `workspace/init.py` (`run_init`) + `workspace/update.py` (`update_skills`/`update_workflows`/`_preserve_user_schedule`) this row originally proposed — that's a functional reorganization, not a naming fix, and out of scope for a naming-conventions pass |
+| `workspace/_assets.py` | `workspace/assets.py` | public: `cli/commands/update.py` already imports it across the package boundary | public | `test_workspace_init.py`, `test_skill_contracts.py` (Phase 1 parity test), `test_packaging.py` | medium | done (Phase 11) |
+| `ux/webdash/` | `ux/web/` | matches target tree | public | `test_web_api.py` (new — `webdash/api.py::DashAPI` had zero coverage before Phase 10) | low | done (Phase 10) — `pyproject.toml` package-data key updated too (`dashboard.html` bundling) |
+| `ux/dashboard.py` | `ux/terminal/dashboard.py` | groups with the other terminal-only renderer | public | `test_terminal_dashboard.py` (split out of `test_dashboard_analytics.py`) | low | done (Phase 10) |
+| `ux/applications.py` (rendering fn: `render_applications_table`) | `ux/terminal/applications.py` | presentation half of the module | public | `test_terminal_applications.py` (split out of `test_applications.py`) | medium (split, not move — verify no shared private state between the two halves) | done (Phase 10) |
+| `ux/applications.py` (data fns: `load_applications`, `filtered_applications`, `update_application_status`, `upsert_application_from_job`, `delete_application`) | `tracking/applications.py` | data-access half belongs with the other repositories | public | `test_applications.py` | medium | done (Phase 10) — also removed a hidden side effect: `update_application_status`/`delete_application` used to call `pipeline.readme_writer.update_readme_from_applications()` internally (silent report-generation on every state change); the 4 real call sites (`cli/commands/applications.py`, `ux/terminal/dashboard.py` ×2, `ux/web/api.py` ×2) now trigger that refresh explicitly instead — `tracking/applications.py` is pure state, matching the "no hidden state mutation" rule this refactor phase set for report generators |
+| `ux/analytics.py` (render fn: `render_analytics`) | `ux/terminal/analytics.py` | presentation half — `analyze_pipeline` (compute) stays in `ux/analytics.py` since both `ux/terminal/analytics.py` and `ux/web/api.py::get_insights` consume it | public | split out of `test_dashboard_analytics.py` (compute) into `test_dashboard_analytics.py`, kept flat, no package — an earlier pass tried `ux/analytics/__init__.py` and reverted it, since a single-file package added a directory with zero functional benefit over the flat file | low | done (Phase 10) |
+| `ux/health.py` | unchanged | **not** split into `ux/terminal/` — serves `--json` output too, not terminal-only | public | `test_health.py` | none | done (already correct, no action needed) |
+| `linkedin/_config.py` | unchanged | **scope decision (Phase 11)** — confirmed nothing outside `linkedin/` imports it (still genuinely private); renaming a private file to satisfy a naming-convention checklist with zero clarity gain is exactly the "churn-only rename" Phase 11 was told to avoid | private | `test_linkedin.py` | none | not done, deliberately — stays `_config.py` |
+| `sources/ats/_base.py` | unchanged | confirmed genuinely private (zero external callers outside `sources/ats/`) | private | `test_ats.py` | none | done (already correct, no action needed) — reconfirmed Phase 11 |
+| `cli/_dispatch.py` | `cli/dispatch.py` | used by two sibling command modules (`cli/commands/hunt.py`, `cli/commands/tailor.py`) — a shared internal API across the `cli/` package, not a single-file private helper | public within `cli/` | `test_tailor_pipeline.py` | low | done (Phase 11) |
+| `agent_context/_utils.py::_read_yaml` | `core/utils.py::read_yaml` | **found during Phase 11's file-naming audit, not originally in this table** — `tracking/applications.py` and `ux/health.py` were importing a "private" (`_`-prefixed) `agent_context/_utils.py` helper, meaning `tracking/`/`ux/` (lower/sibling layers) depended on `agent_context/` (a higher, agent-mode-specific layer) for a generic "read YAML, empty dict if missing" helper. Moved the one genuinely cross-package function to `core/utils.py`; the other 4 functions in `agent_context/_utils.py` (`_root`, `_read_json_or_yaml`, `_clip`, `_resolve_path`, `_prefer_compiled`) stayed — confirmed still genuinely `agent_context/`-internal only | public | new `job_hunter.agent_context` banned-api rule in `pyproject.toml` (scoped to `tracking/`) + `tests/test_dependency_boundaries.py::test_tracking_does_not_depend_on_ux_pipeline_cli_or_agent_context` | low | done (Phase 11) |
 | `scripts/sync_workspace_template.py` | unchanged | **not** folded into `workspace/` — dev-time-only tool, not shipped, different concern than runtime `workspace/assets.py` (see §7) | n/a (script) | `test_config.py`, `test_packaging.py` (glob checks, unaffected) | none |
 
 ## 11. Naming Conventions
@@ -290,12 +296,13 @@ executing this table row-by-row; catching it up here rather than letting it keep
    `tracking.py`, which collides with the top-level `tracking/` package that already exists for job/URL
    state. Two different things named "tracking" in one repo is exactly the kind of ambiguity this ADR
    exists to prevent.
-3. **`sources/_http.py` and would-be `sources/policy.py` don't get the same treatment.** The proposed tree
-   makes both public (`http.py`, `policy.py`). Verified by grep: `_policy.py` is imported from
+3. **`sources/_http.py` and `sources/_policy.py` don't get the same treatment.** The proposed tree
+   made both public (`http.py`, `policy.py`). Verified by grep: `_policy.py` is imported from
    `pipeline/screening.py` and `sources/orchestrator.py` (crosses the package boundary → public, matches
-   proposal). `_http.py` is imported only by two sibling adapters inside `sources/` (`himalayas_source.py`,
-   `remotive_source.py`) → stays private, contradicting the proposed tree's flat `http.py`. Apply the
-   naming rule (§11) mechanically, not the sketch literally.
+   proposal) — renamed to `sources/policy.py` in Phase 11. `_http.py` is imported only by two sibling
+   adapters inside `sources/` (`sources/boards/himalayas.py`, `sources/boards/remotive.py`) → stays private,
+   contradicting the proposed tree's flat `http.py` — confirmed still true in Phase 11, left unchanged.
+   Apply the naming rule (§11) mechanically, not the sketch literally.
 4. **No `llm/providers.py` or `llm/prompts.py` yet.** `llm/client.py` is 254 lines today. Worth splitting
    once provider-dispatch logic (anthropic/openai/gemini/ollama branching) is large enough to earn its own
    file — not speculatively ahead of that.
@@ -309,7 +316,7 @@ executing this table row-by-row; catching it up here rather than letting it keep
 
 | Item | Current location | Disposition |
 |---|---|---|
-| `JobSourceAdapter.name` (alias for `source_name`) | `sources/_base.py` | **keep temporarily** — Phase 1 added a characterization test for it; remove after every internal call site is confirmed to use `.source_name` directly (none currently use `.name` outside tests) |
+| `JobSourceAdapter.name` (alias for `source_name`) | `sources/base.py` (renamed from `sources/_base.py`, Phase 11) | **keep temporarily** — Phase 1 added a characterization test for it; remove after every internal call site is confirmed to use `.source_name` directly (none currently use `.name` outside tests) |
 | `HuntOutput.snapshot_path` | `models.py` | **keep** — actively load-bearing for `--from-snapshot`, not dead compat despite the "legacy" comment; removing it means removing the feature, out of scope |
 | `pipeline/orchestrator.py::_build_parser` + `argparse` `__main__` entry point | `pipeline/orchestrator.py` | **remove after tests** — grep confirms no script, doc, or workflow invokes `python -m job_hunter.pipeline.orchestrator` directly; the Typer CLI never calls `_build_parser`. Phase 1 added characterization tests for it specifically so removal is a deliberate, tested deletion, not a silent one |
 | `outputs/state/discovered_urls.yml` legacy YAML dedup | `tracking/discovery_cache.py` | **remove after tests** — confirm zero real workspace still reads it (jobs.db unique constraints already supersede it); check via telemetry-free means (survey users or wait N releases) before deleting |

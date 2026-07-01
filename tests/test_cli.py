@@ -230,7 +230,7 @@ def test_commit_job_marks_url_as_processed() -> None:
 
     import job_hunter.cli as cli_module
     from job_hunter.tracker import import_job_artifact
-    from job_hunter.tracking.tracker import load_processed
+    from job_hunter.tracking.processed_urls import load_processed
 
     folder = import_job_artifact(
         title="Product Manager",
@@ -279,7 +279,7 @@ def test_mark_processed_from_candidates() -> None:
 
     import yaml
 
-    from job_hunter.tracking.tracker import load_processed
+    from job_hunter.tracking.processed_urls import load_processed
 
     candidates = [
         {
@@ -328,7 +328,7 @@ def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
 
 def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> None:
     from job_hunter.cli.commands import internal as cli_module
-    from job_hunter.db.jobs import get_all_known_urls
+    from job_hunter.tracking.repository import get_all_known_urls
 
     job_dir = tmp_path / "outputs" / "jobs" / "2026-06-04_toast_product-manager-reporting-platform"
     job_dir.mkdir(parents=True)
@@ -576,7 +576,7 @@ def test_discard_job_removes_folder_and_tracks() -> None:
     import shutil
 
     from job_hunter.tracker import import_job_artifact
-    from job_hunter.tracking.tracker import load_processed
+    from job_hunter.tracking.processed_urls import load_processed
 
     folder = import_job_artifact(
         title="Product Owner",

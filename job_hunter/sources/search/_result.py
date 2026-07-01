@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from job_hunter.sources.search_providers._url_utils import _text
+from job_hunter.sources.search._url_utils import _text
 
 
 @dataclass

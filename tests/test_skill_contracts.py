@@ -196,10 +196,10 @@ def test_tailor_skill_enforces_tailoring_rules() -> None:
 def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template() -> None:
     """.claude/skills/ is the source of truth; the bundled workspace template copy must match.
 
-    Dev-only skills (job_hunter.workspace._assets._DEV_SKILL_DIRS) are intentionally excluded
+    Dev-only skills (job_hunter.workspace.assets._DEV_SKILL_DIRS) are intentionally excluded
     from the template and are skipped here.
     """
-    from job_hunter.workspace._assets import _DEV_SKILL_DIRS
+    from job_hunter.workspace.assets import _DEV_SKILL_DIRS
 
     root_skills = ROOT / ".claude" / "skills"
     template_skills = ROOT / "job_hunter" / "templates" / "workspace" / ".claude" / "skills"

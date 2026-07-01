@@ -16,13 +16,13 @@ from job_hunter.pipeline._artifacts import write_match_artifacts
 from job_hunter.pipeline.cover_writer import write_cover
 from job_hunter.pipeline.pdf_compiler import compile_tex
 from job_hunter.pipeline.pre_llm_gate import apply_pre_llm_gate
-from job_hunter.pipeline.readme_writer import slugify
-from job_hunter.pipeline.readme_writer import update_readme as write_readme_table
+from job_hunter.pipeline.stages.readme import slugify
+from job_hunter.pipeline.stages.readme import update_readme as write_readme_table
 from job_hunter.pipeline.stages.scoring import score_and_filter_jobs, strategic_override_companies
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.pipeline.stages.validation import validate
 from job_hunter.pipeline.tailorer import tailor
-from job_hunter.tracking.tracker import mark_processed
+from job_hunter.tracking.processed_urls import mark_processed
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -52,10 +52,10 @@ def _copy_latex_assets(job_dir: Path) -> None:
 
 
 def _screen_by_config(
-    jobs: list[dict[str, Any]], scoring_cfg: dict[str, Any]
+    jobs: list[dict[str, Any]], scoring_config: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply deterministic exclusion rules from config before any LLM calls."""
-    return screen_jobs_by_rules(jobs, scoring_cfg)
+    return screen_jobs_by_rules(jobs, scoring_config)
 
 
 def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
@@ -108,15 +108,15 @@ def process_jobs(
     skip_validate: bool,
     skip_score: bool,
     max_years: int,
-    api_cfg: dict[str, Any],
-    scoring_cfg: dict[str, Any],
+    api_config: dict[str, Any],
+    scoring_config: dict[str, Any],
     url_checker: Any = None,
 ) -> list[dict[str, Any]]:
     """
     Shared downstream pipeline: validate, score, tailor, cover, PDF.
     Returns the list of successfully processed match dicts.
     """
-    jobs, config_rejected = _screen_by_config(jobs, scoring_cfg)
+    jobs, config_rejected = _screen_by_config(jobs, scoring_config)
     for job in config_rejected:
         logger.info(
             "  Config screen rejected: %s @ %s: %s", job.get("title"), job.get("company"), job.get("_rejection_reason")
@@ -130,10 +130,10 @@ def process_jobs(
         jobs, rejected = validate(
             jobs,
             max_years=max_years,
-            api_cfg=api_cfg,
+            api_config=api_config,
             url_checker=url_checker or UrlLivenessCache().is_alive,
-            max_years_bypass_companies=strategic_override_companies(scoring_cfg),
-            excluded_industries=(scoring_cfg.get("exclusions", {}) or {}).get("industries", []),
+            max_years_bypass_companies=strategic_override_companies(scoring_config),
+            excluded_industries=(scoring_config.get("exclusions", {}) or {}).get("industries", []),
         )
         for job in rejected:
             logger.info(
@@ -153,20 +153,20 @@ def process_jobs(
         logger.info("[pipeline] Scoring skipped (--skip-score) - processing all")
         matches = [{"job": job, "score": 0, "matched_keywords": [], "gaps": []} for job in jobs]
     else:
-        jobs, pre_llm_rejected = apply_pre_llm_gate(jobs, scoring_cfg)
+        jobs, pre_llm_rejected = apply_pre_llm_gate(jobs, scoring_config)
         if pre_llm_rejected:
             logger.info("[pipeline] Pre-LLM gate dropped %s job(s)", len(pre_llm_rejected))
         if not jobs:
             logger.warning("[pipeline] Pre-LLM gate rejected all remaining jobs.")
             return []
         logger.info("[pipeline] Scoring %s job(s)...", len(jobs))
-        matches = score_and_filter_jobs(jobs, config=scoring_cfg)
+        matches = score_and_filter_jobs(jobs, config=scoring_config)
         if not matches:
             logger.warning("[pipeline] No jobs passed the scoring threshold.")
             return []
         logger.info("[pipeline] %s job(s) passed scoring", len(matches))
 
-    batch_size = _configured_batch_size(scoring_cfg)
+    batch_size = _configured_batch_size(scoring_config)
     if len(matches) > batch_size:
         matches = sorted(matches, key=lambda match: match.get("score", 0), reverse=True)
         logger.info(

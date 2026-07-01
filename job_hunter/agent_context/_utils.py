@@ -16,12 +16,6 @@ def _root(root: Path | None = None) -> Path:
     return root if root is not None else repo_path()
 
 
-def _read_yaml(path: Path) -> Any:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
 def _read_json_or_yaml(path: Path) -> Any:
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() == ".json":

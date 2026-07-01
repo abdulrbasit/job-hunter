@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from job_hunter.sources.search_providers.providers import (
+from job_hunter.sources.search.providers import (
     BraveProvider,
     ExaProvider,
     SearxngProvider,

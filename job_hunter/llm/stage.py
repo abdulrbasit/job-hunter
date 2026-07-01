@@ -21,22 +21,22 @@ class LLMStage:
     client_factory: Callable[[str], Any] = get_llm_client
     settings_factory: Callable[..., Any] = resolve_model_config
 
-    def settings(self, api_cfg: dict | None = None) -> Any:
-        if api_cfg is None:
+    def settings(self, api_config: dict | None = None) -> Any:
+        if api_config is None:
             return self.settings_factory(self.role)
-        return self.settings_factory(self.role, api_cfg=api_cfg)
+        return self.settings_factory(self.role, api_config=api_config)
 
     def complete(
         self,
         *,
         system: str,
         user: str,
-        api_cfg: dict | None = None,
+        api_config: dict | None = None,
         response_format: str | None = None,
         cache_system: bool | None = None,
         cache_ttl: str | None = None,
     ) -> str:
-        settings = self.settings(api_cfg)
+        settings = self.settings(api_config)
         resolved_format = self.response_format if response_format is None else response_format
         resolved_cache = self.cache_system if cache_system is None else cache_system
         resolved_ttl = self.cache_ttl if cache_ttl is None else cache_ttl
@@ -72,11 +72,11 @@ class LLMStage:
         repair_prompt: str,
         max_chars: int,
         error_message: str,
-        api_cfg: dict | None = None,
+        api_config: dict | None = None,
     ) -> dict:
         repaired = self.complete(
             system=system,
             user=repair_prompt.format(raw=raw[:max_chars]),
-            api_cfg=api_cfg,
+            api_config=api_config,
         )
         return self.parse_json_object(repaired, error_message)

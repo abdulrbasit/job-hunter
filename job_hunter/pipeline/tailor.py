@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from job_hunter.config.loader import get_config
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.jd_fetcher import fetch_jd, jd_from_text
-from job_hunter.tracking.tracker import load_processed
+from job_hunter.tracking.processed_urls import load_processed
 
 if TYPE_CHECKING:
     from job_hunter.core.url_liveness import UrlLivenessCache
@@ -94,8 +94,8 @@ def _jobs_from_raw_text(
 
 def run_tailor(
     args: dict,
-    api_cfg: dict[str, Any],
-    scoring_cfg: dict[str, Any],
+    api_config: dict[str, Any],
+    scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
     *,
     use_llm: bool = True,

@@ -35,12 +35,12 @@ _GATE_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _resolve_gate_cfg(config: dict[str, Any]) -> dict[str, Any]:
+def _resolve_gate_config(config: dict[str, Any]) -> dict[str, Any]:
     """Merge user config over defaults. Single config-lookup point."""
-    user_cfg = config.get("scoring", {}).get("pre_llm_gate", {}) or {}
-    merged = {**_GATE_DEFAULTS, **user_cfg}
+    user_config = config.get("scoring", {}).get("pre_llm_gate", {}) or {}
+    merged = {**_GATE_DEFAULTS, **user_config}
     # Nested weights dict needs its own merge so partial overrides work.
-    merged["weights"] = {**_GATE_DEFAULTS["weights"], **(user_cfg.get("weights") or {})}
+    merged["weights"] = {**_GATE_DEFAULTS["weights"], **(user_config.get("weights") or {})}
     return merged
 
 
@@ -50,17 +50,17 @@ def pre_score_job(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]
     Adds _pre_llm_score (float) and _pre_llm_reasons (list[str]) to the job.
     Returns a new dict — does not mutate the input.
     """
-    cfg = _resolve_gate_cfg(config)
-    if not cfg["enabled"]:
+    gate_config = _resolve_gate_config(config)
+    if not gate_config["enabled"]:
         return {**job, "_pre_llm_score": 0.0, "_pre_llm_reasons": []}
 
     title = (job.get("title") or "").lower()
     snippet = (job.get("snippet") or "").lower()
-    weights = cfg["weights"]
+    weights = gate_config["weights"]
     score = 0.0
     reasons: list[str] = []
 
-    for term in cfg.get("positive_terms") or []:
+    for term in gate_config.get("positive_terms") or []:
         t = term.lower()
         if t in title:
             score += weights["title_positive"]
@@ -69,7 +69,7 @@ def pre_score_job(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]
             score += weights["snippet_positive"]
             reasons.append(f"snippet:+{term}")
 
-    for term in cfg.get("negative_terms") or []:
+    for term in gate_config.get("negative_terms") or []:
         t = term.lower()
         if t in title:
             score += weights["title_negative"]
@@ -83,8 +83,8 @@ def pre_score_job(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]
 
 def rank_jobs(jobs: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
     """Sort jobs by _pre_llm_score descending. Scores jobs that haven't been scored yet."""
-    cfg = _resolve_gate_cfg(config)
-    if not cfg["enabled"]:
+    gate_config = _resolve_gate_config(config)
+    if not gate_config["enabled"]:
         return jobs
     scored = [j if "_pre_llm_score" in j else pre_score_job(j, config) for j in jobs]
     return sorted(scored, key=lambda j: j.get("_pre_llm_score", 0.0), reverse=True)
@@ -101,13 +101,13 @@ def apply_pre_enrichment_gate(
 
     Returns (kept, rejected).
     """
-    cfg = _resolve_gate_cfg(config)
-    if not cfg["enabled"]:
+    gate_config = _resolve_gate_config(config)
+    if not gate_config["enabled"]:
         return jobs, []
 
     scored = [pre_score_job(j, config) for j in jobs]
     ranked = rank_jobs(scored, config)
-    cap = cfg["max_before_enrichment"]
+    cap = gate_config["max_before_enrichment"]
     return ranked[:cap], ranked[cap:]
 
 
@@ -122,15 +122,15 @@ def apply_pre_llm_gate(
 
     Returns (kept, rejected_below_threshold + rejected_by_cap).
     """
-    cfg = _resolve_gate_cfg(config)
-    if not cfg["enabled"]:
+    gate_config = _resolve_gate_config(config)
+    if not gate_config["enabled"]:
         return jobs, []
 
     scored = [pre_score_job(j, config) for j in jobs]
-    min_score = cfg["min_pre_score"]
+    min_score = gate_config["min_pre_score"]
     above = [j for j in scored if j.get("_pre_llm_score", 0.0) >= min_score]
     below = [j for j in scored if j.get("_pre_llm_score", 0.0) < min_score]
 
     ranked = rank_jobs(above, config)
-    cap = cfg["max_before_llm_scoring"]
+    cap = gate_config["max_before_llm_scoring"]
     return ranked[:cap], ranked[cap:] + below

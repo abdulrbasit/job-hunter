@@ -37,8 +37,8 @@ def fetch_hibob_jobs(
     )
 
     raw_links: dict[str, tuple[str, str]] = {}  # url -> (title text, location text)
-    ats_cfg = get_api_config().get("http", {}).get("ats_scraper", {}) or {}
-    playwright_timeout = int(ats_cfg.get("hibob_playwright_timeout_seconds", 25) * 1000)
+    ats_config = get_api_config().get("http", {}).get("ats_scraper", {}) or {}
+    playwright_timeout = int(ats_config.get("hibob_playwright_timeout_seconds", 25) * 1000)
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)

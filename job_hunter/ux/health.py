@@ -12,9 +12,9 @@ from typing import Any
 import yaml
 
 from job_hunter.agent_context import validate_score_file
-from job_hunter.agent_context._utils import _read_yaml
-from job_hunter.sources.search_providers import canonicalize_url
-from job_hunter.ux.applications import CANONICAL_STATUSES, load_applications
+from job_hunter.core.utils import read_yaml
+from job_hunter.sources.search import canonicalize_url
+from job_hunter.tracking.applications import CANONICAL_STATUSES, load_applications
 
 
 def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, Any]:
@@ -23,8 +23,8 @@ def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, An
 
 def doctor(root: Path) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
-    job_hunter_cfg = _read_yaml(root / "config" / "job_hunter.yml")
-    mode = str(job_hunter_cfg.get("mode") or "agent")
+    job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
+    mode = str(job_hunter_config.get("mode") or "agent")
     checks.append(
         _check(
             "python_version",
@@ -51,7 +51,7 @@ def doctor(root: Path) -> dict[str, Any]:
         )
     )
     if mode == "llm-api":
-        provider = str((job_hunter_cfg.get("llm") or {}).get("default_provider") or "anthropic")
+        provider = str((job_hunter_config.get("llm") or {}).get("default_provider") or "anthropic")
         module = {"anthropic": "anthropic", "openai": "openai", "google": "google", "ollama": "openai"}.get(provider)
         if module:
             checks.append(
@@ -62,8 +62,8 @@ def doctor(root: Path) -> dict[str, Any]:
                     "Reinstall job-hunter-kit to restore its bundled LLM provider SDKs.",
                 )
             )
-    resume_rel = _configured_profile_rel(job_hunter_cfg, "resume_tex", "profile/resume_double_column.tex")
-    story_rel = _configured_profile_rel(job_hunter_cfg, "story_bank", "profile/story_bank.md")
+    resume_rel = _configured_profile_rel(job_hunter_config, "resume_tex", "profile/resume_double_column.tex")
+    story_rel = _configured_profile_rel(job_hunter_config, "story_bank", "profile/story_bank.md")
     for rel in ("config/job_hunter.yml", resume_rel, story_rel):
         checks.append(_check(rel, (root / rel).exists(), rel, f"Create {rel}."))
     checks.extend(_schema_checks(root))
@@ -156,27 +156,27 @@ def onboarding_status(root: Path, checks: list[dict[str, Any]] | None = None) ->
     missing: list[str] = []
     warnings: list[str] = []
 
-    job_hunter_cfg = _read_yaml(root / "config" / "job_hunter.yml")
+    job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
     if not (root / "config" / "job_hunter.yml").exists():
         missing.append("config/job_hunter.yml")
-    elif not _has_enabled_region(job_hunter_cfg):
+    elif not _has_enabled_region(job_hunter_config):
         missing.append("config/job_hunter.yml:regions")
 
-    resume_rel = _configured_profile_rel(job_hunter_cfg, "resume_tex", "profile/resume_double_column.tex")
+    resume_rel = _configured_profile_rel(job_hunter_config, "resume_tex", "profile/resume_double_column.tex")
     resume_path = root / resume_rel
     if not resume_path.exists():
         missing.append(resume_rel)
     elif not _resume_filled(resume_path):
         missing.append(f"{resume_rel}:filled")
 
-    career_rel = _configured_profile_rel(job_hunter_cfg, "career_context", "profile/career_context.md")
+    career_rel = _configured_profile_rel(job_hunter_config, "career_context", "profile/career_context.md")
     career_path = root / career_rel
     if not career_path.exists():
         missing.append(career_rel)
     elif not _career_context_filled(career_path):
         missing.append(f"{career_rel}:filled")
 
-    story_rel = _configured_profile_rel(job_hunter_cfg, "story_bank", "profile/story_bank.md")
+    story_rel = _configured_profile_rel(job_hunter_config, "story_bank", "profile/story_bank.md")
     story_path = root / story_rel
     if not story_path.exists() or not _has_final_story(story_path):
         missing.append(f"{story_rel}:final_stories")
@@ -330,7 +330,7 @@ def _processed_consistency_errors(root: Path, apps: list[dict[str, Any]]) -> lis
     db = root / "outputs" / "state" / "jobs.db"
     if not db.exists():
         return []
-    from job_hunter.db.jobs import get_all_known_urls
+    from job_hunter.tracking.repository import get_all_known_urls
 
     known = get_all_known_urls(root)
     errors = []

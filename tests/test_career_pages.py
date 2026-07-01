@@ -256,7 +256,7 @@ def test_extract_career_page_jobs_no_search_provider_called() -> None:
     with (
         patch("job_hunter.sources.career_pages.requests.get", return_value=mock_resp),
         patch("job_hunter.sources.career_pages.requests.head", return_value=mock_head),
-        patch("job_hunter.sources.search_providers.SearchRouter.search") as mock_search,
+        patch("job_hunter.sources.search.SearchRouter.search") as mock_search,
     ):
         career_pages.extract_career_page_jobs(
             company,

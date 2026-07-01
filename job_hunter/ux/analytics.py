@@ -1,4 +1,4 @@
-"""Application pipeline analytics."""
+"""Application pipeline analytics — compute only, shared by terminal and web dashboards."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from job_hunter.ux.applications import ApplicationRecord, filtered_applications
+from job_hunter.tracking.applications import ApplicationRecord, filtered_applications
 
 
 def analyze_pipeline(root: Path, *, days: int = 14) -> dict[str, Any]:
@@ -30,29 +30,6 @@ def analyze_pipeline(root: Path, *, days: int = 14) -> dict[str, Any]:
         "stale_postings": stale,
         "followups": followups,
     }
-
-
-def render_analytics(report: dict[str, Any]) -> str:
-    lines = ["Job Hunter Analytics", f"Total applications: {report['total']}"]
-    lines.append(_render_counter("Status", report["by_status"]))
-    lines.append(_render_counter("Region", report["by_region"]))
-    lines.append(_render_counter("Sources", report["source_quality"]))
-    lines.append(f"Low-score themes: {len(report['low_score_reasons'])}")
-    for item in report["low_score_reasons"][:8]:
-        lines.append(f"- {item['slug']}: {item['score']} ({', '.join(item['gaps']) or 'no gaps'})")
-    lines.append(f"Stale active postings: {len(report['stale_postings'])}")
-    for item in report["stale_postings"][:8]:
-        lines.append(f"- {item['slug']}: {item['status']} since {item['updated_at']}")
-    lines.append(f"Follow-up candidates: {len(report['followups'])}")
-    for item in report["followups"][:8]:
-        lines.append(f"- {item['slug']}: {item['status']} since {item['updated_at']}")
-    return "\n".join(lines)
-
-
-def _render_counter(label: str, counts: dict[str, int]) -> str:
-    if not counts:
-        return f"{label}: none"
-    return f"{label}: " + ", ".join(f"{key}={value}" for key, value in counts.items())
 
 
 def _source_host(url: str) -> str:

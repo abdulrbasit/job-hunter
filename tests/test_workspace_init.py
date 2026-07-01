@@ -5,10 +5,10 @@ from pathlib import Path
 
 import yaml
 
-from job_hunter.workspace import _ops as workspace_ops
-from job_hunter.workspace._assets import iter_managed_files, iter_packaged_resource_files
-from job_hunter.workspace._ops import iter_template_skill_files, run_init, update_skills
+from job_hunter.workspace import operations as workspace_ops
+from job_hunter.workspace.assets import iter_managed_files, iter_packaged_resource_files
 from job_hunter.workspace.manifest import MANIFEST_PATH
+from job_hunter.workspace.operations import iter_template_skill_files, run_init, update_skills
 
 
 def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
@@ -176,7 +176,7 @@ def test_template_skill_files_are_subset_of_workspace_assets() -> None:
 
 
 def test_packaged_workspace_assets_match_canonical_sources() -> None:
-    from job_hunter.workspace._assets import _DEV_SKILL_DIRS
+    from job_hunter.workspace.assets import _DEV_SKILL_DIRS
 
     root = Path(__file__).resolve().parents[1]
     packaged = dict(iter_packaged_resource_files())
@@ -216,7 +216,7 @@ def test_packaged_workspace_context_is_user_workspace_focused() -> None:
 
 
 def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path: Path) -> None:
-    from job_hunter.workspace._assets import update_workspace_assets
+    from job_hunter.workspace.assets import update_workspace_assets
 
     setup = tmp_path / "SETUP.md"
     companies = tmp_path / "config" / "career_pages.yml"
@@ -233,8 +233,8 @@ def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path:
 
     assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "User Company"}]
     # user job_hunter.yml is merged: user values preserved, new template keys injected
-    job_cfg = tmp_path / "config" / "job_hunter.yml"
-    assert job_cfg.exists()
+    job_config = tmp_path / "config" / "job_hunter.yml"
+    assert job_config.exists()
     assert written == [
         "README.md",
         "SETUP.md",
@@ -246,7 +246,7 @@ def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path:
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
-    from job_hunter.workspace._assets import update_workspace_assets
+    from job_hunter.workspace.assets import update_workspace_assets
 
     written = update_workspace_assets(tmp_path)
 
@@ -265,7 +265,7 @@ def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) 
 
 
 def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_path: Path) -> None:
-    from job_hunter.workspace._assets import update_workspace_assets
+    from job_hunter.workspace.assets import update_workspace_assets
 
     readme = tmp_path / "README.md"
     readme.write_text(
@@ -298,7 +298,7 @@ def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(
     """New template key is added; existing user values survive."""
     import yaml
 
-    from job_hunter.workspace._assets import _merge_yaml
+    from job_hunter.workspace.assets import _merge_yaml
 
     existing = yaml.dump({"mode": "llm-api", "companies": [{"name": "ACME"}]}).encode()
     template = yaml.dump({"mode": "agent", "companies": [], "new_feature": True}).encode()
@@ -311,7 +311,7 @@ def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(
 
 
 def test_deep_merge_user_wins_on_scalar_and_list() -> None:
-    from job_hunter.workspace._assets import _deep_merge
+    from job_hunter.workspace.assets import _deep_merge
 
     base = {"a": 1, "b": [1, 2], "c": {"x": 10, "y": 20}}
     override = {"a": 99, "b": [3], "c": {"x": 50}}

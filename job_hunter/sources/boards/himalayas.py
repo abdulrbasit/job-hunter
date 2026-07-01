@@ -9,8 +9,8 @@ from typing import Any
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._http import fetch_title_pages
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def _country_matches(job: dict[str, Any], iso: str) -> bool:
 
 
 def _restriction_name_matches(value: str, iso: str) -> bool:
-    from job_hunter.sources._policy import _codes_from_location_text, _is_broad_location_restriction
+    from job_hunter.sources.policy import _codes_from_location_text, _is_broad_location_restriction
 
     allowed = {iso.upper()}
     return _is_broad_location_restriction(value, allowed) or iso.upper() in _codes_from_location_text(value)
@@ -99,17 +99,17 @@ class HimalayasSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "himalayas"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("himalayas", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("himalayas", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Himalayas' no-auth public API."""
-        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("himalayas", {}) or {}
-        if not source_cfg.get("enabled", True):
+        source_config = get_api_config().get("http", {}).get("job_boards", {}).get("himalayas", {}) or {}
+        if not source_config.get("enabled", True):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
         max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
         iso = params.country.upper()
         location = params.location

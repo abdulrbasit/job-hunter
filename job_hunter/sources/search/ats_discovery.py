@@ -12,12 +12,12 @@ from job_hunter.config.loader import get_api_config
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.sources.ats_urls import ats_discovery_sites, company_name_from_url
-from job_hunter.sources.search_providers._result import SearchResult
-from job_hunter.sources.search_providers._url_utils import canonicalize_url
-from job_hunter.sources.search_providers.router import (
+from job_hunter.sources.search._result import SearchResult
+from job_hunter.sources.search._url_utils import canonicalize_url
+from job_hunter.sources.search.router import (
     ProviderSearchRouter,
     _ats_discovery_provider_order,
-    _search_cfg,
+    _search_config,
     all_providers_exhausted,
 )
 
@@ -290,27 +290,27 @@ def discover_ats_jobs_by_search(
     excluded_title_terms: list[str] | None = None,
     *,
     provider_order: list[str] | None = None,
-    ats_discovery_cfg: dict | None = None,
+    ats_discovery_config: dict | None = None,
     disabled: set[str] | None = None,
 ) -> list[dict]:
     """Find individual ATS job URLs from broad title+region search queries."""
     if not title_filters or not regions:
         return []
 
-    cfg = dict(_search_cfg().get("ats_discovery", {}) or {})
-    cfg.update(ats_discovery_cfg or {})
-    if not cfg.get("enabled", True):
+    config = dict(_search_config().get("ats_discovery", {}) or {})
+    config.update(ats_discovery_config or {})
+    if not config.get("enabled", True):
         return []
 
-    api_cfg = get_api_config()
-    if all_providers_exhausted(api_cfg):
+    api_config = get_api_config()
+    if all_providers_exhausted(api_config):
         logger.info("[search-discovery] skipped: all providers exhausted")
         return []
 
-    max_results_per_query = int(cfg.get("results_per_query", 10))
-    max_queries_per_region = int(cfg.get("max_queries_per_region", 0) or 0)
-    max_total_queries = int(cfg.get("max_total_queries", 0) or 0)
-    sources = cfg.get("sources") or list(_ATS_DISCOVERY_SITES)
+    max_results_per_query = int(config.get("results_per_query", 10))
+    max_queries_per_region = int(config.get("max_queries_per_region", 0) or 0)
+    max_total_queries = int(config.get("max_total_queries", 0) or 0)
+    sources = config.get("sources") or list(_ATS_DISCOVERY_SITES)
     router = ProviderSearchRouter(provider_order or _ats_discovery_provider_order(), disabled=disabled)
     jobs: list[dict] = []
     seen: set[str] = set()

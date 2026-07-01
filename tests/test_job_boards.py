@@ -71,8 +71,8 @@ class TestArbeitnowSource:
         assert ArbeitnowSource().source_name == "arbeitnow"
 
     def test_is_enabled_respects_config(self) -> None:
-        disabled_cfg = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_cfg):
+        disabled_config = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
+        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
             assert ArbeitnowSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
@@ -93,8 +93,8 @@ class TestArbeitnowSource:
         assert postings[0].region == "DE"
 
     def test_fetch_returns_empty_when_disabled(self) -> None:
-        disabled_cfg = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_cfg):
+        disabled_config = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
+        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
             postings = ArbeitnowSource().fetch(mk_params(["Product Manager"], _REGIONS))
         assert postings == []
 
@@ -250,8 +250,8 @@ class TestJSearchSource:
     def test_fetch_returns_empty_when_disabled(self) -> None:
         src = JSearchSource.__new__(JSearchSource)
         src._rapidapi_key = "test-key"
-        disabled_cfg = {"http": {"job_boards": {"jsearch": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_cfg):
+        disabled_config = {"http": {"job_boards": {"jsearch": {"enabled": False}}}}
+        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
             postings = src.fetch(mk_params(["Product Manager"], _REGIONS))
         assert postings == []
 

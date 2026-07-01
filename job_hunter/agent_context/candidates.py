@@ -17,8 +17,8 @@ from job_hunter.agent_context._utils import (
     _root,
 )
 from job_hunter.pipeline.enrichment import classify_jd_snippet
-from job_hunter.sources._policy import normalize_company_name
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.policy import normalize_company_name
+from job_hunter.sources.search import canonicalize_url
 
 # ---------------------------------------------------------------------------
 # Legacy snapshot-file helpers (kept for tailor --links flow and --from-snapshot)
@@ -49,7 +49,7 @@ def _jobs_from_candidate_file(path: Path) -> list[dict[str, Any]]:
 
 
 def _load_processed_for_root(root: Path) -> tuple[set[str], set[str]]:
-    from job_hunter.db.jobs import get_processed_urls
+    from job_hunter.tracking.repository import get_processed_urls
 
     return get_processed_urls(root), set()
 
@@ -117,8 +117,8 @@ def _build_queue_from_db(
     max_snippet_chars: int = MAX_SNIPPET_CHARS,
 ) -> dict[str, Any]:
     from job_hunter.config import get_config
-    from job_hunter.db.jobs import get_discovered_jobs
     from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     raw_jobs = get_discovered_jobs(base, run_id=run_id or None)
     processed_urls, _ = _load_processed_for_root(base)
@@ -165,8 +165,8 @@ def _build_queue_from_db(
             }
         )
 
-    cfg = get_config("job_hunter") if base == _root() else {}
-    queued, _hard_rejected = screen_jobs_by_rules(queued, cfg)
+    config = get_config("job_hunter") if base == _root() else {}
+    queued, _hard_rejected = screen_jobs_by_rules(queued, config)
 
     return {
         "generated": date.today().isoformat(),
@@ -283,8 +283,8 @@ def _build_queue_from_files(
             }
         )
 
-    cfg = get_config("job_hunter") if base == _root() else {}
-    queued, _hard_rejected = screen_jobs_by_rules(queued, cfg)
+    config = get_config("job_hunter") if base == _root() else {}
+    queued, _hard_rejected = screen_jobs_by_rules(queued, config)
 
     return {
         "generated": date.today().isoformat(),

@@ -84,7 +84,7 @@ def query_ats_by_slugs(
     if not slug_store:
         return []
 
-    locations = [cfg.get("location", "") for cfg in regions.values() if cfg.get("location")]
+    locations = [config.get("location", "") for config in regions.values() if config.get("location")]
     region_key = next(iter(regions), "")
     results: list[dict] = []
     seen: set[str] = set()

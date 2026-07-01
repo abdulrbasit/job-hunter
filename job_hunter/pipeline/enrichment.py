@@ -53,7 +53,7 @@ def classify_jd_snippet(text: str | None) -> str:
 
 def enrich_snippets(
     jobs: list[dict],
-    api_cfg: dict | None = None,
+    api_config: dict | None = None,
     *,
     fetcher: JDFetcher = fetch_jd,
 ) -> list[dict]:
@@ -63,12 +63,12 @@ def enrich_snippets(
     Full JD enrichment is best-effort and preserves input order. Failed fetches
     keep the original job unchanged.
     """
-    if api_cfg is None:
-        api_cfg = get_api_config()
+    if api_config is None:
+        api_config = get_api_config()
 
-    enrich_cfg = api_cfg.get("http", {}).get("jd_enrichment", {}) or {}
-    max_workers = int(enrich_cfg.get("max_workers", 5))
-    skip_patterns = enrich_cfg.get("skip_url_patterns") or [r"linkedin\.com/jobs/"]
+    enrich_config = api_config.get("http", {}).get("jd_enrichment", {}) or {}
+    max_workers = int(enrich_config.get("max_workers", 5))
+    skip_patterns = enrich_config.get("skip_url_patterns") or [r"linkedin\.com/jobs/"]
 
     def _should_skip_enrichment(url: str) -> bool:
         return any(re.search(pattern, url, re.IGNORECASE) for pattern in skip_patterns)
@@ -143,17 +143,17 @@ def enrich_snippets(
 
 def drop_dead_urls_before_enrichment(
     jobs: list[dict],
-    api_cfg: dict,
+    api_config: dict,
     *,
     url_checker: Callable[[str, int], bool] = url_is_alive,
 ) -> list[dict]:
     """Avoid fetching full JDs for postings that already fail URL verification."""
-    url_cfg = api_cfg.get("http", {}).get("url_verification", {})
-    if not url_cfg.get("enabled", True):
+    url_config = api_config.get("http", {}).get("url_verification", {})
+    if not url_config.get("enabled", True):
         return jobs
 
-    timeout = int(url_cfg.get("timeout_seconds", 5))
-    max_workers = int(url_cfg.get("max_workers") or api_cfg.get("llm", {}).get("max_workers", 5))
+    timeout = int(url_config.get("timeout_seconds", 5))
+    max_workers = int(url_config.get("max_workers") or api_config.get("llm", {}).get("max_workers", 5))
 
     def _check_job(job: dict) -> tuple[bool, dict]:
         url = job.get("url", "")

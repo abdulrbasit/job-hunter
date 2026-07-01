@@ -18,7 +18,7 @@ def hunt(
     force: bool = typer.Option(False, "--force", help="Reprocess already-seen jobs"),
 ) -> None:
     """Run job discovery and enrichment pipeline."""
-    from job_hunter.cli._dispatch import dispatch_hunt
+    from job_hunter.cli.dispatch import dispatch_hunt
 
     dispatch_hunt(
         region_key=region,

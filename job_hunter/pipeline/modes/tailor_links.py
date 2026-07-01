@@ -22,7 +22,7 @@ def execute(ctx: PipelineRunContext) -> ModeOutcome:
         return ModeOutcome(early_result=PipelineResult(exit_code=1))
 
     jobs, existing_urls, existing_titles = run_tailor(
-        dataclasses.asdict(options), ctx.api_cfg, ctx.scoring_cfg, ctx.url_liveness
+        dataclasses.asdict(options), ctx.api_config, ctx.scoring_config, ctx.url_liveness
     )
     if not jobs:
         logger.warning("[pipeline] No jobs fetched. Exiting.")

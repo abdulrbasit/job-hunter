@@ -8,17 +8,17 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from job_hunter.core.api_budget import is_api_quota_exhausted
-from job_hunter.sources.search_providers.providers import (
+from job_hunter.sources.search.providers import (
     BraveProvider,
     ExaProvider,
     SearchProvider,
     SearxngProvider,
     TavilyProvider,
-    _search_cfg,
+    _search_config,
 )
 
 if TYPE_CHECKING:
-    from job_hunter.sources.search_providers._result import SearchResult
+    from job_hunter.sources.search._result import SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +86,12 @@ def _provider_registry() -> dict[str, SearchProvider]:
 def _provider_order() -> list[str]:
     # Keep general search on SearXNG → Brave so semantic-provider quotas are
     # available to explicit callers. Users can override search_providers.order.
-    return list(_search_cfg().get("order") or ["searxng", "brave"])
+    return list(_search_config().get("order") or ["searxng", "brave"])
 
 
 def _ats_discovery_provider_order() -> list[str]:
     # Exa semantic search finds ATS job-board URLs well; include it after brave.
-    return list(_search_cfg().get("ats_discovery_order") or ["searxng", "brave", "exa"])
+    return list(_search_config().get("ats_discovery_order") or ["searxng", "brave", "exa"])
 
 
 def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
@@ -99,7 +99,7 @@ def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
     return [available[name] for name in provider_names if name in available]
 
 
-def all_providers_exhausted(api_cfg: dict | None = None) -> bool:  # noqa: ARG001
+def all_providers_exhausted(api_config: dict | None = None) -> bool:  # noqa: ARG001
     """Return True when all ATS-discovery providers are unavailable this run."""
     registry = _provider_registry()
     result = all(
@@ -136,7 +136,7 @@ class SearchRouter:
         allowed: set[str] | None = None,
     ) -> None:
         self.providers = providers if providers is not None else _providers_from_order(_provider_order())
-        self.max_consecutive_failures = int(_search_cfg().get("max_consecutive_failures", 3))
+        self.max_consecutive_failures = int(_search_config().get("max_consecutive_failures", 3))
         self._disabled: set[str] = {p.lower() for p in (disabled or set())}
         self._allowed: set[str] | None = {p.lower() for p in allowed} if allowed is not None else None
 

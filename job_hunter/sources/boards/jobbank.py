@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -39,9 +39,9 @@ class JobBankSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "jobbank"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch jobs from Job Bank Canada by scraping the HTML search results.
@@ -51,11 +51,11 @@ class JobBankSource(JobSourceAdapter):
         if params.country.upper() != "CA":
             return []
 
-        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
-        if not source_cfg.get("enabled", True):
+        source_config = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
+        if not source_config.get("enabled", True):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
         location = params.location or "Canada"
         jobs: list[JobPosting] = []
 

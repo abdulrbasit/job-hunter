@@ -5,16 +5,10 @@ from pathlib import Path
 
 import yaml
 
-from job_hunter.pipeline.readme_writer import (
-    TABLE_END,
-    TABLE_START,
-    update_readme_from_applications,
-)
-from job_hunter.ux.applications import (
+from job_hunter.tracking.applications import (
     filtered_applications,
     load_applications,
     normalize_status,
-    render_applications_table,
     update_application_status,
     upsert_application_from_job,
 )
@@ -76,22 +70,14 @@ def test_application_upsert_update_and_filter(tmp_path: Path) -> None:
     _ = data  # DB-backed; load_applications still returns the list
 
 
-def test_render_applications_table() -> None:
-    table = render_applications_table(
-        [
-            {
-                "discovered_at": "2026-06-12",
-                "status": "tailored",
-                "score": 82,
-                "region": "berlin",
-                "company": "Acme",
-                "title": "Product Manager",
-            }
-        ]
-    )
+def test_update_application_status_does_not_write_readme(tmp_path: Path) -> None:
+    """tracking.applications is pure state — no report generation as a side effect."""
+    _write_job(tmp_path)
+    upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
 
-    assert "Status" in table
-    assert "Acme - Product Manager" in table
+    update_application_status("2026-06-12_acme_pm", "applied", root=tmp_path)
+
+    assert not (tmp_path / "README.md").exists()
 
 
 def test_filtered_applications_after_upsert(tmp_path: Path) -> None:
@@ -114,60 +100,6 @@ def test_filtered_applications_skips_non_canonical_status(tmp_path: Path) -> Non
 def test_internal_status_aliases_normalize_to_rejected() -> None:
     assert normalize_status("discarded") == "rejected"
     assert normalize_status("skip") == "rejected"
-
-
-def test_readme_renders_from_applications(tmp_path: Path) -> None:
-    readme = f"{TABLE_START}\n| Date | Job | Location | Score | Files |\n|---|---|---|---|---|\n{TABLE_END}\n"
-    (tmp_path / "README.md").write_text(readme, encoding="utf-8")
-    app = {
-        "date": "2026-06-12",
-        "slug": "2026-06-12_acme_pm",
-        "company": "Acme",
-        "title": "Product Manager",
-        "url": "https://example.com/acme",
-        "location": "Berlin",
-        "score": 82,
-        "status": "tailored",
-    }
-
-    update_readme_from_applications([app], tmp_path, "2026-06-12")
-
-    text = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "outputs/jobs/2026-06-12_acme_pm/" in text
-    assert "(tailored)" in text
-
-
-def test_readme_refreshes_existing_application_score(tmp_path: Path) -> None:
-    readme = (
-        f"{TABLE_START}\n"
-        "| Date | Job | Location | Score | Files |\n"
-        "|---|---|---|---|---|\n"
-        "| 2026-06-12 | [Product Manager @ Acme](https://example.com/acme) | Berlin"
-        " | 0 (tailored) | [Files](outputs/jobs/2026-06-12_acme_pm/) |\n"
-        f"{TABLE_END}\n"
-    )
-    (tmp_path / "README.md").write_text(readme, encoding="utf-8")
-
-    update_readme_from_applications(
-        [
-            {
-                "date": "2026-06-12",
-                "slug": "2026-06-12_acme_pm",
-                "company": "Acme",
-                "title": "Product Manager",
-                "url": "https://example.com/acme",
-                "location": "Berlin",
-                "score": 82,
-                "status": "tailored",
-            }
-        ],
-        tmp_path,
-        "2026-06-12",
-    )
-
-    text = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "| 82 (tailored) |" in text
-    assert "| 0 (tailored) |" not in text
 
 
 def test_verify_repository_validates_applications_and_processed_state(tmp_path: Path) -> None:

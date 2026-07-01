@@ -1,4 +1,4 @@
-"""Tests for sources/search_providers/preflight.py."""
+"""Tests for sources/search/preflight.py."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def _make_provider(name: str, *, enabled: bool = True, results=None, error=None)
 
 class TestProbeSearchProviders:
     def _run(self, providers):
-        from job_hunter.sources.search_providers import preflight
+        from job_hunter.sources.search import preflight
 
         with (
             patch.object(

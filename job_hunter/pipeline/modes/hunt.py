@@ -18,7 +18,7 @@ def execute(ctx: PipelineRunContext) -> ModeOutcome:
         from job_hunter.config.loader import ROOT as REPO_ROOT
 
         snapshot_path, count, _stats = run_hunt_scrape_only(
-            options.region, REPO_ROOT, ctx.api_cfg, ctx.url_liveness.is_alive, depth=options.depth
+            options.region, REPO_ROOT, ctx.api_config, ctx.url_liveness.is_alive, depth=options.depth
         )
         print(f"snapshot_path={snapshot_path.as_posix()}")
         print(f"candidate_count={count}")
@@ -32,7 +32,7 @@ def execute(ctx: PipelineRunContext) -> ModeOutcome:
             return ModeOutcome(early_result=PipelineResult(exit_code=0))
     else:
         jobs, existing_urls, existing_titles = run_hunt(
-            dataclasses.asdict(options), ctx.api_cfg, ctx.scoring_cfg, ctx.url_liveness
+            dataclasses.asdict(options), ctx.api_config, ctx.scoring_config, ctx.url_liveness
         )
 
     if not jobs:

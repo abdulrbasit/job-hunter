@@ -12,7 +12,7 @@ def test_validate_accepts_fenced_json_with_preamble(mock_llm_client) -> None:
             "snippet": "Open product manager role.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -23,7 +23,7 @@ def test_validate_accepts_fenced_json_with_preamble(mock_llm_client) -> None:
     raw = 'Result:\n```json\n{"is_active": true, "over_experience": false, "reason": null}\n```'
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)):
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == jobs
     assert rejected == []
@@ -38,7 +38,7 @@ def test_validate_semantically_rejects_excluded_employer_industry(mock_llm_clien
             "snippet": "Build the bank's core retail lending product.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {"models": {"validation": "test-model"}, "max_tokens": {"validation": 200}, "max_workers": 1},
         "http": {"url_verification": {"enabled": False}},
     }
@@ -51,7 +51,7 @@ def test_validate_semantically_rejects_excluded_employer_industry(mock_llm_clien
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
-            api_cfg=api_cfg,
+            api_config=api_config,
             excluded_industries=["banking"],
         )
 
@@ -68,7 +68,7 @@ def test_validate_uses_injected_url_checker_before_llm() -> None:
             "snippet": "Open product manager role.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -86,7 +86,7 @@ def test_validate_uses_injected_url_checker_before_llm() -> None:
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
-            api_cfg=api_cfg,
+            api_config=api_config,
             url_checker=checker,
         )
 
@@ -104,7 +104,7 @@ def test_validate_rejects_explicitly_closed_snippet_without_llm() -> None:
             "snippet": "This job has expired and is no longer available.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -114,7 +114,7 @@ def test_validate_rejects_explicitly_closed_snippet_without_llm() -> None:
     }
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client") as client:
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == []
     assert "no longer available" in rejected[0]["_rejection_reason"]
@@ -130,7 +130,7 @@ def test_validate_rejects_explicit_over_experience_without_llm() -> None:
             "snippet": "Requirements: at least 8 years of product management experience required.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -140,7 +140,7 @@ def test_validate_rejects_explicit_over_experience_without_llm() -> None:
     }
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client") as client:
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == []
     assert rejected[0]["_rejection_reason"] == "requires 8+ years experience"
@@ -156,7 +156,7 @@ def test_validate_sends_ambiguous_experience_to_llm(mock_llm_client) -> None:
             "snippet": "You will partner with experienced teams across 8 product lines.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -167,7 +167,7 @@ def test_validate_sends_ambiguous_experience_to_llm(mock_llm_client) -> None:
     raw = '{"is_active": true, "over_experience": false, "reason": null}'
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)) as client:
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == jobs
     assert rejected == []
@@ -183,7 +183,7 @@ def test_validate_requests_json_response_format(mock_llm_client) -> None:
             "snippet": "Open product manager role.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -194,7 +194,7 @@ def test_validate_requests_json_response_format(mock_llm_client) -> None:
     mock = mock_llm_client('{"is_active": true, "over_experience": false, "reason": null}')
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock):
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == jobs
     assert rejected == []
@@ -210,7 +210,7 @@ def test_validate_strategic_company_bypasses_deterministic_years_rejection(mock_
             "snippet": "Requirements: at least 8 years of product management experience required.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -224,7 +224,7 @@ def test_validate_strategic_company_bypasses_deterministic_years_rejection(mock_
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
-            api_cfg=api_cfg,
+            api_config=api_config,
             max_years_bypass_companies=["Infineon"],
         )
 
@@ -241,7 +241,7 @@ def test_validate_repairs_malformed_json_once() -> None:
             "snippet": "Open product manager role.",
         }
     ]
-    api_cfg = {
+    api_config = {
         "llm": {
             "models": {"validation": "test-model"},
             "max_tokens": {"validation": 200},
@@ -256,7 +256,7 @@ def test_validate_repairs_malformed_json_once() -> None:
     ]
 
     with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock):
-        valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
+        valid, rejected = validator.validate(jobs, max_years=4, api_config=api_config)
 
     assert valid == jobs
     assert rejected == []

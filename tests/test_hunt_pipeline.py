@@ -7,7 +7,7 @@ from job_hunter.pipeline import hunt as hunt_pipeline
 
 
 def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, tmp_path) -> None:
-    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     jobs = [{"title": "PM", "company": "Acme", "url": "https://example.com/pm"}]
     enriched = [{**jobs[0], "snippet": "rich"}]
@@ -22,15 +22,15 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
             ScrapeStats(total_fetched=1, total_after_policy=1),
         ),
     )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: enriched)
+    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
+    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: enriched)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
     run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only(
         "primary",
         tmp_path,
-        api_cfg={},
+        api_config={},
         url_checker=lambda *_args: True,
     )
 
@@ -42,7 +42,7 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
 
 
 def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> None:
-    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     monkeypatch.setattr(
         hunt_pipeline,
@@ -52,7 +52,7 @@ def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_config={})
 
     assert count == 0
     assert isinstance(run_id, str)
@@ -80,7 +80,7 @@ def test_load_hunt_snapshot_returns_tracker_context(tmp_path) -> None:
 
 
 def test_load_hunt_snapshot_falls_back_to_db(tmp_path) -> None:
-    from job_hunter.db.jobs import mark_urls_processed
+    from job_hunter.tracking.repository import mark_urls_processed
 
     # Snapshot at outputs/state/ so parent.parent.parent == tmp_path (the root)
     state_dir = tmp_path / "outputs" / "state"

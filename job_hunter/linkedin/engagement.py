@@ -45,7 +45,7 @@ from job_hunter.llm.prompts.linkedin import ENGAGEMENT_PROMPT as PROMPT
 from job_hunter.llm.prompts.linkedin import ENGAGEMENT_STRATEGY_PROMPT as STRATEGY_PROMPT
 from job_hunter.llm.prompts.linkedin import ENGAGEMENT_STRATEGY_SYSTEM as STRATEGY_SYSTEM
 from job_hunter.llm.prompts.linkedin import ENGAGEMENT_SYSTEM as SYSTEM
-from job_hunter.sources.search_providers import search_web
+from job_hunter.sources.search import search_web
 
 logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
 

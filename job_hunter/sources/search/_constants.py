@@ -1,4 +1,4 @@
-"""Module-level constants for search_providers package."""
+"""Module-level constants for the search package."""
 
 from __future__ import annotations
 

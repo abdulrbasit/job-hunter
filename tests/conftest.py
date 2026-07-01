@@ -129,12 +129,12 @@ def mk_params(job_titles, regions, *, search_lang="", excluded_title_terms=None)
     """Convert legacy (job_titles, regions) args to SearchParams for the first region."""
     from job_hunter.models import SearchParams
 
-    key, cfg = next(iter(regions.items()))
+    key, config = next(iter(regions.items()))
     return SearchParams(
         region_key=key,
-        country=str(cfg.get("country", "")),
-        location=str(cfg.get("location", "")),
-        search_lang=str(cfg.get("search_lang", search_lang)),
+        country=str(config.get("country", "")),
+        location=str(config.get("location", "")),
+        search_lang=str(config.get("search_lang", search_lang)),
         job_titles=list(job_titles),
         excluded_title_terms=list(excluded_title_terms) if excluded_title_terms else [],
     )

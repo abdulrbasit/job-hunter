@@ -37,8 +37,8 @@ def test_process_jobs_caps_tailoring_to_configured_batch_size() -> None:
             skip_validate=True,
             skip_score=False,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {"batch_size": 7}},
+            api_config={},
+            scoring_config={"scoring": {"batch_size": 7}},
         )
 
     assert len(processed) == 7
@@ -59,8 +59,8 @@ def test_process_jobs_uses_default_batch_size_when_config_missing() -> None:
             skip_validate=True,
             skip_score=True,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {}},
+            api_config={},
+            scoring_config={"scoring": {}},
         )
 
     assert len(processed) == 15
@@ -226,8 +226,8 @@ def test_skip_validate_bypasses_validate_call() -> None:
             skip_validate=True,
             skip_score=False,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {}},
+            api_config={},
+            scoring_config={"scoring": {}},
         )
 
     validate.assert_not_called()
@@ -250,8 +250,8 @@ def test_skip_score_bypasses_scoring_and_wraps_jobs_as_zero_score_matches() -> N
             skip_validate=True,
             skip_score=True,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {}},
+            api_config={},
+            scoring_config={"scoring": {}},
         )
 
     score_and_filter_jobs.assert_not_called()
@@ -271,8 +271,8 @@ def test_pre_llm_gate_rejecting_all_jobs_yields_no_processed_matches() -> None:
             skip_validate=True,
             skip_score=False,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {}},
+            api_config={},
+            scoring_config={"scoring": {}},
         )
 
     assert processed == []
@@ -298,8 +298,8 @@ def test_one_failing_match_does_not_stop_the_rest_of_the_batch() -> None:
             skip_validate=True,
             skip_score=False,
             max_years=4,
-            api_cfg={},
-            scoring_cfg={"scoring": {}},
+            api_config={},
+            scoring_config={"scoring": {}},
         )
 
     # all three were attempted despite the middle one raising

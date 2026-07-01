@@ -6,13 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.agent_context._types import MAX_JD_CHARS
-from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_json_or_yaml, _read_yaml, _root
+from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_json_or_yaml, _root
 from job_hunter.agent_context.candidates import candidate_from_queue
 from job_hunter.agent_context.stories import story_index
+from job_hunter.core.utils import read_yaml
 
 
 def _profile_context(root: Path) -> dict[str, Any]:
-    config = _read_yaml(root / "config" / "job_hunter.yml")
+    config = read_yaml(root / "config" / "job_hunter.yml")
     scoring = config.get("scoring", {})
     profile = config.get("profile", {})
     configured_context = Path(profile.get("career_context", "profile/career_context.md"))
@@ -50,7 +51,7 @@ def _read_job_folder(root: Path, slug: str, max_jd_chars: int) -> dict[str, Any]
     folder = root / "outputs" / "jobs" / slug
     meta = _read_json_or_yaml(folder / "meta.json") if (folder / "meta.json").exists() else {}
     jd = (folder / "jd.md").read_text(encoding="utf-8") if (folder / "jd.md").exists() else ""
-    score = _read_yaml(folder / "score.yml")
+    score = read_yaml(folder / "score.yml")
     return {
         "slug": slug,
         "meta": meta,

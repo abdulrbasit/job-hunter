@@ -44,9 +44,9 @@ def draft(config_path: Path | None = None) -> list[Path]:
     ideas_path = configured_path(config, "ideas")
     ideas_text = read_text(ideas_path)
 
-    draft_cfg = config.get("draft_generation", {})
-    count = int(draft_cfg.get("posts_per_run", 2))
-    source_status = str(draft_cfg.get("source_status", "raw"))
+    draft_config = config.get("draft_generation", {})
+    count = int(draft_config.get("posts_per_run", 2))
+    source_status = str(draft_config.get("source_status", "raw"))
     selected = unconverted_ideas(ideas_text, source_status)[:count]
     if not selected:
         logger.info("[linkedin] No unconverted ideas found.")
@@ -59,7 +59,7 @@ def draft(config_path: Path | None = None) -> list[Path]:
         tone=format_yaml_list(config.get("tone", [])),
         forbidden_phrases=format_yaml_list(config.get("forbidden_phrases", [])),
         confidentiality=format_yaml_list(config.get("confidentiality", {}).get("forbidden_public_details", [])),
-        max_words=int(draft_cfg.get("max_words_per_post", 180)),
+        max_words=int(draft_config.get("max_words_per_post", 180)),
         ideas="\n\n".join(item["text"] for item in selected),
     )
 
@@ -102,7 +102,7 @@ linkedin_write_actions: false
         write_text(path, text)
         created.append(path)
 
-    if created and draft_cfg.get("mark_converted", True):
+    if created and draft_config.get("mark_converted", True):
         converted_ids = [
             str(item.get("idea_id") or selected[i]["id"]) for i, item in enumerate(payload[: len(created)])
         ]

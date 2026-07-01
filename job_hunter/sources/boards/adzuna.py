@@ -27,7 +27,7 @@ from job_hunter.core.api_budget import (
 )
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -81,9 +81,9 @@ class AdzunaSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "adzuna"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """
@@ -94,8 +94,8 @@ class AdzunaSource(JobSourceAdapter):
             logger.warning("[adzuna] ADZUNA_APP_ID or ADZUNA_API_KEY not set — skipping")
             return []
 
-        adzuna_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
-        if not adzuna_cfg.get("enabled", True):
+        adzuna_config = get_api_config().get("http", {}).get("job_boards", {}).get("adzuna", {}) or {}
+        if not adzuna_config.get("enabled", True):
             return []
 
         iso = params.country.upper()
@@ -103,7 +103,7 @@ class AdzunaSource(JobSourceAdapter):
         if not country:
             return []
 
-        results_per_page = int(adzuna_cfg.get("results_per_page", 50))
+        results_per_page = int(adzuna_config.get("results_per_page", 50))
         max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
         location = params.location
         jobs: list[JobPosting] = []

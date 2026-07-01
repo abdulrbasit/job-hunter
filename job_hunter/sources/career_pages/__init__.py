@@ -49,7 +49,7 @@ from job_hunter.sources.career_pages._sitemap import (
     _probe_sitemap,
     discover_via_sitemap,
 )
-from job_hunter.sources.search_providers.fetchers import (
+from job_hunter.sources.search.fetchers import (
     fetch_firecrawl_career_jobs,
     fetch_lightpanda_career_jobs,
     fetch_playwright_career_jobs,

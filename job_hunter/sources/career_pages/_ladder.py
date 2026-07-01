@@ -7,7 +7,7 @@ import logging
 import requests
 
 from job_hunter.config.loader import get_timeout
-from job_hunter.sources.search_providers import USER_AGENT, extract_jobs_from_html
+from job_hunter.sources.search import USER_AGENT, extract_jobs_from_html
 
 logger = logging.getLogger(__name__)
 

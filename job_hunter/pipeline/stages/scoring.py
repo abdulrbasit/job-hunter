@@ -39,9 +39,9 @@ def _build_system_with_resume(config: dict) -> str:
 
 def _build_scoring_prompt(jd_context: str, config: dict) -> str:
     """Build the scoring user prompt from config values."""
-    prompt_cfg = _scoring_prompt_config(config)
-    max_kw = int(prompt_cfg.get("max_matched_keywords", 10))
-    max_gaps = int(prompt_cfg.get("max_gaps", 5))
+    prompt_config = _scoring_prompt_config(config)
+    max_kw = int(prompt_config.get("max_matched_keywords", 10))
+    max_gaps = int(prompt_config.get("max_gaps", 5))
     return (
         f"Score this candidate's resume against the job description.\n\n"
         f"JOB DESCRIPTION:\n{jd_context}\n\n"
@@ -62,17 +62,17 @@ def _scoring_prompt_config(config: dict) -> dict:
 
 
 def build_scoring_resume_context(resume: str, config: dict) -> str:
-    prompt_cfg = _scoring_prompt_config(config)
-    mode = str(prompt_cfg.get("resume_mode", "compact_text"))
-    max_chars = int(prompt_cfg.get("resume_max_chars", 4500))
+    prompt_config = _scoring_prompt_config(config)
+    mode = str(prompt_config.get("resume_mode", "compact_text"))
+    max_chars = int(prompt_config.get("resume_max_chars", 4500))
 
     context = _compact_latex_resume(resume) if mode == "compact_text" else resume
     return context[:max_chars]
 
 
 def build_scoring_job_context(job: dict, config: dict) -> str:
-    prompt_cfg = _scoring_prompt_config(config)
-    max_chars = int(prompt_cfg.get("job_description_max_chars", 5000))
+    prompt_config = _scoring_prompt_config(config)
+    max_chars = int(prompt_config.get("job_description_max_chars", 5000))
     return str(job.get("snippet", ""))[:max_chars]
 
 
@@ -224,8 +224,8 @@ def score_and_filter_jobs(
         logger.error(f"[scorer] Cannot initialise scoring client — SDK missing: {e}")
         raise
 
-    api_cfg = get_api_config()
-    max_workers = int(api_cfg.get("llm", {}).get("max_workers", 5))
+    api_config = get_api_config()
+    max_workers = int(api_config.get("llm", {}).get("max_workers", 5))
 
     counter = 0
     counter_lock = threading.Lock()

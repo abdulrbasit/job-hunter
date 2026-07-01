@@ -19,7 +19,7 @@ def tailor(
     force: bool = typer.Option(False, "--force"),
 ) -> None:
     """Tailor resume for one or more job postings."""
-    from job_hunter.cli._dispatch import dispatch_tailor
+    from job_hunter.cli.dispatch import dispatch_tailor
 
     if links:
         dispatch_tailor(links=links, title=title, company=company, force=force)

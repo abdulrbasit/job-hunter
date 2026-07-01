@@ -9,8 +9,8 @@ from job_hunter.pipeline.stages import metrics
 def _ctx() -> PipelineRunContext:
     return PipelineRunContext(
         options=PipelineCommandOptions(mode="hunt", region="primary"),
-        api_cfg={},
-        scoring_cfg={},
+        api_config={},
+        scoring_config={},
         max_years=4,
         url_liveness=None,
         start_ts="2026-07-01T00:00:00+00:00",

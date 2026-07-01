@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import sys
+from datetime import date
 from typing import Any
 
-from job_hunter.ux.applications import (
+from job_hunter.tracking.applications import (
     CANONICAL_STATUSES,
     ApplicationRecord,
     delete_application,
-    render_applications_table,
     update_application_status,
 )
+from job_hunter.ux.terminal.applications import render_applications_table
 
 _HELP = (
     "Statuses: tailored | applied | responded | interview | offer | rejected\n"
@@ -40,6 +41,14 @@ def render_dashboard(apps: list[ApplicationRecord]) -> str:
     lines.append("")
     lines.append(render_applications_table(apps))
     return "\n".join(lines)
+
+
+def _refresh_readme(root) -> None:
+    from job_hunter.pipeline.stages.readme import update_readme_from_applications
+    from job_hunter.tracking.applications import load_applications
+
+    apps = load_applications(root)["applications"]
+    update_readme_from_applications(apps, root, date.today().isoformat())
 
 
 def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
@@ -92,6 +101,7 @@ def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
             except KeyError as exc:
                 print(f"Application not found: {exc}")
                 continue
+            _refresh_readme(root)
             current_apps[num - 1] = app
             print(f"Updated {app['slug']} -> {app['status']}")
             continue
@@ -107,6 +117,7 @@ def run_interactive_dashboard(apps: list[dict[str, Any]], root) -> int:
             confirm = input("Type 'yes' to confirm: ").strip().lower()
             if confirm == "yes":
                 delete_application(slug, root)
+                _refresh_readme(root)
                 current_apps.pop(num - 1)
                 print(f"Deleted {slug}.")
             else:

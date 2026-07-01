@@ -51,14 +51,14 @@ def load_runtime_config() -> dict[str, object]:
     return get_config("job_hunter")
 
 
-def _build_system(cover_cfg: dict, candidate_background: str, story_limit: int) -> str:
+def _build_system(cover_config: dict, candidate_background: str, story_limit: int) -> str:
     """Build the system prompt from code-owned cover-letter defaults."""
-    tone_list = cover_cfg.get("tone", []) or []
+    tone_list = cover_config.get("tone", []) or []
     tone_text = ", ".join(tone_list) if tone_list else "formal, confident, and substantive"
 
-    forbidden_cfg = cover_cfg.get("forbidden", {}) or {}
-    style_rules = forbidden_cfg.get("style", []) or []
-    forbidden_phrases = forbidden_cfg.get("phrases", []) or []
+    forbidden_config = cover_config.get("forbidden", {}) or {}
+    style_rules = forbidden_config.get("style", []) or []
+    forbidden_phrases = forbidden_config.get("phrases", []) or []
 
     rules_lines = [f"- {rule}" for rule in style_rules]
     if forbidden_phrases:
@@ -72,10 +72,10 @@ def _build_system(cover_cfg: dict, candidate_background: str, story_limit: int) 
         "- Start directly with the first sentence of the letter body.",
     ]
 
-    content_cfg = cover_cfg.get("content", {}) or {}
-    max_words = int(content_cfg.get("max_words", 280))
-    target_words = int(content_cfg.get("target_words", 220))
-    paragraphs = int(content_cfg.get("paragraphs", 4))
+    content_config = cover_config.get("content", {}) or {}
+    max_words = int(content_config.get("max_words", 280))
+    target_words = int(content_config.get("target_words", 220))
+    paragraphs = int(content_config.get("paragraphs", 4))
 
     return "\n\n".join(
         [
@@ -89,11 +89,11 @@ def _build_system(cover_cfg: dict, candidate_background: str, story_limit: int) 
     )
 
 
-def _build_user_prompt(cover_cfg: dict, jd: str, company: str, title: str) -> str:
+def _build_user_prompt(cover_config: dict, jd: str, company: str, title: str) -> str:
     """Build the user message from the cover_letter structure section."""
-    structure = cover_cfg.get("structure", {}) or {}
-    content_cfg = cover_cfg.get("content", {}) or {}
-    paragraphs_count = int(content_cfg.get("paragraphs", 4))
+    structure = cover_config.get("structure", {}) or {}
+    content_config = cover_config.get("content", {}) or {}
+    paragraphs_count = int(content_config.get("paragraphs", 4))
 
     para_lines = []
     for i in range(1, paragraphs_count + 1):
@@ -158,15 +158,15 @@ def write_cover(
 
     candidate_background = _candidate_background(config)
 
-    cover_cfg = config.get("cover_letter", {}) or {}
-    stories_cfg = cover_cfg.get("stories", {}) or {}
-    story_limit = int(stories_cfg.get("max_chars_for_cover", 6000))
+    cover_config = config.get("cover_letter", {}) or {}
+    stories_config = cover_config.get("stories", {}) or {}
+    story_limit = int(stories_config.get("max_chars_for_cover", 6000))
 
     # System prompt is assembled from stable content (rules + background + story bank)
     # so Anthropic can cache the prefix across sequential cover-letter calls in the same run.
     # Variable content (JD, company, title) stays in the user message.
-    system = _build_system(cover_cfg, candidate_background, story_limit)
-    prompt = _build_user_prompt(cover_cfg, job["snippet"], job["company"], job["title"])
+    system = _build_system(cover_config, candidate_background, story_limit)
+    prompt = _build_user_prompt(cover_config, job["snippet"], job["company"], job["title"])
 
     try:
         body = stage.complete(

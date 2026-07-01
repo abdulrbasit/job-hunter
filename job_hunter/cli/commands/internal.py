@@ -120,7 +120,7 @@ def commit_job(
     import subprocess
 
     from job_hunter.tracker import repo_path
-    from job_hunter.tracking.tracker import load_processed, mark_processed
+    from job_hunter.tracking.processed_urls import load_processed, mark_processed
 
     folder = repo_path("outputs", "jobs", job)
     if not folder.exists():
@@ -148,9 +148,9 @@ def update_readme(
     """Add or update a job entry in README.md tracking table."""
     from datetime import date
 
-    from job_hunter.pipeline.readme_writer import update_readme_from_applications
+    from job_hunter.pipeline.stages.readme import update_readme_from_applications
     from job_hunter.tracker import repo_path
-    from job_hunter.ux.applications import load_applications, upsert_application_from_job
+    from job_hunter.tracking.applications import load_applications, upsert_application_from_job
 
     folder = repo_path("outputs", "jobs", job)
     meta_path = folder / "meta.json"
@@ -205,7 +205,7 @@ def mark_processed_cmd(
     """Mark a job as processed in the dedup tracker."""
     import yaml
 
-    from job_hunter.tracking.tracker import load_processed, mark_processed
+    from job_hunter.tracking.processed_urls import load_processed, mark_processed
 
     if from_candidates:
         try:
@@ -319,7 +319,7 @@ def discard_job(
     import shutil
 
     from job_hunter.tracker import repo_path
-    from job_hunter.tracking.tracker import load_processed, mark_processed
+    from job_hunter.tracking.processed_urls import load_processed, mark_processed
 
     folder = repo_path("outputs", "jobs", job)
     if not folder.exists():

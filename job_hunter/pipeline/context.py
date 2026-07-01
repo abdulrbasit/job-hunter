@@ -32,8 +32,8 @@ class PipelineRunContext:
     """Config and shared state threaded through mode dispatch and stage functions."""
 
     options: PipelineCommandOptions
-    api_cfg: dict[str, Any]
-    scoring_cfg: dict[str, Any]
+    api_config: dict[str, Any]
+    scoring_config: dict[str, Any]
     max_years: int
     url_liveness: UrlLivenessCache
     start_ts: str

@@ -16,7 +16,7 @@ def init(
     force: bool = typer.Option(False, "--force", "-f", help="Reinitialise a non-empty directory"),
 ) -> None:
     """Create a workspace with bundled assets."""
-    from job_hunter.workspace._ops import run_init
+    from job_hunter.workspace.operations import run_init
 
     run_init(Path(path), force=force)
 
@@ -24,7 +24,7 @@ def init(
 @internal_app.command(name="update-skills")
 def update_skills(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled agent skills only."""
-    from job_hunter.workspace._ops import update_skills as run_update_skills
+    from job_hunter.workspace.operations import update_skills as run_update_skills
 
     run_update_skills(Path(workspace))
 
@@ -32,7 +32,7 @@ def update_skills(workspace: str = WORKSPACE_OPTION) -> None:
 @internal_app.command(name="update-workflows")
 def update_workflows(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled GitHub workflows only."""
-    from job_hunter.workspace._ops import update_workflows as run_update_workflows
+    from job_hunter.workspace.operations import update_workflows as run_update_workflows
 
     run_update_workflows(Path(workspace))
 
@@ -44,9 +44,9 @@ def update(
     workflows_only: bool = typer.Option(False, "--workflows-only", help="Update GitHub workflows only"),
 ) -> None:
     """Update workspace assets after a package upgrade."""
-    from job_hunter.workspace._assets import update_workspace_assets
-    from job_hunter.workspace._ops import update_skills as run_update_skills
-    from job_hunter.workspace._ops import update_workflows as run_update_workflows
+    from job_hunter.workspace.assets import update_workspace_assets
+    from job_hunter.workspace.operations import update_skills as run_update_skills
+    from job_hunter.workspace.operations import update_workflows as run_update_workflows
 
     if skills_only and workflows_only:
         typer.echo("[update] choose at most one targeted update", err=True)

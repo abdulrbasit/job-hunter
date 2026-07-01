@@ -22,8 +22,8 @@ from job_hunter.core.api_budget import (
 )
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._dates import truncate_date_text
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_PAGED_SOURCE_CAP,
     source_page_cap,
@@ -45,9 +45,9 @@ class JoobleSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "jooble"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch jobs from Jooble for each title × region. Returns [] silently if key is missing."""
@@ -55,11 +55,11 @@ class JoobleSource(JobSourceAdapter):
             logger.warning("[jooble] JOOBLE_API_KEY not set — skipping")
             return []
 
-        source_cfg = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
-        if not source_cfg.get("enabled", True):
+        source_config = get_api_config().get("http", {}).get("job_boards", {}).get("jooble", {}) or {}
+        if not source_config.get("enabled", True):
             return []
 
-        timeout = int(source_cfg.get("timeout_seconds") or get_timeout("job_boards"))
+        timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
         max_pages = source_page_cap(DEFAULT_PAGED_SOURCE_CAP)
         location = params.location
 

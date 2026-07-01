@@ -57,15 +57,15 @@ def run(options: PipelineCommandOptions) -> PipelineResult:
     from job_hunter.tools.compile_profile import compile_all as _compile_profile
 
     _compile_profile(REPO_ROOT)
-    api_cfg = get_api_config()
+    api_config = get_api_config()
     url_liveness = UrlLivenessCache()
-    scoring_cfg = get_config("job_hunter")
-    max_years = scoring_cfg.get("scoring", {}).get("max_years_experience_required", 4)
+    scoring_config = get_config("job_hunter")
+    max_years = scoring_config.get("scoring", {}).get("max_years_experience_required", 4)
 
     ctx = PipelineRunContext(
         options=options,
-        api_cfg=api_cfg,
-        scoring_cfg=scoring_cfg,
+        api_config=api_config,
+        scoring_config=scoring_config,
         max_years=max_years,
         url_liveness=url_liveness,
         start_ts=start_ts,
@@ -84,8 +84,8 @@ def run(options: PipelineCommandOptions) -> PipelineResult:
         skip_validate=options.skip_validate,
         skip_score=options.skip_score,
         max_years=max_years,
-        api_cfg=api_cfg,
-        scoring_cfg=scoring_cfg,
+        api_config=api_config,
+        scoring_config=scoring_config,
         url_checker=url_liveness.is_alive,
     )
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from job_hunter.cli._dispatch import _tailor_snapshot_path
+from job_hunter.cli.dispatch import _tailor_snapshot_path
 from job_hunter.pipeline.tailor import run_tailor
 
 
@@ -35,7 +35,7 @@ def test_agent_tailor_snapshots_do_not_overwrite_same_day(tmp_path) -> None:
     t1 = datetime(2026, 6, 24, 10, 0, 0, 1000)
     t2 = datetime(2026, 6, 24, 10, 0, 0, 2000)
 
-    with patch("job_hunter.cli._dispatch.datetime") as mock_dt:
+    with patch("job_hunter.cli.dispatch.datetime") as mock_dt:
         mock_dt.now.return_value = t1
         first = _tailor_snapshot_path(tmp_path)
         first.parent.mkdir(parents=True)

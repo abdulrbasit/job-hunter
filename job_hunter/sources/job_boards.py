@@ -28,8 +28,8 @@ from job_hunter.core.api_budget import (
 )
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._dates import truncate_date_text
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
     source_page_cap,
@@ -62,9 +62,9 @@ JSEARCH_URL = "https://jsearch.p.rapidapi.com/search"
 
 
 def _jsearch_max_consecutive_failures() -> int:
-    cfg = get_api_config().get("http", {}).get("job_boards", {})
+    config = get_api_config().get("http", {}).get("job_boards", {})
     try:
-        return int(cfg.get("max_consecutive_failures", 3))
+        return int(config.get("max_consecutive_failures", 3))
     except (TypeError, ValueError):
         return 3
 
@@ -98,14 +98,14 @@ class ArbeitnowSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "arbeitnow"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
-        cfg = get_api_config().get("http", {}).get("job_boards", {}).get("arbeitnow", {}) or {}
-        return bool(cfg.get("enabled", True))
+    def is_enabled(self, api_config: dict) -> bool:
+        config = get_api_config().get("http", {}).get("job_boards", {}).get("arbeitnow", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
-        boards_cfg = get_api_config().get("http", {}).get("job_boards", {}) or {}
-        arbeitnow_cfg = boards_cfg.get("arbeitnow", {}) or {}
-        if not arbeitnow_cfg.get("enabled", True):
+        boards_config = get_api_config().get("http", {}).get("job_boards", {}) or {}
+        arbeitnow_config = boards_config.get("arbeitnow", {}) or {}
+        if not arbeitnow_config.get("enabled", True):
             return []
 
         max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
@@ -179,7 +179,7 @@ class JSearchSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "jsearch"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
+    def is_enabled(self, api_config: dict) -> bool:
         return bool(self._rapidapi_key)
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
@@ -193,15 +193,15 @@ class JSearchSource(JobSourceAdapter):
             logger.warning("[jsearch] No configured job titles; skipping")
             return []
 
-        boards_cfg = get_api_config().get("http", {}).get("job_boards", {}) or {}
-        jsearch_cfg = boards_cfg.get("jsearch", {}) or {}
-        if not jsearch_cfg.get("enabled", True):
+        boards_config = get_api_config().get("http", {}).get("job_boards", {}) or {}
+        jsearch_config = boards_config.get("jsearch", {}) or {}
+        if not jsearch_config.get("enabled", True):
             return []
 
         if _jsearch_suppressed():
             return []
 
-        num_pages = int(jsearch_cfg.get("num_pages", 1))
+        num_pages = int(jsearch_config.get("num_pages", 1))
         location_filter = params.location
         country = params.country
         language = params.search_lang

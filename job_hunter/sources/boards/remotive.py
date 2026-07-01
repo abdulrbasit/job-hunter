@@ -6,9 +6,9 @@ import logging
 
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
-from job_hunter.sources._base import JobSourceAdapter
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources._http import fetch_title_pages
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
     job_board_enabled,
@@ -28,7 +28,7 @@ class RemotiveSource(JobSourceAdapter):
     def source_name(self) -> str:
         return "remotive"
 
-    def is_enabled(self, api_cfg: dict) -> bool:
+    def is_enabled(self, api_config: dict) -> bool:
         return job_board_enabled("remotive")
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:

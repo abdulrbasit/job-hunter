@@ -5,8 +5,8 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 from job_hunter.sources.ats_urls import ats_search_sites
-from job_hunter.sources.search_providers._url_utils import canonicalize_url
-from job_hunter.sources.search_providers.router import SearchRouter, search_web
+from job_hunter.sources.search._url_utils import canonicalize_url
+from job_hunter.sources.search.router import SearchRouter, search_web
 
 
 def discover_company_homepage(company_name: str, region_config: dict) -> str | None:

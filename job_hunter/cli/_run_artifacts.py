@@ -45,7 +45,7 @@ def cleanup_transient_state(root: Path, *, label: str) -> int:
 
 
 def sync_processed_from_job_outputs(root: Path) -> int:
-    from job_hunter.db.jobs import sync_from_job_folders
+    from job_hunter.tracking.repository import sync_from_job_folders
 
     return sync_from_job_folders(root)
 
@@ -76,7 +76,7 @@ def _today_job_errors(root: Path) -> list[str]:
 
     import yaml
 
-    from job_hunter.sources._policy import JobPolicy
+    from job_hunter.sources.policy import JobPolicy
 
     job_hunter_config = yaml.safe_load((root / "config" / "job_hunter.yml").read_text(encoding="utf-8")) or {}
     policy = JobPolicy(job_hunter_config)
@@ -131,11 +131,11 @@ def validate_run_artifacts(root: Path) -> list[str]:
 
 def expand_listing_candidate(url: str, company: str, location: str, title: str) -> dict | None:
     from job_hunter.config import get_config
-    from job_hunter.sources.search_providers import fetch_playwright_career_jobs
+    from job_hunter.sources.search import fetch_playwright_career_jobs
 
-    search_cfg = get_config("job_hunter")
-    title_filters = search_cfg.get("job_titles", [])
-    excluded_terms = (search_cfg.get("exclusions", {}) or {}).get("title_terms", [])
+    search_config = get_config("job_hunter")
+    title_filters = search_config.get("job_titles", [])
+    excluded_terms = (search_config.get("exclusions", {}) or {}).get("title_terms", [])
     try:
         jobs = fetch_playwright_career_jobs(
             {"name": company or "Unknown Company", "career_url": url, "location": location},

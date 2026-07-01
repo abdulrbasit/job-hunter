@@ -7,7 +7,7 @@ import requests
 from job_hunter.config.loader import get_timeout
 from job_hunter.constants import CAREER_PAGE_SNIPPET_CHARS
 from job_hunter.sources.ats_urls import ats_endpoint_patterns
-from job_hunter.sources.search_providers import USER_AGENT
+from job_hunter.sources.search import USER_AGENT
 
 _ATS_URL_PATTERNS = ats_endpoint_patterns()
 

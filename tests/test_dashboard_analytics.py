@@ -5,24 +5,8 @@ from pathlib import Path
 
 import yaml
 
+from job_hunter.tracking.applications import upsert_application
 from job_hunter.ux.analytics import analyze_pipeline
-from job_hunter.ux.applications import upsert_application
-from job_hunter.ux.dashboard import dashboard_summary, render_dashboard
-
-
-def test_dashboard_summary_and_render() -> None:
-    apps = [
-        {"status": "tailored", "company": "Acme", "title": "PM", "date": "2026-06-12"},
-        {"status": "applied", "company": "Beta", "title": "PO", "date": "2026-06-11"},
-    ]
-
-    summary = dashboard_summary(apps)
-    text = render_dashboard(apps)
-
-    assert summary == {"total": 2, "by_status": {"applied": 1, "tailored": 1}}
-    assert "Job Hunter Dashboard" in text
-    assert "Total: 2" in text
-    assert "Acme - PM" in text
 
 
 def test_analyze_pipeline_reports_counts_and_followups(tmp_path: Path) -> None:

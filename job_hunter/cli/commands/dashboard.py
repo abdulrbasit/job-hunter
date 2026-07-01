@@ -14,7 +14,7 @@ from job_hunter.cli.options import JSON_OPTION, WORKSPACE_OPTION
 def dash() -> None:
     """Open interactive dashboard (Applications · Insights · Analytics)."""
     from job_hunter.config.loader import ROOT
-    from job_hunter.ux.webdash import launch
+    from job_hunter.ux.web import launch
 
     launch(ROOT)
 
@@ -28,8 +28,8 @@ def dashboard(
 ) -> None:
     """Show application dashboard."""
     from job_hunter.tracker import repo_path
-    from job_hunter.ux.applications import filtered_applications
-    from job_hunter.ux.dashboard import render_dashboard, run_interactive_dashboard
+    from job_hunter.tracking.applications import filtered_applications
+    from job_hunter.ux.terminal.dashboard import render_dashboard, run_interactive_dashboard
 
     root = repo_path()
     apps = filtered_applications(root=root, status=status, region=region, since=since)
@@ -46,8 +46,9 @@ def analytics(
 ) -> None:
     """Show pipeline analytics."""
     from job_hunter.tracker import repo_path
-    from job_hunter.ux.analytics import analyze_pipeline, render_analytics
+    from job_hunter.ux.analytics import analyze_pipeline
     from job_hunter.ux.health import dump_json
+    from job_hunter.ux.terminal.analytics import render_analytics
 
     payload = analyze_pipeline(repo_path(), days=days)
     typer.echo(dump_json(payload) if json_output else render_analytics(payload))

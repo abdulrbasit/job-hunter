@@ -2,7 +2,7 @@ from inspect import signature
 from unittest.mock import patch
 
 from job_hunter.models import SearchParams
-from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.boards import BOARD_REGISTRY
 from job_hunter.sources.source_config import job_board_enabled, job_board_source_config, job_board_timeout
 

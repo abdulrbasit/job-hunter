@@ -461,10 +461,10 @@ class TestReedSource:
     def test_fetch_returns_job_postings(self) -> None:
         src = ReedSource.__new__(ReedSource)
         src._api_key = "test-key"
-        cfg = {"http": {"job_boards": {"reed": {"enabled": True, "results_wanted": 1}}}}
+        config = {"http": {"job_boards": {"reed": {"enabled": True, "results_wanted": 1}}}}
         page_data = {"results": [_REED_JOB(1)]}
         with (
-            patch("job_hunter.sources.boards.reed.get_api_config", return_value=cfg),
+            patch("job_hunter.sources.boards.reed.get_api_config", return_value=config),
             patch("job_hunter.sources.boards.reed.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.reed.requests.get",
@@ -496,10 +496,10 @@ class TestAdzunaSource:
         src = AdzunaSource.__new__(AdzunaSource)
         src._app_id = "app123"
         src._api_key = "key123"
-        cfg = {"http": {"job_boards": {"adzuna": {"enabled": True, "results_per_page": 1}}}}
+        config = {"http": {"job_boards": {"adzuna": {"enabled": True, "results_per_page": 1}}}}
         page_data = {"results": [_ADZUNA_JOB(1)]}
         with (
-            patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=cfg),
+            patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
             patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.adzuna.requests.get",
@@ -566,13 +566,13 @@ class TestCareerjetSource:
         assert CareerjetSource().source_name == "careerjet"
 
     def test_is_enabled_false_when_no_affid(self) -> None:
-        cfg = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
-        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=cfg):
+        config = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
+        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=config):
             assert CareerjetSource().is_enabled({}) is False
 
     def test_is_enabled_false_when_disabled(self) -> None:
-        cfg = {"http": {"job_boards": {"careerjet": {"enabled": False, "affid": "x"}}}}
-        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=cfg):
+        config = {"http": {"job_boards": {"careerjet": {"enabled": False, "affid": "x"}}}}
+        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=config):
             assert CareerjetSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
@@ -608,8 +608,8 @@ class TestCareerjetSource:
         assert get_mock.call_args.kwargs["params"]["locale_code"] == "en_IE"
 
     def test_fetch_returns_empty_when_no_affid(self) -> None:
-        cfg = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
-        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=cfg):
+        config = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
+        with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=config):
             jobs = CareerjetSource().fetch(mk_params(["Software Engineer"], _DE))
         assert jobs == []
 
@@ -635,8 +635,8 @@ class TestWorkingNomadsSource:
         assert WorkingNomadsSource().source_name == "workingnomads"
 
     def test_is_enabled_false_when_disabled(self) -> None:
-        cfg = {"http": {"job_boards": {"workingnomads": {"enabled": False}}}}
-        with patch("job_hunter.sources.source_config.get_api_config", return_value=cfg):
+        config = {"http": {"job_boards": {"workingnomads": {"enabled": False}}}}
+        with patch("job_hunter.sources.source_config.get_api_config", return_value=config):
             assert WorkingNomadsSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:

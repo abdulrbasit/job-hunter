@@ -37,7 +37,7 @@ _FAKE_JOBS = [
 
 def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """run_hunt_scrape_only inserts jobs into DB and returns (run_id, count, stats)."""
-    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     monkeypatch.setattr(
         hunt_pipeline,
@@ -49,12 +49,12 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
             ScrapeStats(total_fetched=2, total_after_policy=2),
         ),
     )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
+    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
+    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: jobs)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_config={})
 
     assert count == 2
     assert isinstance(run_id, str) and "T" in run_id
@@ -76,8 +76,8 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
             ScrapeStats(total_fetched=2, total_after_policy=2),
         ),
     )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_cfg, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_cfg: jobs)
+    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
+    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: jobs)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
@@ -86,7 +86,7 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
     state_dir.mkdir(parents=True)
     (state_dir / "discovered_urls.yml").write_text("discovered: []\n", encoding="utf-8")
 
-    hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_config={})
 
     queue = agent_context.build_candidate_queue(root=tmp_path, today_only=False, limit=100)
     assert queue["count"] == 2
@@ -96,7 +96,7 @@ def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) 
 
 def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: Path) -> None:
     """Even with 0 results, run_hunt_scrape_only returns count=0 and run_id string."""
-    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     monkeypatch.setattr(
         hunt_pipeline,
@@ -106,7 +106,7 @@ def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: P
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
-    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_cfg={})
+    run_id, count, _stats = hunt_pipeline.run_hunt_scrape_only("primary", tmp_path, api_config={})
 
     assert count == 0
     assert isinstance(run_id, str)

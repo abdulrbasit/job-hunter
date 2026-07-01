@@ -155,12 +155,12 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
     """
     logger.info("[jd_fetcher] Fetching: %s", url)
 
-    cfg_raw = _jd_config()
+    config_raw = _jd_config()
 
-    timeout = int(cfg_raw.get("timeout_seconds", get_timeout("ats_scraper")))
-    max_description_chars = int(cfg_raw.get("max_description_chars", _FALLBACK_DESC_MAX_CHARS))
-    title_min_chars = int(cfg_raw.get("title_min_chars", 8))
-    title_max_chars = int(cfg_raw.get("title_max_chars", 100))
+    timeout = int(config_raw.get("timeout_seconds", get_timeout("ats_scraper")))
+    max_description_chars = int(config_raw.get("max_description_chars", _FALLBACK_DESC_MAX_CHARS))
+    title_min_chars = int(config_raw.get("title_min_chars", 8))
+    title_max_chars = int(config_raw.get("title_max_chars", 100))
 
     _host = urlparse(url).hostname or ""
     is_greenhouse = _host == "greenhouse.io" or _host.endswith(".greenhouse.io")

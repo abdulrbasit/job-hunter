@@ -9,10 +9,10 @@ from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.pipeline import enrichment, hunt
 from job_hunter.sources import orchestrator
-from job_hunter.sources._policy import JobPolicy
 from job_hunter.sources.boards import careerjet as careerjet_source
 from job_hunter.sources.boards import himalayas as himalayas_source
 from job_hunter.sources.boards import jobicy as jobicy_source
+from job_hunter.sources.policy import JobPolicy
 
 
 def _posting(**overrides) -> JobPosting:
@@ -68,7 +68,7 @@ def test_active_orchestrator_applies_policy_and_candidate_cache(monkeypatch) -> 
             ]
 
     monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
-    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _cfg, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
     monkeypatch.setattr(orchestrator, "board_adapters", lambda: [Source()])
     monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
     monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: {"https://example.com/jobs/cached"})
@@ -129,7 +129,7 @@ def test_global_feed_is_fetched_once_for_all_regions(monkeypatch) -> None:
 
     source = GlobalSource()
     monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
-    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _cfg, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
     monkeypatch.setattr(orchestrator, "board_adapters", lambda: [source])
     monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
     monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
@@ -169,7 +169,7 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
 
     source = GlobalSource()
     monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
-    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _cfg, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
     monkeypatch.setattr(orchestrator, "board_adapters", lambda: [source])
     monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
     monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
@@ -311,7 +311,7 @@ def test_careerjet_stops_after_terminal_http_error(monkeypatch) -> None:
 
 
 def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch, tmp_path) -> None:
-    from job_hunter.db.jobs import get_discovered_jobs
+    from job_hunter.tracking.repository import get_discovered_jobs
 
     job = _posting().model_dump()
     stats = ScrapeStats(total_fetched=2, total_after_dedup=1, total_after_policy=1, duration_seconds=1.25)
@@ -319,11 +319,11 @@ def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch,
 
     monkeypatch.setattr(hunt, "_jobs_from_hunt", lambda *_args, **_kwargs: ([job], set(), set(), stats))
     monkeypatch.setattr(hunt, "_drop_dead_urls", lambda jobs, *_args: jobs)
-    monkeypatch.setattr(hunt, "_enrich", lambda jobs, _cfg: jobs)
+    monkeypatch.setattr(hunt, "_enrich", lambda jobs, _config: jobs)
     monkeypatch.setattr(hunt, "load_cached_candidate_urls", lambda: {"https://example.com/jobs/old"})
     monkeypatch.setattr(hunt, "save_cached_candidate_urls", lambda urls: saved.append(urls))
 
-    run_id, count, returned_stats = hunt.run_hunt_scrape_only("berlin", tmp_path, api_cfg={})
+    run_id, count, returned_stats = hunt.run_hunt_scrape_only("berlin", tmp_path, api_config={})
 
     assert count == 1
     assert returned_stats == stats

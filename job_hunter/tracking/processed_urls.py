@@ -7,8 +7,8 @@ Dedup is URL-only: same company with a different URL is never blocked.
 from __future__ import annotations
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
-from job_hunter.db.jobs import get_all_known_urls, insert_candidate_urls, mark_urls_processed
-from job_hunter.sources.search_providers import canonicalize_url
+from job_hunter.sources.search import canonicalize_url
+from job_hunter.tracking.repository import get_all_known_urls, insert_candidate_urls, mark_urls_processed
 
 
 def load_processed() -> set[str]:

@@ -6,12 +6,12 @@ Replaces the YAML-backed candidate_urls list in discovered_urls.yml.
 from __future__ import annotations
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
-from job_hunter.db.jobs import (
+from job_hunter.sources.search import canonicalize_url
+from job_hunter.tracking.repository import (
     get_candidate_urls,
     get_candidate_urls_with_metadata,
     insert_candidate_urls,
 )
-from job_hunter.sources.search_providers import canonicalize_url
 
 
 def load_cached_candidate_urls() -> set[str]:
