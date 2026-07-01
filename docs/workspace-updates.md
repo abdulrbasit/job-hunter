@@ -5,13 +5,6 @@ changing what it touches.
 
 ## The steps (`cli/commands/update.py::update`)
 
-0. **Bridge migration** — `workspace/bridge_migration.py::run_bridge_migration`.
-   Temporary (see that file's module docstring for the removal checklist):
-   removes files obsoleted by the pre-refactor workspace layout, but only if
-   your copy is byte-identical to a known shipped version; anything you
-   edited is preserved with a `[warn]` instead. `job-hunter update --dry-run`
-   previews **this step only** — it does not preview steps 1-4 below, since
-   those are merge-based and never delete anything.
 1. **Workspace assets** — `workspace/assets.py::update_workspace_assets`.
    Iterates `_UPDATE_ASSETS` (currently `README.md`, `SETUP.md`,
    `SETUP_AGENT.md`, `SETUP_LLM_API.md`, `config/career_pages.yml`,
@@ -43,13 +36,6 @@ changing what it touches.
 
 `--skills-only` / `--workflows-only` run just step 2 or step 3.
 
-**`--dry-run` backlog:** it currently only previews step 0. Extending it to
-preview steps 1-4 without writing would mean threading a `dry_run` flag
-through `update_workspace_assets`, `update_skills`, `update_workflows`, and
-both telemetry-install functions (one of which touches the global Codex
-config outside the workspace) — real plumbing across five functions, not a
-small change. Worth doing if a real need shows up; not done speculatively.
-
 ## What never gets touched
 
 `profile/`, `outputs/`, `.env`, and any `config/*.yml` key you've already
@@ -63,15 +49,11 @@ set (deep-merge preserves it). See [DATA_CONTRACT.md](../DATA_CONTRACT.md).
 
 `managed_files` tracks **skill files only** (the path → sha256 map used for
 stale-skill cleanup in step 2 above) — it is not a record of every file the
-steps above write. Workspace assets, workflows, and telemetry files are not
-tracked in the manifest; they're either deep-merged (safe to re-derive every
-run) or, for the one-off bridge-migration cleanup, checked against a fixed
-hash table in `bridge_migration.py` instead.
+steps above write. Workspace assets and workflows are deep-merged or
+overwritten directly and aren't tracked in the manifest.
 
-`applied_migrations` is a list of migration IDs (currently just
-`bridge_migration.BRIDGE_MIGRATION_ID`) recorded after a successful
-non-dry-run `job-hunter update`, so `doctor`/support tooling can tell which
-one-off migrations a workspace has already been through.
+`applied_migrations` is a list of migration IDs, reserved for any future
+one-off workspace migration; nothing currently writes to it.
 
 It's a small bit of system-owned state, not something to hand-edit.
 

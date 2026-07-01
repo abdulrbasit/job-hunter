@@ -111,17 +111,12 @@ jobs:
         run: |
           set -euo pipefail
           job-hunter hunt ${{ steps.region.outputs.arg }} | tee hunt-output.txt
-          snapshot=$(sed -n 's/^snapshot_path=//p' hunt-output.txt | tail -n 1)
           count=$(sed -n 's/^candidate_count=//p' hunt-output.txt | tail -n 1)
-          test -n "$snapshot"
-          test -f "$snapshot"
           count=${count:-0}
           echo "### Hunt summary" >> "$GITHUB_STEP_SUMMARY"
           echo "- Region: ${{ steps.region.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Candidates: $count" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Snapshot: \`$snapshot\`" >> "$GITHUB_STEP_SUMMARY"
           echo "candidate_count=$count" >> "$GITHUB_OUTPUT"
-          echo "snapshot_path=$snapshot" >> "$GITHUB_OUTPUT"
           echo "has_candidates=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Build briefing

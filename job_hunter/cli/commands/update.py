@@ -42,14 +42,9 @@ def update(
     workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
     skills_only: bool = typer.Option(False, "--skills-only", help="Update bundled agent skills only"),
     workflows_only: bool = typer.Option(False, "--workflows-only", help="Update GitHub workflows only"),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Preview the pre-refactor bridge migration only; change nothing"
-    ),
 ) -> None:
     """Update workspace assets after a package upgrade."""
     from job_hunter.workspace.assets import update_workspace_assets
-    from job_hunter.workspace.bridge_migration import BRIDGE_MIGRATION_ID, run_bridge_migration
-    from job_hunter.workspace.manifest import read_manifest, write_manifest
     from job_hunter.workspace.operations import install_telemetry
     from job_hunter.workspace.operations import update_skills as run_update_skills
     from job_hunter.workspace.operations import update_workflows as run_update_workflows
@@ -66,24 +61,11 @@ def update(
         run_update_workflows(root)
         return
 
-    run_bridge_migration(root, dry_run=dry_run)
-    if dry_run:
-        typer.echo("[dry-run] no files were written")
-        return
-
     written = update_workspace_assets(root)
     typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
     run_update_skills(root)
     run_update_workflows(root)
     install_telemetry(root)
-
-    try:
-        manifest = read_manifest(root)
-        if BRIDGE_MIGRATION_ID not in manifest.applied_migrations:
-            manifest.applied_migrations.append(BRIDGE_MIGRATION_ID)
-            write_manifest(root, manifest)
-    except FileNotFoundError:
-        pass
 
 
 @app.command()

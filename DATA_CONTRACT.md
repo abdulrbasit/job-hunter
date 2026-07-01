@@ -28,14 +28,8 @@ Product updates may replace system-owned files. They must never overwrite user d
 
 ## How updates work
 
-`job-hunter update` runs four steps:
+`job-hunter update` runs three steps:
 
-0. **Bridge migration** (temporary, `job_hunter/workspace/bridge_migration.py`) —
-   removes files obsoleted by the Phase 8-13 refactor if they're unmodified,
-   preserves them with a warning if you edited them, and carries forward the
-   `config/companies_browser.yml` → `config/career_pages.yml` rename. Run
-   `job-hunter update --dry-run` to preview this step only. This step is
-   removed once all known workspaces have upgraded past it.
 1. **Workspace assets** — controlled by `_UPDATE_ASSETS` in `job_hunter/workspace/assets.py`:
    - Non-YAML files (for example `README.md` and `SETUP.md`): always replaced.
    - YAML config files: deep-merged — new template keys are added, your values are kept. Lists: your version wins.
