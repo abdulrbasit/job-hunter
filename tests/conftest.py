@@ -1,10 +1,30 @@
 import os
+import socket
 import tempfile
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
+_LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+_real_connect = socket.socket.connect
+
+
+def _guarded_connect(self, address, *args, **kwargs):
+    host = address[0] if isinstance(address, tuple) else address
+    if host not in _LOOPBACK:
+        raise RuntimeError(
+            f"blocked live network connect() to {address!r} during tests — mock the HTTP/network call instead"
+        )
+    return _real_connect(self, address, *args, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def _block_live_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test may open a real non-loopback socket; mock requests/httpx/playwright calls instead."""
+    monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
+
 
 # Must be set before any module is imported; config/loader.py reads API key constants at module level.
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
