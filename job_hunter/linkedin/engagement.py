@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 from dataclasses import asdict
 from functools import lru_cache
@@ -423,15 +422,3 @@ def discover(config_path: Path | None = None) -> dict:
         "people": [asdict(item) for item in selected["people"]],
         "recruiters": [asdict(item) for item in selected["recruiters"]],
     }
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Discover LinkedIn networking suggestions.")
-    parser.add_argument("--config", type=Path, help="Optional standalone LinkedIn YAML config path")
-    args = parser.parse_args()
-    discover(args.config)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

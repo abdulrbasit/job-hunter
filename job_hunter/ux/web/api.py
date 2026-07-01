@@ -42,7 +42,7 @@ class DashAPI:
                 "jd": (record.get("jd_text") or "")[:4000],
             }
 
-        # Fallback: read job folder files (legacy)
+        # Fallback: job folder exists on disk but hasn't been synced to jobs.db yet
         job_dir = self._root / "outputs" / "jobs" / slug
         meta: dict[str, Any] = {}
         score: dict[str, Any] = {}

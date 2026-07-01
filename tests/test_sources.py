@@ -7,7 +7,6 @@ from conftest import mk_params
 
 from job_hunter.core import api_budget, utils
 from job_hunter.sources import (
-    ats,
     jd_fetcher,
     job_boards,
     search,
@@ -224,69 +223,6 @@ def test_detect_ats_for_direct_scrapers() -> None:
         "acme.myworkdayjobs.com/External",
     )
     assert detect_ats("https://example.com/careers") is None
-
-
-def test_personio_fetcher_normalizes_public_xml(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _xml_text = """
-        <workzag-jobs>
-          <position>
-            <id>123</id>
-            <name>Product Manager</name>
-            <office>Berlin</office>
-            <jobDescriptions>
-              <jobDescription><name>About</name><value>&lt;p&gt;Own discovery.&lt;/p&gt;</value></jobDescription>
-            </jobDescriptions>
-          </position>
-        </workzag-jobs>
-        """
-
-    class Response:
-        text = _xml_text
-        content = _xml_text.encode("utf-8")
-
-        def raise_for_status(self) -> None:
-            return None
-
-    monkeypatch.setattr(ats.requests, "get", lambda *args, **kwargs: Response())
-
-    jobs = ats.fetch_personio_jobs("acme", "Acme", "Berlin", ["Product Manager"])
-
-    assert len(jobs) == 1
-    assert jobs[0]["url"] == "https://acme.jobs.personio.de/job/123"
-    assert jobs[0]["source"] == "Personio XML"
-    assert "Own discovery" in jobs[0]["snippet"]
-
-
-def test_recruitee_fetcher_normalizes_public_api(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {
-                "offers": [
-                    {
-                        "title": "Product Owner",
-                        "location": "Berlin",
-                        "careers_url": "https://acme.recruitee.com/o/product-owner",
-                        "description": "<p>Own roadmap delivery.</p>",
-                        "published_at": "2026-06-01T00:00:00Z",
-                    }
-                ]
-            }
-
-    monkeypatch.setattr(ats.requests, "get", lambda *args, **kwargs: Response())
-
-    jobs = ats.fetch_recruitee_jobs("acme", "Acme", "Berlin", ["Product Owner"])
-
-    assert len(jobs) == 1
-    assert jobs[0]["posted_date_text"] == "2026-06-01"
-    assert jobs[0]["source"] == "Recruitee API"
-    assert "roadmap delivery" in jobs[0]["snippet"]
 
 
 def test_jsearch_failure_counter_is_thread_safe() -> None:

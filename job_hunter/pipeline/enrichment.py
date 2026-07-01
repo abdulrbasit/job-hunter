@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 # JD quality status constants
 JD_STATUS_FULL = "full"
-JD_STATUS_SPARSE = "sparse"  # alias for thin, kept for backward compat
 JD_STATUS_THIN = "thin"
 JD_STATUS_EMPTY = "empty"
 JD_STATUS_PAGE_NOISE = "page_noise"

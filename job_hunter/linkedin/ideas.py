@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 from pathlib import Path
 
@@ -85,15 +84,3 @@ def generate(config_path: Path | None = None) -> list[str]:
         append_section(ideas_path, "\n\n".join(rendered))
     logger.info("[linkedin] Added %s idea(s) to %s", len(rendered), ideas_path)
     return rendered
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate public-safe LinkedIn raw ideas.")
-    parser.add_argument("--config", type=Path, help="Optional standalone LinkedIn YAML config path")
-    args = parser.parse_args()
-    generate(args.config)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

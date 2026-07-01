@@ -33,11 +33,9 @@ def _load_stories() -> str:
     return _stories_cache
 
 
-def _config_section(config: dict, name: str, default: dict | None = None) -> dict:
-    """Read a section from either legacy top-level or nested cover_letter config."""
-    if name in config:
-        return config.get(name) or {}
-    return (config.get("cover_letter", {}) or {}).get(name, default or {}) or {}
+def _config_section(config: dict, name: str) -> dict:
+    """Read a nested section from the code-owned cover_letter config."""
+    return (config.get("cover_letter", {}) or {}).get(name, {}) or {}
 
 
 def _clean_body(body: str) -> str:

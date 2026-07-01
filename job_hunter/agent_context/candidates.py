@@ -21,7 +21,7 @@ from job_hunter.sources.policy import normalize_company_name
 from job_hunter.sources.search import canonicalize_url
 
 # ---------------------------------------------------------------------------
-# Legacy snapshot-file helpers (kept for tailor --links flow and --from-snapshot)
+# Snapshot-file helpers (tailor --links flow and --from-snapshot)
 # ---------------------------------------------------------------------------
 
 
@@ -48,10 +48,10 @@ def _jobs_from_candidate_file(path: Path) -> list[dict[str, Any]]:
     return [item for item in jobs if isinstance(item, dict)]
 
 
-def _load_processed_for_root(root: Path) -> tuple[set[str], set[str]]:
+def _load_processed_for_root(root: Path) -> set[str]:
     from job_hunter.tracking.repository import get_processed_urls
 
-    return get_processed_urls(root), set()
+    return get_processed_urls(root)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ def _build_queue_from_db(
     from job_hunter.tracking.repository import get_discovered_jobs
 
     raw_jobs = get_discovered_jobs(base, run_id=run_id or None)
-    processed_urls, _ = _load_processed_for_root(base)
+    processed_urls = _load_processed_for_root(base)
 
     seen_urls: set[str] = set()
     seen_titles: set[str] = set()
@@ -205,7 +205,7 @@ def _build_queue_from_files(
     if latest and files:
         files = files[:1]
 
-    processed_urls, _ = _load_processed_for_root(base)
+    processed_urls = _load_processed_for_root(base)
     seen_urls: set[str] = set()
     seen_titles: set[str] = set()
     queued: list[dict[str, Any]] = []

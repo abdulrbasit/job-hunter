@@ -166,9 +166,6 @@ ignore = ["E501", "S101"]
 "job_hunter/ux/terminal/dashboard.py" = ["C901"]
 "job_hunter/ux/health.py" = ["C901"]
 "job_hunter/workspace/assets.py" = ["C901"]
-# S314: ATS adapters parse third-party XML/HTML feeds; defusedxml migration tracked separately, not
-# a Phase 3 concern (would be a real code change, not a tooling-config tightening).
-"job_hunter/sources/ats/*.py" = ["S314"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "Depends"]

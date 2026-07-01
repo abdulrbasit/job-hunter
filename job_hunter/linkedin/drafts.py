@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 from pathlib import Path
 
@@ -115,15 +114,3 @@ linkedin_write_actions: false
         ", ".join(_display_path(p) for p in created),
     )
     return created
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Draft LinkedIn posts from raw ideas.")
-    parser.add_argument("--config", type=Path, help="Optional standalone LinkedIn YAML config path")
-    args = parser.parse_args()
-    draft(args.config)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

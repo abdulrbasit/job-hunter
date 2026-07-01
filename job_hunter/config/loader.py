@@ -28,9 +28,6 @@ from job_hunter.config.defaults import (
 from job_hunter.config.paths import ROOT, profile_path  # noqa: F401 (re-export)
 from job_hunter.config.removed_keys import reject_removed_user_config
 
-# Kept for existing `from job_hunter.config.loader import _reject_removed_user_config` call sites.
-_reject_removed_user_config = reject_removed_user_config
-
 
 def _load_yaml(name: str) -> dict[str, Any]:
     path = ROOT / "config" / f"{name}.yml"
