@@ -284,7 +284,7 @@ def test_recruitee_fetcher_normalizes_public_api(
     jobs = ats.fetch_recruitee_jobs("acme", "Acme", "Berlin", ["Product Owner"])
 
     assert len(jobs) == 1
-    assert jobs[0]["posted"] == "2026-06-01"
+    assert jobs[0]["posted_date_text"] == "2026-06-01"
     assert jobs[0]["source"] == "Recruitee API"
     assert "roadmap delivery" in jobs[0]["snippet"]
 
@@ -519,7 +519,7 @@ def test_ashby_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
     assert job["title"] == "Product Manager"
     assert job["source"] == "ashby_api"
     assert job["location"] == "Berlin"
-    assert job["posted"] == "2026-06-01"
+    assert job["posted_date_text"] == "2026-06-01"
     assert "roadmap decisions" in job["snippet"]
 
 
@@ -697,7 +697,7 @@ def test_greenhouse_api_falls_back_to_content_listing(
 
     assert job is not None
     assert job["title"] == "Product Manager"
-    assert job["posted"] == "2026-06-01"
+    assert job["posted_date_text"] == "2026-06-01"
     assert "Own product discovery" in job["snippet"]
 
 
@@ -851,7 +851,7 @@ def test_greenhouse_discovery_enriches_generic_search_snippet(
             "company": "Acme",
             "location": "Berlin",
             "url": "https://boards.greenhouse.io/acme/jobs/123",
-            "posted": "2026-06-01",
+            "posted_date_text": "2026-06-01",
             "snippet": "Product Manager\nBerlin\n\nOwn the roadmap and customer discovery.",
         },
     )
@@ -896,7 +896,7 @@ def test_non_greenhouse_discovery_uses_direct_ats_enrichment(
             "company": "Acme",
             "location": "Berlin",
             "url": "https://jobs.smartrecruiters.com/acme/123-product-manager",
-            "posted": "2026-06-01",
+            "posted_date_text": "2026-06-01",
             "snippet": "Product Manager\nBerlin\n\nResponsibilities include roadmap ownership and delivery.",
         },
     )

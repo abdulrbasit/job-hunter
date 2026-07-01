@@ -64,7 +64,7 @@ def _normalise_ats_job(raw: dict, ats_name: str, slug: str, base_url: str) -> di
         "company": company,
         "url": str(url).strip(),
         "location": location.strip(),
-        "posted": str(raw.get("updated_at") or raw.get("createdAt") or "").strip(),
+        "posted_date_text": str(raw.get("updated_at") or raw.get("createdAt") or "").strip(),
         "snippet": str(raw.get("content") or raw.get("description") or "")[:CAREER_PAGE_SNIPPET_CHARS].strip(),
         "source": f"career_page:ats_api:{ats_name}",
         "extraction_method": "ats_api",

@@ -485,7 +485,7 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
             "title": "Product Manager",
             "company": "Acme",
             "location": "Berlin",
-            "posted": "2026-06-01",
+            "posted_date_text": "2026-06-01",
             "snippet": "Own product discovery.",
         },
     )

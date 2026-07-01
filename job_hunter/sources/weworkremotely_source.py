@@ -85,11 +85,11 @@ class WeWorkRemotelySource(JobSourceAdapter):
                     title=job_title,
                     company=company,
                     url=url,
-                    posted=pub_date,
+                    posted_date_text=pub_date,
                     location="Remote",
                     snippet=description[:3000],
                     source="WeWorkRemotely",
-                    query=job_title,
+                    search_query=job_title,
                     region=params.region_key,
                     location_restrictions=restrictions,
                 )

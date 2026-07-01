@@ -67,12 +67,12 @@ def _enrich(jobs: list[dict[str, Any]], api_cfg: dict[str, Any] | None = None) -
 
 
 def _drop_closed_postings(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    closed = [j for j in jobs if j.get("fetch_status") == "position_closed"]
+    closed = [j for j in jobs if j.get("job_description_fetch_status") == "position_closed"]
     if closed:
         logger.info("[pipeline] Dropping %s closed/inactive posting(s) before scoring", len(closed))
         for j in closed:
             logger.info("  closed: %s @ %s", j.get("title", "?")[:50], j.get("company", "?"))
-    return [j for j in jobs if j.get("fetch_status") != "position_closed"]
+    return [j for j in jobs if j.get("job_description_fetch_status") != "position_closed"]
 
 
 def run_hunt(

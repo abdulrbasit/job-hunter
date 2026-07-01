@@ -82,11 +82,11 @@ class TheMuseSource(JobSourceAdapter):
                         title=job_title,
                         company=company_name,
                         url=job_url,
-                        posted=posted,
+                        posted_date_text=posted,
                         location=job_location,
                         snippet=description[:3000],
                         source="The Muse",
-                        query=f"{query_label} @ {params.region_key}",
+                        search_query=f"{query_label} @ {params.region_key}",
                         region=params.region_key,
                     )
                 )

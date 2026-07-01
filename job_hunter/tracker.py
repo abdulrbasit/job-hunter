@@ -99,14 +99,14 @@ def import_job_artifact(
 ) -> Path:
     from job_hunter.pipeline.enrichment import JD_STATUS_FULL, classify_jd_snippet
 
-    fetch_status = "manual_text" if text else "not_requested"
+    job_description_fetch_status = "manual_text" if text else "not_requested"
     if source_path:
         text = read_optional(source_path)
-        fetch_status = "source_file"
+        job_description_fetch_status = "source_file"
     if url and not text and not url.lower().startswith(("http://", "https://")):
         if fallback_text:
             text = fallback_text
-            fetch_status = "fallback_snippet"
+            job_description_fetch_status = "fallback_snippet"
     elif url and not text:
         try:
             from job_hunter.sources.jd_fetcher import fetch_jd
@@ -117,16 +117,16 @@ def import_job_artifact(
                 title = title or fetched.get("title", "")
                 company = company or fetched.get("company", "")
                 url = fetched.get("url", url)
-                fetch_status = fetched.get("source", "fetched")
+                job_description_fetch_status = fetched.get("source", "fetched")
             elif (
                 fallback_text
                 and classify_jd_snippet(fallback_text) == JD_STATUS_FULL
                 and not _looks_like_generic_listing(url, fallback_text)
             ):
                 text = fallback_text
-                fetch_status = "fallback_snippet"
+                job_description_fetch_status = "fallback_snippet"
             else:
-                fetch_status = "fetch_failed"
+                job_description_fetch_status = "fetch_failed"
         except Exception:
             if (
                 fallback_text
@@ -134,9 +134,9 @@ def import_job_artifact(
                 and not _looks_like_generic_listing(url, fallback_text)
             ):
                 text = fallback_text
-                fetch_status = "fallback_snippet"
+                job_description_fetch_status = "fallback_snippet"
             else:
-                fetch_status = "fetch_failed"
+                job_description_fetch_status = "fetch_failed"
     role = title or "Imported Role"
     org = company or "Unknown Company"
     slug = f"{date.today().isoformat()}_{slugify(org)}_{slugify(role)}"
@@ -151,7 +151,7 @@ def import_job_artifact(
         "status": "imported",
         "region": region or "",
         "location": location or "",
-        "fetch_status": fetch_status,
+        "job_description_fetch_status": job_description_fetch_status,
     }
     (folder / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     (folder / "jd.md").write_text(

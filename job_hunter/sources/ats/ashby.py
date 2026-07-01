@@ -83,7 +83,7 @@ def fetch_ashby_jobs(
                 "title": title,
                 "company": company_name,
                 "url": f"https://jobs.ashbyhq.com/{slug}/{job_id}",
-                "posted": "",
+                "posted_date_text": "",
                 "location": location,
                 "snippet": _build_snippet(location, description),
                 "source": "Ashby API",

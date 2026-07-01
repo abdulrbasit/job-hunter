@@ -171,11 +171,11 @@ class CareerjetSource(JobSourceAdapter):
                             title=job_title,
                             company=str(item.get("company") or ""),
                             url=str(item.get("url") or ""),
-                            posted=str(item.get("date") or "")[:10],
+                            posted_date_text=str(item.get("date") or "")[:10],
                             location=str(item.get("locations") or location or country),
                             snippet=strip_html(str(item.get("description") or ""))[:3000],
                             source="Careerjet",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

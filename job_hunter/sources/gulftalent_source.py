@@ -92,11 +92,11 @@ def _parse_cards(
                 "title": job_title,
                 "company": company,
                 "url": href,
-                "posted": posted,
+                "posted_date_text": posted,
                 "location": job_location,
                 "snippet": snippet[:3000],
                 "source": "GulfTalent",
-                "query": f"{title_query} @ {region_name}",
+                "search_query": f"{title_query} @ {region_name}",
                 "region": region_name,
             }
         )
@@ -162,11 +162,11 @@ class GulfTalentSource(JobSourceAdapter):
                         title=j["title"],
                         company=j["company"],
                         url=j["url"],
-                        posted=j["posted"],
+                        posted_date_text=j["posted_date_text"],
                         location=j["location"],
                         snippet=j["snippet"],
                         source=j["source"],
-                        query=j["query"],
+                        search_query=j["search_query"],
                         region=j["region"],
                     )
                 )

@@ -414,7 +414,7 @@ def test_candidate_lifecycle_marks_terminal_and_refreshes_queue(tmp_path: Path) 
 def test_candidate_lifecycle_fetch_failed_requests_webfetch(tmp_path: Path) -> None:
     job_dir = tmp_path / "outputs" / "jobs" / "job-slug"
     job_dir.mkdir(parents=True)
-    (job_dir / "meta.json").write_text(json.dumps({"fetch_status": "fetch_failed"}), encoding="utf-8")
+    (job_dir / "meta.json").write_text(json.dumps({"job_description_fetch_status": "fetch_failed"}), encoding="utf-8")
     (job_dir / "jd.md").write_text("Paste the job description here.", encoding="utf-8")
     _write_yaml(job_dir / "score.yml", {"status": "pending"})
 
@@ -429,7 +429,7 @@ def test_candidate_lifecycle_fetch_failed_accepts_full_fallback_text(
 ) -> None:
     job_dir = tmp_path / "outputs" / "jobs" / "job-slug"
     job_dir.mkdir(parents=True)
-    (job_dir / "meta.json").write_text(json.dumps({"fetch_status": "fetch_failed"}), encoding="utf-8")
+    (job_dir / "meta.json").write_text(json.dumps({"job_description_fetch_status": "fetch_failed"}), encoding="utf-8")
     (job_dir / "jd.md").write_text("Paste the job description here.", encoding="utf-8")
     _write_yaml(job_dir / "score.yml", {"status": "pending"})
 
@@ -448,7 +448,7 @@ def test_candidate_lifecycle_fetch_failed_accepts_full_fallback_text(
 def test_candidate_lifecycle_rejects_non_full_fallback_text(tmp_path: Path) -> None:
     job_dir = tmp_path / "outputs" / "jobs" / "job-slug"
     job_dir.mkdir(parents=True)
-    (job_dir / "meta.json").write_text(json.dumps({"fetch_status": "fetch_failed"}), encoding="utf-8")
+    (job_dir / "meta.json").write_text(json.dumps({"job_description_fetch_status": "fetch_failed"}), encoding="utf-8")
     (job_dir / "jd.md").write_text("Paste the job description here.", encoding="utf-8")
     _write_yaml(job_dir / "score.yml", {"status": "pending"})
 

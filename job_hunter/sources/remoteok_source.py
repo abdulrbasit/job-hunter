@@ -76,11 +76,11 @@ class RemoteOKSource(JobSourceAdapter):
                     title=job_title,
                     company=str(item.get("company") or ""),
                     url=str(item.get("url") or ""),
-                    posted=str(item.get("date") or "")[:10],
+                    posted_date_text=str(item.get("date") or "")[:10],
                     location=job_location,
                     snippet=snippet[:3000],
                     source="RemoteOK",
-                    query=job_title,
+                    search_query=job_title,
                     region=params.region_key,
                     location_restrictions=[job_location]
                     if job_location and job_location.lower() not in ("remote", "")

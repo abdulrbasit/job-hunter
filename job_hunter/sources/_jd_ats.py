@@ -93,7 +93,7 @@ def _greenhouse_job_from_data(
         "company": company_name,
         "url": job_url,
         "snippet": snippet,
-        "posted": (data.get("updated_at") or "")[:10],
+        "posted_date_text": (data.get("updated_at") or "")[:10],
         "location": location,
         "source": "greenhouse_api",
     }
@@ -241,7 +241,7 @@ def _ashby_job_from_data(
         "company": company_name,
         "url": posting.get("jobUrl") or url,
         "snippet": snippet,
-        "posted": (posting.get("publishedAt") or "")[:10],
+        "posted_date_text": (posting.get("publishedAt") or "")[:10],
         "location": location,
         "source": "ashby_api",
     }
@@ -321,7 +321,7 @@ def _fetch_lever_api(
         "company": company_name,
         "url": data.get("hostedUrl") or url,
         "snippet": snippet,
-        "posted": posted,
+        "posted_date_text": posted,
         "location": location,
         "source": "lever_api",
     }
@@ -370,7 +370,7 @@ def _fetch_smartrecruiters_api(
         "company": company_name,
         "url": url,
         "snippet": snippet,
-        "posted": data.get("releasedDate", ""),
+        "posted_date_text": data.get("releasedDate", ""),
         "location": location,
         "source": "smartrecruiters_api",
     }
@@ -414,7 +414,7 @@ def _fetch_workable_api(
         "company": company_name,
         "url": url,
         "snippet": snippet,
-        "posted": data.get("published_on", ""),
+        "posted_date_text": data.get("published_on", ""),
         "location": location,
         "source": "workable_api",
     }

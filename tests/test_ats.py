@@ -133,7 +133,7 @@ def test_greenhouse_returns_correct_fields() -> None:
     assert job["source"] == "Greenhouse API"
     assert job["company"] == "Delivery Hero"
     assert job["url"] == "https://boards.greenhouse.io/deliveryhero/jobs/12345"
-    assert job["posted"] == "2026-04-01"
+    assert job["posted_date_text"] == "2026-04-01"
     assert "Berlin" in job["snippet"]
 
 
@@ -422,7 +422,7 @@ def test_ashby_returns_correct_fields() -> None:
     assert job["source"] == "Ashby API"
     assert job["url"] == "https://jobs.ashbyhq.com/testco/uuid-1"
     assert job["company"] == "TestCo"
-    assert job["posted"] == ""  # no date field in Ashby GraphQL API
+    assert job["posted_date_text"] == ""  # no date field in Ashby GraphQL API
 
 
 def test_ashby_strips_html_from_description() -> None:

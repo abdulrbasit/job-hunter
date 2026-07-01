@@ -119,11 +119,11 @@ class JobBankSource(JobSourceAdapter):
                         title=job_title,
                         company=company,
                         url=href,
-                        posted=posted,
+                        posted_date_text=posted,
                         location=job_location,
                         snippet="",
                         source="JobBank Canada",
-                        query=f"{title} @ {params.region_key}",
+                        search_query=f"{title} @ {params.region_key}",
                         region=params.region_key,
                     )
                 )

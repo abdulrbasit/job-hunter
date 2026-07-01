@@ -71,7 +71,7 @@ def fetch_smartrecruiters_jobs(
                 "title": title,
                 "company": company_name,
                 "url": f"https://jobs.smartrecruiters.com/{slug}/{posting_id}",
-                "posted": posting.get("releasedDate", ""),
+                "posted_date_text": posting.get("releasedDate", ""),
                 "location": location_str,
                 "snippet": snippet,
                 "employment_type": (posting.get("typeOfEmployment") or {}).get("label", ""),

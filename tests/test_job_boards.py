@@ -155,8 +155,8 @@ class TestArbeitnowSource:
             ),
         ):
             postings = ArbeitnowSource().fetch(mk_params(["Product Manager"], _REGIONS))
-        assert postings[0].posted != ""
-        assert len(postings[0].posted) == 10
+        assert postings[0].posted_date_text != ""
+        assert len(postings[0].posted_date_text) == 10
 
     def test_fetch_parses_iso_date(self) -> None:
         job = {**ARBEITNOW_JOB, "created_at": "2026-04-15T10:00:00Z"}
@@ -171,7 +171,7 @@ class TestArbeitnowSource:
             ),
         ):
             postings = ArbeitnowSource().fetch(mk_params(["Product Manager"], _REGIONS))
-        assert postings[0].posted == "2026-04-15"
+        assert postings[0].posted_date_text == "2026-04-15"
 
     def test_fetch_uses_code_owned_single_page_cap(self) -> None:
         with (
@@ -272,7 +272,7 @@ class TestJSearchSource:
         posting = postings[0]
         assert posting.company == "TestCo"
         assert posting.url == "https://linkedin.com/jobs/view/12345"
-        assert posting.posted == "2026-04-01"
+        assert posting.posted_date_text == "2026-04-01"
         assert "Berlin" in posting.snippet
 
     def test_fetch_includes_location_in_query(self) -> None:

@@ -17,7 +17,7 @@ def _posting(**overrides) -> JobPosting:
         "title": "Product Manager",
         "company": "Acme",
         "url": "https://example.com/jobs/pm",
-        "posted": datetime.now(UTC).date().isoformat(),
+        "posted_date_text": datetime.now(UTC).date().isoformat(),
         "location": "Berlin",
         "snippet": "Own product discovery and delivery.",
         "source": "Test",
@@ -84,17 +84,20 @@ def test_policy_rejects_invalid_future_and_stale_dates() -> None:
     policy = JobPolicy({"exclusions": {}})
     today = datetime.now(UTC)
 
-    assert policy.rejection_reason(_posting(posted="not-a-date").model_dump(), ["Product Manager"]) == "invalid_date"
+    assert (
+        policy.rejection_reason(_posting(posted_date_text="not-a-date").model_dump(), ["Product Manager"])
+        == "invalid_date"
+    )
     assert (
         policy.rejection_reason(
-            _posting(posted=(today + timedelta(days=3)).date().isoformat()).model_dump(),
+            _posting(posted_date_text=(today + timedelta(days=3)).date().isoformat()).model_dump(),
             ["Product Manager"],
         )
         == "future_date"
     )
     assert (
         policy.rejection_reason(
-            _posting(posted=(today - timedelta(days=46)).date().isoformat()).model_dump(),
+            _posting(posted_date_text=(today - timedelta(days=46)).date().isoformat()).model_dump(),
             ["Product Manager"],
         )
         == "stale_date"

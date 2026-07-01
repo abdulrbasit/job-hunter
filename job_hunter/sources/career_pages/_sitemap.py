@@ -91,7 +91,7 @@ def discover_via_sitemap(
                 "company": company_name,
                 "url": url,
                 "location": "",
-                "posted": "",
+                "posted_date_text": "",
                 "snippet": "",
                 "source": "career_page:sitemap",
                 "extraction_method": "sitemap",

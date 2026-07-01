@@ -157,11 +157,11 @@ class JobStreetSource(JobSourceAdapter):
                             title=job_title,
                             company=company,
                             url=job_url,
-                            posted=posted,
+                            posted_date_text=posted,
                             location=params.location or iso,
                             snippet=snippet[:3000],
                             source="JobStreet",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

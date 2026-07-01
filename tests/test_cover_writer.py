@@ -22,7 +22,7 @@ MATCH = {
         "company": "TestCo",
         "url": "https://testco.com/job",
         "snippet": "PM role at TestCo.",
-        "posted": "2026-04-01",
+        "posted_date_text": "2026-04-01",
     },
     "score": 85,
 }

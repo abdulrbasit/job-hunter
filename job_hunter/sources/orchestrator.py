@@ -129,7 +129,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             results.append(
                 jp.model_copy(
                     update={
-                        "date_status": policy.posting_date_status(jp.posted),
+                        "posting_date_status": policy.posting_date_status(jp.posted_date_text),
                         "employment_type": normalize_employment_type(jp.employment_type),
                         "country_code": derive_country_code(jp.location),
                     }

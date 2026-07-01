@@ -112,7 +112,7 @@ def application_from_job(
         "status": normalize_status(status),
         "score": score.get("score"),
         "decision": score.get("decision") or score.get("status") or "",
-        "fetch_status": meta.get("fetch_status") or "",
+        "job_description_fetch_status": meta.get("job_description_fetch_status") or "",
         "jd_text": jd_text,
         "resume_pdf_path": _first_existing(job_dir, ("resume_tailored.pdf",)),
         "resume_tex_path": _first_existing(job_dir, ("resume_tailored.tex",)),

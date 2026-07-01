@@ -54,7 +54,7 @@ def fetch_teamtailor_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": "",
+                "posted_date_text": "",
                 "location": location,
                 "snippet": "",
                 "source": "Teamtailor",

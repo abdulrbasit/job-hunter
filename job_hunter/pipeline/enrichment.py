@@ -102,9 +102,13 @@ def enrich_snippets(
         original_snippet = job.get("snippet", "")
         try:
             full = fetcher(job["url"], use_llm=False)
-            if full and full.get("fetch_status") == "position_closed":
+            if full and full.get("job_description_fetch_status") == "position_closed":
                 logger.info("    -> posting inactive (position closed)")
-                return job["url"], {**job, "fetch_status": "position_closed", "jd_status": JD_STATUS_FETCH_FAILED}
+                return job["url"], {
+                    **job,
+                    "job_description_fetch_status": "position_closed",
+                    "jd_status": JD_STATUS_FETCH_FAILED,
+                }
             if full and full.get("snippet"):
                 new_snippet = full["snippet"]
                 logger.info("    -> %s chars", len(new_snippet))
@@ -131,7 +135,7 @@ def enrich_snippets(
                 enriched[url] = enriched_job
 
     result = [enriched.get(job["url"], job) for job in jobs]
-    closed = sum(1 for j in result if j.get("fetch_status") == "position_closed")
+    closed = sum(1 for j in result if j.get("job_description_fetch_status") == "position_closed")
     if closed:
         logger.info("[pipeline] %s job(s) marked position_closed during enrichment", closed)
     return result

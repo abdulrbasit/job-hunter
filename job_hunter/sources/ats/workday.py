@@ -53,7 +53,7 @@ def fetch_workday_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": posting.get("postedOn", ""),
+                "posted_date_text": posting.get("postedOn", ""),
                 "location": location,
                 "snippet": location,
                 "source": "Workday CXS",

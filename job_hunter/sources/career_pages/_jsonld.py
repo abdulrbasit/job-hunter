@@ -106,7 +106,7 @@ def extract_jsonld_jobs(
                     "company": employer,
                     "url": job_url,
                     "location": str(location).strip(),
-                    "posted": str(item.get("datePosted") or "").strip(),
+                    "posted_date_text": str(item.get("datePosted") or "").strip(),
                     "snippet": snippet,
                     "source": "career_page:jsonld",
                     "extraction_method": "jsonld",

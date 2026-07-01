@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 @dataclass(frozen=True)
@@ -39,25 +39,21 @@ class JobPosting(BaseModel):
     country_code: str = ""
     snippet: str = ""
     source: str = ""
-    posted: str = ""
+    posted_date_text: str = ""
     region: str = ""
-    query: str = ""
+    search_query: str = ""
     extraction_method: str = ""
     source_url: str = ""
     ats_platform: str = ""
-    full_jd: str = ""
+    full_job_description: str = ""
     enrichment_source: str = ""
-    date_status: str = ""
+    posting_date_status: str = ""
     location_restrictions: list[str] = Field(default_factory=list)
     timezone_restrictions: list[float] = Field(default_factory=list)
     employment_type: str = ""
     seniority: list[str] = Field(default_factory=list)
-    fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
-    llm_open_check: str = ""  # advisory: "open"|"closed"|"unknown" — set for date_status="missing" jobs
-    # Set by score stage
-    score: int | None = None
-    matched_keywords: list[str] = Field(default_factory=list)
-    gaps: list[str] = Field(default_factory=list)
+    job_description_fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
+    llm_posting_status_check: str = ""  # advisory: "open"|"closed"|"unknown" — set for posting_date_status="missing"
 
 
 class Company(BaseModel):
@@ -122,60 +118,8 @@ class HuntOutput(BaseModel):
     jobs: list[JobPosting] = Field(default_factory=list)
     stats: ScrapeStats = Field(default_factory=ScrapeStats)
     run_id: str = ""
-    snapshot_path: Path | None = None  # legacy: kept for llm-api --from-snapshot compat
+    snapshot_path: Path | None = None  # active: consumed by llm-api --from-snapshot
     mode: Literal["agent", "llm-api"] = "agent"
-
-
-class SnapshotPayload(BaseModel):
-    """Serialised state written by --scrape-only, loaded by --from-snapshot."""
-
-    jobs: list[JobPosting]
-    region_key: str
-    stats: ScrapeStats
-    created_at: str  # ISO 8601
-
-
-class JobScore(BaseModel):
-    """Lightweight score summary for a job (used outside the full pipeline)."""
-
-    score: int = Field(ge=0, le=100)
-    matched_keywords: list[str] = Field(default_factory=list)
-    gaps: list[str] = Field(default_factory=list)
-    years_exp_required: int | None = None
-
-
-class ScoreResult(BaseModel):
-    """Output from the LLM scoring stage."""
-
-    job_url: str
-    fit_score: int = Field(ge=0, le=100)
-    matched_keywords: list[str] = Field(default_factory=list)
-    gaps: list[str] = Field(default_factory=list)
-    years_exp_required: int | None = None
-    recommendation: str = ""
-
-    @field_validator("fit_score")
-    @classmethod
-    def clamp(cls, v: int) -> int:
-        return max(0, min(100, v))
-
-
-class TailorResult(BaseModel):
-    """Output from the LLM tailoring stage."""
-
-    job_url: str
-    summary: str = ""
-    bullets: dict[str, list[str]] = Field(default_factory=dict)
-    projects: list[str] = Field(default_factory=list)
-    skills_reorder: list[str] = Field(default_factory=list)
-
-
-class CoverResult(BaseModel):
-    """Output from the LLM cover letter stage."""
-
-    job_url: str
-    paragraphs: list[str]
-    word_count: int
 
 
 # ---------------------------------------------------------------------------
@@ -201,37 +145,3 @@ class LLMResponse(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     cached_tokens: int = 0
-
-
-# ---------------------------------------------------------------------------
-# Agent context
-# ---------------------------------------------------------------------------
-
-
-class AgentBatchContext(BaseModel):
-    """Output from agent_context/batch.py — frozen 15-job slice for /job-hunter batch."""
-
-    jobs: list[JobPosting]
-    batch_id: str
-    queued_count: int
-    already_applied_titles: list[str] = Field(default_factory=list)
-
-
-class ScoreContext(BaseModel):
-    """Output from agent_context/score_context.py — input for /score skill."""
-
-    job: JobPosting
-    profile_summary: str
-    story_index: list[StoryBlock]
-    mode: Literal["snippet", "full"] = "snippet"
-
-
-class BriefingContext(BaseModel):
-    """Output from agent_context/briefing.py — input for /brief skill."""
-
-    candidate_count: int
-    by_source: dict[str, int]
-    active_application_count: int
-    latest_commit: str
-    linkedin_posts_this_week: int
-    linkedin_weekly_limit: int

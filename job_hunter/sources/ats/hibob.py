@@ -73,7 +73,7 @@ def fetch_hibob_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": "",
+                "posted_date_text": "",
                 "location": location,
                 # snippet intentionally empty - enriched by orchestrator._enrich_snippets
                 "snippet": "",

@@ -143,11 +143,11 @@ def _row_to_job(row: Any, region_name: str) -> dict | None:
         "title": title,
         "company": _str(row.get("company")),
         "url": url,
-        "posted": _str(row.get("date_posted")),
+        "posted_date_text": _str(row.get("date_posted")),
         "location": _str(row.get("location")),
         "snippet": _str(row.get("description"))[:3000],
         "source": f"JobSpy/{site.title()}" if site else "JobSpy",
-        "query": f"{title} @ {region_name}",
+        "search_query": f"{title} @ {region_name}",
     }
 
 
@@ -263,11 +263,11 @@ class JobSpySource(JobSourceAdapter):
                                 title=job_dict["title"],
                                 company=job_dict["company"],
                                 url=job_dict["url"],
-                                posted=job_dict["posted"],
+                                posted_date_text=job_dict["posted_date_text"],
                                 location=job_dict["location"],
                                 snippet=job_dict["snippet"],
                                 source=job_dict["source"],
-                                query=job_dict["query"],
+                                search_query=job_dict["search_query"],
                                 region=params.region_key,
                             )
                         )

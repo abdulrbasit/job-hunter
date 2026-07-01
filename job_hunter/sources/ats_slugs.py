@@ -113,8 +113,8 @@ def query_ats_by_slugs(
                         "snippet": j.get("snippet", ""),
                         "source": f"ats_slug/{platform}",
                         "region": region_key,
-                        "posted": "",
-                        "query": f"{title} @ {region_key}",
+                        "posted_date_text": "",
+                        "search_query": f"{title} @ {region_key}",
                     }
                 )
 

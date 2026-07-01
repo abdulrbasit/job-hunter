@@ -267,7 +267,7 @@ def test_import_raw_job_uses_fallback_without_fetching() -> None:
     try:
         fetch.assert_not_called()
         meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))
-        assert meta["fetch_status"] == "fallback_snippet"
+        assert meta["job_description_fetch_status"] == "fallback_snippet"
         assert fallback.strip() in (folder / "jd.md").read_text(encoding="utf-8")
     finally:
         if folder.exists():

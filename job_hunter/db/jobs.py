@@ -31,12 +31,12 @@ CREATE TABLE IF NOT EXISTS jobs (
     country_code        TEXT,
     snippet             TEXT,
     source              TEXT,
-    posted              TEXT,
-    date_status         TEXT,
+    posted_date_text    TEXT,
+    posting_date_status TEXT,
     region              TEXT,
-    query               TEXT,
+    search_query        TEXT,
     employment_type     TEXT,
-    fetch_status        TEXT,
+    job_description_fetch_status TEXT,
     location_restrictions TEXT,
     ats_platform        TEXT,
     enrichment_source   TEXT,
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     evaluation_text     TEXT,
     resume_pdf_path     TEXT,
     resume_tex_path     TEXT,
+    llm_posting_status_check TEXT DEFAULT '',
 
     notes               TEXT DEFAULT '[]',
 
@@ -85,16 +86,7 @@ def _conn(root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(root))
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
-    _migrate(conn)
     return conn
-
-
-def _migrate(conn: sqlite3.Connection) -> None:
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
-    new_cols = [("llm_open_check", "TEXT DEFAULT ''")]
-    for col_name, col_def in new_cols:
-        if col_name not in existing:
-            conn.execute(f"ALTER TABLE jobs ADD COLUMN {col_name} {col_def}")  # noqa: S608
 
 
 def _now() -> str:
@@ -177,12 +169,12 @@ def get_candidate_urls(root: Path) -> set[str]:
 def get_candidate_urls_with_metadata(root: Path) -> dict[str, dict[str, Any]]:
     """All URLs → metadata dict (replaces load_cached_candidate_urls_with_metadata)."""
     with _conn(root) as conn:
-        rows = conn.execute("SELECT url, canonical_url, title, company, posted, snippet FROM jobs").fetchall()
+        rows = conn.execute("SELECT url, canonical_url, title, company, posted_date_text, snippet FROM jobs").fetchall()
     result: dict[str, dict[str, Any]] = {}
     for row in rows:
         key = row["canonical_url"] or row["url"]
         if key:
-            result[key] = {k: row[k] for k in ("title", "company", "posted", "snippet") if row[k]}
+            result[key] = {k: row[k] for k in ("title", "company", "posted_date_text", "snippet") if row[k]}
     return result
 
 
@@ -211,11 +203,11 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                 """INSERT INTO jobs (
                     url, canonical_url, status, run_id,
                     title, company, location, country_code, snippet, source,
-                    posted, date_status, region, query,
-                    employment_type, fetch_status,
+                    posted_date_text, posting_date_status, region, search_query,
+                    employment_type, job_description_fetch_status,
                     location_restrictions, ats_platform, enrichment_source,
                     score, matched_keywords, gaps,
-                    jd_text, llm_open_check,
+                    jd_text, llm_posting_status_check,
                     discovered_at, created_at, updated_at
                 ) VALUES (
                     ?, ?, 'discovered', ?,
@@ -232,7 +224,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
                     country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
                     snippet         = COALESCE(excluded.snippet, jobs.snippet),
-                    fetch_status    = COALESCE(excluded.fetch_status, jobs.fetch_status),
+                    job_description_fetch_status    = COALESCE(excluded.job_description_fetch_status, jobs.job_description_fetch_status),
                     jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
                     updated_at      = excluded.updated_at""",
                 (
@@ -245,12 +237,12 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     str(job.get("country_code") or ""),
                     str(job.get("snippet") or ""),
                     str(job.get("source") or ""),
-                    str(job.get("posted") or ""),
-                    str(job.get("date_status") or ""),
+                    str(job.get("posted_date_text") or ""),
+                    str(job.get("posting_date_status") or ""),
                     str(job.get("region") or ""),
-                    str(job.get("query") or ""),
+                    str(job.get("search_query") or ""),
                     str(job.get("employment_type") or ""),
-                    str(job.get("fetch_status") or ""),
+                    str(job.get("job_description_fetch_status") or ""),
                     json.dumps(loc_r) if loc_r is not None else None,
                     str(job.get("ats_platform") or ""),
                     str(job.get("enrichment_source") or ""),
@@ -258,7 +250,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     json.dumps(mk) if mk is not None else None,
                     json.dumps(gaps) if gaps is not None else None,
                     str(job.get("snippet") or ""),  # jd_text seeded from snippet
-                    str(job.get("llm_open_check") or ""),
+                    str(job.get("llm_posting_status_check") or ""),
                     now,
                     now,
                     now,
@@ -343,7 +335,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     region          = COALESCE(NULLIF(?, ''), region),
                     score           = COALESCE(?, score),
                     decision        = COALESCE(NULLIF(?, ''), decision),
-                    fetch_status    = COALESCE(NULLIF(?, ''), fetch_status),
+                    job_description_fetch_status    = COALESCE(NULLIF(?, ''), job_description_fetch_status),
                     jd_text         = COALESCE(NULLIF(?, ''), jd_text),
                     resume_pdf_path = COALESCE(NULLIF(?, ''), resume_pdf_path),
                     resume_tex_path = COALESCE(NULLIF(?, ''), resume_tex_path),
@@ -360,7 +352,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     str(entry.get("region") or ""),
                     entry.get("score"),
                     str(entry.get("decision") or ""),
-                    str(entry.get("fetch_status") or ""),
+                    str(entry.get("job_description_fetch_status") or ""),
                     str(entry.get("jd_text") or ""),
                     str(entry.get("resume_pdf_path") or ""),
                     str(entry.get("resume_tex_path") or ""),
@@ -379,7 +371,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
             """INSERT OR IGNORE INTO jobs (
                 url, canonical_url, slug, status,
                 title, company, location, region,
-                score, decision, fetch_status, jd_text,
+                score, decision, job_description_fetch_status, jd_text,
                 resume_pdf_path, resume_tex_path,
                 notes, discovered_at, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -394,7 +386,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                 str(entry.get("region") or ""),
                 entry.get("score"),
                 str(entry.get("decision") or ""),
-                str(entry.get("fetch_status") or ""),
+                str(entry.get("job_description_fetch_status") or ""),
                 str(entry.get("jd_text") or ""),
                 str(entry.get("resume_pdf_path") or ""),
                 str(entry.get("resume_tex_path") or ""),
@@ -510,7 +502,7 @@ def sync_from_job_folders(root: Path) -> int:
             "company": meta.get("company") or "",
             "location": meta.get("location") or "",
             "region": meta.get("region") or "",
-            "fetch_status": meta.get("fetch_status") or "",
+            "job_description_fetch_status": meta.get("job_description_fetch_status") or "",
             "status": existing["status"] if existing else "tailored",
         }
         # Read jd.md if present
@@ -529,11 +521,11 @@ def sync_from_job_folders(root: Path) -> int:
     return synced
 
 
-def set_llm_open_check(root: Path, url: str, result: str) -> None:
+def set_llm_posting_status_check(root: Path, url: str, result: str) -> None:
     """Store advisory open-check result ('open'|'closed'|'unknown') for a job URL."""
     now = _now()
     with _conn(root) as conn:
         conn.execute(
-            "UPDATE jobs SET llm_open_check = ?, updated_at = ? WHERE url = ? OR canonical_url = ?",
+            "UPDATE jobs SET llm_posting_status_check = ?, updated_at = ? WHERE url = ? OR canonical_url = ?",
             (result, now, url, url),
         )

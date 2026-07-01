@@ -70,7 +70,7 @@ def fetch_bamboohr_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": posted,
+                "posted_date_text": posted,
                 "location": location,
                 "snippet": " — ".join(snippet_parts[:2]) + (f"\n{description[:_SNIPPET_CHARS]}" if description else ""),
                 "source": "BambooHR",

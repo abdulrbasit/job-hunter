@@ -106,11 +106,11 @@ class HHSource(JobSourceAdapter):
                             title=job_title,
                             company=str((item.get("employer") or {}).get("name") or ""),
                             url=str(item.get("alternate_url") or ""),
-                            posted=str(item.get("published_at") or "")[:10],
+                            posted_date_text=str(item.get("published_at") or "")[:10],
                             location=str((item.get("area") or {}).get("name") or params.location),
                             snippet=snippet[:3000],
                             source="hh.ru",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

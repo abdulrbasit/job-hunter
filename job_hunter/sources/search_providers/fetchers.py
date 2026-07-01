@@ -65,7 +65,7 @@ def extract_jobs_from_html(
                 "title": text or next((t for t in title_filters if t.lower() in haystack.lower()), "Job"),
                 "company": company_name,
                 "url": url,
-                "posted": "",
+                "posted_date_text": "",
                 "snippet": context or text,
                 "source": source,
             }
@@ -130,7 +130,7 @@ def _jobs_from_markdown_links(
                 "title": text,
                 "company": company_name,
                 "url": url,
-                "posted": "",
+                "posted_date_text": "",
                 "snippet": text,
                 "source": source,
             }

@@ -111,11 +111,11 @@ class JoobleSource(JobSourceAdapter):
                             title=job_title,
                             company=str(item.get("company") or ""),
                             url=str(item.get("link") or ""),
-                            posted=str(item.get("updated") or "")[:10],
+                            posted_date_text=str(item.get("updated") or "")[:10],
                             location=str(item.get("location") or ""),
                             snippet=str(item.get("snippet") or "")[:3000],
                             source="Jooble",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

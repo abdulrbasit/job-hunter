@@ -234,7 +234,7 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
 
     if _is_posting_inactive(plain_text):
         logger.info("[jd_fetcher] Posting appears closed/inactive: %s", url)
-        return {"url": url, "snippet": "", "fetch_status": "position_closed"}
+        return {"url": url, "snippet": "", "job_description_fetch_status": "position_closed"}
 
     # Final listing-page guard for Greenhouse URLs that slipped through API
     if is_greenhouse and _looks_like_greenhouse_listing_text(plain_text):
@@ -260,7 +260,7 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
         "company": company,
         "url": url,
         "snippet": description,
-        "posted": "",
+        "posted_date_text": "",
         "source": "direct_link",
     }
 
@@ -292,6 +292,6 @@ def jd_from_text(
         "company": company,
         "url": f"raw://{uid}",
         "snippet": description,
-        "posted": "",
+        "posted_date_text": "",
         "source": "raw_text",
     }

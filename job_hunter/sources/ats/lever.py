@@ -64,7 +64,7 @@ def fetch_lever_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": posted,
+                "posted_date_text": posted,
                 "location": display_location,
                 "snippet": (
                     f"{display_location} - {plain[:_SNIPPET_CHARS]}" if display_location else plain[:_SNIPPET_CHARS]

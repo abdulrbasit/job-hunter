@@ -46,7 +46,7 @@ def fetch_workable_jobs(
                 "title": title,
                 "company": company_name,
                 "url": f"https://apply.workable.com/{slug}/j/{shortcode}",
-                "posted": posting.get("published_on", ""),
+                "posted_date_text": posting.get("published_on", ""),
                 "location": location_str,
                 "snippet": f"{location_str} - {posting.get('department', '')}",
                 "employment_type": posting.get("employment_type", ""),

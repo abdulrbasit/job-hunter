@@ -150,13 +150,13 @@ class ArbeitnowSource(JobSourceAdapter):
                         title=title,
                         company=job.get("company_name", ""),
                         url=job.get("url", ""),
-                        posted=_parse_arbeitnow_date(job.get("created_at")),
+                        posted_date_text=_parse_arbeitnow_date(job.get("created_at")),
                         location=location,
                         snippet=f"{location} — {description[:JOB_BOARD_SNIPPET_CHARS]}"
                         if location
                         else description[:JOB_BOARD_SNIPPET_CHARS],
                         source="Arbeitnow",
-                        query=f"feed @ {params.region_key}",
+                        search_query=f"feed @ {params.region_key}",
                         region=params.region_key,
                     )
                 )
@@ -276,11 +276,11 @@ class JSearchSource(JobSourceAdapter):
                             title=job_title,
                             company=job.get("employer_name", ""),
                             url=job.get("job_apply_link", ""),
-                            posted=(job.get("job_posted_at_datetime_utc") or "")[:10],
+                            posted_date_text=(job.get("job_posted_at_datetime_utc") or "")[:10],
                             location=location_str,
                             snippet=f"{location_str} — {description}" if location_str else description,
                             source="JSearch",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

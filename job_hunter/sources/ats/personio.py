@@ -52,7 +52,7 @@ def fetch_personio_jobs(
                 "url": f"https://{slug}.jobs.personio.de/job/{job_id}"
                 if job_id
                 else f"https://{slug}.jobs.personio.de",
-                "posted": "",
+                "posted_date_text": "",
                 "location": location,
                 "snippet": _build_snippet(location, body),
                 "employment_type": employment_type,

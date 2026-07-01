@@ -89,11 +89,11 @@ class ArbeitsagenturSource(JobSourceAdapter):
                         title=job_title,
                         company=str(item.get("arbeitgeber") or ""),
                         url=_DETAIL_URL.format(ref) if ref else "",
-                        posted=str(item.get("aktuelleVeroeffentlichungsdatum") or "")[:10],
+                        posted_date_text=str(item.get("aktuelleVeroeffentlichungsdatum") or "")[:10],
                         location=job_location,
                         snippet=str(item.get("stellenbeschreibung") or item.get("beruf") or "")[:3000],
                         source="Arbeitsagentur",
-                        query=f"{title} @ {params.region_key}",
+                        search_query=f"{title} @ {params.region_key}",
                         region=params.region_key,
                     )
                 )

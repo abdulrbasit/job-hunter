@@ -116,11 +116,11 @@ class MyCareersFutureSource(JobSourceAdapter):
                             title=job_title,
                             company=company,
                             url=f"{_JOB_BASE_URL}/{uid}" if uid else "",
-                            posted=posted,
+                            posted_date_text=posted,
                             location=location,
                             snippet=snippet,
                             source="MyCareersFuture",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

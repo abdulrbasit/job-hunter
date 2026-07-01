@@ -195,7 +195,7 @@ def _process_ats_result(
         return
     seen.add(canonical)
     enriched = _enrich_ats_discovery_job(result.url)
-    if enriched and enriched.get("fetch_status") == "position_closed":
+    if enriched and enriched.get("job_description_fetch_status") == "position_closed":
         logger.info("  [skip] Position closed: %s", result.url)
         return None
     job_title = enriched.get("title", "") if enriched else result.title
@@ -228,14 +228,14 @@ def _process_ats_result(
             "company": (enriched or {}).get("company") or company_name_from_url(result.url) or "",
             "location": enriched_location or location,
             "url": result.url,
-            "posted": (enriched or {}).get("posted", ""),
+            "posted_date_text": (enriched or {}).get("posted_date_text", ""),
             "snippet": (enriched or {}).get("snippet", result.description),
             "source": (
                 f"{result.source} ATS discovery: {source} API"
                 if enriched
                 else f"{result.source} ATS discovery: {source}"
             ),
-            "query": query,
+            "search_query": query,
         }
     )
 

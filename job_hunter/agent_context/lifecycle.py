@@ -150,9 +150,9 @@ def candidate_lifecycle(
     if job:
         job_context = _read_job_folder(base, job, MAX_JD_CHARS)
         meta = job_context.get("meta", {})
-        fetch_status = str(meta.get("fetch_status") or "")
-        result["job"] = {"slug": job, "fetch_status": fetch_status}
-        if fetch_status == "fetch_failed":
+        job_description_fetch_status = str(meta.get("job_description_fetch_status") or "")
+        result["job"] = {"slug": job, "job_description_fetch_status": job_description_fetch_status}
+        if job_description_fetch_status == "fetch_failed":
             if fallback_text:
                 fallback_status = classify_jd_snippet(fallback_text)
                 result["fallback_text_status"] = fallback_status

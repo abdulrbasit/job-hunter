@@ -53,7 +53,7 @@ def fetch_greenhouse_jobs(
                 "title": title,
                 "company": company_name,
                 "url": url,
-                "posted": posted,
+                "posted_date_text": posted,
                 "location": location,
                 "snippet": _build_snippet(location, content),
                 "source": "Greenhouse API",

@@ -162,11 +162,11 @@ class AdzunaSource(JobSourceAdapter):
                             title=job_title,
                             company=item.get("company", {}).get("display_name", ""),
                             url=item.get("redirect_url", ""),
-                            posted=_parse_date(item.get("created")),
+                            posted_date_text=_parse_date(item.get("created")),
                             location=location_str,
                             snippet=snippet,
                             source="Adzuna",
-                            query=f"{title} @ {params.region_key}",
+                            search_query=f"{title} @ {params.region_key}",
                             region=params.region_key,
                         )
                     )

@@ -21,7 +21,7 @@ and `judgment_signals`.
   too senior, explicit experience exceeds configured limit without strategic override,
   another career-context dealbreaker clearly applies, or the posting shows clear signs
   of being closed/filled (e.g., "position filled", "no longer accepting applications",
-  "requisition closed" in snippet — especially when `date_status=missing`).
+  "requisition closed" in snippet — especially when `posting_date_status=missing`).
 
 Industry terms are signals, never proof. Distinguish employer industry from customers,
 features, compliance responsibilities, and prior experience. Ambiguous evidence passes.

@@ -62,11 +62,11 @@ class WorkingNomadsSource(JobSourceAdapter):
                     title=job_title,
                     company=str(item.get("company_name") or ""),
                     url=str(item.get("url") or ""),
-                    posted=str(item.get("pub_date") or "")[:10],
+                    posted_date_text=str(item.get("pub_date") or "")[:10],
                     location=str(item.get("region") or "Remote"),
                     snippet=strip_html(str(item.get("description") or ""))[:3000],
                     source="WorkingNomads",
-                    query=f"{' | '.join(params.job_titles[:3])} @ {params.region_key}",
+                    search_query=f"{' | '.join(params.job_titles[:3])} @ {params.region_key}",
                     region=params.region_key,
                     location_restrictions=[str(item.get("region") or "")] if item.get("region") else [],
                 )

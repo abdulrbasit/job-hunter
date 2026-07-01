@@ -32,7 +32,7 @@ def _match(company: str = "Acme", title: str = "PM", score: int = 85) -> dict:
             "url": f"https://example.com/{company.lower()}",
             "snippet": f"We need a {title} at {company}.",
             "location": "Berlin",
-            "posted": "2026-06-25",
+            "posted_date_text": "2026-06-25",
         },
     }
 

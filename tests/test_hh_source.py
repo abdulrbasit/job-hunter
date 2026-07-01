@@ -58,7 +58,7 @@ class TestHHSource:
         assert jp.url == "https://hh.ru/vacancy/12345"
         assert jp.company == "Acme Corp"
         assert jp.location == "Moscow"
-        assert jp.posted == "2026-06-30"
+        assert jp.posted_date_text == "2026-06-30"
         assert "3+ years PM experience" in jp.snippet
         assert jp.source == "hh.ru"
 

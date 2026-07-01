@@ -16,9 +16,9 @@ def _sample_posting() -> JobPosting:
         location="Berlin",
         snippet="Work on cool stuff",
         source="Greenhouse API",
-        posted="2024-01-01",
+        posted_date_text="2024-01-01",
         region="de",
-        query="Software Engineer Berlin",
+        search_query="Software Engineer Berlin",
         extraction_method="ats_api",
         source_url="https://acme.com",
     )
@@ -41,7 +41,7 @@ def test_extra_keys_dropped() -> None:
     assert result == jp
 
 
-def test_hunt_output_snapshot_path_is_optional_legacy_field() -> None:
+def test_hunt_output_snapshot_path_is_optional() -> None:
     from pathlib import Path
 
     from job_hunter.models import HuntOutput
@@ -51,6 +51,114 @@ def test_hunt_output_snapshot_path_is_optional_legacy_field() -> None:
 
     with_path = HuntOutput(snapshot_path=Path("outputs/state/hunt_scrape_2026-01-01.json"))
     assert with_path.snapshot_path == Path("outputs/state/hunt_scrape_2026-01-01.json")
+
+
+def test_job_posting_field_names_are_the_phase_6_renamed_names() -> None:
+    """Regression guard for the Phase 6 field renames — locks in the new names and
+    confirms the old, pre-rename names are gone (no dead compat aliases kept)."""
+    from job_hunter.models import JobPosting
+
+    fields = JobPosting.model_fields
+    renamed = {
+        "full_job_description",
+        "posting_date_status",
+        "job_description_fetch_status",
+        "llm_posting_status_check",
+        "search_query",
+        "posted_date_text",
+    }
+    assert renamed <= fields.keys()
+
+    old_names = {"full_jd", "date_status", "fetch_status", "llm_open_check", "query", "posted"}
+    assert not (old_names & fields.keys())
+
+
+def test_job_posting_defaults() -> None:
+    from job_hunter.models import JobPosting
+
+    jp = JobPosting(title="PM", company="Acme", url="https://acme.com/jobs/1")
+
+    assert jp.location == ""
+    assert jp.posted_date_text == ""
+    assert jp.search_query == ""
+    assert jp.full_job_description == ""
+    assert jp.posting_date_status == ""
+    assert jp.job_description_fetch_status == ""
+    assert jp.llm_posting_status_check == ""
+    assert jp.location_restrictions == []
+    assert jp.seniority == []
+
+
+def test_job_posting_fetch_status_rejects_invalid_literal() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from job_hunter.models import JobPosting
+
+    with pytest.raises(ValidationError):
+        JobPosting(title="PM", company="Acme", url="https://acme.com/jobs/1", job_description_fetch_status="bogus")
+
+
+def test_dead_scoring_and_context_models_were_removed() -> None:
+    """Phase 6: ScoreResult, JobScore, TailorResult, CoverResult, AgentBatchContext, ScoreContext,
+    and BriefingContext had zero production usage (only defined, never constructed) and were removed
+    rather than kept as speculative/aspirational models."""
+    import job_hunter.models as models
+
+    for name in (
+        "ScoreResult",
+        "JobScore",
+        "TailorResult",
+        "CoverResult",
+        "AgentBatchContext",
+        "ScoreContext",
+        "BriefingContext",
+        "SnapshotPayload",
+    ):
+        assert not hasattr(models, name), f"{name} should have been removed as dead code"
+
+
+def test_search_params_defaults() -> None:
+    from job_hunter.models import SearchParams
+
+    params = SearchParams(region_key="primary", country="DE", location="Berlin", search_lang="en", job_titles=["PM"])
+
+    assert params.max_results == 50
+    assert params.excluded_title_terms == []
+
+
+def test_scrape_stats_defaults() -> None:
+    from job_hunter.models import ScrapeStats
+
+    stats = ScrapeStats()
+
+    assert stats.total_fetched == 0
+    assert stats.by_source == {}
+    assert stats.duration_seconds == 0.0
+
+
+def test_hunt_input_requires_valid_mode() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from job_hunter.models import HuntInput
+
+    with pytest.raises(ValidationError):
+        HuntInput(region_key="primary", mode="not-a-real-mode")
+
+    valid = HuntInput(region_key="primary", mode="agent")
+    assert valid.depth == "standard"
+    assert valid.scrape_only is False
+
+
+def test_llm_response_defaults() -> None:
+    from job_hunter.models import LLMResponse
+
+    resp = LLMResponse(content="hi", provider="anthropic", model="claude")
+
+    assert resp.input_tokens == 0
+    assert resp.output_tokens == 0
+    assert resp.cached_tokens == 0
 
 
 def test_models_module_has_no_dependency_on_config_cli_ux_or_sources() -> None:

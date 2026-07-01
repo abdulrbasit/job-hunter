@@ -17,7 +17,7 @@ def write_match_artifacts(match: dict[str, Any], job_dir: Path, *, today: str) -
         "company": job["company"],
         "url": job["url"],
         "location": job.get("location", ""),
-        "posted": job.get("posted", ""),
+        "posted_date_text": job.get("posted_date_text", ""),
         "score": match["score"],
         "matched_keywords": match.get("matched", match.get("matched_keywords", [])),
         "gaps": match.get("gaps", []),

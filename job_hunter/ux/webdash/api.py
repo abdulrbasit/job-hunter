@@ -29,7 +29,7 @@ class DashAPI:
                     "location": record.get("location"),
                     "url": record.get("url"),
                     "region": record.get("region"),
-                    "fetch_status": record.get("fetch_status"),
+                    "job_description_fetch_status": record.get("job_description_fetch_status"),
                 },
                 "score": {
                     "score": record.get("score"),
