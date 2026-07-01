@@ -48,6 +48,8 @@ def test_workspace_onboarding_is_input_driven_and_documents_prerequisites() -> N
     onboard_agent = files[".claude/skills/setup/modes/onboard_agent.md"].decode("utf-8")
     onboard_llm = files[".claude/skills/setup/modes/onboard_llm_api.md"].decode("utf-8")
     setup = files["SETUP.md"].decode("utf-8")
+    setup_agent = files["SETUP_AGENT.md"].decode("utf-8")
+    setup_llm_api = files["SETUP_LLM_API.md"].decode("utf-8")
     tasks = json.loads(files[".vscode/tasks.json"])
 
     # onboard.md is a thin router — asks which mode (A = agent, B = llm-api)
@@ -57,9 +59,9 @@ def test_workspace_onboarding_is_input_driven_and_documents_prerequisites() -> N
     assert "profile photo" in onboard_agent.lower() or "profile photo" in onboard_llm.lower()
     assert "https://www.python.org/downloads/" in setup
     assert "command not found" in setup.lower()
-    assert "auto-approve" in setup.lower()
-    assert "https://platform.openai.com/api-keys" in setup
-    assert "https://console.anthropic.com/" in setup
+    assert "auto-approve" in setup_agent.lower()
+    assert "https://platform.openai.com/api-keys" in setup_llm_api
+    assert "https://console.anthropic.com/" in setup_llm_api
     assert tasks["tasks"][0]["command"] == "docker"
     assert "pdflatex" in tasks["tasks"][0]["args"]
 
@@ -89,21 +91,31 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert not (workspace / "data").exists()
     assert not (workspace / "profile" / ".gitkeep").exists()
     setup = (workspace / "SETUP.md").read_text(encoding="utf-8")
-    assert "Python 3.12+" in setup
+    assert "Python 3.12 or 3.13" in setup
     assert "job-hunter doctor" in setup
-    assert "job-hunter hunt --region primary" in setup
-    assert "GitHub Desktop" in setup
-    assert "GitHub Secrets" in setup
-    assert "Agent mode setup" in setup
-    assert "LLM API mode setup" in setup
-    assert len(setup.splitlines()) >= 300
-    first_hunt = setup.index("## 10. First job search")
-    commit_step = setup.index("Commit and push your completed setup", first_hunt)
-    actions_step = setup.index("Run the first hunt with GitHub Actions", first_hunt)
-    local_step = setup.index("Optional local hunt", first_hunt)
-    assert commit_step < actions_step < local_step
-    assert "git push" in setup[commit_step:actions_step]
-    assert "Actions → Find Jobs → Run workflow" in setup[actions_step:local_step]
+    assert "job-hunter init" in setup
+    assert "[SETUP_AGENT.md]" in setup
+    assert "[SETUP_LLM_API.md]" in setup
+
+    setup_agent = (workspace / "SETUP_AGENT.md").read_text(encoding="utf-8")
+    assert "job-hunter hunt --region primary" in setup_agent
+    assert "Auto mode scope" in setup_agent
+
+    setup_llm_api = (workspace / "SETUP_LLM_API.md").read_text(encoding="utf-8")
+    assert "GitHub Secrets" in setup_llm_api
+    assert "Find Jobs" in setup_llm_api
+    assert "Cost and token safety" in setup_llm_api
+
+    # AGENTS.md/README.md must come from the user-workspace template, not the
+    # product repo's own dev-facing copies — regression test for a bug where
+    # _CANONICAL_FILES pulled root AGENTS.md/README.md into new workspaces
+    # under an editable/source-checkout install.
+    agents = (workspace / "AGENTS.md").read_text(encoding="utf-8")
+    readme = (workspace / "README.md").read_text(encoding="utf-8")
+    assert "This is your personal Job Hunter workspace." in agents
+    assert "agent context source of truth for the product repo" not in agents
+    assert "Personal workspace for the `job-hunter` Python package" in readme
+    assert "uv sync --extra dev" not in readme
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert ".claude/skills/setup/SKILL.md" in manifest["managed_files"]
@@ -280,7 +292,7 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
     written = update_workspace_assets(tmp_path)
     updated = readme.read_text(encoding="utf-8")
 
-    assert "First time? See [SETUP.md](SETUP.md)" in updated
+    assert "Start at [SETUP.md](SETUP.md)" in updated
     assert "**Application stats:** 1 job tracked." in updated
     assert "[PM @ Acme](https://example.com/job)" in updated
     assert (tmp_path / "SETUP.md").exists()

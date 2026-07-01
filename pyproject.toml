@@ -58,8 +58,11 @@ include = ["job_hunter", "job_hunter.*"]
 [tool.setuptools.package-data]
 "job_hunter.templates" = [
   "workspace/SETUP.md",
+  "workspace/SETUP_AGENT.md",
+  "workspace/SETUP_LLM_API.md",
   "workspace/AGENTS.md",
   "workspace/CLAUDE.md",
+  "workspace/GEMINI.md",
   "workspace/README.md",
   "workspace/.env.example",
   "workspace/.gitignore",

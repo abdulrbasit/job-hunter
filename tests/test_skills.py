@@ -198,7 +198,6 @@ def test_job_hunter_router_skill_contract() -> None:
     for child in (
         "batch",
         "one",
-        "search",
         "finalize",
         "tailor",
         "outreach",
@@ -219,7 +218,6 @@ def test_job_hunter_router_skill_contract() -> None:
         "/job-hunter dashboard",
         "/job-hunter batch",
         "/job-hunter one <url>",
-        "/job-hunter search",
         "/job-hunter finalize",
         "/job-hunter tailor <job>",
         "/job-hunter outreach <job>",

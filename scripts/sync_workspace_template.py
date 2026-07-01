@@ -12,6 +12,7 @@ Files NOT synced (workspace-only, maintained directly in the template):
   .gitignore           (workspace .gitignore differs from the dev repo .gitignore)
   outputs/             (empty-dir scaffolding with .gitkeep + discovered_urls.yml)
   profile/             (canonical starter profile and resume templates)
+  SETUP.md, SETUP_AGENT.md, SETUP_LLM_API.md   (no root counterpart; edited directly)
 """
 
 from __future__ import annotations
@@ -27,7 +28,6 @@ TEMPLATE = REPO / "job_hunter" / "templates" / "workspace"
 _ROOT_FILES = [
     "CLAUDE.md",  # workspace copy is identical: @./AGENTS.md
     "GEMINI.md",  # workspace copy is identical: @./AGENTS.md
-    "SETUP.md",  # canonical install + setup guide; workspace copy auto-synced from here
 ]
 
 _ROOT_DIRS = [

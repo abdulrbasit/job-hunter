@@ -85,7 +85,6 @@ Full mode:
 Batch 1: 15 loaded, N screen skips, M retained
 Scored: A APPLY, B SKIP
 Tailored: N, marked processed: M
-LLM search: enabled (<M> candidates added) | skipped (threshold met) | disabled
 Cleaned transient batch files
 
 Tailoring complete. Changes are uncommitted. Run /job-hunter finalize only after review.

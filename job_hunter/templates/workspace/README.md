@@ -1,8 +1,37 @@
 # Job Hunter Workspace
 
-Personal workspace for the `job-hunter` Python package. First time? See [SETUP.md](SETUP.md).
+Personal workspace for the `job-hunter` Python package. First time here?
+Start at [SETUP.md](SETUP.md) — it points you to [SETUP_AGENT.md](SETUP_AGENT.md)
+(interactive review in VS Code) or [SETUP_LLM_API.md](SETUP_LLM_API.md)
+(automated runs and GitHub Actions).
 
 Package docs: https://github.com/abdulrbasit/job-hunter
+
+## Common commands
+
+```bash
+job-hunter doctor                      # check setup health
+job-hunter hunt --region primary       # find and enrich jobs
+job-hunter dash                        # open the web dashboard
+job-hunter dashboard --no-interactive  # terminal dashboard
+job-hunter update                      # refresh skills/workflows after an upgrade
+```
+
+In agent mode, from the Claude Code or Codex chat panel:
+
+```text
+/job-hunter batch
+/job-hunter one <url>
+/job-hunter finalize
+```
+
+## Tips
+
+- Everything under `config/`, `profile/`, and `outputs/` is yours — Job
+  Hunter never overwrites your values on update.
+- Never commit `.env`; it's excluded by `.gitignore` already.
+- Review every tailored resume and cover letter before applying — Job
+  Hunter does not apply or post on your behalf.
 
 ## Applications
 

@@ -23,17 +23,24 @@ _CANONICAL_DIRS = (
 
 # Agent CLIs that mirror .claude/skills/ at install time (no stored copies).
 _AGENT_SKILL_CLI_PREFIXES: tuple[str, ...] = (".agents",)
-_CANONICAL_FILES = (
-    "AGENTS.md",
-    "CLAUDE.md",
-    "README.md",
-)
+_CANONICAL_FILES = ("CLAUDE.md",)  # workspace copy is byte-identical to root: "@./AGENTS.md"
 # Obsolete agent CLI dirs removed from new installs and cleaned on update.
 _OBSOLETE_CLI_DIRS: tuple[str, ...] = (".gemini",)
 # Files/dirs that only exist in the bundled template (no canonical root counterpart).
 # .gitignore: workspace version differs from the dev repo .gitignore.
+# AGENTS.md/README.md: content genuinely diverges from the root copies (root = dev-repo
+# context/product pitch, workspace = user-workspace context/applications tracker) — unlike
+# CLAUDE.md, syncing these from root would ship the wrong document to a new workspace.
 _RESOURCE_ONLY_FILES: frozenset[str] = frozenset(
-    {".gitignore", "SETUP.md", "SETUP_AGENT.md", "SETUP_LLM_API.md", "config/job_hunter.yml"}
+    {
+        ".gitignore",
+        "AGENTS.md",
+        "README.md",
+        "SETUP.md",
+        "SETUP_AGENT.md",
+        "SETUP_LLM_API.md",
+        "config/job_hunter.yml",
+    }
 )
 _RESOURCE_ONLY_PREFIXES: tuple[str, ...] = (".env.example", ".github", ".vscode/", "outputs/", "profile/")
 

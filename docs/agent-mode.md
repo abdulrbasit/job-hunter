@@ -1,0 +1,70 @@
+# Agent Mode
+
+`mode: agent` in `config/job_hunter.yml`. Beginner setup:
+[SETUP_AGENT.md](../job_hunter/templates/workspace/SETUP_AGENT.md).
+
+## Division of labor
+
+Python (`job-hunter hunt`) does discovery only: scrape sources, screen
+against your config, write candidates to `outputs/state/jobs.db`. It does
+not score, tailor, or write anything under `outputs/jobs/<slug>/`.
+
+Claude Code or Codex — via the bundled `.claude/skills/job-hunter/` skill
+(mirrored to `.agents/skills/` for Codex) — does the rest: scoring against
+`profile/career_context.md` and `profile/story_bank.md`, tailoring the
+resume, drafting the cover letter, and updating the tracker.
+
+`job_hunter/agent_context/` is the module that builds the context objects
+the skill reads (`batch.py`, `candidates.py`, `lifecycle.py`,
+`score_context.py`, `stories.py`, `tailor_context.py`, `briefing.py`) —
+it's the one package allowed to import both `pipeline/` and `sources/`
+directly, since it's assembling agent-facing views over both.
+
+## Skill entry points
+
+`.claude/skills/job-hunter/SKILL.md` routes `/job-hunter <mode>` to a file
+under `.claude/skills/job-hunter/modes/`:
+
+| Mode | What it does |
+|---|---|
+| `batch` / `batch lite` | Process up to `scoring.batch_size` frozen candidates end-to-end. Lite skips semantic screening, research, and cover letters. |
+| `one <url>` | Process a single job URL outside the batch flow |
+| `screen` | Pre-screen a frozen batch against config exclusion rules only |
+| `finalize` | Validate durable outputs, then ask before commit/push |
+| `tailor <job>`, `score <job>`, `research <job>`, `interview <job>`, `outreach <job>` | Per-job actions |
+| `stories` | Turn raw notes into rated STAR stories |
+| `linkedin ...` | Routes into `.claude/skills/linkedin/SKILL.md` |
+| `setup ...` | Routes into `.claude/skills/setup/SKILL.md` |
+
+## Batch, concretely
+
+`batch.md`'s steps, in order: pull, build+freeze a batch via
+`job-hunter internal agent-context batch`, screen it, then per candidate:
+import → lifecycle check → score → validate-score → discard if below
+threshold. Then, for every job scored APPLY: optional company research →
+tailor → update README → mark processed. No commits or pushes happen
+during batch — that's `/job-hunter finalize`'s job, and only on request.
+
+## Non-interactive contract
+
+Batch mode is designed to run to completion without pausing for
+confirmation on ordinary status lines — only a genuine hard blocker (empty
+queue, missing config, auth failure) stops it early. Enabling this in your
+editor (Claude Code's Auto mode, Codex's auto-approve) is what lets
+`/job-hunter batch` process 15 candidates unattended; see
+[SETUP_AGENT.md](../job_hunter/templates/workspace/SETUP_AGENT.md#6-daily-workflow)
+for the per-extension toggle.
+
+## Safety boundary
+
+Agent mode never commits, pushes, or applies on your behalf. Auto mode's
+scope is `outputs/` writes, `job-hunter internal ...` commands, and
+WebFetch — nothing else.
+
+## Profile compilation
+
+Before a run, `job_hunter/tools/compile_profile.py` compiles
+`career_context.md`/`story_bank.md`/your resume into
+`outputs/state/compiled/*.min.md` and `resume.compact.txt`. Context loaders
+prefer these compiled files when present; the directory is cleaned up
+after each run, so it's transient, not a second source of truth.

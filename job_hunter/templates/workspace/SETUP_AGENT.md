@@ -1,164 +1,198 @@
 # Job Hunter — Agent Mode Setup
 
-This guide gets you from zero to reviewing tailored job candidates in Claude Code or Codex.
+## 1. Who this mode is for
 
-**Agent mode**: Python scrapes and filters jobs → you review, score, and tailor them interactively each day in VS Code with Claude Code or Codex. No LLM API keys required for the core workflow.
+You want to review jobs yourself, a batch at a time, inside VS Code. You're
+comfortable running a few terminal commands but don't need to write code.
 
----
+## 2. What runs in this mode
 
-## Prerequisites
+- Python searches job boards and career pages, filters by your config, and
+  stores candidates.
+- Claude Code or Codex — through the bundled `/job-hunter` and `/setup`
+  skills — handles reviewing, scoring, tailoring, and writing.
 
-| Tool | Required | Notes |
-|---|---|---|
-| Python 3.12 or 3.13 | Yes | [python.org/downloads](https://www.python.org/downloads/) |
-| VS Code | Yes | [code.visualstudio.com](https://code.visualstudio.com/) |
-| Git | Yes | [git-scm.com/downloads](https://git-scm.com/downloads) |
-| Claude Code **or** Codex extension | One required | See below |
-| Docker Desktop | Recommended | PDF resume compilation |
-| GitHub account | Recommended | Private workspace and backup |
+No LLM API key is required for the core review-and-tailor workflow.
+Claude Code/Codex use your existing subscription or sign-in, not a
+separate API bill. Full-mode batch also tries an optional company-research
+step through your configured `llm` provider — if no key is set, that one
+step is skipped and everything else continues.
 
-**Install one AI extension in VS Code:**
+## 3. Required tools
 
-- Claude Code: [marketplace.visualstudio.com](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) — requires Claude subscription
-- Codex: [marketplace.visualstudio.com](https://marketplace.visualstudio.com/items?itemName=openai.chatgpt) — requires ChatGPT Plus or API access
+| Tool | Why |
+|---|---|
+| Python 3.12 or 3.13 | Runs Job Hunter |
+| [uv](https://docs.astral.sh/uv/) | Recommended installer |
+| VS Code | Runs the AI skills |
+| Claude Code or Codex extension | Reviews and tailors jobs |
 
-Enable auto-approve in your extension settings to allow tool use without per-step confirmation.
+## 4. Install steps
 
----
-
-## 1. Install Job Hunter
-
-Open a terminal and run:
-
-```bash
-pip install job-hunter-kit
-```
-
-Or with uv (faster):
+**Do this:**
 
 ```bash
-pip install uv
-uv tool install job-hunter-kit
+python -m pip install uv
+python -m uv tool install job-hunter-kit
+python -m uv tool update-shell
 ```
 
-Check the install worked:
+**Why this matters:** `uv tool install` puts the `job-hunter` command on
+your PATH in an isolated environment, so it won't conflict with other
+Python projects.
+
+Close and reopen your terminal, then create your workspace:
 
 ```bash
-job-hunter --version
+job-hunter init FirstName.LastName-Resume
+cd FirstName.LastName-Resume
 ```
 
-If you see `command not found`, open a new terminal window and try again.
+**Expected result:** `[ok] Workspace created at: ...` followed by
+next-step instructions.
 
----
+**Common mistake:** running `job-hunter init` inside a folder you already
+created and `cd`'d into — it creates a *new* subfolder for you, so give it
+a name directly instead of pre-making an empty directory.
 
-## 2. Create Your Private Workspace
-
-Create a private GitHub repository (do not make it public — it will contain your resume and personal data).
-
-Clone it locally:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_PRIVATE_REPO.git
-cd YOUR_PRIVATE_REPO
-```
-
-Initialise the workspace:
-
-```bash
-job-hunter init
-```
-
-This creates the folder structure: `config/`, `profile/`, `outputs/`, `.github/`, and skill files.
-
----
-
-## 3. Open in VS Code
+Open the workspace in VS Code:
 
 ```bash
 code .
 ```
 
-Open the Claude Code or Codex panel in the left sidebar. Sign in if prompted.
+If `code` isn't recognized, open VS Code manually and use
+**File → Open Folder**. Install the Claude Code or Codex extension and
+sign in.
 
----
+## 5. First-time workspace setup
 
-## 4. Run Onboarding
+**Do this**, in order, from the Claude Code or Codex chat panel:
 
-In the Claude Code or Codex chat panel, type:
-
+```text
+job-hunter doctor
 ```
+
+Run this from a terminal first. It's normal to see failures before
+onboarding — each one lists a fix. Then in the chat panel:
+
+```text
 /setup onboard
+/setup context
+/setup stories
+/setup resume
 ```
 
-Select **A — Agent mode** when asked. The onboarding skill walks you through:
+- `/setup onboard` — asks for job titles, region, exclusions, and scoring
+  settings, and writes `config/job_hunter.yml`.
+- `/setup context` — builds `profile/career_context.md` from your
+  background and target roles.
+- `/setup stories` — turns your achievements into STAR-format stories in
+  `profile/story_bank.md`.
+- `/setup resume` — builds your base resume as a LaTeX file in `profile/`.
 
-1. Job titles to search for
-2. Primary city and region
-3. Exclusions (title terms, languages, companies, industries)
-4. Resume layout and scoring settings
-5. Career context (your background, targeting, writing style)
-6. Story bank (STAR stories for tailoring)
-7. Base resume (LaTeX, compiled to PDF via Docker)
+**Expected result:** `job-hunter doctor` shows no required failures.
+**Common mistake:** rushing career context — thin or vague input here
+produces weak scoring and generic tailored resumes later.
 
-This takes approximately 30–60 minutes in a single session.
-
----
-
-## 5. API Keys (Optional)
-
-Agent mode does not need LLM API keys. To enable more job sources:
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and add optional keys:
-
-- `ADZUNA_APP_ID` + `ADZUNA_API_KEY` — [developer.adzuna.com](https://developer.adzuna.com/)
-- `JOOBLE_API_KEY` — [jooble.org/api/about](https://jooble.org/api/about)
-- `REED_API_KEY` (UK only) — [reed.co.uk/developers](https://www.reed.co.uk/developers/jobseeker)
-- `BRAVE_API_KEY` — [api-dashboard.search.brave.com](https://api-dashboard.search.brave.com/app/keys)
-
----
-
-## 6. Run Your First Hunt
+## 6. Daily workflow
 
 ```bash
 job-hunter hunt --region primary
 ```
 
-This scrapes job boards, filters by your config, and writes candidates to the database.
+Then in VS Code:
 
----
-
-## 7. Review Candidates
-
-In the Claude Code or Codex panel:
-
-```
+```text
 /job-hunter batch
 ```
 
-This processes up to 15 candidates: scores each against your resume, tailors the resume for APPLY jobs, and writes a cover letter. Review the output in `outputs/jobs/`.
+Processes up to 15 candidates: screens, scores, tailors resumes, and
+writes cover letters for jobs above your score threshold. It runs to
+completion without stopping for confirmation on ordinary status lines —
+this needs your editor's auto-approve setting turned on first:
 
----
+- **Claude Code** — switch the mode selector at the bottom of the panel to
+  **Auto**. It resets when you close the panel, so re-enable it each
+  session.
+- **Codex** — turn on **"Approve for me"** (or the equivalent auto-approve
+  toggle) in the extension sidebar.
 
-## Ongoing Workflow
-
-1. Run `job-hunter hunt` daily (or set a GitHub Actions schedule for LLM API mode).
-2. Run `/job-hunter batch` in VS Code to review new candidates.
-3. Run `/job-hunter finalize` when ready to apply to move jobs to applied status.
-
----
-
-## Troubleshooting
+> **Auto mode scope:** with auto-approve on, the AI runs commands, writes
+> files, and fetches web pages without asking at each step. Batch is
+> limited to `outputs/` writes, `job-hunter internal` commands, and
+> WebFetch — no application is ever submitted, no `git push` happens, and
+> no message is sent anywhere. Run `/job-hunter finalize` yourself,
+> separately, once you've reviewed the output.
 
 ```bash
+job-hunter dashboard --no-interactive
+```
+
+Review what got tailored. Then, per job:
+
+```text
+/job-hunter one <url>
+```
+
+Process a single job URL end-to-end, outside the batch flow. When you're
+done reviewing:
+
+```text
+/job-hunter finalize
+```
+
+Confirms outputs are consistent and asks before committing or pushing.
+
+## 7. How to update after a new package release
+
+```bash
+uv tool upgrade job-hunter-kit
+```
+
+Then, inside your workspace:
+
+```bash
+job-hunter update
 job-hunter doctor
 ```
 
-Shows the status of every configured component. Fix any red items before the first hunt.
+`job-hunter update` refreshes skills, workflows, and config schemas. It
+never overwrites your `config/`, `profile/`, `outputs/`, or `.env`.
 
-If you see `command not found` for `job-hunter`, check that the tool install location is in your PATH.
+## 8. Troubleshooting
 
-For detailed setup help, see the full `SETUP.md` guide in this workspace.
+**Command not found**
+Restart your terminal, or run `python -m uv tool update-shell` again.
+
+**Python version wrong**
+Install Python 3.12 or 3.13, then reinstall: `uv tool install --force job-hunter-kit`.
+
+**uv not found**
+Run `python -m pip install uv` again, then restart your terminal.
+
+**VS Code extension can't see skills**
+Confirm you opened the workspace folder itself (containing `.claude/`),
+not its parent folder.
+
+**Workspace opened at the wrong folder**
+Close the folder in VS Code and reopen the exact directory `job-hunter init`
+created.
+
+**Doctor reports missing profile/config**
+Run `/setup context`, `/setup stories`, and `/setup resume` — template
+placeholders count as incomplete until you replace them.
+
+**No jobs found**
+Confirm a region is `enabled: true` in `config/job_hunter.yml`, and that
+your job titles and exclusions aren't too narrow.
+
+**Skills not updated after upgrading**
+Run `job-hunter update --skills-only`, then reopen the VS Code window.
+
+## 9. Safety notes
+
+- You decide what to apply for. Job Hunter never submits applications.
+- Nothing is posted to LinkedIn or sent to anyone automatically.
+- Keep your workspace repository private — it contains your resume and
+  personal career details.

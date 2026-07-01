@@ -48,6 +48,24 @@ def test_every_user_facing_skill_has_a_package_data_glob() -> None:
     assert missing == [], f"skill(s) present in template but missing from package-data: {missing}"
 
 
+def test_every_workspace_managed_file_has_a_package_data_glob() -> None:
+    """Guards the same class of bug as the skill-dir test above, for top-level workspace files.
+
+    SETUP_AGENT.md/SETUP_LLM_API.md/GEMINI.md shipped in the template and were read by
+    job_hunter.workspace.assets._UPDATE_ASSETS/_CANONICAL_FILES, but were absent from
+    package-data — invisible in editable installs (importlib.resources reads the live source
+    tree) but dropped from real wheel installs, where job-hunter update would KeyError on them.
+    """
+    from job_hunter.workspace.assets import _CANONICAL_FILES, _RESOURCE_ONLY_FILES
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    globs = set(project["tool"]["setuptools"]["package-data"]["job_hunter.templates"])
+
+    top_level_managed = {f for f in _CANONICAL_FILES} | {f for f in _RESOURCE_ONLY_FILES if "/" not in f}
+    missing = [name for name in top_level_managed if f"workspace/{name}" not in globs]
+    assert missing == [], f"workspace file(s) managed by the CLI but missing from package-data: {missing}"
+
+
 def test_list_module_imports_script_runs_and_finds_known_edge() -> None:
     """Smoke test for scripts/list_module_imports.py — a refactor-support helper, not shipped code."""
     result = subprocess.run(

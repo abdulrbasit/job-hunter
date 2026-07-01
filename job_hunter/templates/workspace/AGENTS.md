@@ -15,7 +15,6 @@ Set `mode:` in `config/job_hunter.yml`.
 ## Daily Commands
 
 ```bash
-job-hunter config check
 job-hunter doctor
 job-hunter hunt --region primary
 job-hunter dashboard --no-interactive
@@ -26,7 +25,6 @@ job-hunter dashboard --no-interactive
 ```text
 /job-hunter batch
 /job-hunter one <url>
-/job-hunter search
 /job-hunter finalize
 /linkedin ideas
 /setup doctor
@@ -37,7 +35,7 @@ Skills are in `.claude/skills/`. Open the workspace in Claude Code or Codex to u
 ## Files To Edit
 
 - `config/job_hunter.yml`: deterministic settings like mode, titles, regions,
-  exclusions, scoring thresholds, LLM search gate, provider/model choices.
+  exclusions, scoring thresholds, provider/model choices.
 - `profile/career_context.md`: positioning, resume style, cover-letter style,
   outreach tone, LinkedIn voice, calibration notes.
 - `profile/story_bank.md`: reusable STAR stories.

@@ -1,128 +1,104 @@
 # Job Hunter — LLM API Mode Setup
 
-This guide gets you from zero to a running autonomous job search pipeline.
+## 1. Who this mode is for
 
-**LLM API mode**: Python handles everything — scraping, scoring, tailoring, cover letters, PDFs, and tracking — via GitHub Actions on a schedule. No interactive review session required.
+You want Job Hunter to run unattended — on a schedule, with no one reviewing
+each step — typically via GitHub Actions.
 
-Two setup paths:
+## 2. What runs in this mode
 
-- **With Claude Code or Codex** — run `/setup onboard` in VS Code for guided interactive setup.
-- **Browser only (no Claude Code / Codex)** — follow the manual steps in this file using ChatGPT or Claude browser.
+The full pipeline runs inside Python: search → validate → score → tailor →
+cover letter → PDF → tracker. The LLM API you configure is called directly
+by Python for scoring, tailoring, cover letters, and company research —
+there's no agent chat session involved.
 
----
+## 3. Required tools
 
-## Prerequisites
+| Tool | Why |
+|---|---|
+| Python 3.12 or 3.13 | Runs Job Hunter |
+| [uv](https://docs.astral.sh/uv/) | Recommended installer |
+| An API key from Anthropic, OpenAI, or Google | Powers scoring/tailoring |
+| GitHub Actions (optional) | Runs on a schedule without your computer on |
 
-| Tool | Required | Notes |
-|---|---|---|
-| Python 3.12 or 3.13 | Yes | [python.org/downloads](https://www.python.org/downloads/) |
-| Git | Yes | [git-scm.com/downloads](https://git-scm.com/downloads) |
-| GitHub account | Yes | Private workspace + Actions runner |
-| LLM API key | Yes | Anthropic, OpenAI, or Google |
-| VS Code + Claude Code or Codex | Recommended | For guided setup — not required for running |
-| Docker Desktop | Recommended | PDF resume compilation in CI |
-
----
-
-## 1. Install Job Hunter
+## 4. Install steps
 
 ```bash
-pip install job-hunter-kit
+python -m pip install uv
+python -m uv tool install job-hunter-kit
+python -m uv tool update-shell
 ```
 
-Or with uv:
+Close and reopen your terminal, then check it worked:
 
 ```bash
-pip install uv
-uv tool install job-hunter-kit
+job-hunter version
 ```
 
-Verify:
+**Expected result:** prints the installed version.
+
+## 5. Create workspace
 
 ```bash
-job-hunter --version
+job-hunter init FirstName.LastName-Resume
+cd FirstName.LastName-Resume
 ```
 
-If you see `command not found`, open a new terminal window and try again.
+**Expected result:** `[ok] Workspace created at: ...`.
 
----
+## 6. Configure `.env`
 
-## 2. Create Your Private Workspace
+`.env` is a plain-text file that holds your secret API keys for running
+Job Hunter **on your own computer**. It is never committed to Git — the
+workspace's `.gitignore` excludes it automatically.
 
-Create a **private** GitHub repository (do not make it public — it will contain your resume and personal data).
-
-Clone it locally:
+**Do this:**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_PRIVATE_REPO.git
-cd YOUR_PRIVATE_REPO
+cp .env.example .env
 ```
 
-Initialise the workspace:
+Open `.env` in a text editor and fill in only the keys you use:
 
-```bash
-job-hunter init
+```text
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GOOGLE_API_KEY=
 ```
 
----
+Get a key from whichever provider you set as `llm.default_provider`:
 
-## 3. Setup — With Claude Code or Codex
+- Anthropic: [console.anthropic.com](https://console.anthropic.com/)
+- OpenAI: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- Google: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 
-Open the workspace in VS Code:
+**Common mistake:** pasting a real key into `config/job_hunter.yml` or any
+file tracked by Git. API keys belong in `.env` (local) or GitHub Secrets
+(Actions) only — never in a committed file.
 
-```bash
-code .
-```
+**Safe to ignore?** Leaving unused provider keys blank in `.env` is fine —
+Job Hunter only reads the key for your configured `llm.default_provider`.
 
-In the Claude Code or Codex panel:
-
-```
-/setup onboard
-```
-
-Select **B — LLM API mode, with agent**. The skill walks you through config, profile files (career context, stories, resume), API keys, and GitHub Actions setup in one session (~60 minutes).
-
-Skip to [Section 7 (GitHub Secrets)](#7-github-secrets) after onboarding is complete.
-
----
-
-## 3. Setup — Browser Only (No Claude Code / Codex)
-
-If you do not have Claude Code or Codex, configure everything manually using ChatGPT or Claude browser.
-
-### 3a. Config file
-
-Open `config/job_hunter.yml` in a text editor and set:
+## 7. Configure `config/job_hunter.yml`
 
 ```yaml
 mode: llm-api
 
 job_titles:
-  - Senior Product Manager    # replace with your actual titles
-  - Head of Product
+  - Senior Product Manager
 
 regions:
   primary:
     enabled: true
     primary: true
-    location: "Berlin"        # your city
-    country: "DE"             # ISO alpha-2 country code (see lookup below)
-    search_lang: en           # en or local language code (e.g. de)
+    country: "DE"        # two-letter country code
+    search_lang: "en"
+    location: "Berlin"
     description: "Primary region"
 
 exclusions:
-  title_terms:
-    - intern
-    - internship
-    - trainee
-    - working student
-    - werkstudent
-    - junior
-    - principal
-    - expert
-    - chief product
-  languages:
-    - german                  # remove if you apply in German
+  title_terms: [intern, internship, junior]
+  languages: []
   companies: []
   industries: []
 
@@ -132,151 +108,121 @@ scoring:
   batch_size: 15
 
 llm:
-  default_provider: anthropic   # or openai, google
+  default_provider: anthropic   # or openai, google, ollama
+  max_workers: 4
   models:
     tailoring: claude-sonnet-4-6
     cover_letter: claude-sonnet-4-6
 ```
 
-**Country code lookup (common cities):**
+- `mode` — must be `llm-api` for this mode.
+- `default_provider` — which LLM API `.env`/GitHub Secrets must supply a key for.
+- `max_workers` — how many jobs the pipeline scores/tailors at once. Higher
+  is faster but hits provider rate limits sooner.
+- `job_titles`, `regions`, `exclusions` — same shape as agent mode.
+- `scoring.min_fit_score` — the cutoff for tailoring a job (0-100).
 
-| City | Code | | City | Code |
-|---|---|---|---|---|
-| Munich / Berlin / Hamburg | DE | | London / Edinburgh | GB |
-| Paris / Lyon | FR | | Amsterdam / Rotterdam | NL |
-| Zurich / Geneva / Bern | CH | | Vienna / Graz | AT |
-| Stockholm / Gothenburg | SE | | Oslo | NO |
-| Copenhagen | DK | | Helsinki | FI |
-| Warsaw / Krakow | PL | | Prague | CZ |
-| Lisbon / Porto | PT | | Dublin | IE |
-| Brussels | BE | | Madrid / Barcelona | ES |
-| Milan / Rome | IT | | Toronto / Vancouver | CA |
-| Sydney / Melbourne | AU | | New York / San Francisco | US |
-| Dubai | AE | | Bangalore / Mumbai | IN |
-| Singapore | SG | | Tokyo / Osaka | JP |
-| Seoul | KR | | São Paulo / Rio | BR |
+Run `job-hunter doctor` after any edit — it validates the file and reports
+exact line-level fixes.
 
-### 3b. Career context
-
-Open [Claude.ai](https://claude.ai) or [ChatGPT](https://chatgpt.com) in your browser.
-
-Open `.claude/skills/setup/modes/context.md` in a text editor, copy the full content, and paste it into the browser chat. Follow the instructions. When done, paste the result into `profile/career_context.md`.
-
-### 3c. Story bank
-
-Open a new browser session. Open `.claude/skills/setup/modes/stories.md`, copy it, and paste into the chat. Follow the instructions. Paste the result into `profile/story_bank.md`.
-
-### 3d. Base resume
-
-Open a new browser session. Open `.claude/skills/setup/modes/resume.md`, copy it, and paste into the chat along with your `career_context.md` and `story_bank.md` content. Follow the instructions. Paste the LaTeX output into `profile/resume_double_column.tex` (or `resume_single_column.tex`).
-
----
-
-## 4. API Keys — Local
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and fill in at minimum your LLM provider key:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Optional job board keys for more results:
-
-```
-ADZUNA_APP_ID=
-ADZUNA_API_KEY=
-JOOBLE_API_KEY=
-REED_API_KEY=        # UK only
-BRAVE_API_KEY=
-TAVILY_API_KEY=
-EXA_API_KEY=
-```
-
-Get keys from:
-- Anthropic: [console.anthropic.com](https://console.anthropic.com/)
-- OpenAI: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- Adzuna: [developer.adzuna.com](https://developer.adzuna.com/)
-- Brave Search: [api-dashboard.search.brave.com](https://api-dashboard.search.brave.com/app/keys)
-- Jooble: [jooble.org/api/about](https://jooble.org/api/about)
-- Reed: [reed.co.uk/developers](https://www.reed.co.uk/developers/jobseeker) (UK only)
-
----
-
-## 7. GitHub Secrets
-
-GitHub Actions cannot read your local `.env` file. Add each key as a GitHub Secret.
-
-1. Open your repository on GitHub.
-2. Go to **Settings → Secrets and variables → Actions → New repository secret**.
-3. Add each key from `.env` using the exact same name.
-
-Required:
-
-| Secret | Provider |
-|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic Claude |
-| `OPENAI_API_KEY` | OpenAI (if using OpenAI) |
-| `GOOGLE_API_KEY` | Google (if using Google) |
-
-Optional (more job sources):
-
-| Secret | Service |
-|---|---|
-| `BRAVE_API_KEY` | Brave Search |
-| `TAVILY_API_KEY` | Tavily |
-| `EXA_API_KEY` | Exa |
-| `ADZUNA_APP_ID` + `ADZUNA_API_KEY` | Adzuna |
-| `JOOBLE_API_KEY` | Jooble |
-| `REED_API_KEY` | Reed (UK) |
-
----
-
-## 8. Enable GitHub Actions Schedule
-
-Open `.github/workflows/find-jobs.yml` in a text editor. Find these lines:
-
-```yaml
-  # schedule:
-  #   - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri
-```
-
-Remove the `#` from both lines:
-
-```yaml
-  schedule:
-    - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri
-```
-
-Adjust the cron time to suit your timezone. Then commit and push.
-
----
-
-## 9. Run Your First Hunt
-
-**Locally:**
-
-```bash
-job-hunter hunt --region primary
-```
-
-**Via GitHub Actions (manual trigger):**
-
-Go to your repository → **Actions → Find Jobs → Run workflow**.
-
-After the run, check `outputs/` for scored jobs, tailored resumes, and cover letters.
-
----
-
-## Troubleshooting
+## 8. Run locally
 
 ```bash
 job-hunter doctor
+job-hunter hunt --region primary
+job-hunter dash
 ```
 
-Shows the status of every configured component. Fix any red items before the first run.
+**Expected result:** `hunt` prints a summary of jobs found, scored, and
+tailored. `dash` opens a native window with Applications, Insights, and
+Analytics tabs.
 
-For detailed setup help, see the full `SETUP.md` guide in this workspace.
+## 9. Run unattended with GitHub Actions
+
+The workspace ships with a **Find Jobs** workflow
+(`.github/workflows/find-jobs.yml`).
+
+**GitHub Secrets** — Actions can't read your local `.env`, so add the same
+keys as repository secrets:
+
+1. Open your repository on GitHub → **Settings → Secrets and variables → Actions**.
+2. Click **New repository secret** for each key you use (e.g. `ANTHROPIC_API_KEY`).
+
+**Manual run** — Actions tab → **Find Jobs** → **Run workflow**.
+**Expected result:** a green check mark and new files committed under `outputs/`.
+
+**Schedule** — open `find-jobs.yml`, uncomment the `schedule:` block, and
+adjust the `cron:` time. Commit and push to enable it.
+
+**How outputs get committed** — a successful run commits discovered jobs,
+tailored resumes, and cover letters back to your repository automatically.
+Pull those changes locally before reviewing them.
+
+## 10. Cost and token safety
+
+- Every API call to Anthropic, OpenAI, or Google costs money, billed by
+  your provider account — Job Hunter has no separate billing of its own.
+- `scoring.batch_size` caps how many jobs get tailored (the expensive step)
+  per run. Keep it small (10-20) while you're testing.
+- `llm.models` lets you assign a cheaper/faster model to high-volume roles
+  (scoring, validation) and a stronger model only to tailoring and cover
+  letters, which run less often.
+- To keep a test run cheap: set `scoring.batch_size: 3` and `min_fit_score`
+  high, run `job-hunter hunt --region primary` once, and check `outputs/`
+  before widening either setting.
+- Spend limits and usage alerts are configured in your provider's own
+  console (e.g. the Anthropic Console), not in Job Hunter.
+
+## 11. Updating after a new release
+
+```bash
+uv tool upgrade job-hunter-kit
+job-hunter update
+job-hunter doctor
+```
+
+`job-hunter update` never overwrites `config/`, `profile/`, `outputs/`, or `.env`.
+
+## 12. Troubleshooting
+
+**Missing API key**
+`job-hunter doctor` reports which provider key is missing. Add it to
+`.env` (local) or GitHub Secrets (Actions).
+
+**Wrong provider/model**
+Confirm `llm.default_provider` in `config/job_hunter.yml` matches the key
+you actually set, and that any model name under `llm.models` is one your
+provider account has access to.
+
+**Rate limit**
+Lower `llm.max_workers`, or set a `llm.rate_limits.<role>.requests_per_minute`
+value in config.
+
+**No jobs found**
+Confirm a region is `enabled: true`, and job titles/exclusions aren't too narrow.
+
+**PDF compile fails**
+The workflow's PDF step needs LaTeX in the runner image. Check the failed
+step's log; a missing `.tex` file (tailoring failed first) is the most
+common cause.
+
+**GitHub Action failed**
+Open the failed run → the failed step → read the last error lines. Missing
+secrets and invalid config are the most common causes.
+
+**Workflow did not run on schedule**
+Confirm the `schedule:` block is uncommented and pushed to the default
+branch — GitHub Actions ignores schedules defined only on other branches.
+
+**Outputs not committed**
+Check the workflow's final step succeeded; a failed pipeline step earlier
+in the run stops the commit step from executing.
+
+## 13. Privacy and safety notes
+
+- Keep your workspace repository private.
+- Never commit `.env` — it's excluded by `.gitignore` already.
+- Review every tailored resume and cover letter before applying — LLMs can
+  make mistakes.
+- Job Hunter never submits applications or posts anywhere automatically,
+  even in this mode.

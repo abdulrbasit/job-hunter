@@ -27,7 +27,7 @@ Set `mode:` in `config/job_hunter.yml`.
 ## Skills
 
 ```text
-/job-hunter          job search command center (brief, batch, one, search, finalize,
+/job-hunter          job search command center (batch, one, search, finalize, screen,
                      tailor, score, research, interview, outreach, stories, linkedin)
 /linkedin            LinkedIn content center (ideas, draft, engage, network)
 /setup               workspace setup center (onboard, doctor, region, style, stories)
@@ -52,7 +52,7 @@ ty check job_hunter tests
 
 ```bash
 job-hunter hunt --region primary
-job-hunter brief
+job-hunter dashboard --no-interactive
 job-hunter doctor
 
 uv sync --extra dev
@@ -83,7 +83,7 @@ Profile compilation (`job_hunter/tools/compile_profile.py`) runs at pipeline sta
 
 Machine config lives in `config/job_hunter.yml`. Only deterministic choices
 belong there: profile paths, job titles, regions, exclusions, scoring thresholds,
-LLM search gate, mode, and provider/model settings.
+mode, and provider/model settings.
 
 Product defaults, source lists, ATS platforms, stale/listing filters, prompt
 internals, and fixed secret env-var names live in code.

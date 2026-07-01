@@ -46,15 +46,13 @@ Set `mode:` in `config/job_hunter.yml`. Default is `agent`.
 
 ```bash
 job-hunter hunt --region primary
-job-hunter brief
 job-hunter dash                      # web dashboard
-job-hunter dashboard --no-interactive  # terminal 
+job-hunter dashboard --no-interactive  # terminal
 ```
 
 In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use:
 
 ```text
-/job-hunter brief
 /job-hunter batch
 /job-hunter one <url>
 /job-hunter finalize
@@ -73,7 +71,6 @@ from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
 - `job-hunter init <workspace>` — create a workspace
 - `job-hunter doctor` — check setup health
 - `job-hunter hunt` — discover and enrich jobs
-- `job-hunter brief` — write the daily briefing
 - `job-hunter tailor` — tailor resume for one or more job postings
 - `job-hunter dash` — open web dashboard in a native window (Applications, Insights, Analytics)
 - `job-hunter dashboard`, `applications` — terminal dashboard and application list
@@ -85,9 +82,13 @@ Bundled skills use hidden `job-hunter internal ...` commands. They are not part 
 
 ## Data Contract
 
-Your data stays yours. Product updates must not overwrite `config/`, `profile/`, `outputs/`, or `.env`. Deterministic choices live in `config/job_hunter.yml`; career and writing guidance lives in `profile/career_context.md`; URL dedup state lives in `outputs/state/discovered_urls.yml`.
+Your data stays yours. Product updates must not overwrite `config/`, `profile/`, `outputs/`, or `.env`. Deterministic choices live in `config/job_hunter.yml`; career and writing guidance lives in `profile/career_context.md`; all job and application state lives in `outputs/state/jobs.db`.
 
-See `DATA_CONTRACT.md` for the full contract.
+See [DATA_CONTRACT.md](DATA_CONTRACT.md) for the full contract.
+
+## Safety Boundaries
+
+Job Hunter never submits applications, posts on LinkedIn, or contacts anyone automatically. It writes files under `outputs/` for you to review. `/job-hunter finalize` and `job-hunter update` only touch system-owned paths — see the data contract above.
 
 ## Development
 
@@ -100,7 +101,19 @@ uv run ty check job_hunter tests
 uv build
 ```
 
-MIT licensed. See `CONTRIBUTING.md`.
+MIT licensed. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — package structure and module boundaries
+- [DATA_CONTRACT.md](DATA_CONTRACT.md) — user vs. system-owned files
+- [docs/config.md](docs/config.md) — every `config/job_hunter.yml` key
+- [docs/sources.md](docs/sources.md) — job boards, career pages, search providers
+- [docs/agent-mode.md](docs/agent-mode.md) — how agent mode works
+- [docs/llm-api-mode.md](docs/llm-api-mode.md) — how LLM API mode works
+- [docs/workspace-updates.md](docs/workspace-updates.md) — what `job-hunter update` does
+- [docs/testing.md](docs/testing.md) — running and writing tests
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor guide
 
 ## Lineage
 

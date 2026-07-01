@@ -2,7 +2,7 @@
 name: job-hunter
 description: "Primary job search command center. Routes to individual skills for all job search work."
 when_to_use: "Use for all job search work: running hunts, processing candidates, tailoring, researching, and managing the pipeline."
-argument-hint: "[batch|one <url>|search|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
+argument-hint: "[batch|one <url>|finalize|tailor <job>|outreach <job>|interview <job>|score <job>|research <co>|stories|linkedin <cmd>|add-region|style|setup|doctor|dashboard|help]"
 disable-model-invocation: true
 allowed-tools: Bash Read Edit Write WebSearch WebFetch
 author: "Abdul Basit (@abdulrbasit)"
@@ -53,7 +53,6 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 - `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
 - `batch`, `batch lite`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
-- `search`: execute `.claude/skills/job-hunter/modes/search.md` inline.
 - `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.
 - `screen`: execute `.claude/skills/job-hunter/modes/screen.md` inline.
 
@@ -81,7 +80,6 @@ Job Hunter Command Center
 /job-hunter batch              Process the next frozen candidate batch
 /job-hunter batch lite         Lite batch: skip semantic screen, research, and cover letters
 /job-hunter one <url>          Process one job URL end-to-end
-/job-hunter search             Search for more jobs when candidates are thin
 /job-hunter finalize           Commit durable reviewed outputs
 /job-hunter screen             Pre-screen a frozen batch against config exclusion rules
 
