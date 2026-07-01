@@ -91,4 +91,4 @@ def test_load_hunt_snapshot_falls_back_to_db(tmp_path) -> None:
 
     _jobs, existing_urls, _existing_titles = hunt_pipeline.load_hunt_snapshot(path)
 
-    assert any("example.com/current" in u for u in existing_urls)
+    assert existing_urls & {"https://example.com/current", "https://example.com/current/"}

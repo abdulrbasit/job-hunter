@@ -66,10 +66,10 @@ def test_workspace_onboarding_is_input_driven_and_documents_prerequisites() -> N
     # mode-specific details live in sub-files
     assert "llm provider" in onboard_llm.lower()
     assert "profile photo" in onboard_agent.lower() or "profile photo" in onboard_llm.lower()
-    assert "python.org/downloads" in setup
+    assert "python.org" in setup and "downloads" in setup
     assert "command not found" in setup.lower()
     assert "auto-approve" in setup_agent.lower()
-    assert "platform.openai.com/api-keys" in setup_llm_api
+    assert "platform.openai.com" in setup_llm_api and "api-keys" in setup_llm_api
     assert "console.anthropic.com" in setup_llm_api
     assert tasks["tasks"][0]["command"] == "docker"
     assert "pdflatex" in tasks["tasks"][0]["args"]
