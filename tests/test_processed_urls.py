@@ -25,8 +25,8 @@ def test_load_processed_returns_urls_from_db(tmp_path: Path) -> None:
     mark_urls_processed(tmp_path, {"https://a.com", "https://b.com"})
     with _with_tmp_root(tmp_path):
         urls = load_processed()
-    assert "https://a.com" in urls or "https://a.com/" in urls
-    assert "https://b.com" in urls or "https://b.com/" in urls
+    assert urls & {"https://a.com", "https://a.com/"}
+    assert urls & {"https://b.com", "https://b.com/"}
 
 
 def test_save_processed_inserts_urls(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_save_and_reload_roundtrip(tmp_path: Path) -> None:
     with _with_tmp_root(tmp_path):
         reloaded = load_processed()
     for u in urls:
-        assert any(u in r for r in reloaded)
+        assert reloaded & {u, u + "/"}
 
 
 def test_filter_new_jobs_removes_already_processed(tmp_path: Path) -> None:
@@ -57,7 +57,7 @@ def test_filter_new_jobs_removes_already_processed(tmp_path: Path) -> None:
         new_jobs, existing_urls = filter_new_jobs(jobs)
     assert len(new_jobs) == 1
     assert new_jobs[0]["url"] == "https://new.com"
-    assert any("seen.com" in u for u in existing_urls)
+    assert existing_urls & {"https://seen.com", "https://seen.com/"}
 
 
 def test_filter_new_jobs_all_new_when_no_tracker(tmp_path: Path) -> None:
@@ -73,8 +73,8 @@ def test_mark_processed_merges_with_existing(tmp_path: Path) -> None:
     with _with_tmp_root(tmp_path):
         mark_processed(jobs, {"https://old.com"})
         reloaded = load_processed()
-    assert any("old.com" in u for u in reloaded)
-    assert any("new.com" in u for u in reloaded)
+    assert reloaded & {"https://old.com", "https://old.com/"}
+    assert reloaded & {"https://new.com", "https://new.com/"}
 
 
 def test_mark_processed_deduplicates(tmp_path: Path) -> None:
@@ -86,8 +86,8 @@ def test_mark_processed_deduplicates(tmp_path: Path) -> None:
     with _with_tmp_root(tmp_path):
         mark_processed(jobs, {"https://a.com"})
         reloaded = load_processed()
-    assert any("a.com" in u for u in reloaded)
-    assert any("b.com" in u for u in reloaded)
+    assert reloaded & {"https://a.com", "https://a.com/"}
+    assert reloaded & {"https://b.com", "https://b.com/"}
 
 
 def test_filter_new_jobs_does_not_skip_by_title_key(tmp_path: Path) -> None:
