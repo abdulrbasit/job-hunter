@@ -8,6 +8,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from job_hunter.llm.prompts.company_research import PROMPT as _RESEARCH_PROMPT
+from job_hunter.llm.prompts.company_research import SYSTEM as _RESEARCH_SYSTEM
+
 
 def copy_latex_assets(job_dir: Path, profile_path: Callable[[str, str], Path]) -> None:
     for src in (
@@ -33,22 +36,9 @@ def write_company_research(
     title = job.get("title") or titles
 
     stage = llm_stage_factory("research")
-    system = (
-        "You write concise company research notes for job applications. "
-        "Use only factual information from your training data. "
-        "If uncertain about a claim, omit it. No speculation."
-    )
-    prompt = (
-        f"Write company research for a {title} applicant targeting {company}.\n\n"
-        f"Use this exact structure (plain text, under 300 words total):\n\n"
-        f"## Product & Business\n<2-3 sentences on what the company builds and for whom>\n\n"
-        f"## Tech Stack / Engineering\n<known technologies and engineering practices>\n\n"
-        f"## Culture Signals\n<reputation, glassdoor signals, engineering blog if known>\n\n"
-        f"## Recent News\n<notable events from training data>\n\n"
-        f"## Application Angle\n<one line on how this context informs the cover letter or story selection>"
-    )
+    prompt = _RESEARCH_PROMPT.format(title=title, company=company)
     try:
-        content = stage.complete(system=system, user=prompt)
+        content = stage.complete(system=_RESEARCH_SYSTEM, user=prompt)
         (job_dir / "company_research.md").write_text(f"# {company} Research\n\n{content}", encoding="utf-8")
         logger.info("  company research written")
     except Exception as exc:

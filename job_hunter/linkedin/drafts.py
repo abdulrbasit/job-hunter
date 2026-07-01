@@ -22,41 +22,10 @@ from job_hunter.linkedin._config import (
     unconverted_ideas,
     write_text,
 )
+from job_hunter.llm.prompts.linkedin import DRAFTS_PROMPT as PROMPT
+from job_hunter.llm.prompts.linkedin import DRAFTS_SYSTEM as SYSTEM
 
 logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
-
-SYSTEM = """You write LinkedIn draft posts for the configured professional profile.
-Return JSON only. Do not include markdown fences."""
-
-PROMPT = """Create {count} LinkedIn post drafts from these raw ideas.
-
-Every draft must be public-safe and confidentiality-reviewed by design.
-Do not mention forbidden details. Do not imply the user will post automatically.
-No hype, no cliches, no generic thought leadership.
-
-POSITIONING:
-{positioning}
-
-AUDIENCE:
-{audience}
-
-TONE:
-{tone}
-
-FORBIDDEN PHRASES:
-{forbidden_phrases}
-
-CONFIDENTIALITY FORBIDDEN DETAILS:
-{confidentiality}
-
-MAX WORDS PER POST:
-{max_words}
-
-RAW IDEAS:
-{ideas}
-
-Return a JSON array. Each item must have:
-idea_id, title, pillar, post_text, confidentiality_notes, review_checklist."""
 
 
 def _display_path(path: Path) -> str:

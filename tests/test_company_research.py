@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from job_hunter.pipeline.stages import processing
 
-_LLM_STAGE = "job_hunter.pipeline.llm_stage.LLMStage"
+_LLM_STAGE = "job_hunter.llm.stage.LLMStage"
 
 
 def _job(company: str = "Acme", title: str = "Product Manager") -> dict:

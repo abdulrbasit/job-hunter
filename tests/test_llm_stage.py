@@ -1,4 +1,4 @@
-"""Tests for pipeline/llm_stage.py — LLMStage in isolation."""
+"""Tests for llm/stage.py — LLMStage in isolation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from job_hunter.pipeline.llm_stage import LLMStage
+from job_hunter.llm.stage import LLMStage
 
 
 @dataclass

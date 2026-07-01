@@ -19,46 +19,10 @@ from job_hunter.linkedin._config import (
     read_text,
     story_bank_text,
 )
+from job_hunter.llm.prompts.linkedin import IDEAS_PROMPT as PROMPT
+from job_hunter.llm.prompts.linkedin import IDEAS_SYSTEM as SYSTEM
 
 logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
-
-SYSTEM = """You create LinkedIn content ideas from confidential career notes.
-Return JSON only. Do not include markdown fences."""
-
-PROMPT = """Create {count} public-safe LinkedIn raw ideas.
-
-The story bank is confidential private inspiration. Do not reveal internal
-product names, unreleased details, private metrics, team structures, incidents,
-stakeholder names, or anything marked as forbidden.
-
-Transform private details into general lessons for the configured positioning.
-
-POSITIONING:
-{positioning}
-
-CONTENT PILLARS:
-{pillars}
-
-RELATED PROFESSIONAL TOPIC PATTERNS:
-Derive these from the positioning, audience, content pillars, job title, and
-story bank. Do not assume the user is a PM or PO unless their positioning says so.
-
-TONE:
-{tone}
-
-CONFIDENTIALITY RULES:
-{confidentiality}
-
-EXISTING IDEAS:
-{existing_ideas}
-
-CONFIDENTIAL STORY BANK:
-{stories}
-
-Return a JSON array. Each item must have:
-title, source, pillar, inspired_by_pattern, why_now, target_reader,
-unique_user_angle, angle, evidence_to_use, do_not_mention.
-Make every idea concrete, non-fluffy, and safe for public review."""
 
 
 def render_idea(idea_id: str, item: dict) -> str:

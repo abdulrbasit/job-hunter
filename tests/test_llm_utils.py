@@ -1,6 +1,4 @@
-import pytest
-
-from job_hunter.core.llm_utils import extract_json_object, get_llm_role_settings
+from job_hunter.core.llm_utils import extract_json_object
 
 
 def test_extract_json_object_strips_fence_and_preamble() -> None:
@@ -23,42 +21,3 @@ def test_extract_json_object_accepts_array_payload() -> None:
 
 def test_extract_json_object_returns_original_when_no_object() -> None:
     assert extract_json_object("not json") == "not json"
-
-
-def test_get_llm_role_settings_uses_config_values() -> None:
-    settings = get_llm_role_settings(
-        "validation",
-        api_cfg={
-            "llm": {
-                "models": {"validation": "configured-model"},
-                "max_tokens": {"validation": 123},
-            }
-        },
-    )
-
-    assert settings.model == "configured-model"
-    assert settings.max_tokens == 123
-
-
-def test_get_llm_role_settings_requires_explicit_role_keys() -> None:
-    with pytest.raises(KeyError, match="llm.models.jd_extraction"):
-        get_llm_role_settings(
-            "jd_extraction",
-            api_cfg={"llm": {"models": {}, "max_tokens": {}}},
-        )
-
-
-def test_get_llm_role_settings_uses_default_provider_without_default_model() -> None:
-    settings = get_llm_role_settings(
-        "scoring",
-        api_cfg={
-            "llm": {
-                "default_provider": "ollama",
-                "models": {"scoring": "local-model"},
-                "max_tokens": {"scoring": 999},
-            }
-        },
-    )
-
-    assert settings.provider == "ollama"
-    assert settings.model == "local-model"

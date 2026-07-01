@@ -156,10 +156,14 @@ job_hunter/
     search/               (was search_providers/)
 
   llm/
-    client.py             budgets.py    (was core/api_budget.py)
-    token_usage.py         (was core/llm_utils.py + pipeline/llm_stage.py's get_token_totals)
-    # providers.py / prompts.py: NOT created yet — client.py (254 lines) isn't large enough to
-    # justify the split until provider-dispatch logic actually grows (see §12.4)
+    client.py               low-level provider SDK transport (anthropic/openai/google/ollama)
+    stage.py                LLMStage — typed request/response service (was pipeline/llm_stage.py)
+    types.py                LLMRequest/LLMResponse/RoleName/ProviderName/TokenUsage/ModelConfig
+    providers.py             resolve_provider/resolve_model_config (was core/llm_utils.py's
+                             get_llm_role_settings, plus config/defaults.py's PROVIDER_SECRET_ENV_VARS)
+    token_usage.py           per-role token accounting (was pipeline/llm_stage.py's get_token_totals)
+    prompts/                  canonical static prompt text, one module per role
+    # no llm/budget.py — spend caps are configured in the provider's own console/UI, not in code
 
   tracking/
     repository.py          (was db/jobs.py — jobs.db)
@@ -231,8 +235,8 @@ executing this table row-by-row; catching it up here rather than letting it keep
 | `sources/boards/__init__.py::BOARD_REGISTRY` | `sources/boards/registry.py` | separates registry from package `__init__` | public | `test_source_contracts.py` | low | done (Phase 7) |
 | `sources/search_providers/` | `sources/search/` | naming convention (shorter, matches target tree) | public | `test_search_providers.py` (rename import) | low | not done |
 | `core/config_schema.py` | `config/schema.py` | belongs with the config it validates | public | `test_config.py` | low | done (Phase 8) |
-| `core/api_budget.py` | `llm/budgets.py` | it's LLM rate/cost budgeting specifically, not a generic core concern | public | `test_api_budget.py` | low | not done |
-| `core/llm_utils.py` + `pipeline/llm_stage.py::get_token_totals/reset_token_totals` | `llm/token_usage.py` | token accounting belongs next to the client that produces it | public | `test_llm_utils.py`, `test_llm_stage.py` | medium (called from `orchestrator.py`'s `_persist_metrics`/`_log_token_summary`) | not done |
+| `core/api_budget.py` | unchanged | **scope correction (Phase 9)** — it's HTTP job-board call budgeting (Adzuna/Jooble/etc. monthly quotas), not LLM spend; moving it into `llm/` would be a category error | public | `test_api_budget.py` | none | done (Phase 9) — confirmed this file stays in `core/` |
+| `core/llm_utils.py::get_llm_role_settings` + `pipeline/llm_stage.py` (whole module, incl. `get_token_totals/reset_token_totals`) | `llm/providers.py` (routing), `llm/token_usage.py` (accounting), `llm/stage.py` (the `LLMStage` class itself), `llm/types.py` (contracts), `llm/prompts/` (new) | `sources/jd_fetcher.py` needed `LLMStage` but `sources/ must not depend on pipeline/` (§1) — moving the whole typed-service layer into `llm/` fixes the boundary and gives every LLM concern one home; `core/llm_utils.py` keeps only `extract_json_object` (generic response-text parsing, not LLM-routing). No LLM spend-cap module was added — provider consoles (Anthropic/OpenAI/etc.) already offer spend limits, so a code-side budget cap would be redundant product surface | public | `test_llm_types.py`, `test_llm_providers.py`, `test_llm_token_usage.py`, `test_llm_stage.py`, `test_llm_client.py`, `test_llm_utils.py` | medium (7 call sites migrated: scoring, validation, tailoring, cover_letter, company_research, jd_extraction, linkedin) | done (Phase 9) — also fixed two pre-existing bugs found during the move: `jd_fetcher.py` and `linkedin/_config.py` were calling `LLMClient.complete()` with the wrong signature (old dict-style kwargs instead of `LLMRequest`), silently falling back every time in production, masked by tests that mocked around the bug instead of through it |
 | `db/jobs.py` | `tracking/repository.py` | same package as the other state stores | public | `test_tracker.py` and anything importing `job_hunter.db.jobs` | **medium** (539 lines, widely imported — do as its own commit) | not done |
 | `metrics/store.py` | `tracking/metrics_store.py` | same SQLite-repository shape as `db/jobs.py`, belongs in the same package | public | `test_metrics_store.py` | low | not done |
 | `tracking/tracker.py::load_processed/mark_processed` | `tracking/processed_urls.py` | matches target tree name exactly | public | `test_cli.py`, `test_tracker.py` | low | not done |

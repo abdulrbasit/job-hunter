@@ -41,7 +41,7 @@ def _today() -> str:
 
 
 def run(options: PipelineCommandOptions) -> PipelineResult:
-    from job_hunter.pipeline.llm_stage import reset_token_totals
+    from job_hunter.llm.token_usage import reset_token_totals
 
     setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
 

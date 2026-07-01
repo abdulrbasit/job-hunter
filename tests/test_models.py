@@ -151,16 +151,6 @@ def test_hunt_input_requires_valid_mode() -> None:
     assert valid.scrape_only is False
 
 
-def test_llm_response_defaults() -> None:
-    from job_hunter.models import LLMResponse
-
-    resp = LLMResponse(content="hi", provider="anthropic", model="claude")
-
-    assert resp.input_tokens == 0
-    assert resp.output_tokens == 0
-    assert resp.cached_tokens == 0
-
-
 def test_models_module_has_no_dependency_on_config_cli_ux_or_sources() -> None:
     """Domain models are the lowest layer (ARCHITECTURE.md §1) — importing config/cli/ux/sources
     into models.py would make a data contract depend on the code that produces or renders it."""

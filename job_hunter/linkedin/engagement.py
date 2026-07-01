@@ -41,66 +41,13 @@ from job_hunter.linkedin._engagement_support import (
     trim_words,
     update_state,
 )
+from job_hunter.llm.prompts.linkedin import ENGAGEMENT_PROMPT as PROMPT
+from job_hunter.llm.prompts.linkedin import ENGAGEMENT_STRATEGY_PROMPT as STRATEGY_PROMPT
+from job_hunter.llm.prompts.linkedin import ENGAGEMENT_STRATEGY_SYSTEM as STRATEGY_SYSTEM
+from job_hunter.llm.prompts.linkedin import ENGAGEMENT_SYSTEM as SYSTEM
 from job_hunter.sources.search_providers import search_web
 
 logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
-
-SYSTEM = """You write concise LinkedIn networking drafts from pre-ranked candidates.
-Return JSON only. Do not include markdown fences."""
-
-PROMPT = """Write human-reviewed LinkedIn message drafts for these already-ranked candidates.
-The user manually decides whether to connect, follow, or message.
-
-POSITIONING:
-{positioning}
-
-FORBIDDEN PHRASES:
-{forbidden_phrases}
-
-MESSAGE RULES:
-- No job ask, referral ask, generic flattery, or "pick your brain"
-- If evidence is weak, return "no message recommended"
-- Recruiter notes should be short, role-aware, and not needy
-- Role-adjacent notes should cite one specific reason and one shared professional context
-- Max {max_message_words} words per message
-
-PEOPLE:
-{people}
-
-Return a JSON object with key "people".
-Each person: url, message_variants (list of up to 2 strings)."""
-
-STRATEGY_SYSTEM = """You design low-cost LinkedIn search strategies from a user's
-professional profile and job-search configuration. Return JSON only."""
-
-STRATEGY_PROMPT = """Create a compact LinkedIn search strategy for this user.
-Do not assume the user is a PM or PO unless their positioning or target job
-titles say so.
-
-POSITIONING:
-{positioning}
-
-AUDIENCE:
-{audience}
-
-CONTENT PILLARS:
-{pillars}
-
-TARGET JOB TITLES FROM JOB HUNTER CONFIG:
-{job_titles}
-
-TARGET REGIONS FROM JOB HUNTER CONFIG:
-{regions}
-
-TARGET COMPANIES FROM JOB HUNTER CONFIG:
-{companies}
-
-Return a JSON object with:
-- people_queries: up to {people_query_count} role-relevant people/creator searches
-- recruiter_queries: up to {recruiter_query_count} SHORT (2-4 words) recruiter/talent searches; use industry terms and seniority, not full job titles
-- target_companies: up to {target_company_count} company names from the provided company list only
-
-Keep queries short and searchable. Do not include LinkedIn site: operators."""
 
 
 @lru_cache(maxsize=1)

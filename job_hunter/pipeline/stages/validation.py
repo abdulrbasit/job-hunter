@@ -21,55 +21,19 @@ from typing import TYPE_CHECKING
 
 from job_hunter.config.loader import get_api_config
 from job_hunter.constants import VALIDATION_SNIPPET_CHARS
-from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.core.metrics import timed_stage
 from job_hunter.core.utils import url_is_alive
 from job_hunter.llm.client import get_client as get_llm_client
-from job_hunter.pipeline.llm_stage import LLMStage
+from job_hunter.llm.prompts.validation import PROMPT as _PROMPT
+from job_hunter.llm.prompts.validation import REPAIR_PROMPT as _REPAIR_PROMPT
+from job_hunter.llm.prompts.validation import SYSTEM as _SYSTEM
+from job_hunter.llm.providers import resolve_model_config
+from job_hunter.llm.stage import LLMStage
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
-
-_SYSTEM = "You are a job-posting validator. Return ONLY valid JSON with no markdown fences and no explanation."
-
-_PROMPT = """\
-Read this job posting snippet and answer three questions.
-
-1. Is this an active, open posting?
-   Mark is_active=false ONLY if the text explicitly says the role is filled,
-   closed, expired, archived, or no longer accepting applications.
-   When in doubt, default to true.
-
-2. Does this posting explicitly require MORE than {max_years} years of experience?
-   Mark over_experience=true ONLY if the description clearly states a minimum
-   exceeding {max_years} years (e.g. "10+ years required", "minimum 8 years").
-   When in doubt, default to false.
-
-3. Is the EMPLOYER itself primarily in one of these excluded industries: {excluded_industries}?
-   Do not reject because the role serves those customers, builds a related feature, or mentions
-   compliance. Mark excluded_industry=true only when the employer's primary business clearly matches.
-   When in doubt, default to false.
-
-Snippet:
-{snippet}
-
-Return JSON: {{"is_active": bool, "over_experience": bool, "excluded_industry": bool,
-"reason": "one-line reason if rejected, else null"}}"""
-
-_REPAIR_PROMPT = """\
-Convert this model response into valid JSON matching exactly this schema:
-{{"is_active": bool, "over_experience": bool, "excluded_industry": bool, "reason": string|null}}
-
-Rules:
-- Return ONLY valid JSON.
-- If a value is missing or unclear, use is_active=true, over_experience=false,
-  excluded_industry=false, reason=null.
-
-Response:
-{raw}
-"""
 
 _INACTIVE_MARKERS = (
     "no longer available",
@@ -135,7 +99,7 @@ def validate(
         "validation",
         response_format="json",
         client_factory=get_llm_client,
-        settings_factory=get_llm_role_settings,
+        settings_factory=resolve_model_config,
     )
 
     url_cfg = api_cfg.get("http", {}).get("url_verification", {})

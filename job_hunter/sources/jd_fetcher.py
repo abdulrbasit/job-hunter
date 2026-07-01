@@ -22,9 +22,12 @@ from urllib.parse import urlparse
 import requests
 
 from job_hunter.config.loader import get_timeout  # noqa: F401 — exposed for test patching
-from job_hunter.core.llm_utils import extract_json_object, get_llm_role_settings
+from job_hunter.core.llm_utils import extract_json_object
 from job_hunter.core.utils import strip_html
 from job_hunter.llm.client import get_client as get_llm_client
+from job_hunter.llm.prompts.jd_extraction import PROMPT as _EXTRACT_PROMPT
+from job_hunter.llm.prompts.jd_extraction import SYSTEM as _EXTRACT_SYSTEM
+from job_hunter.llm.stage import LLMStage
 from job_hunter.sources._jd_ats import (
     _fetch_ashby_api,
     _fetch_greenhouse_api,
@@ -66,25 +69,6 @@ def _is_posting_inactive(text: str) -> bool:
 _LLM_INPUT_MAX_CHARS = 8000
 _FALLBACK_DESC_MAX_CHARS = 4000
 
-_EXTRACT_SYSTEM = "You are a job posting parser. Return ONLY valid JSON with no markdown fences and no explanation."
-
-_EXTRACT_PROMPT = """\
-Extract the job details from this job posting page text.
-
-URL: {url}
-
-PAGE TEXT (first 8000 chars):
-{text}
-
-Return JSON:
-{{
-  "title": "exact job title from the posting",
-  "company": "company name",
-  "description": "the full job description text including responsibilities and requirements — at least 400 words if available"
-}}
-
-If a field cannot be found, use null."""
-
 
 # ---------------------------------------------------------------------------
 # Generic helpers
@@ -121,13 +105,11 @@ def _fetch_html(url: str, timeout: int = 12) -> tuple[str | None, int | None]:
 
 
 def _llm_extract(text: str, url: str) -> dict[str, str]:
-    settings = get_llm_role_settings("jd_extraction")
+    stage = LLMStage("jd_extraction", response_format="json", client_factory=get_llm_client)
     try:
-        raw = get_llm_client("jd_extraction").complete(
+        raw = stage.complete(
             system=_EXTRACT_SYSTEM,
             user=_EXTRACT_PROMPT.format(text=text[:_LLM_INPUT_MAX_CHARS], url=url),
-            model=settings.model,
-            max_tokens=settings.max_tokens,
         )
         return json.loads(extract_json_object(raw))
     except Exception as e:

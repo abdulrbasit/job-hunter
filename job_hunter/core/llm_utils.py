@@ -1,9 +1,8 @@
-"""LLM response parsing and role-setting helpers."""
+"""LLM response text parsing helpers."""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
 
 def extract_json_object(text: str) -> str:
@@ -56,29 +55,3 @@ def extract_json_object(text: str) -> str:
                     return text[start : i + 1]
 
     return text
-
-
-@dataclass
-class LLMRoleSettings:
-    provider: str
-    model: str
-    max_tokens: int
-
-
-def get_llm_role_settings(role: str, *, api_cfg: dict | None = None) -> LLMRoleSettings:
-    """Return model, max_tokens, and provider for a pipeline role from job_hunter.yml."""
-    if api_cfg is None:
-        from job_hunter.config.loader import get_config
-
-        api_cfg = get_config("job_hunter")
-
-    llm = api_cfg.get("llm", {})
-    provider = llm.get("providers", {}).get(role) or llm.get("default_provider", "anthropic")
-    models = llm.get("models", {})
-    if role not in models:
-        raise KeyError(f"llm.models.{role}")
-    max_tokens_cfg = llm.get("max_tokens", {})
-    model = models[role]
-    max_tokens = int(max_tokens_cfg.get(role, 1000))
-
-    return LLMRoleSettings(provider=provider, model=model, max_tokens=max_tokens)

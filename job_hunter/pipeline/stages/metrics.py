@@ -15,8 +15,8 @@ def persist_metrics(ctx: PipelineRunContext, jobs_found: int, jobs_tailored: int
     try:
         from job_hunter.config.loader import ROOT as REPO_ROOT
         from job_hunter.config.loader import get_mode
+        from job_hunter.llm.token_usage import get_token_totals
         from job_hunter.metrics.store import record_run
-        from job_hunter.pipeline.llm_stage import get_token_totals
 
         db_path = REPO_ROOT / "outputs" / "state" / "metrics.db"
         record_run(
@@ -41,7 +41,7 @@ def log_token_summary() -> None:
     import json
     import os
 
-    from job_hunter.pipeline.llm_stage import get_token_totals
+    from job_hunter.llm.token_usage import get_token_totals
 
     totals = get_token_totals()
     if not totals:

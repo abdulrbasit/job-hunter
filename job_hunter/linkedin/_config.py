@@ -13,8 +13,8 @@ import yaml
 
 from job_hunter.config.defaults import LINKEDIN_DEFAULTS, deep_merge
 from job_hunter.config.loader import ROOT, get_config, profile_path
-from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
+from job_hunter.llm.stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
@@ -83,19 +83,9 @@ def story_bank_text() -> str:
     return profile_path("story_bank", "story_bank.md").read_text(encoding="utf-8")
 
 
-def linkedin_model_settings() -> tuple[str, int]:
-    settings = get_llm_role_settings("linkedin")
-    return settings.model, settings.max_tokens
-
-
 def complete_linkedin(system: str, user: str) -> str:
-    model, max_tokens = linkedin_model_settings()
-    return get_llm_client("linkedin").complete(
-        system=system,
-        user=user,
-        model=model,
-        max_tokens=max_tokens,
-    )
+    stage = LLMStage("linkedin", response_format="json", client_factory=get_llm_client)
+    return stage.complete(system=system, user=user)
 
 
 def extract_json(text: str) -> Any:

@@ -13,9 +13,12 @@ from concurrent.futures import ThreadPoolExecutor
 from job_hunter.config.loader import get_api_config, get_config, profile_path
 from job_hunter.constants import LLM_REPAIR_INPUT_CHARS
 from job_hunter.core.latex_utils import compact_latex_resume as _compact_latex_resume
-from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
-from job_hunter.pipeline.llm_stage import LLMStage
+from job_hunter.llm.prompts.scoring import OPEN_CHECK_SYSTEM as _OPEN_CHECK_SYSTEM
+from job_hunter.llm.prompts.scoring import REPAIR_PROMPT
+from job_hunter.llm.prompts.scoring import SYSTEM_BASE as _SYSTEM_BASE
+from job_hunter.llm.providers import resolve_model_config
+from job_hunter.llm.stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +27,6 @@ def load_runtime_config() -> dict[str, object]:
     """Load canonical runtime config with code-owned scoring defaults."""
     logger.info("[scorer] Loaded runtime configuration")
     return get_config("job_hunter")
-
-
-_SYSTEM_BASE = (
-    "You are a recruiter scoring job fit. "
-    "Return ONLY valid JSON with no markdown fences, no explanation. "
-    'Schema: {"score": int, "matched_keywords": [str], "gaps": [str], '
-    '"years_exp_required": int or null, "role_summary": str, "score_rationale": str} '
-    "Base your score only on evidence present in the provided resume. "
-    "Do not infer unstated skills, experience, or qualifications."
-)
 
 
 def _build_system_with_resume(config: dict) -> str:
@@ -63,19 +56,6 @@ def _build_scoring_prompt(jd_context: str, config: dict) -> str:
     )
 
 
-REPAIR_PROMPT = """\
-Convert this model response into valid JSON matching exactly this schema:
-{{"score": int, "matched_keywords": [str], "gaps": [str], "years_exp_required": int|null, "role_summary": str, "score_rationale": str}}
-
-Rules:
-- Return ONLY valid JSON.
-- If a field is missing or unclear, use score=0, matched_keywords=[], gaps=["parse repair"], years_exp_required=null, role_summary="", score_rationale="parse repair".
-
-Response:
-{raw}
-"""
-
-
 def _scoring_prompt_config(config: dict) -> dict:
     scoring = config.get("scoring", {}) or {}
     return scoring.get("prompt_context", {}) or {}
@@ -103,7 +83,7 @@ def score(job: dict, config: dict) -> dict:
         cache_system=True,
         cache_ttl="5m",
         client_factory=get_llm_client,
-        settings_factory=get_llm_role_settings,
+        settings_factory=resolve_model_config,
     )
     system = _build_system_with_resume(config)
     jd_context = build_scoring_job_context(job, config)
@@ -184,15 +164,6 @@ def strategic_override_companies(config: dict) -> list[str]:
     ]
 
 
-_OPEN_CHECK_SYSTEM = (
-    "You are screening job postings. "
-    'Return ONLY valid JSON: {"open": bool, "reason": str}. '
-    "Set open=true if the posting appears to be actively accepting applications. "
-    "Set open=false if it shows signs of being closed, filled, or expired. "
-    "Set open=null if genuinely uncertain."
-)
-
-
 def check_job_open(snippet: str, config: dict | None = None) -> str:
     """Advisory check: is this posting still open? Returns 'open'|'closed'|'unknown'."""
     if config is None:
@@ -201,7 +172,7 @@ def check_job_open(snippet: str, config: dict | None = None) -> str:
         "scoring",
         response_format="json",
         client_factory=get_llm_client,
-        settings_factory=get_llm_role_settings,
+        settings_factory=resolve_model_config,
     )
     prompt = f"Is this job posting still accepting applications?\n\n{snippet[:2000]}"
     try:

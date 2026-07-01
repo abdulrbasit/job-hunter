@@ -59,7 +59,7 @@ def _screen_by_config(
 
 
 def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
-    from job_hunter.pipeline.llm_stage import LLMStage
+    from job_hunter.llm.stage import LLMStage
 
     _match_processor.write_company_research(
         job,

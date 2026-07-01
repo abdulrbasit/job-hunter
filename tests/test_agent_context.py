@@ -618,3 +618,25 @@ def test_validate_score_file_requires_utf8_yaml_schema(tmp_path: Path) -> None:
     score_path.write_bytes(b"score: 80\nmatched: \x97\n")
 
     assert not validate_score_file(score_path)["valid"]
+
+
+def test_agent_context_modules_never_call_the_llm_directly() -> None:
+    """Agent mode's Python side prepares context deterministically; the agent skill makes
+    the actual LLM call, not job_hunter.agent_context. A direct llm/ import here would mean
+    Python is calling the LLM behind the agent's back."""
+    import ast
+
+    package_dir = Path(__file__).resolve().parents[1] / "job_hunter" / "agent_context"
+    for py_file in package_dir.glob("*.py"):
+        tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            module = None
+            if isinstance(node, ast.ImportFrom) and node.module:
+                module = node.module
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    module = alias.name
+                    assert not module.startswith("job_hunter.llm"), f"{py_file.name} imports {module}"
+                continue
+            if module:
+                assert not module.startswith("job_hunter.llm"), f"{py_file.name} imports {module}"

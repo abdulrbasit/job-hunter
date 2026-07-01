@@ -1,34 +1,15 @@
 from __future__ import annotations
 
 import json
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from job_hunter.core.llm_utils import extract_json_object, get_llm_role_settings
+from job_hunter.core.llm_utils import extract_json_object
 from job_hunter.llm.client import get_client as get_llm_client
-
-_token_totals: dict[str, dict[str, int]] = {}
-_token_lock = threading.Lock()
-
-
-def _record_tokens(role: str, in_tok: int, out_tok: int, cached: int) -> None:
-    with _token_lock:
-        b = _token_totals.setdefault(role, {"in": 0, "out": 0, "cached": 0})
-        b["in"] += in_tok
-        b["out"] += out_tok
-        b["cached"] += cached
-
-
-def get_token_totals() -> dict[str, dict[str, int]]:
-    with _token_lock:
-        return {k: dict(v) for k, v in _token_totals.items()}
-
-
-def reset_token_totals() -> None:
-    with _token_lock:
-        _token_totals.clear()
+from job_hunter.llm.providers import resolve_model_config
+from job_hunter.llm.token_usage import record_tokens
+from job_hunter.llm.types import LLMRequest, TokenUsage
 
 
 @dataclass
@@ -38,7 +19,7 @@ class LLMStage:
     cache_system: bool = False
     cache_ttl: str | None = None
     client_factory: Callable[[str], Any] = get_llm_client
-    settings_factory: Callable[..., Any] = get_llm_role_settings
+    settings_factory: Callable[..., Any] = resolve_model_config
 
     def settings(self, api_cfg: dict | None = None) -> Any:
         if api_cfg is None:
@@ -55,8 +36,6 @@ class LLMStage:
         cache_system: bool | None = None,
         cache_ttl: str | None = None,
     ) -> str:
-        from job_hunter.models import LLMRequest
-
         settings = self.settings(api_cfg)
         resolved_format = self.response_format if response_format is None else response_format
         resolved_cache = self.cache_system if cache_system is None else cache_system
@@ -70,7 +49,12 @@ class LLMStage:
             cache_ttl=resolved_ttl or "5m",
             response_format=resolved_format,
         )
-        _record_tokens(self.role, response.input_tokens, response.output_tokens, response.cached_tokens)
+        usage = TokenUsage(
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cached_tokens=response.cached_tokens,
+        )
+        record_tokens(self.role, usage)
         return response.content
 
     @staticmethod

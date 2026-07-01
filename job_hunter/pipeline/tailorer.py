@@ -11,9 +11,11 @@ import re
 from functools import cache
 
 from job_hunter.config.loader import get_config, profile_path
-from job_hunter.core.llm_utils import get_llm_role_settings
 from job_hunter.llm.client import get_client as get_llm_client
-from job_hunter.pipeline.llm_stage import LLMStage
+from job_hunter.llm.prompts.tailoring import PROMPT
+from job_hunter.llm.prompts.tailoring import SYSTEM_BASE as _SYSTEM_BASE
+from job_hunter.llm.providers import resolve_model_config
+from job_hunter.llm.stage import LLMStage
 
 logger = logging.getLogger(__name__)
 
@@ -21,30 +23,6 @@ logger = logging.getLogger(__name__)
 @cache
 def _get_base_tex() -> str:
     return profile_path("resume_tex", "resume.tex").read_text(encoding="utf-8")
-
-
-_SYSTEM_BASE = """You are editing a LaTeX resume.
-Return ONLY the complete modified LaTeX file. No markdown fences, no explanation, no commentary.
-
-HARD RULES — NO EXCEPTIONS:
-- Never invent or modify metrics, numbers, percentages, employers, job titles, dates, certifications, or skills.
-- Never add content that cannot be verified from the provided base resume or story bank.
-- Preserve all LaTeX commands, document class, employers, titles, and dates exactly as written.
-- All edits must be directly derivable from the base resume content. Introduce no new facts."""
-
-# System prompt is built per-call from stable config-driven content so Anthropic can cache the prefix.
-# Variable fields (keywords, tex, jd, gaps) stay in the user message.
-PROMPT = """\
-Mirror these JD keywords: {keywords}
-
-BASE RESUME:
-{tex}
-
-JOB DESCRIPTION:
-{jd}
-
-GAPS (do not fabricate; simply do not emphasize):
-{gaps}"""
 
 
 def _build_tailoring_rules(tailoring_cfg: dict) -> str:
@@ -211,7 +189,7 @@ def tailor(match_result: dict) -> str:
         cache_system=True,
         cache_ttl="1h",
         client_factory=get_llm_client,
-        settings_factory=get_llm_role_settings,
+        settings_factory=resolve_model_config,
     )
 
     system = "\n\n".join(

@@ -175,8 +175,8 @@ def write_research_cmd(
     import logging
 
     from job_hunter.config.loader import get_config
+    from job_hunter.llm.stage import LLMStage
     from job_hunter.pipeline._match_processor import write_company_research
-    from job_hunter.pipeline.llm_stage import LLMStage
     from job_hunter.tracker import repo_path
 
     logger = logging.getLogger(__name__)

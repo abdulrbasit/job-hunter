@@ -27,7 +27,7 @@ import time
 from collections import deque
 from typing import Any
 
-from job_hunter.models import LLMRequest, LLMResponse
+from job_hunter.llm.types import LLMRequest, LLMResponse
 
 logger = logging.getLogger(__name__)
 _LLM_EXTRA_HELP = "Reinstall job-hunter-kit to restore bundled LLM provider SDKs."
@@ -208,11 +208,11 @@ _lock = threading.Lock()
 def get_client(role: str) -> LLMClient:
     """Return a cached LLMClient for the given pipeline role."""
     from job_hunter.config import get_config, get_secret
-    from job_hunter.config.defaults import PROVIDER_SECRET_ENV_VARS
+    from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS, resolve_provider
 
     cfg = get_config("job_hunter")
     llm = cfg.get("llm", {})
-    provider: str = llm.get("providers", {}).get(role) or llm.get("default_provider", "anthropic")
+    provider = resolve_provider(role, llm)
 
     with _lock:
         if provider in _cache:
@@ -240,9 +240,9 @@ def clear_cache() -> None:
 
 def call(role: str, prompt: str, system: str = "", cache_system: bool = False, cache_ttl: str = "5m") -> LLMResponse:
     """Convenience wrapper: resolve client + model + tokens from config, then call."""
-    from job_hunter.core.llm_utils import get_llm_role_settings
+    from job_hunter.llm.providers import resolve_model_config
 
-    settings = get_llm_role_settings(role)
+    settings = resolve_model_config(role)
     req = LLMRequest(role=role, prompt=prompt, system=system or None)
     client = get_client(role)
     return client.complete(

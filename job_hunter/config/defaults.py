@@ -18,12 +18,6 @@ SECRET_ENV_VARS: dict[str, str] = {
     "reed": "REED_API_KEY",
 }
 
-PROVIDER_SECRET_ENV_VARS: dict[str, str] = {
-    "anthropic": SECRET_ENV_VARS["anthropic"],
-    "openai": SECRET_ENV_VARS["openai"],
-    "google": SECRET_ENV_VARS["google"],
-}
-
 LLM_ROLE_DEFAULTS: dict[str, Any] = {
     "default_provider": "anthropic",
     "providers": {

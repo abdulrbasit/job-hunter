@@ -120,28 +120,3 @@ class HuntOutput(BaseModel):
     run_id: str = ""
     snapshot_path: Path | None = None  # active: consumed by llm-api --from-snapshot
     mode: Literal["agent", "llm-api"] = "agent"
-
-
-# ---------------------------------------------------------------------------
-# LLM layer
-# ---------------------------------------------------------------------------
-
-
-class LLMRequest(BaseModel):
-    """Input to the LLM client."""
-
-    role: str  # "scoring" | "tailoring" | "cover_letter" | "linkedin" | ...
-    prompt: str
-    system: str | None = None
-    max_tokens: int | None = None
-
-
-class LLMResponse(BaseModel):
-    """Output from the LLM client."""
-
-    content: str
-    provider: str
-    model: str
-    input_tokens: int = 0
-    output_tokens: int = 0
-    cached_tokens: int = 0
