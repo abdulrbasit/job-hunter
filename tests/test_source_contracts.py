@@ -16,6 +16,12 @@ def test_board_registry_has_one_normalized_adapter_per_source() -> None:
     assert len(names) == len(set(names))
 
 
+def test_adapter_name_is_a_backward_compat_alias_for_source_name() -> None:
+    for adapter_type in BOARD_REGISTRY.values():
+        adapter = adapter_type()
+        assert adapter.name == adapter.source_name
+
+
 def test_board_registry_preserves_worldwide_coverage() -> None:
     names = set(BOARD_REGISTRY)
 

@@ -39,3 +39,15 @@ def test_extra_keys_dropped() -> None:
     d["unknown_field"] = "should be dropped"
     result = JobPosting.model_validate(d)
     assert result == jp
+
+
+def test_hunt_output_snapshot_path_is_optional_legacy_field() -> None:
+    from pathlib import Path
+
+    from job_hunter.models import HuntOutput
+
+    default = HuntOutput()
+    assert default.snapshot_path is None
+
+    with_path = HuntOutput(snapshot_path=Path("outputs/state/hunt_scrape_2026-01-01.json"))
+    assert with_path.snapshot_path == Path("outputs/state/hunt_scrape_2026-01-01.json")
