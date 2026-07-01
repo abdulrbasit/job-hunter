@@ -7,15 +7,17 @@ import logging
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import location_matches, strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, pages_for_max_results, source_page_cap
 
 logger = logging.getLogger(__name__)
 
 _API_URL = "https://www.themuse.com/api/public/jobs"
+# The Muse's API doesn't accept a page-size param; ~20 results/page is the observed default.
+_PAGE_SIZE = 20
 
 
 class TheMuseSource(JobSourceAdapter):
@@ -34,8 +36,9 @@ class TheMuseSource(JobSourceAdapter):
             return []
 
         timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
-        max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
-        location = params.location
+        max_pages = pages_for_max_results(
+            params.max_results, _PAGE_SIZE, base_cap=source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        )
         jobs: list[JobPosting] = []
 
         query_label = ", ".join(params.job_titles)
@@ -69,15 +72,17 @@ class TheMuseSource(JobSourceAdapter):
                     ", ".join(str(loc.get("name") or "") for loc in job_location_list if isinstance(loc, dict))
                     or "Remote"
                 )
-                if not title_matches(job_title, params.job_titles, []):
+                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                     continue
-                if location and job_location != "Remote":
-                    if not location_matches(job_location, location):
-                        continue
+                # Country/location filtering is deferred to JobPolicy/quality_gate downstream
+                # (location_restrictions below carries the signal) instead of dropping here.
                 description = strip_html(item.get("contents") or "")
                 company_name = str((item.get("company") or {}).get("name") or "")
                 job_url = str(item.get("refs", {}).get("landing_page") or "")
                 posted = truncate_date_text(item.get("publication_date"))
+                location_restrictions = [
+                    str(loc.get("name") or "") for loc in job_location_list if isinstance(loc, dict) and loc.get("name")
+                ]
                 jobs.append(
                     JobPosting(
                         title=job_title,
@@ -89,6 +94,7 @@ class TheMuseSource(JobSourceAdapter):
                         source="The Muse",
                         search_query=f"{query_label} @ {params.region_key}",
                         region=params.region_key,
+                        location_restrictions=location_restrictions,
                     )
                 )
             logger.info(

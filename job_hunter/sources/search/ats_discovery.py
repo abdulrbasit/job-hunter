@@ -8,9 +8,16 @@ from urllib.parse import urlparse
 
 import requests
 
+from job_hunter.config.defaults import _COUNTRY_NAME_TO_CODE
 from job_hunter.config.loader import get_api_config
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import location_matches, title_matches
+from job_hunter.sources._jd_ats_parsers import (
+    breezy_job_ref,
+    personio_job_ref,
+    teamtailor_job_ref,
+    workday_job_ref,
+)
 from job_hunter.sources.ats_urls import ats_discovery_sites, company_name_from_url
 from job_hunter.sources.search._result import SearchResult
 from job_hunter.sources.search._url_utils import canonicalize_url
@@ -23,6 +30,88 @@ from job_hunter.sources.search.router import (
 
 logger = logging.getLogger(__name__)
 
+# code->display-name lookup built once from the name->code map (first/primary name wins).
+_CODE_TO_COUNTRY_NAME: dict[str, str] = {}
+for _name, _code in _COUNTRY_NAME_TO_CODE.items():
+    _CODE_TO_COUNTRY_NAME.setdefault(_code, _name.title())
+
+_GULF_CODES: frozenset[str] = frozenset({"AE", "SA", "QA", "KW", "BH", "OM"})
+_GULF_QUERY_TERMS: tuple[str, ...] = (
+    "Bahrain",
+    "UAE",
+    "Qatar",
+    "Saudi",
+    "Oman",
+    "Kuwait",
+    "Dubai",
+    "Riyadh",
+    "Doha",
+    "Manama",
+)
+
+# Code-owned caps — not config. Keep worst-case query fan-out per (source, title) bounded.
+# Sized to comfortably fit the full Gulf term set (10 terms + city/country/remote/region
+# group ≈ 13 unique location terms + 1 bare-title query) without truncating it.
+_MAX_QUERIES_PER_SOURCE_PER_TITLE = 16
+
+# Conservative, code-owned title expansion — only fires when the configured title
+# literally contains the base phrase, so it never invents unrelated variants.
+_TITLE_VARIANT_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("product manager", ("Product Owner", "Technical Product Manager")),
+    ("software engineer", ("Backend Engineer", "Python Engineer")),
+)
+
+
+def title_query_variants(title: str) -> list[str]:
+    """Derive conservative title variants for ATS discovery queries only —
+    never mutates configured job_titles or any other pipeline stage."""
+    lower = title.lower()
+    variants: list[str] = []
+    for base, extra in _TITLE_VARIANT_RULES:
+        if base in lower:
+            variants.extend(v for v in extra if v.lower() != lower)
+    return variants
+
+
+def _location_query_terms(region_config: dict, location: str) -> list[str]:
+    """title+city, title+country, title+remote-country, title+region-group (Europe/
+    EMEA/MENA), and Gulf city/country terms for Gulf-configured regions."""
+    # Deferred import: job_hunter.sources.policy imports job_hunter.sources.search
+    # (for canonicalize_url), so a module-level import here would be circular.
+    from job_hunter.sources.policy import _EUROPE_COUNTRY_CODES, _MIDDLE_EAST_COUNTRY_CODES
+
+    terms: list[str] = []
+    city = str((region_config or {}).get("location") or location or "").strip()
+    if city:
+        terms.append(city)
+
+    country_code = str((region_config or {}).get("country") or "").strip().upper()
+    country_name = _CODE_TO_COUNTRY_NAME.get(country_code, "")
+    if country_name and country_name.lower() != city.lower():
+        terms.append(country_name)
+    if country_name:
+        terms.append(f"Remote {country_name}")
+
+    if country_code in _EUROPE_COUNTRY_CODES:
+        terms.append("Europe")
+        terms.append("EMEA")
+    if country_code in _MIDDLE_EAST_COUNTRY_CODES:
+        terms.append("MENA")
+        if "EMEA" not in terms:
+            terms.append("EMEA")
+    if country_code in _GULF_CODES:
+        terms.extend(_GULF_QUERY_TERMS)
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for term in terms:
+        key = term.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(term)
+    return deduped
+
+
 _ATS_DISCOVERY_SITES = ats_discovery_sites()
 
 
@@ -31,12 +120,27 @@ def _site_queries(site_query: str) -> list[str]:
     return [part.strip(" ()") for part in site_query.split(" OR ") if part.strip(" ()")]
 
 
-def _ats_search_queries(site_query: str, title: str, location: str) -> list[str]:
+def _ats_search_queries(
+    site_query: str,
+    title: str,
+    location: str,
+    region_config: dict | None = None,
+) -> list[str]:
+    """Build search queries for one ATS site × one title: title+city, title+country,
+    title+remote-country, title+region-group (Europe/EMEA/MENA/Gulf), and a
+    conservative set of title variants (e.g. Product Manager -> Product Owner).
+
+    Capped at _MAX_QUERIES_PER_SOURCE_PER_TITLE per site — a code-owned ceiling,
+    not config, so richer query variants can't runaway the query budget.
+    """
+    location_terms = _location_query_terms(region_config or {}, location)
+    titles = [title, *title_query_variants(title)]
     queries: list[str] = []
     for site in _site_queries(site_query):
-        if location:
-            queries.append(f'{site} "{title}" "{location}"')
-        queries.append(f'{site} "{title}"')
+        for t in titles:
+            title_queries = [f'{site} "{t}" "{term}"' for term in location_terms]
+            title_queries.append(f'{site} "{t}"')
+            queries.extend(title_queries[:_MAX_QUERIES_PER_SOURCE_PER_TITLE])
     return queries
 
 
@@ -49,120 +153,213 @@ def _passes_ats_discovery_shape(url: str, source: str) -> bool:
     )
 
 
-_ATS_LOCATION_VERIFIABLE = {
-    "lever",
-    "greenhouse",
-    "ashby",
-    "smartrecruiters",
-    "workable",
-    "recruitee",
+def _verify_lever_location(url: str, location_filter: str) -> bool:
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) < 2:
+        return True
+    slug, job_id = parts[0], parts[1]
+    resp = requests.get(f"https://api.lever.co/v0/postings/{slug}/{job_id}", timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    categories = resp.json().get("categories", {})
+    primary = categories.get("location", "")
+    all_locs = list(categories.get("allLocations") or ([primary] if primary else []))
+    if not all_locs:
+        return True
+    return any(location_matches(loc, location_filter) for loc in all_locs)
+
+
+def _verify_greenhouse_location(url: str, location_filter: str) -> bool:
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) < 3:
+        return False  # not a valid JD URL; valid paths always have ≥3 parts
+    slug, job_id = parts[0], parts[2]
+    resp = requests.get(
+        f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}", timeout=ATS_DISCOVERY_API_TIMEOUT
+    )
+    if not resp.ok:
+        return True
+    location = resp.json().get("location", {}).get("name", "")
+    return not location or location_matches(location, location_filter)
+
+
+def _verify_ashby_location(url: str, location_filter: str) -> bool:
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) < 2:
+        return True
+    slug, job_id = parts[0], parts[1]
+    resp = requests.get(
+        f"https://api.ashbyhq.com/posting-api/job-board/{slug}/job-posting/{job_id}",
+        timeout=ATS_DISCOVERY_API_TIMEOUT,
+    )
+    if not resp.ok:
+        return True
+    location = resp.json().get("jobPosting", {}).get("locationName", "")
+    return not location or location_matches(location, location_filter)
+
+
+def _verify_smartrecruiters_location(url: str, location_filter: str) -> bool:
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) < 2:
+        return True
+    slug, posting_id = parts[0], parts[1]
+    resp = requests.get(
+        f"https://api.smartrecruiters.com/v1/companies/{slug}/postings/{posting_id}",
+        timeout=ATS_DISCOVERY_API_TIMEOUT,
+    )
+    if not resp.ok:
+        return True
+    loc = resp.json().get("location", {})
+    city = loc.get("city", "")
+    country = loc.get("country", "")
+    location_str = ", ".join(filter(None, [city, country]))
+    return (
+        not location_str or location_matches(city, location_filter) or location_matches(location_str, location_filter)
+    )
+
+
+def _verify_workable_location(url: str, location_filter: str) -> bool:
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) < 3:
+        return True
+    slug, shortcode = parts[0], parts[2]
+    resp = requests.get(
+        f"https://apply.workable.com/api/v3/accounts/{slug}/jobs/{shortcode}", timeout=ATS_DISCOVERY_API_TIMEOUT
+    )
+    if not resp.ok:
+        return True
+    location = resp.json().get("location", {}).get("location", "")
+    return not location or location_matches(location, location_filter)
+
+
+def _verify_recruitee_location(url: str, location_filter: str) -> bool:
+    parsed = urlparse(url)
+    subdomain = parsed.netloc.split(".recruitee.com", 1)[0]
+    slug = parsed.path.strip("/").split("/")[-1]
+    if not subdomain or not slug:
+        return True
+    resp = requests.get(f"https://{subdomain}.recruitee.com/api/offers/{slug}", timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    offer = resp.json().get("offer", {})
+    city = offer.get("city", "")
+    location = offer.get("location", "")
+    return (
+        not (city or location) or location_matches(city, location_filter) or location_matches(location, location_filter)
+    )
+
+
+def _verify_personio_location(url: str, location_filter: str) -> bool:
+    ref = personio_job_ref(url)
+    if not ref:
+        return True
+    slug, job_id = ref
+    resp = requests.get(f"https://{slug}.jobs.personio.de/xml", timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(resp.text)  # noqa: S314
+    except ET.ParseError:
+        return True
+    for position in root.findall("position"):
+        if (position.findtext("id") or "").strip() != job_id:
+            continue
+        offices = [(position.findtext("office") or "").strip()]
+        offices.extend(o.strip() for o in (e.text or "" for e in position.findall("additionalOffices/office")) if o)
+        offices = [o for o in offices if o]
+        if not offices:
+            return True
+        return any(location_matches(office, location_filter) for office in offices)
+    return True
+
+
+def _verify_breezy_location(url: str, location_filter: str) -> bool:
+    ref = breezy_job_ref(url)
+    if not ref:
+        return True
+    slug, friendly_id = ref
+    resp = requests.get(f"https://{slug}.breezy.hr/json", timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    data = resp.json()
+    if not isinstance(data, list):
+        return True
+    for item in data:
+        if not isinstance(item, dict) or item.get("friendly_id") != friendly_id:
+            continue
+        loc = item.get("location") or {}
+        city = loc.get("city", "") if isinstance(loc, dict) else ""
+        country = (loc.get("country") or {}).get("name", "") if isinstance(loc, dict) else ""
+        if not (city or country):
+            return True
+        return location_matches(city, location_filter) or location_matches(country, location_filter)
+    return True
+
+
+def _verify_teamtailor_location(url: str, location_filter: str) -> bool:
+    slug = teamtailor_job_ref(url)
+    if not slug:
+        return True
+    resp = requests.get(f"https://{slug}.teamtailor.com/jobs.json", timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    data = resp.json()
+    for item in (data.get("items") or []) if isinstance(data, dict) else []:
+        if not isinstance(item, dict) or item.get("url") != url:
+            continue
+        locations = ((item.get("_jobposting") or {}).get("jobLocation")) or []
+        if not locations:
+            return True
+        address = (locations[0] or {}).get("address") or {}
+        locality = address.get("addressLocality", "")
+        country = address.get("addressCountry", "")
+        if not (locality or country):
+            return True
+        return location_matches(locality, location_filter) or location_matches(country, location_filter)
+    return True
+
+
+def _verify_workday_location(url: str, location_filter: str) -> bool:
+    ref = workday_job_ref(url)
+    if not ref:
+        return True
+    tenant, wd_host, site, external_path = ref
+    api_url = f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}{external_path}"
+    resp = requests.get(api_url, timeout=ATS_DISCOVERY_API_TIMEOUT)
+    if not resp.ok:
+        return True
+    info = resp.json().get("jobPostingInfo", {})
+    location = info.get("location", "") or info.get("country", "")
+    return not location or location_matches(location, location_filter)
+
+
+_ATS_LOCATION_VERIFIERS = {
+    "lever": _verify_lever_location,
+    "greenhouse": _verify_greenhouse_location,
+    "ashby": _verify_ashby_location,
+    "smartrecruiters": _verify_smartrecruiters_location,
+    "workable": _verify_workable_location,
+    "recruitee": _verify_recruitee_location,
+    "personio": _verify_personio_location,
+    "breezy": _verify_breezy_location,
+    "teamtailor": _verify_teamtailor_location,
+    "workday": _verify_workday_location,
 }
+_ATS_LOCATION_VERIFIABLE = frozenset(_ATS_LOCATION_VERIFIERS)
 
 
 def _verify_ats_location(url: str, source: str, location_filter: str) -> bool:
     """Return True if the ATS posting's location matches location_filter, or if unknown."""
-    parts = urlparse(url).path.strip("/").split("/")
+    verifier = _ATS_LOCATION_VERIFIERS.get(source)
+    if not verifier:
+        return True
     try:
-        if source == "lever":
-            if len(parts) < 2:
-                return True
-            slug, job_id = parts[0], parts[1]
-            resp = requests.get(
-                f"https://api.lever.co/v0/postings/{slug}/{job_id}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            categories = resp.json().get("categories", {})
-            primary = categories.get("location", "")
-            all_locs = list(categories.get("allLocations") or ([primary] if primary else []))
-            if not all_locs:
-                return True
-            return any(location_matches(loc, location_filter) for loc in all_locs)
-
-        elif source == "greenhouse":
-            if len(parts) < 3:
-                return False  # not a valid JD URL; valid paths always have ≥3 parts
-            slug, job_id = parts[0], parts[2]
-            resp = requests.get(
-                f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            location = resp.json().get("location", {}).get("name", "")
-            return not location or location_matches(location, location_filter)
-
-        elif source == "ashby":
-            if len(parts) < 2:
-                return True
-            slug, job_id = parts[0], parts[1]
-            resp = requests.get(
-                f"https://api.ashbyhq.com/posting-api/job-board/{slug}/job-posting/{job_id}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            location = resp.json().get("jobPosting", {}).get("locationName", "")
-            return not location or location_matches(location, location_filter)
-
-        elif source == "smartrecruiters":
-            if len(parts) < 2:
-                return True
-            slug, posting_id = parts[0], parts[1]
-            resp = requests.get(
-                f"https://api.smartrecruiters.com/v1/companies/{slug}/postings/{posting_id}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            loc = resp.json().get("location", {})
-            city = loc.get("city", "")
-            country = loc.get("country", "")
-            location_str = ", ".join(filter(None, [city, country]))
-            return (
-                not location_str
-                or location_matches(city, location_filter)
-                or location_matches(location_str, location_filter)
-            )
-
-        elif source == "workable":
-            if len(parts) < 3:
-                return True
-            slug, shortcode = parts[0], parts[2]
-            resp = requests.get(
-                f"https://apply.workable.com/api/v3/accounts/{slug}/jobs/{shortcode}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            location = resp.json().get("location", {}).get("location", "")
-            return not location or location_matches(location, location_filter)
-
-        elif source == "recruitee":
-            parsed = urlparse(url)
-            subdomain = parsed.netloc.split(".recruitee.com", 1)[0]
-            slug = parsed.path.strip("/").split("/")[-1]
-            if not subdomain or not slug:
-                return True
-            resp = requests.get(
-                f"https://{subdomain}.recruitee.com/api/offers/{slug}",
-                timeout=ATS_DISCOVERY_API_TIMEOUT,
-            )
-            if not resp.ok:
-                return True
-            offer = resp.json().get("offer", {})
-            city = offer.get("city", "")
-            location = offer.get("location", "")
-            return (
-                not (city or location)
-                or location_matches(city, location_filter)
-                or location_matches(location, location_filter)
-            )
-
+        return verifier(url, location_filter)
     except Exception as e:
         logger.debug("[ats_discovery] filter skipped: %s", e)
-    return True
+        return True
 
 
 def _enrich_ats_discovery_job(url: str) -> dict | None:
@@ -236,6 +433,7 @@ def _process_ats_result(
                 else f"{result.source} ATS discovery: {source}"
             ),
             "search_query": query,
+            "location_restrictions": [enriched_location] if enriched_location else [],
         }
     )
 
@@ -265,7 +463,7 @@ def _discover_region(
             if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
                 break
             site_query, _, _ = _ATS_DISCOVERY_SITES[source]
-            for query in _ats_search_queries(site_query, title, location):
+            for query in _ats_search_queries(site_query, title, location, region_config):
                 if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
                     break
                 region_queries += 1
@@ -331,7 +529,7 @@ def discover_ats_jobs_by_search(
                     logger.info("[search-discovery] complete: %s jobs found", len(jobs))
                     return jobs
                 site_query, _, _ = _ATS_DISCOVERY_SITES[source]
-                for query in _ats_search_queries(site_query, title, location):
+                for query in _ats_search_queries(site_query, title, location, region_config):
                     if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
                         logger.info("[search-discovery] query cap reached for region=%s", region_name)
                         break

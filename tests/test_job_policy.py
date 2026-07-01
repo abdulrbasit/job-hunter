@@ -235,3 +235,63 @@ def test_global_feed_accepts_remote_or_empty_location() -> None:
 def test_global_feed_passes_when_no_regions_configured() -> None:
     policy = JobPolicy({"regions": {}, "exclusions": {}})
     assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Spain"]})
+
+
+def test_global_feed_accepts_europe_and_emea_restrictions_when_region_is_in_europe() -> None:
+    """Adapters (RemoteOK/Himalayas/etc) now defer this decision to policy — broad
+    continental restrictions must not be dropped early for an EU-configured region."""
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE — both in Europe
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Europe"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["EMEA"]})
+
+
+def test_global_feed_rejects_europe_restriction_when_no_configured_region_is_in_europe() -> None:
+    non_eu_config = {
+        "regions": {"sg": {"enabled": True, "country": "SG", "location": "Singapore"}},
+        "exclusions": {},
+    }
+    policy = JobPolicy(non_eu_config)
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Europe"]})
+
+
+def test_wrong_region_job_is_still_rejected_after_adapter_stops_pre_filtering() -> None:
+    """Adapters (RemoteOK/Himalayas/The Muse/JobSpy) no longer drop wrong-region jobs
+    themselves — this is the downstream safety net that must still catch them."""
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    berlin_region_config = _MULTI_REGION_CONFIG["regions"]["berlin"]
+
+    # A job onsite in a non-configured country, exactly as RemoteOK/JobSpy would emit it now.
+    wrong_region_job = {"location": "Bangalore, India", "location_restrictions": ["India"]}
+    assert policy.has_incompatible_location_metadata(wrong_region_job, berlin_region_config)
+
+
+_GULF_REGION_CONFIG = {
+    "regions": {
+        "ae": {"enabled": True, "country": "AE", "location": "Dubai"},
+        "bh": {"enabled": True, "country": "BH", "location": "Manama"},
+    },
+    "exclusions": {},
+}
+
+
+def test_global_feed_accepts_gulf_and_mena_broad_restrictions_for_gulf_region() -> None:
+    """GulfTalent/Bayt yield: a remote job restricted to "GCC"/"Middle East"/"MENA"
+    must not be dropped for AE/BH-configured regions — these were previously only
+    matched against Europe country codes."""
+    policy = JobPolicy(_GULF_REGION_CONFIG)
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["GCC"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Middle East"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["MENA"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["EMEA"]})
+
+
+def test_global_feed_rejects_gulf_restrictions_when_no_configured_region_is_in_gulf() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE — no Gulf region
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["GCC"]})
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Middle East"]})
+
+
+def test_emea_still_accepted_for_europe_only_region() -> None:
+    """EMEA must keep matching pure-Europe regions too, not just Gulf ones."""
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["EMEA"]})

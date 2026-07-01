@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from job_hunter.sources.boards.adzuna import AdzunaSource
 from job_hunter.sources.boards.arbeitsagentur import ArbeitsagenturSource
+from job_hunter.sources.boards.bayt import BaytSource
 from job_hunter.sources.boards.careerjet import CareerjetSource
 from job_hunter.sources.boards.gulftalent import GulfTalentSource
 from job_hunter.sources.boards.hh import HHSource
@@ -32,6 +33,7 @@ BOARD_REGISTRY: dict[str, type] = {
     "adzuna": AdzunaSource,
     "arbeitsagentur": ArbeitsagenturSource,
     "arbeitnow": ArbeitnowSource,
+    "bayt": BaytSource,
     "careerjet": CareerjetSource,
     "gulftalent": GulfTalentSource,
     "hh": HHSource,
@@ -56,6 +58,7 @@ __all__ = [
     "AdzunaSource",
     "ArbeitsagenturSource",
     "ArbeitnowSource",
+    "BaytSource",
     "CareerjetSource",
     "GulfTalentSource",
     "HHSource",

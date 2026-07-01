@@ -17,7 +17,7 @@ from job_hunter.config.defaults import (
     LANGUAGE_INDICATORS,
     STALE_INDICATORS,
 )
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting
 from job_hunter.sources.search import canonicalize_url
 
@@ -190,7 +190,12 @@ _EUROPE_COUNTRY_CODES: frozenset[str] = frozenset(
     }
 )
 
-_EUROPE_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"eu", "europe", "emea"})
+_MIDDLE_EAST_COUNTRY_CODES: frozenset[str] = frozenset({"AE", "SA", "QA", "KW", "BH", "OM"})
+
+_EUROPE_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"eu", "europe"})
+_MIDDLE_EAST_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"middle east", "gcc", "mena", "gulf"})
+# EMEA spans Europe + Middle East (+ Africa, untracked) — broader than "europe" alone.
+_EMEA_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"emea"})
 _REMOTE_ONLY_LOCATIONS: frozenset[str] = frozenset({"", "remote"})
 
 _CORPORATE_SUFFIX_RE = re.compile(
@@ -304,6 +309,10 @@ def _is_broad_location_restriction(value: object, allowed_codes: set[str]) -> bo
         return True
     if text in _EUROPE_LOCATION_RESTRICTIONS:
         return bool(allowed_codes & _EUROPE_COUNTRY_CODES)
+    if text in _MIDDLE_EAST_LOCATION_RESTRICTIONS:
+        return bool(allowed_codes & _MIDDLE_EAST_COUNTRY_CODES)
+    if text in _EMEA_LOCATION_RESTRICTIONS:
+        return bool(allowed_codes & (_EUROPE_COUNTRY_CODES | _MIDDLE_EAST_COUNTRY_CODES))
     return False
 
 
@@ -417,7 +426,7 @@ class JobPolicy:
             return "missing_identity"
         if str(title).strip().lower() == "unknown role" or str(company).strip().lower() == "unknown company":
             return "missing_identity"
-        if title_filters and not title_matches(title, title_filters, self.excluded_title_terms):
+        if title_filters and not title_is_allowed(title, title_filters, self.excluded_title_terms):
             logger.info("[skip] Title not in filters: %s", title[:60])
             return "excluded_title"
         if self.is_excluded_company(company):

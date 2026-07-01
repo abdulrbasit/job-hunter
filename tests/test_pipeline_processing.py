@@ -263,7 +263,7 @@ def test_pre_llm_gate_rejecting_all_jobs_yields_no_processed_matches() -> None:
     jobs = [_match(0)["job"]]
 
     with (
-        patch("job_hunter.pipeline.stages.processing.apply_pre_llm_gate", return_value=([], jobs)),
+        patch("job_hunter.pipeline.stages.processing.apply_pre_llm_quality_gate", return_value=([], jobs)),
         patch("job_hunter.pipeline.stages.processing.score_and_filter_jobs") as score_and_filter_jobs,
     ):
         processed = processing.process_jobs(

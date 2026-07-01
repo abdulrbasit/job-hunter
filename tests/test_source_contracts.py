@@ -1,3 +1,5 @@
+import inspect
+import re
 from inspect import signature
 from unittest.mock import patch
 
@@ -5,6 +7,10 @@ from job_hunter.models import SearchParams
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.boards import BOARD_REGISTRY
 from job_hunter.sources.source_config import job_board_enabled, job_board_source_config, job_board_timeout
+
+# Matches a title_is_allowed(...)/title_matches(...) call that hardcodes an empty
+# exclusion list instead of threading params.excluded_title_terms through.
+_HARDCODED_EMPTY_EXCLUSION = re.compile(r"title_(is_allowed|matches)\([^)]*\[\]\s*\)")
 
 
 def test_board_registry_has_one_normalized_adapter_per_source() -> None:
@@ -22,7 +28,7 @@ def test_board_registry_preserves_worldwide_coverage() -> None:
     assert {"jobspy", "careerjet", "himalayas"} <= names  # global/multi-country
     assert {"arbeitsagentur", "reed"} <= names  # Europe
     assert {"jobbank", "adzuna"} <= names  # Americas
-    assert {"gulftalent"} <= names  # Gulf
+    assert {"gulftalent", "bayt"} <= names  # Gulf
     assert {"mycareersfuture", "jobstreet"} <= names  # Asia-Pacific
 
 
@@ -32,6 +38,7 @@ def test_board_registry_has_exactly_the_expected_source_names() -> None:
         "adzuna",
         "arbeitsagentur",
         "arbeitnow",
+        "bayt",
         "careerjet",
         "gulftalent",
         "hh",
@@ -87,6 +94,35 @@ def test_all_adapters_accept_shared_search_contract() -> None:
     for adapter_type in BOARD_REGISTRY.values():
         adapter = adapter_type()
         signature(adapter.fetch).bind(params)
+
+
+def test_all_board_adapters_thread_excluded_title_terms() -> None:
+    """Every registered board adapter must filter titles via the shared title_is_allowed
+    helper using params.excluded_title_terms — never a hardcoded empty exclusion list.
+
+    Static/source-level check: adapters differ too much in fetch mechanics (HTML
+    parsing, paginated APIs, raw dict payloads) for a single functional mock to
+    exercise every one, so this asserts the actual call-site pattern instead.
+    """
+    checked_modules: set[str] = set()
+    for source_name, adapter_type in BOARD_REGISTRY.items():
+        module = inspect.getmodule(adapter_type)
+        assert module is not None
+        if module.__name__ in checked_modules:
+            continue
+        checked_modules.add(module.__name__)
+
+        source = inspect.getsource(module)
+        if "title_is_allowed(" not in source and "title_matches(" not in source:
+            continue  # module has no title filtering to begin with (e.g. helper-only)
+
+        assert "excluded_title_terms" in source, (
+            f"{source_name} ({module.__name__}) filters titles but never references excluded_title_terms"
+        )
+        bad_call = _HARDCODED_EMPTY_EXCLUSION.search(source)
+        assert bad_call is None, (
+            f"{source_name} ({module.__name__}) hardcodes an empty exclusion list: {bad_call.group(0) if bad_call else ''!r}"
+        )
 
 
 def test_job_board_source_config_reads_named_board_config() -> None:

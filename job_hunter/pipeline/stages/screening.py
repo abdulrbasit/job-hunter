@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.sources.policy import JobPolicy
 
 # Snippet phrases that explicitly mark a fixed-term/contract posting.
@@ -39,7 +39,7 @@ def _screen_job(
     snippet_lower = snippet.lower()
 
     reason = policy.rejection_reason(job, [])
-    if not reason and not title_matches(title, [], policy.excluded_title_terms):
+    if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
         reason = "excluded_title"
     if not reason and _requires_excluded_language(title.lower(), policy.excluded_languages):
         reason = "requires_language"

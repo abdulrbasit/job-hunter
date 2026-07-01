@@ -182,6 +182,28 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
     assert [job.region for job in jobs] == ["berlin"]
 
 
+def test_deep_depth_passes_larger_max_results_than_standard() -> None:
+    """_params_for_region only raises max_results for depth='deep' — the
+    adaptive/deep-attempt signal paged adapters use to fetch more pages."""
+    from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
+
+    region_config = {"country": "DE", "location": "Berlin", "search_lang": "en"}
+
+    assert orchestrator._max_results_for_depth("standard") == DEFAULT_STANDARD_MAX_RESULTS
+    assert orchestrator._max_results_for_depth("fast") == DEFAULT_STANDARD_MAX_RESULTS
+    assert orchestrator._max_results_for_depth("deep") == DEFAULT_BACKFILL_MAX_RESULTS
+
+    standard_params = orchestrator._params_for_region(
+        "berlin", region_config, ["Product Manager"], [], max_results=orchestrator._max_results_for_depth("standard")
+    )
+    deep_params = orchestrator._params_for_region(
+        "berlin", region_config, ["Product Manager"], [], max_results=orchestrator._max_results_for_depth("deep")
+    )
+    assert standard_params.max_results == DEFAULT_STANDARD_MAX_RESULTS
+    assert deep_params.max_results == DEFAULT_BACKFILL_MAX_RESULTS
+    assert deep_params.max_results > standard_params.max_results
+
+
 def test_enrichment_never_replaces_known_identity_with_unknown_values() -> None:
     job = _posting(source="Arbeitsagentur").model_dump()
 
@@ -331,3 +353,185 @@ def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch,
     assert saved == [{"https://example.com/jobs/old", "https://example.com/jobs/pm"}]
     db_jobs = get_discovered_jobs(tmp_path, run_id=run_id)
     assert len(db_jobs) == 1
+
+
+# ── Adaptive per-region hunt ─────────────────────────────────────────────────
+
+
+def _fake_postings(n: int, prefix: str) -> list[JobPosting]:
+    return [_posting(url=f"https://example.com/{prefix}/{i}", company=f"Co{prefix}{i}", region="") for i in range(n)]
+
+
+def _pass_through_quality_pipeline(monkeypatch) -> None:
+    """Make every stage between passes a no-op pass-through so a test controls
+    quality count purely via how many postings scrape_with_stats returns."""
+    monkeypatch.setattr(hunt, "filter_new_jobs", lambda jobs: (jobs, set()))
+    monkeypatch.setattr(hunt, "_drop_dead_urls", lambda jobs, *_a, **_k: jobs)
+    monkeypatch.setattr(hunt, "apply_pre_enrichment_quality_gate", lambda jobs, _cfg: (jobs, []))
+    monkeypatch.setattr(hunt, "_enrich", lambda jobs, _cfg: jobs)
+    monkeypatch.setattr(hunt, "screen_jobs_by_rules", lambda jobs, _cfg: (jobs, []))
+
+
+def _scrape_stub(standard=0, deep=0, ats_slug=0, ats_discovery=0):
+    """Fake scrape_with_stats that returns a fixed candidate count per pass,
+    identified by the same kwargs _ADAPTIVE_PASSES uses to distinguish them."""
+
+    def fake(region=None, *, depth="standard", include_boards=True, include_ats_slug=True, include_ats_discovery=True):
+        if include_boards and depth == "fast":
+            return _fake_postings(standard, "standard"), ScrapeStats()
+        if include_boards and depth == "deep":
+            return _fake_postings(deep, "deep"), ScrapeStats()
+        if not include_boards and not include_ats_discovery:
+            return _fake_postings(ats_slug, "atsslug"), ScrapeStats()
+        if not include_boards and not include_ats_slug:
+            return _fake_postings(ats_discovery, "atsdiscovery"), ScrapeStats()
+        return [], ScrapeStats()
+
+    return fake
+
+
+def test_adaptive_region_meets_target_in_standard_pass(monkeypatch) -> None:
+    calls = []
+    stub = _scrape_stub(standard=5, deep=5, ats_slug=5, ats_discovery=5)
+
+    def tracking_stub(region=None, **kwargs):
+        calls.append(kwargs.get("depth"))
+        return stub(region=region, **kwargs)
+
+    monkeypatch.setattr(hunt, "scrape_with_stats", tracking_stub)
+    _pass_through_quality_pipeline(monkeypatch)
+
+    jobs = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 5, ScrapeStats())
+
+    assert len(jobs) == 5
+    assert calls == ["fast"]  # only the standard pass ran
+
+
+def test_adaptive_region_reaches_target_only_after_deep_pass(monkeypatch) -> None:
+    calls = []
+    stub = _scrape_stub(standard=2, deep=10, ats_slug=10, ats_discovery=10)
+
+    def tracking_stub(region=None, **kwargs):
+        calls.append(kwargs.get("depth"))
+        return stub(region=region, **kwargs)
+
+    monkeypatch.setattr(hunt, "scrape_with_stats", tracking_stub)
+    _pass_through_quality_pipeline(monkeypatch)
+
+    jobs = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 5, ScrapeStats())
+
+    assert len(jobs) == 12  # 2 (standard) + 10 (deep)
+    assert calls == ["fast", "deep"]
+
+
+def test_adaptive_region_reaches_target_only_after_ats_discovery(monkeypatch) -> None:
+    stub = _scrape_stub(standard=1, deep=1, ats_slug=1, ats_discovery=10)
+    monkeypatch.setattr(hunt, "scrape_with_stats", stub)
+    _pass_through_quality_pipeline(monkeypatch)
+
+    jobs = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 5, ScrapeStats())
+
+    assert len(jobs) == 13  # 1 + 1 + 1 + 10 — every pass had to run
+
+
+def test_adaptive_region_remains_under_target_and_reports_clearly(monkeypatch, caplog) -> None:
+    stub = _scrape_stub(standard=1, deep=1, ats_slug=1, ats_discovery=1)
+    monkeypatch.setattr(hunt, "scrape_with_stats", stub)
+    _pass_through_quality_pipeline(monkeypatch)
+
+    with caplog.at_level("INFO"):
+        jobs = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 15, ScrapeStats())
+
+    assert len(jobs) == 4
+    assert any("status=under_target" in r.message and "bh" in r.message for r in caplog.records)
+
+
+def test_global_cap_does_not_starve_smaller_regions(monkeypatch) -> None:
+    """A large region meeting its target in pass 1 must not stop a smaller
+    region from running its own full escalation."""
+    region_calls: dict[str, list[str | None]] = {"de": [], "bh": []}
+
+    def fake_adaptive(region_key, _api_config, _scoring_config, _url_liveness, _target, _stats):
+        if region_key == "de":
+            region_calls["de"].append("standard")
+            return [p.model_dump() for p in _fake_postings(20, "de")]
+        # Bahrain needs every pass to reach target — simulate by recording each
+        # pass name via a nested fake scrape call sequence.
+        for pass_name in ("standard", "deep_boards", "ats_slug", "ats_discovery"):
+            region_calls["bh"].append(pass_name)
+        return [p.model_dump() for p in _fake_postings(3, "bh")]
+
+    monkeypatch.setattr(hunt, "_adaptive_region_hunt", fake_adaptive)
+    monkeypatch.setattr(
+        hunt,
+        "enabled_regions",
+        lambda _config, _region: {"de": {"country": "DE"}, "bh": {"country": "BH"}},
+    )
+    monkeypatch.setattr(hunt, "load_search_config", lambda: {})
+
+    jobs, _existing_urls, _existing_titles = hunt.run_hunt({"region": None}, {}, {}, MagicMock())
+
+    assert len(region_calls["de"]) == 1
+    assert region_calls["bh"] == ["standard", "deep_boards", "ats_slug", "ats_discovery"]
+    assert len(jobs) == 23  # 20 (de) + 3 (bh) — bh's jobs are not dropped just because de met target first
+
+
+def test_adaptive_hunt_three_regions_uneven_supply_respects_downstream_batch_size(monkeypatch) -> None:
+    """DE/BH/SG integration: DE has ample supply and meets target in pass 1, SG
+    needs ATS discovery to reach target, BH has genuinely limited supply and
+    stays under target even after every pass — each region gets its fair
+    escalation regardless of the others, and the combined pool still respects
+    the existing downstream batch_size when sliced by build_candidate_batch."""
+    from job_hunter.agent_context.batch import build_candidate_batch
+
+    # (region -> pass key -> candidate count for that pass)
+    supply = {
+        "de": {"fast": 8},  # meets target=5 immediately
+        "sg": {"fast": 1, "deep": 1, "ats_slug": 1, "ats_discovery": 6},  # needs every pass
+        "bh": {"fast": 1, "deep": 1, "ats_slug": 1, "ats_discovery": 1},  # exhausts passes, stays under target
+    }
+    counters = {"de": 0, "sg": 0, "bh": 0}
+
+    def fake_scrape(
+        region=None, *, depth="standard", include_boards=True, include_ats_slug=True, include_ats_discovery=True
+    ):
+        if include_boards and depth == "fast":
+            key = "fast"
+        elif include_boards and depth == "deep":
+            key = "deep"
+        elif not include_boards and not include_ats_discovery:
+            key = "ats_slug"
+        elif not include_boards and not include_ats_slug:
+            key = "ats_discovery"
+        else:
+            key = ""
+        n = supply.get(region, {}).get(key, 0)
+        counters[region] += 1
+        prefix = f"{region}-{key}-{counters[region]}"
+        return _fake_postings(n, prefix), ScrapeStats()
+
+    monkeypatch.setattr(hunt, "scrape_with_stats", fake_scrape)
+    monkeypatch.setattr(hunt, "load_search_config", lambda: {})
+    monkeypatch.setattr(
+        hunt,
+        "enabled_regions",
+        lambda _config, _region: {
+            "de": {"country": "DE"},
+            "bh": {"country": "BH"},
+            "sg": {"country": "SG"},
+        },
+    )
+    _pass_through_quality_pipeline(monkeypatch)
+
+    scoring_config = {"scoring": {"batch_size": 5}}
+    jobs, _existing_urls, _existing_titles = hunt.run_hunt({"region": None}, {}, scoring_config, MagicMock())
+
+    # DE reached target in pass 1 (8 >= 5); SG needed all 4 passes (1+1+1+6=9 >= 5);
+    # BH exhausted all 4 passes and stayed under target (1+1+1+1=4 < 5).
+    assert len(jobs) == 8 + 9 + 4
+
+    # Downstream batching still caps at batch_size regardless of how many
+    # quality candidates the adaptive hunt produced across all three regions.
+    batch = build_candidate_batch({"jobs": jobs}, batch_size=5)
+    assert batch["count"] == 5
+    assert len(batch["jobs"]) == 5

@@ -78,30 +78,6 @@ def test_location_text_with_string_restrictions() -> None:
     assert hm._location_text(job) == "Germany, United States"
 
 
-def test_country_matches_no_restrictions() -> None:
-    assert hm._country_matches({}, "DE") is True
-
-
-def test_country_matches_matching() -> None:
-    job = {"locationRestrictions": [{"alpha2": "DE"}]}
-    assert hm._country_matches(job, "DE") is True
-
-
-def test_country_matches_string_restriction() -> None:
-    job = {"locationRestrictions": ["Germany"]}
-    assert hm._country_matches(job, "DE") is True
-
-
-def test_country_matches_no_match() -> None:
-    job = {"locationRestrictions": [{"alpha2": "US"}]}
-    assert hm._country_matches(job, "DE") is False
-
-
-def test_country_matches_string_no_match() -> None:
-    job = {"locationRestrictions": ["United States"]}
-    assert hm._country_matches(job, "DE") is False
-
-
 class TestHimalayasSource:
     def test_name(self) -> None:
         assert hm.HimalayasSource().source_name == "himalayas"
@@ -136,3 +112,32 @@ class TestHimalayasSource:
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "Himalayas"
         assert jobs[0].location_restrictions == ["Germany"]
+
+    def test_fetch_does_not_early_filter_jobs_restricted_to_other_countries(self) -> None:
+        """Himalayas no longer drops a job locally just because locationRestrictions
+        name a different country — that decision moves to JobPolicy/quality_gate.
+        location_restrictions is still populated so the downstream check has a signal."""
+        from job_hunter.models import SearchParams
+
+        params = SearchParams(
+            region_key="global_remote",
+            country="DE",
+            location="",
+            search_lang="",
+            job_titles=["Product Manager", "Sales Director"],
+        )
+        with (
+            patch(
+                "job_hunter.sources.boards.himalayas.get_api_config",
+                return_value=_ENABLED_CFG,
+            ),
+            patch(
+                "job_hunter.sources._http.requests.get",
+                return_value=_mock_get(_RESPONSE),
+            ),
+        ):
+            jobs = hm.HimalayasSource().fetch(params)
+        titles = {job.title for job in jobs}
+        assert titles == {"Product Manager", "Sales Director"}
+        us_job = next(job for job in jobs if job.title == "Sales Director")
+        assert us_job.location_restrictions == ["United States"]

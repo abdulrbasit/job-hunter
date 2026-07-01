@@ -148,6 +148,39 @@ class TestJobSpySource:
         assert jobs[0].source == "JobSpy/Google"
         assert jobs[0].location == "Berlin, DE"
 
+    def test_fetch_does_not_early_filter_jobs_outside_region_location(self, monkeypatch) -> None:
+        """JobSpy no longer drops a job locally just because its location string
+        doesn't match the region — the upstream `location` kwarg already scopes the
+        Google/Indeed query server-side, and wrong-region stragglers are caught by
+        JobPolicy/quality_gate downstream via the job's location field."""
+        onsite_row = {
+            "title": "Software Engineer",
+            "company": "SpyCo",
+            "job_url": "https://jobspy.com/2",
+            "date_posted": "2026-06-01",
+            "description": "A role.",
+            "location": "San Francisco, CA",
+            "site": "google",
+        }
+
+        class _RowsFixed:
+            empty = False
+
+            def iterrows(self):
+                return iter([(0, onsite_row)])
+
+        monkeypatch.setitem(
+            __import__("sys").modules,
+            "jobspy",
+            SimpleNamespace(scrape_jobs=lambda **kw: _RowsFixed()),
+        )
+
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
+            jobs = JobSpySource().fetch(mk_params(["Software Engineer"], _DE))
+        # _DE maps to both google and indeed sites, so the same row is returned per site.
+        assert len(jobs) >= 1
+        assert all(job.location == "San Francisco, CA" for job in jobs)
+
 
 class TestJobSpyCircuitBreaker:
     def test_403_disables_site_after_first_failure(self, monkeypatch) -> None:
@@ -314,5 +347,5 @@ class TestJobSpyAutoSelection:
 
         assert len(captured) >= 1
         for call in captured:
-            assert call.get("google_search_term") == "Data Scientist"
+            assert call.get("google_search_term") == "Data Scientist jobs near Austin"
             assert call.get("search_term") == "Data Scientist"

@@ -23,7 +23,7 @@ from job_hunter.core.api_budget import (
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
@@ -127,7 +127,7 @@ class ReedSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in data:
                     job_title = item.get("jobTitle", "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
 
                     location_str = item.get("locationName", "")

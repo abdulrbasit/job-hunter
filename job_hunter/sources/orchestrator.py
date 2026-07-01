@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
+from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
 from job_hunter.sources.policy import JobPolicy, derive_country_code, normalize_employment_type
@@ -38,11 +39,19 @@ def board_adapters() -> list[Any]:
     return [cls() for cls in BOARD_REGISTRY.values()]
 
 
+def _max_results_for_depth(depth: str) -> int:
+    """Larger max_results is an adaptive/deep-attempt signal only — standard runs
+    keep the existing per-source target so paged adapters don't change behavior."""
+    return DEFAULT_BACKFILL_MAX_RESULTS if depth == "deep" else DEFAULT_STANDARD_MAX_RESULTS
+
+
 def _params_for_region(
     region_key: str,
     region_config: dict[str, Any],
     job_titles: list[str],
     excluded_title_terms: list[str],
+    *,
+    max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
 ) -> SearchParams:
     return SearchParams(
         region_key=region_key,
@@ -50,15 +59,28 @@ def _params_for_region(
         location=region_config.get("location", ""),
         search_lang=region_config.get("search_lang", "en"),
         job_titles=job_titles,
+        max_results=max_results,
         excluded_title_terms=excluded_title_terms,
     )
 
 
-def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> tuple[list[JobPosting], ScrapeStats]:
+def scrape_with_stats(
+    region: str | None = None,
+    *,
+    depth: str = "standard",
+    include_boards: bool = True,
+    include_ats_slug: bool = True,
+    include_ats_discovery: bool = True,
+) -> tuple[list[JobPosting], ScrapeStats]:
+    """The include_* flags default to True (preserving prior behavior for every
+    existing caller) and exist so adaptive per-region passes (pipeline/hunt.py)
+    can request one stage at a time — boards-only, ATS-slug-only, or
+    ATS-discovery-only — without duplicating this function's policy filtering."""
     config = load_search_config()
     job_titles: list[str] = config.get("job_titles", []) or []
     excluded_title_terms: list[str] = (config.get("exclusions", {}) or {}).get("title_terms", []) or []
     regions = resolve_regions(config, region)
+    max_results = _max_results_for_depth(depth)
 
     if not job_titles:
         logger.warning("[orchestrator] job_titles is empty; no sources will run")
@@ -87,43 +109,47 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     ) -> None:
         source_rejected: Counter[str] = Counter()
 
-        def reject(reason: str) -> None:
+        def reject(reason: str, region_key: str) -> None:
             rejected[reason] += 1
             source_rejected[reason] += 1
+            region_reasons = stats.rejected_by_region_reason.setdefault(region_key, {})
+            region_reasons[reason] = region_reasons.get(reason, 0) + 1
 
         stats.total_fetched += len(postings)
         stats.by_source[source] = stats.by_source.get(source, 0) + len(postings)
         for jp in postings:
+            region_key = jp.region or "unknown"
+            stats.fetched_by_region[region_key] = stats.fetched_by_region.get(region_key, 0) + 1
             url = canonicalize_url(jp.url or "")
             if not url:
-                reject("missing_url")
+                reject("missing_url", region_key)
                 continue
             if url in cached_urls:
-                reject("cached_candidate")
+                reject("cached_candidate", region_key)
                 continue
             if url in seen_urls:
-                reject("duplicate_url")
+                reject("duplicate_url", region_key)
                 continue
             stats.total_after_dedup += 1
             if policy.is_excluded_url(jp.url) or not policy.is_valid_job_url(jp.url):
-                reject("invalid_url")
+                reject("invalid_url", region_key)
                 continue
             reason = policy.rejection_reason(jp.model_dump(), job_titles)
             if reason:
-                reject(reason)
+                reject(reason, region_key)
                 continue
             if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
-                reject("excluded_by_search_lang")
+                reject("excluded_by_search_lang", region_key)
                 continue
             effective_region_config = region_config or regions.get(jp.region, {})
             if policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_config):
-                reject("incompatible_location_metadata")
+                reject("incompatible_location_metadata", region_key)
                 continue
             if policy.has_wrong_location(jp.model_dump(), effective_region_config):
-                reject("wrong_location")
+                reject("wrong_location", region_key)
                 continue
             if not effective_region_config and policy.has_incompatible_location_for_global_feed(jp.model_dump()):
-                reject("incompatible_location_metadata")
+                reject("incompatible_location_metadata", region_key)
                 continue
             seen_urls.add(url)
             results.append(
@@ -137,10 +163,13 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             )
             stats.total_after_policy += 1
             stats.accepted_by_source[source] = stats.accepted_by_source.get(source, 0) + 1
+            stats.accepted_by_region[region_key] = stats.accepted_by_region.get(region_key, 0) + 1
+            region_sources = stats.accepted_by_region_source.setdefault(region_key, {})
+            region_sources[source] = region_sources.get(source, 0) + 1
         if source_rejected:
             stats.rejected_by_source[source] = dict(source_rejected)
 
-    adapters = board_adapters()
+    adapters = board_adapters() if include_boards else []
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
     regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
 
@@ -151,6 +180,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             location="",
             search_lang="en",
             job_titles=job_titles,
+            max_results=max_results,
             excluded_title_terms=excluded_title_terms,
         )
         with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
@@ -165,7 +195,9 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                     logger.warning("[orchestrator] %s raised: %s", source, exc)
     elif global_adapters:
         for region_key, region_config in regions.items():
-            params = _params_for_region(region_key, region_config, job_titles, excluded_title_terms)
+            params = _params_for_region(
+                region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
+            )
             with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
                 futures = {pool.submit(adapter.fetch, params): adapter.source_name for adapter in global_adapters}
                 for future in as_completed(futures):
@@ -181,7 +213,9 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
     # Step 1: per-region board dispatch in parallel
     if regional_adapters:
         for region_key, region_config in regions.items():
-            params = _params_for_region(region_key, region_config, job_titles, excluded_title_terms)
+            params = _params_for_region(
+                region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
+            )
             with ThreadPoolExecutor(max_workers=min(len(regional_adapters), 8)) as pool:
                 futures = {pool.submit(a.fetch, params): a.source_name for a in regional_adapters}
                 for future in as_completed(futures):
@@ -195,7 +229,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     # Step 2: Harvest slugs from board results, persist, query ATS APIs directly (no keys needed)
-    if depth != "fast":
+    if include_ats_slug and depth != "fast":
         try:
             new_slugs = harvest_slugs(results)
             update_slug_store(_WORKSPACE_ROOT, new_slugs)
@@ -206,7 +240,7 @@ def scrape_with_stats(region: str | None = None, *, depth: str = "standard") -> 
             logger.warning("[orchestrator] ATS slug cache query failed: %s", exc)
 
     # Step 3: ATS discovery via search (once per run, discovers new companies)
-    if depth != "fast":
+    if include_ats_discovery and depth != "fast":
         try:
             from job_hunter.sources.search.ats_discovery import discover_ats_jobs_by_search
 

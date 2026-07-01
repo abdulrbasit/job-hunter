@@ -12,11 +12,11 @@ import logging
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
-from job_hunter.sources.source_config import source_page_cap, terminal_http_status
+from job_hunter.sources.source_config import pages_for_max_results, source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class CareerjetSource(JobSourceAdapter):
             return []
 
         timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
-        max_pages = source_page_cap()
+        max_pages = pages_for_max_results(params.max_results, _PAGE_SIZE, base_cap=source_page_cap())
         country = params.country.upper()
         locale_code = _ISO_TO_LOCALE.get(country, "en_GB")
         location = params.location
@@ -165,7 +165,7 @@ class CareerjetSource(JobSourceAdapter):
                     if not isinstance(item, dict):
                         continue
                     job_title = str(item.get("title") or "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
                     jobs.append(
                         JobPosting(

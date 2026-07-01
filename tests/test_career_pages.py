@@ -31,8 +31,7 @@ def test_detect_ats_teamtailor() -> None:
     ats, slug, template = career_pages.detect_ats("https://acme.teamtailor.com/jobs")
     assert ats == "teamtailor"
     assert slug == "acme"
-    # Teamtailor has no public JSON API; template is empty string
-    assert template == ""
+    assert template == "https://{slug}.teamtailor.com/jobs.json"
 
 
 def test_detect_ats_unknown_returns_empty() -> None:

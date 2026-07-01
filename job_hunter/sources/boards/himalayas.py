@@ -7,15 +7,17 @@ from datetime import UTC, datetime
 from typing import Any
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import location_matches, strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._http import fetch_title_pages
 from job_hunter.sources.base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
+from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, pages_for_max_results, source_page_cap
 
 logger = logging.getLogger(__name__)
 
 _SEARCH_URL = "https://himalayas.app/jobs/api/search"
+# Himalayas' API doesn't accept a page-size param; ~20 results/page is the observed default.
+_PAGE_SIZE = 20
 
 
 def _posted(value: Any) -> str:
@@ -25,30 +27,6 @@ def _posted(value: Any) -> str:
     if isinstance(value, str):
         return value[:10]
     return ""
-
-
-def _country_matches(job: dict[str, Any], iso: str) -> bool:
-    if not iso:
-        return True
-    restrictions = job.get("locationRestrictions") or []
-    if not restrictions:
-        return True
-    for item in restrictions:
-        if isinstance(item, dict):
-            if str(item.get("alpha2") or "").upper() == iso:
-                return True
-            if _restriction_name_matches(str(item.get("name") or ""), iso):
-                return True
-        elif _restriction_name_matches(str(item), iso):
-            return True
-    return False
-
-
-def _restriction_name_matches(value: str, iso: str) -> bool:
-    from job_hunter.sources.policy import _codes_from_location_text, _is_broad_location_restriction
-
-    allowed = {iso.upper()}
-    return _is_broad_location_restriction(value, allowed) or iso.upper() in _codes_from_location_text(value)
 
 
 def _location_text(job: dict[str, Any]) -> str:
@@ -91,8 +69,9 @@ def _float_list(value: Any) -> list[float]:
 class HimalayasSource(JobSourceAdapter):
     # global_feed=True: orchestrator calls once with country="" (all remote jobs worldwide).
     # For single-region configs this has no call-count benefit, but for multi-region it
-    # cuts calls from N_regions×N_titles to N_titles. Country filter is skipped by design
-    # — Himalayas is a global remote board so all-remote is the correct scope.
+    # cuts calls from N_regions×N_titles to N_titles. No adapter-side country/location
+    # rejection — Himalayas is a global remote board, so JobPolicy/quality_gate downstream
+    # decide wrong-region using the location_restrictions metadata this adapter returns.
     global_feed = True
 
     @property
@@ -110,9 +89,10 @@ class HimalayasSource(JobSourceAdapter):
             return []
 
         timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
-        max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        max_pages = pages_for_max_results(
+            params.max_results, _PAGE_SIZE, base_cap=source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        )
         iso = params.country.upper()
-        location = params.location
         jobs: list[JobPosting] = []
 
         for title, raw_jobs in fetch_title_pages(
@@ -128,12 +108,11 @@ class HimalayasSource(JobSourceAdapter):
             for item in raw_jobs:
                 job_title = str(item.get("title") or "")
                 job_location = _location_text(item)
-                if not title_matches(job_title, params.job_titles, []):
+                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                     continue
-                if not _country_matches(item, iso):
-                    continue
-                if location and job_location != "Remote" and not location_matches(job_location, location):
-                    continue
+                # Country/location filtering is deferred to JobPolicy/quality_gate downstream
+                # (location_restrictions below carries the signal) — the API's own `country`
+                # query param already does the server-side narrowing.
                 description = strip_html(item.get("description") or item.get("excerpt") or "")
                 jobs.append(
                     JobPosting(

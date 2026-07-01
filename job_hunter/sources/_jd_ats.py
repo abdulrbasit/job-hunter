@@ -18,16 +18,31 @@ from job_hunter.sources._jd_ats_parsers import (
     ashby_job_ref as _ashby_job_ref,
 )
 from job_hunter.sources._jd_ats_parsers import (
+    breezy_job_ref as _breezy_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     greenhouse_job_ref as _greenhouse_job_ref,
 )
 from job_hunter.sources._jd_ats_parsers import (
     lever_job_ref as _lever_job_ref,
 )
 from job_hunter.sources._jd_ats_parsers import (
+    personio_job_ref as _personio_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
+    recruitee_job_ref as _recruitee_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     smartrecruiters_job_ref as _smartrecruiters_job_ref,
 )
 from job_hunter.sources._jd_ats_parsers import (
+    teamtailor_job_ref as _teamtailor_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
     workable_job_ref as _workable_job_ref,
+)
+from job_hunter.sources._jd_ats_parsers import (
+    workday_job_ref as _workday_job_ref,
 )
 
 logger = logging.getLogger(__name__)
@@ -417,4 +432,245 @@ def _fetch_workable_api(
         "posted_date_text": data.get("published_on", ""),
         "location": location,
         "source": "workable_api",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Personio API fetcher (public XML feed — no JSON detail endpoint)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_personio_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _personio_job_ref(url)
+    if not ref:
+        return None
+    slug, job_id = ref
+    api_url = f"https://{slug}.jobs.personio.de/xml"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(resp.text)  # noqa: S314
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Personio API failed for %s: %s", api_url, exc)
+        return None
+
+    for position in root.findall("position"):
+        if (position.findtext("id") or "").strip() != job_id:
+            continue
+        title = (position.findtext("name") or "").strip()
+        offices = [(position.findtext("office") or "").strip()]
+        offices.extend(o.strip() for o in (e.text or "" for e in position.findall("additionalOffices/office")) if o)
+        location = ", ".join(dict.fromkeys(o for o in offices if o))
+        content = strip_html(position.findtext("jobDescriptions") or "")
+        if not title:
+            title = _guess_title(content, title_min_chars, title_max_chars)
+        if not content and not title:
+            return None
+        company_name = slug.replace("-", " ").replace("_", " ").title()
+        snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+        return {
+            "title": title,
+            "company": company_name,
+            "url": url,
+            "snippet": snippet,
+            "posted_date_text": (position.findtext("createdAt") or "")[:10],
+            "location": location,
+            "source": "personio_api",
+        }
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Breezy API fetcher (listing-only JSON; no per-job description field)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_breezy_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _breezy_job_ref(url)
+    if not ref:
+        return None
+    slug, friendly_id = ref
+    api_url = f"https://{slug}.breezy.hr/json"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Breezy API failed for %s: %s", api_url, exc)
+        return None
+    if not isinstance(data, list):
+        return None
+
+    for item in data:
+        if not isinstance(item, dict) or item.get("friendly_id") != friendly_id:
+            continue
+        title = item.get("name", "") or _guess_title("", title_min_chars, title_max_chars)
+        loc = item.get("location") or {}
+        location = loc.get("name", "") if isinstance(loc, dict) else str(loc)
+        company_name = slug.replace("-", " ").replace("_", " ").title()
+        snippet = f"{title}\n{location}".strip()[:max_description_chars]
+        if not title:
+            return None
+        return {
+            "title": title,
+            "company": company_name,
+            "url": item.get("url") or url,
+            "snippet": snippet,
+            "posted_date_text": (item.get("published_date") or "")[:10],
+            "location": location,
+            "source": "breezy_api",
+        }
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Recruitee API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _fetch_recruitee_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _recruitee_job_ref(url)
+    if not ref:
+        return None
+    slug, offer_slug = ref
+    api_url = f"https://{slug}.recruitee.com/api/offers/{offer_slug}"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Recruitee API failed for %s: %s", api_url, exc)
+        return None
+
+    offer = data.get("offer", data) if isinstance(data, dict) else {}
+    content = strip_html(offer.get("description", "") or offer.get("requirements", ""))
+    title = offer.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+    location = ", ".join(filter(None, [offer.get("city", ""), offer.get("country", "")])) or offer.get("location", "")
+    if not content and not title:
+        return None
+    company_name = slug.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    return {
+        "title": title,
+        "company": company_name,
+        "url": offer.get("careers_url") or url,
+        "snippet": snippet,
+        "posted_date_text": (offer.get("published_at") or "")[:10],
+        "location": location,
+        "source": "recruitee_api",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Teamtailor API fetcher (JSON Feed with embedded schema.org JobPosting)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_teamtailor_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    slug = _teamtailor_job_ref(url)
+    if not slug:
+        return None
+    api_url = f"https://{slug}.teamtailor.com/jobs.json"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Teamtailor API failed for %s: %s", api_url, exc)
+        return None
+
+    for item in data.get("items", []) if isinstance(data, dict) else []:
+        if not isinstance(item, dict) or item.get("url") != url:
+            continue
+        posting = item.get("_jobposting") or {}
+        content = strip_html(posting.get("description") or item.get("content_html") or "")
+        title = item.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+        locations = posting.get("jobLocation") or []
+        location = ""
+        if locations and isinstance(locations, list):
+            address = (locations[0] or {}).get("address") or {}
+            location = ", ".join(filter(None, [address.get("addressLocality", ""), address.get("addressCountry", "")]))
+        if not content and not title:
+            return None
+        company_name = (posting.get("hiringOrganization") or {}).get("name") or slug.replace("-", " ").title()
+        snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+        return {
+            "title": title,
+            "company": company_name,
+            "url": url,
+            "snippet": snippet,
+            "posted_date_text": (posting.get("datePosted") or item.get("date_published") or "")[:10],
+            "location": location,
+            "source": "teamtailor_api",
+        }
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Workday API fetcher
+# ---------------------------------------------------------------------------
+
+
+def _fetch_workday_api(
+    url: str,
+    timeout: int,
+    max_description_chars: int,
+    title_min_chars: int,
+    title_max_chars: int,
+) -> dict | None:
+    ref = _workday_job_ref(url)
+    if not ref:
+        return None
+    tenant, wd_host, site, external_path = ref
+    api_url = f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}{external_path}"
+    try:
+        resp = requests.get(api_url, timeout=timeout, headers=GREENHOUSE_API_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.debug("[jd_fetcher] Workday API failed for %s: %s", api_url, exc)
+        return None
+
+    info = data.get("jobPostingInfo", {}) or {}
+    content = strip_html(info.get("jobDescription") or "")
+    title = info.get("title", "") or _guess_title(content, title_min_chars, title_max_chars)
+    location = info.get("location", "") or info.get("country", "")
+    if not content and not title:
+        return None
+    company_name = tenant.replace("-", " ").replace("_", " ").title()
+    snippet = f"{title}\n{location}\n\n{content}".strip()[:max_description_chars]
+    return {
+        "title": title,
+        "company": company_name,
+        "url": url,
+        "snippet": snippet,
+        "posted_date_text": str(info.get("startDate") or "")[:10],
+        "location": location,
+        "source": "workday_api",
     }

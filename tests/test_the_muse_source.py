@@ -71,3 +71,37 @@ class TestTheMuseSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "The Muse"
+
+    def test_fetch_does_not_early_filter_jobs_outside_region_location(self) -> None:
+        """The Muse no longer drops a job locally just because its location doesn't
+        match the region — that decision moves to JobPolicy/quality_gate downstream.
+        location_restrictions is now populated so the downstream check has a signal."""
+        from job_hunter.models import JobPosting
+
+        response_data = {
+            "results": [
+                {
+                    "name": "Software Engineer",
+                    "company": {"name": "MuseCo"},
+                    "refs": {"landing_page": "https://www.themuse.com/jobs/museco/swe"},
+                    "publication_date": "2026-06-01T00:00:00Z",
+                    "locations": [{"name": "San Francisco, CA"}],
+                    "contents": "Build great things.",
+                }
+            ]
+        }
+        with (
+            patch(
+                "job_hunter.sources.boards.the_muse.get_api_config",
+                return_value=_ENABLED_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.the_muse.requests.get",
+                return_value=_mock_get(response_data),
+            ),
+        ):
+            jobs = TheMuseSource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].location == "San Francisco, CA"
+        assert jobs[0].location_restrictions == ["San Francisco, CA"]

@@ -10,7 +10,7 @@ Each adapter has a `tier`: `"free"` (no key needed) or `"api"` (needs a key).
 | Source | Tier | Notes |
 |---|---|---|
 | `arbeitnow`, `arbeitsagentur` | free | Arbeitsagentur is Germany-only |
-| `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
+| `bayt`, `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
 | `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` |
 | `jooble` | api | Needs `JOOBLE_API_KEY` |
 | `reed` | api | UK only, needs `REED_API_KEY` |
@@ -30,6 +30,43 @@ a bug. Future cleanup may split them into `sources/boards/arbeitnow.py` and
 `sources/boards/jsearch.py` to match every other adapter, but that split is
 out of scope for now.
 
+`gulftalent` and `bayt` are the Middle East/Gulf sources (AE, SA, QA, KW, BH,
+OM). Other Middle East boards investigated but not implemented: NaukriGulf
+(unreachable — connection blocked from this environment), Tanqeeb (returns an
+empty JS-challenge response), Wuzzuf (reachable, but relies on hashed CSS-in-JS
+class names with no stable card selector — a future adapter should key off its
+`/jobs/p/` URL pattern instead of class names).
+
+No adapter uses Playwright or any browser rendering — rendering is reserved
+for the company-hunt workflow (`career_pages/`, `.github/workflows/career-hunt.yml`)
+only. A browser render in a job-board adapter is slow enough to time out the
+scheduled GitHub Actions hunt run, so job boards are static-HTTP/API/RSS only,
+even when that means a source occasionally returns fewer results than a
+rendered fetch would.
+
+### Classification
+
+| Source | Access | Scope | Format |
+|---|---|---|---|
+| `remotive`, `remoteok`, `himalayas`, `workingnomads`, `weworkremotely`, `jobicy`, `the_muse` | no-key | global remote | structured API/RSS/JSON |
+| `arbeitnow` | no-key | region-specific (Germany-leaning) | structured API |
+| `arbeitsagentur` | no-key | region-specific (Germany) | structured API |
+| `jobbank` | no-key | region-specific (Canada) | structured API |
+| `mycareersfuture`, `jobstreet` | no-key | region-specific (Singapore / SEA) | structured API |
+| `hh` | no-key | region-specific (Russia/CIS) | structured API |
+| `jobspy` | no-key | global (Google Jobs + Indeed via python-jobspy) | scraped, per-site format |
+| `gulftalent`, `bayt` | no-key | region-specific (Gulf/Middle East) | fragile HTML (anti-bot-protected; multi-strategy parsing, no rendering fallback) |
+| `careerjet` | optional free key (affiliate id) | global (90+ locales) | structured API |
+| `adzuna` | optional free key | region-specific (per-country allowlist) | structured API |
+| `jooble` | optional free key | global | structured API |
+| `reed` | optional free key | region-specific (UK) | structured API |
+| `jsearch` | optional free key (RapidAPI, 200 req/mo free tier) | global | structured API |
+
+`jobspy`'s Google Jobs site needs `google_search_term` phrased as a natural-
+language query (`"<title> jobs near <location>"`) — python-jobspy's own docs
+note that passing just the bare title (which works fine for `search_term` on
+the other sites) returns few or no Google results.
+
 ## Company career pages (`job_hunter/sources/career_pages/`)
 
 For `config/career_pages.yml` targets, tries in order: ATS public endpoint,
@@ -43,6 +80,26 @@ Results are written to `outputs/browser_hunt/jobs.json`.
 Search-based discovery of company job pages hosted on common ATS
 platforms (Greenhouse, Lever, etc.), driven by the search providers below
 rather than a hardcoded per-platform adapter list.
+
+Direct public API extraction (`job_hunter/sources/_jd_ats.py`, used by both
+`jd_fetcher.py` and ATS-discovery location verification) exists for:
+Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Personio (public XML
+feed — its JSON endpoint sits behind a bot checkpoint on many tenants),
+Breezy, Recruitee, Teamtailor (JSON Feed with embedded schema.org
+JobPosting), and Workday (per-tenant `wday/cxs` REST endpoint). BambooHR has
+no verified stable public endpoint — companies using it are typically
+discovered via their own ATS (many BambooHR customers actually post through
+Greenhouse or similar), so no direct BambooHR fetcher was added.
+
+Query variants for ATS discovery are code-owned and title-derived (never
+config): `title+city`, `title+country`, `title+"Remote {country}"`,
+`title+region-group` (Europe/EMEA add for EU-configured regions, EMEA/MENA
+add for Middle East regions), and Gulf-specific terms (Bahrain, UAE, Qatar,
+Saudi, Oman, Kuwait, Dubai, Riyadh, Doha, Manama) for AE/SA/QA/KW/BH/OM
+regions. A conservative title-variant table adds e.g. Product Owner /
+Technical Product Manager for "Product Manager" titles, and Backend
+Engineer / Python Engineer for "Software Engineer" — only when the
+configured title literally contains the base phrase.
 
 ## Search providers (`job_hunter/sources/search/providers.py`)
 

@@ -53,35 +53,39 @@ def _first_title_match(title: str, job_titles: list[str]) -> re.Match[str] | Non
     return min(matches, key=lambda match: match.start(), default=None)
 
 
-def _has_exclusion_before_role(
-    title: str,
-    excluded_terms: list[str],
-    role_match: re.Match[str] | None,
-) -> bool:
-    """Check if excluded terms appear before the matched role."""
-    role_end = role_match.end() if role_match else len(title) + 1
-    if excluded_terms:
-        for term in excluded_terms:
-            term = term.strip().lower()
-            if not term:
-                continue
-            excluded = re.search(rf"(?<!\w){re.escape(term)}(?!\w)", title)
-            if excluded and excluded.start() < role_end:
-                return True
-    return False
-
-
-def title_matches(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
-    """True when a target role appears before any excluded occupation or level."""
+def title_matches_any_role(title: str, job_titles: list[str]) -> bool:
+    """True when title contains any of the target roles. Empty job_titles matches everything."""
     if not title:
-        return False
-    lower = title.lower()
-    role_match = _first_title_match(lower, job_titles) if job_titles else None
-    if job_titles and not role_match:
         return False
     if not job_titles:
         return True
-    return not _has_exclusion_before_role(lower, excluded_terms or [], role_match)
+    return _first_title_match(title.lower(), job_titles) is not None
+
+
+def has_excluded_title_term(title: str, excluded_terms: list[str] | None) -> bool:
+    """True when any excluded term appears in title, anywhere, regardless of word order."""
+    if not title or not excluded_terms:
+        return False
+    lower = title.lower()
+    for term in excluded_terms:
+        term = term.strip().lower()
+        if not term:
+            continue
+        if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", lower):
+            return True
+    return False
+
+
+def title_is_allowed(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
+    """True when title matches a target role and carries no excluded term (word-order independent)."""
+    if not title_matches_any_role(title, job_titles):
+        return False
+    return not has_excluded_title_term(title, excluded_terms)
+
+
+def title_matches(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
+    """Deprecated alias for title_is_allowed — kept for callers not yet migrated."""
+    return title_is_allowed(title, job_titles, excluded_terms)
 
 
 def location_matches(location: str, filter_location: str) -> bool:

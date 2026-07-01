@@ -16,7 +16,7 @@ import threading
 from typing import Any
 
 from job_hunter.config.loader import get_api_config
-from job_hunter.core.utils import location_matches, title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
 
@@ -188,6 +188,11 @@ class JobSpySource(JobSourceAdapter):
         jobs: list[JobPosting] = []
 
         for title in params.job_titles:
+            # python-jobspy's own docs: Google Jobs needs a natural-language search
+            # string ("<title> jobs near <location>"), not a bare title — a bare
+            # title returns few/no results even though search_term=title works fine
+            # for the other sites.
+            google_search_term = f"{title} jobs near {location}" if location else f"{title} jobs"
             with _DISABLED_SITES_LOCK:
                 active_sites = [s for s in sources if s not in _DISABLED_SITES]
 
@@ -204,7 +209,7 @@ class JobSpySource(JobSourceAdapter):
                 kwargs = dict(
                     site_name=[site],
                     search_term=title,
-                    google_search_term=title,
+                    google_search_term=google_search_term,
                     location=location,
                     results_wanted=_RESULTS_PER_QUERY,
                     hours_old=hours_old,
@@ -250,14 +255,13 @@ class JobSpySource(JobSourceAdapter):
                 before = len(jobs)
                 for _, row in df.iterrows():
                     row_title = _str(row.get("title"))
-                    if not title_matches(row_title, params.job_titles, []):
+                    if not title_is_allowed(row_title, params.job_titles, params.excluded_title_terms):
                         continue
-                    if location:
-                        row_location = _str(row.get("location"))
-                        if row_location and not location_matches(row_location, location):
-                            continue
                     job_dict = _row_to_job(row, params.region_key)
                     if job_dict:
+                        # No adapter-side location rejection here — the upstream `location`
+                        # kwarg already scopes the Google/Indeed query server-side; wrong-region
+                        # stragglers are caught by JobPolicy/quality_gate via job_dict["location"].
                         jobs.append(
                             JobPosting(
                                 title=job_dict["title"],

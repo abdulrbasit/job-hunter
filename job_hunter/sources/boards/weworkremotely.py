@@ -13,7 +13,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from job_hunter.core.utils import strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import job_board_enabled, job_board_timeout
@@ -70,15 +70,17 @@ class WeWorkRemotelySource(JobSourceAdapter):
                 company = ""
                 job_title = raw_title
 
-            if not title_matches(job_title, params.job_titles, []):
+            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                 continue
 
             url = (item.findtext("link") or "").strip()
             pub_date = _parse_rfc2822(item.findtext("pubDate") or "")
             description = strip_html(item.findtext("description") or "")
-            restrictions = (
-                [params.location] if params.location and params.location.lower() in description.lower() else []
-            )
+            # The feed carries real structured location fields — use those instead
+            # of guessing from description text.
+            region_field = (item.findtext("region") or "").strip()
+            country_field = (item.findtext("country") or "").strip()
+            restrictions = [v for v in (region_field, country_field) if v]
 
             jobs.append(
                 JobPosting(
@@ -86,7 +88,7 @@ class WeWorkRemotelySource(JobSourceAdapter):
                     company=company,
                     url=url,
                     posted_date_text=pub_date,
-                    location="Remote",
+                    location=country_field or region_field or "Remote",
                     snippet=description[:3000],
                     source="WeWorkRemotely",
                     search_query=job_title,

@@ -14,7 +14,7 @@ import logging
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
@@ -98,7 +98,7 @@ class HHSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in items:
                     job_title = str(item.get("name") or "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
                     snippet_data = item.get("snippet") or {}
                     snippet = str(snippet_data.get("requirement") or snippet_data.get("responsibility") or "")

@@ -2,7 +2,8 @@
 
 Public JSON feed: https://remoteok.com/api
 Returns all remote jobs; first element is metadata — skip it.
-Filter locally by title and region location.
+Filters locally by title only; location is passed through as metadata for
+JobPolicy/quality_gate to reject wrong-region jobs downstream.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import logging
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import location_matches, strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
@@ -62,13 +63,11 @@ class RemoteOKSource(JobSourceAdapter):
             if not isinstance(item, dict):
                 continue
             job_title = str(item.get("position") or "")
-            if not title_matches(job_title, params.job_titles, []):
+            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                 continue
             job_location = str(item.get("location") or "Remote")
-            # Accept worldwide/remote postings; otherwise check against region location
-            if params.location and job_location and job_location.lower() not in ("", "remote", "worldwide", "anywhere"):
-                if not location_matches(job_location, params.location):
-                    continue
+            # No adapter-side location rejection — location_restrictions below carries the
+            # signal for JobPolicy/quality_gate downstream to reject wrong-region jobs.
             tags = item.get("tags") or []
             description = strip_html(str(item.get("description") or ""))
             snippet = description or ", ".join(str(t) for t in tags)

@@ -593,6 +593,191 @@ def test_workable_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> No
     assert "delivery experience" in job["snippet"]
 
 
+def test_personio_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+<position>
+    <id>4242</id>
+    <office>Munich</office>
+    <additionalOffices><office>Berlin</office></additionalOffices>
+    <name>Product Manager</name>
+    <jobDescriptions>&lt;p&gt;Own roadmap and product discovery.&lt;/p&gt;</jobDescriptions>
+    <createdAt>2026-06-01T00:00:00+00:00</createdAt>
+</position>
+</workzag-jobs>"""
+
+    class Response:
+        status_code = 200
+        text = xml
+
+        def raise_for_status(self) -> None:
+            return None
+
+    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"max_description_chars": 4000})
+    monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(
+        jd_fetcher,
+        "_fetch_html",
+        lambda *args, **kwargs: pytest.fail("HTML fetch should not run"),
+    )
+
+    job = jd_fetcher.fetch_jd("https://acme.jobs.personio.de/job/4242")
+
+    assert job is not None
+    assert job["source"] == "personio_api"
+    assert job["title"] == "Product Manager"
+    assert job["location"] == "Munich, Berlin"
+    assert "product discovery" in job["snippet"]
+    assert job["posted_date_text"] == "2026-06-01"
+
+
+def test_recruitee_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "offer": {
+                    "title": "Product Manager",
+                    "city": "Amsterdam",
+                    "country": "Netherlands",
+                    "description": "<p>Own the product roadmap and delivery.</p>",
+                    "published_at": "2026-06-01T00:00:00Z",
+                    "careers_url": "https://acme.recruitee.com/o/product-manager",
+                }
+            }
+
+    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"max_description_chars": 4000})
+    monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(
+        jd_fetcher,
+        "_fetch_html",
+        lambda *args, **kwargs: pytest.fail("HTML fetch should not run"),
+    )
+
+    job = jd_fetcher.fetch_jd("https://acme.recruitee.com/o/product-manager")
+
+    assert job is not None
+    assert job["source"] == "recruitee_api"
+    assert job["location"] == "Amsterdam, Netherlands"
+    assert "product roadmap" in job["snippet"]
+
+
+def test_breezy_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> list:
+            return [
+                {
+                    "friendly_id": "abc123-product-manager",
+                    "name": "Product Manager",
+                    "url": "https://acme.breezy.hr/p/abc123-product-manager",
+                    "location": {"name": "Remote, US"},
+                    "published_date": "2026-06-01T00:00:00Z",
+                }
+            ]
+
+    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"max_description_chars": 4000})
+    monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(
+        jd_fetcher,
+        "_fetch_html",
+        lambda *args, **kwargs: pytest.fail("HTML fetch should not run"),
+    )
+
+    job = jd_fetcher.fetch_jd("https://acme.breezy.hr/p/abc123-product-manager")
+
+    assert job is not None
+    assert job["source"] == "breezy_api"
+    assert job["title"] == "Product Manager"
+    assert job["location"] == "Remote, US"
+
+
+def test_teamtailor_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    job_url = "https://acme.teamtailor.com/jobs/123-product-manager"
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "items": [
+                    {
+                        "title": "Product Manager",
+                        "url": job_url,
+                        "content_html": "<p>fallback</p>",
+                        "_jobposting": {
+                            "description": "<p>Own the roadmap for our core platform.</p>",
+                            "datePosted": "2026-06-01T00:00:00Z",
+                            "hiringOrganization": {"name": "Acme"},
+                            "jobLocation": [{"address": {"addressLocality": "Stockholm", "addressCountry": "SE"}}],
+                        },
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"max_description_chars": 4000})
+    monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(
+        jd_fetcher,
+        "_fetch_html",
+        lambda *args, **kwargs: pytest.fail("HTML fetch should not run"),
+    )
+
+    job = jd_fetcher.fetch_jd(job_url)
+
+    assert job is not None
+    assert job["source"] == "teamtailor_api"
+    assert job["company"] == "Acme"
+    assert job["location"] == "Stockholm, SE"
+    assert "roadmap for our core platform" in job["snippet"]
+
+
+def test_workday_api_success_returns_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    job_url = "https://acme.wd12.myworkdayjobs.com/External_Career_Site/job/Berlin/Product-Manager_JR12345"
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "jobPostingInfo": {
+                    "title": "Product Manager",
+                    "jobDescription": "<p>Own product strategy across the platform.</p>",
+                    "location": "Berlin, Germany",
+                    "startDate": "2026-06-01",
+                }
+            }
+
+    monkeypatch.setattr(jd_fetcher, "_jd_config", lambda: {"max_description_chars": 4000})
+    monkeypatch.setattr(jd_fetcher.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(
+        jd_fetcher,
+        "_fetch_html",
+        lambda *args, **kwargs: pytest.fail("HTML fetch should not run"),
+    )
+
+    job = jd_fetcher.fetch_jd(job_url)
+
+    assert job is not None
+    assert job["source"] == "workday_api"
+    assert job["location"] == "Berlin, Germany"
+    assert "product strategy" in job["snippet"]
+
+
 def test_greenhouse_api_falls_back_to_content_listing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1380,15 +1565,17 @@ def test_searxng_uses_configured_engines_without_zero_penalty(
 
 
 def test_ats_search_queries_split_grouped_site_queries() -> None:
+    # "Data Analyst" doesn't trigger any title-variant rule, keeping this test
+    # focused on its stated purpose: splitting a grouped `site:X OR site:Y` query.
     queries = _sp._ats_search_queries(
         "site:boards.greenhouse.io OR site:job-boards.greenhouse.io",
-        "Product Manager",
+        "Data Analyst",
         "Berlin",
     )
 
     assert queries == [
-        'site:boards.greenhouse.io "Product Manager" "Berlin"',
-        'site:boards.greenhouse.io "Product Manager"',
-        'site:job-boards.greenhouse.io "Product Manager" "Berlin"',
-        'site:job-boards.greenhouse.io "Product Manager"',
+        'site:boards.greenhouse.io "Data Analyst" "Berlin"',
+        'site:boards.greenhouse.io "Data Analyst"',
+        'site:job-boards.greenhouse.io "Data Analyst" "Berlin"',
+        'site:job-boards.greenhouse.io "Data Analyst"',
     ]

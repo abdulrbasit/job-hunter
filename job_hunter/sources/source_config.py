@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from job_hunter.config.loader import get_api_config, get_config, get_timeout
+from job_hunter.constants import DEFAULT_STANDARD_MAX_RESULTS, MAX_SAFE_PAGES_PER_SOURCE
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,23 @@ _JOBICY_GEO_BY_ISO: dict[str, str] = {
 def source_page_cap(default: int = DEFAULT_PAGED_SOURCE_CAP) -> int:
     """Return the code-owned page cap for fragile paged sources."""
     return max(1, int(default))
+
+
+def pages_for_max_results(max_results: int, page_size: int, *, base_cap: int = DEFAULT_PAGED_SOURCE_CAP) -> int:
+    """Derive the page count needed to cover max_results at page_size per page.
+
+    Standard-depth requests (max_results <= DEFAULT_STANDARD_MAX_RESULTS) always
+    get exactly base_cap pages — identical to today's flat per-source cap, zero
+    behavior change. Only a larger max_results (the adaptive/deep-attempt signal
+    from orchestrator._max_results_for_depth) scales pages up beyond base_cap,
+    and never past the code-owned MAX_SAFE_PAGES_PER_SOURCE ceiling — config
+    cannot raise it.
+    """
+    base_cap = max(1, int(base_cap))
+    if page_size <= 0 or max_results <= DEFAULT_STANDARD_MAX_RESULTS:
+        return base_cap
+    needed = -(-int(max_results) // page_size)  # ceil division
+    return max(1, min(max(needed, base_cap), MAX_SAFE_PAGES_PER_SOURCE))
 
 
 def source_page_delay(default: float = DEFAULT_SOURCE_PAGE_DELAY_SECONDS) -> float:

@@ -56,8 +56,17 @@ def _normalise_ats_job(raw: dict, ats_name: str, slug: str, base_url: str) -> di
         location = location_raw.get("name", "")
     else:
         location = str(location_raw)
+    if not location:
+        # Teamtailor: location lives in the embedded schema.org JobPosting instead.
+        job_locations = ((raw.get("_jobposting") or {}).get("jobLocation")) or []
+        if job_locations and isinstance(job_locations, list):
+            address = (job_locations[0] or {}).get("address") or {}
+            location = ", ".join(filter(None, [address.get("addressLocality", ""), address.get("addressCountry", "")]))
 
     company = slug.replace("-", " ").replace("_", " ").title()
+
+    description = raw.get("content") or raw.get("description") or (raw.get("_jobposting") or {}).get("description")
+    description = description or raw.get("content_html") or ""
 
     return {
         "title": str(title).strip(),
@@ -65,16 +74,61 @@ def _normalise_ats_job(raw: dict, ats_name: str, slug: str, base_url: str) -> di
         "url": str(url).strip(),
         "location": location.strip(),
         "posted_date_text": str(raw.get("updated_at") or raw.get("createdAt") or "").strip(),
-        "snippet": str(raw.get("content") or raw.get("description") or "")[:CAREER_PAGE_SNIPPET_CHARS].strip(),
+        "snippet": str(description)[:CAREER_PAGE_SNIPPET_CHARS].strip(),
         "source": f"career_page:ats_api:{ats_name}",
         "extraction_method": "ats_api",
         "detected_ats": ats_name,
     }
 
 
+def _parse_personio_xml_jobs(xml_text: str, slug: str) -> list[dict]:
+    """Personio's public feed is XML, not JSON — normalize to the same raw-dict
+    shape _normalise_ats_job expects for the other ATS platforms."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(xml_text)  # noqa: S314
+    except ET.ParseError:
+        return []
+    jobs = []
+    for position in root.findall("position"):
+        job_id = (position.findtext("id") or "").strip()
+        name = (position.findtext("name") or "").strip()
+        office = (position.findtext("office") or "").strip()
+        if not job_id or not name:
+            continue
+        jobs.append(
+            {
+                "title": name,
+                "location": office,
+                "url": f"https://{slug}.jobs.personio.de/job/{job_id}",
+                "createdAt": (position.findtext("createdAt") or "").strip(),
+            }
+        )
+    return jobs
+
+
 import logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+def _raw_jobs_from_response(resp: requests.Response, ats_name: str, slug: str) -> list[dict]:
+    """Extract the flat list of raw job dicts from an ATS API response."""
+    if ats_name == "personio":
+        # Personio's public feed is XML, not JSON.
+        return _parse_personio_xml_jobs(resp.text, slug)
+    try:
+        data = resp.json()
+    except ValueError:
+        return []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ("jobs", "postings", "offers", "results", "content", "items"):
+            if isinstance(data.get(key), list):
+                return data[key]
+    return []
 
 
 def _fetch_ats_endpoint_jobs(
@@ -96,20 +150,11 @@ def _fetch_ats_endpoint_jobs(
             timeout=timeout,
         )
         resp.raise_for_status()
-        data = resp.json()
     except Exception as exc:
         logger.debug("[career_pages] ATS API fetch failed (%s, %s): %s", ats_name, slug, exc)
         return []
 
-    # Normalise different ATS response shapes to a flat list of job dicts
-    raw_jobs: list[dict] = []
-    if isinstance(data, list):
-        raw_jobs = data
-    elif isinstance(data, dict):
-        for key in ("jobs", "postings", "offers", "results", "content"):
-            if isinstance(data.get(key), list):
-                raw_jobs = data[key]
-                break
+    raw_jobs = _raw_jobs_from_response(resp, ats_name, slug)
 
     jobs = []
     for raw in raw_jobs:

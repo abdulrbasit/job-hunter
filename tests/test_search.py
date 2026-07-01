@@ -177,6 +177,91 @@ def test_discover_ats_jobs_respects_query_caps(monkeypatch) -> None:
     assert len(queries) == 3
 
 
+def test_gulf_region_query_variants_include_gulf_terms() -> None:
+    """Task 4: Gulf regions must add Bahrain/UAE/Qatar/Saudi/Oman/Kuwait/Dubai/
+    Riyadh/Doha/Manama query terms, not just the configured city."""
+    queries = _ats_mod._ats_search_queries(
+        "site:jobs.lever.co",
+        "Product Manager",
+        "Manama",
+        {"country": "BH", "location": "Manama"},
+    )
+    combined = " ".join(queries)
+    for term in ("Bahrain", "UAE", "Qatar", "Saudi", "Oman", "Kuwait", "Dubai", "Riyadh", "Doha", "Manama"):
+        assert term in combined, f"missing Gulf term: {term}"
+
+
+def test_title_query_variants_are_conservative() -> None:
+    assert set(_ats_mod.title_query_variants("Senior Product Manager")) == {
+        "Product Owner",
+        "Technical Product Manager",
+    }
+    assert set(_ats_mod.title_query_variants("Software Engineer")) == {"Backend Engineer", "Python Engineer"}
+    assert _ats_mod.title_query_variants("Marketing Manager") == []
+
+
+def test_discover_region_dedupes_by_canonical_url(monkeypatch) -> None:
+    class DupeProvider:
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return [
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/00000000-0000-0000-0000-000000000000",
+                    title="Product Manager",
+                    description="role",
+                    source="static",
+                ),
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/00000000-0000-0000-0000-000000000000/",
+                    title="Product Manager",
+                    description="role again",
+                    source="static",
+                ),
+            ]
+
+    monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
+
+    jobs = _ats_mod._discover_region(
+        "berlin",
+        {"location": "Berlin"},
+        ["Product Manager"],
+        [],
+        ["lever"],
+        DupeProvider(),
+    )
+
+    assert len(jobs) == 1
+
+
+def test_discover_region_rejects_closed_postings(monkeypatch) -> None:
+    class OneResultProvider:
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return [
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/11111111-1111-1111-1111-111111111111",
+                    title="Product Manager",
+                    description="role",
+                    source="static",
+                )
+            ]
+
+    monkeypatch.setattr(
+        _ats_mod,
+        "_enrich_ats_discovery_job",
+        lambda _url: {"job_description_fetch_status": "position_closed"},
+    )
+
+    jobs = _ats_mod._discover_region(
+        "berlin",
+        {"location": "Berlin"},
+        ["Product Manager"],
+        [],
+        ["lever"],
+        OneResultProvider(),
+    )
+
+    assert jobs == []
+
+
 def test_brave_provider_uses_shared_search_provider_timeout(monkeypatch) -> None:
     sections = []
 
@@ -435,17 +520,19 @@ def test_searxng_uses_configured_engines_without_zero_penalty(monkeypatch) -> No
 
 
 def test_ats_search_queries_split_grouped_site_queries() -> None:
+    # "Data Analyst" doesn't trigger any title-variant rule, keeping this test
+    # focused on its stated purpose: splitting a grouped `site:X OR site:Y` query.
     queries = search._ats_search_queries(
         "site:boards.greenhouse.io OR site:job-boards.greenhouse.io",
-        "Product Manager",
+        "Data Analyst",
         "Berlin",
     )
 
     assert queries == [
-        'site:boards.greenhouse.io "Product Manager" "Berlin"',
-        'site:boards.greenhouse.io "Product Manager"',
-        'site:job-boards.greenhouse.io "Product Manager" "Berlin"',
-        'site:job-boards.greenhouse.io "Product Manager"',
+        'site:boards.greenhouse.io "Data Analyst" "Berlin"',
+        'site:boards.greenhouse.io "Data Analyst"',
+        'site:job-boards.greenhouse.io "Data Analyst" "Berlin"',
+        'site:job-boards.greenhouse.io "Data Analyst"',
     ]
 
 

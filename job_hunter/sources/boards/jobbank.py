@@ -13,7 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import terminal_http_status
@@ -96,7 +96,7 @@ class JobBankSource(JobSourceAdapter):
                 job_title = title_tag.get_text(strip=True) if title_tag else ""
                 if not job_title:
                     continue
-                if not title_matches(job_title, params.job_titles, []):
+                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                     continue
 
                 company_tag = article.find(class_=re.compile(r"business|company|employer", re.I))

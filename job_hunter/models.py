@@ -98,6 +98,15 @@ class ScrapeStats(BaseModel):
     rejected: dict[str, int] = Field(default_factory=dict)
     duration_seconds: float = 0.0
 
+    # Per-region observability (internal — no user-facing config; logs/telemetry only).
+    fetched_by_region: dict[str, int] = Field(default_factory=dict)
+    accepted_by_region: dict[str, int] = Field(default_factory=dict)
+    rejected_by_region_reason: dict[str, dict[str, int]] = Field(default_factory=dict)
+    accepted_by_region_source: dict[str, dict[str, int]] = Field(default_factory=dict)
+    dead_by_source: dict[str, int] = Field(default_factory=dict)
+    closed_by_source: dict[str, int] = Field(default_factory=dict)
+    under_target_regions: list[str] = Field(default_factory=list)
+
 
 # ---------------------------------------------------------------------------
 # Pipeline stage I/O

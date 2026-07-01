@@ -20,12 +20,13 @@ from job_hunter.core.api_budget import (
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_PAGED_SOURCE_CAP,
+    pages_for_max_results,
     source_page_cap,
     terminal_http_status,
 )
@@ -33,6 +34,9 @@ from job_hunter.sources.source_config import (
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://jooble.org/api/{api_key}"
+# Jooble's API doesn't document a fixed page size or accept a limit param;
+# ~20 results/page is the observed default used only to size max_pages.
+_PAGE_SIZE = 20
 
 
 class JoobleSource(JobSourceAdapter):
@@ -60,7 +64,9 @@ class JoobleSource(JobSourceAdapter):
             return []
 
         timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
-        max_pages = source_page_cap(DEFAULT_PAGED_SOURCE_CAP)
+        max_pages = pages_for_max_results(
+            params.max_results, _PAGE_SIZE, base_cap=source_page_cap(DEFAULT_PAGED_SOURCE_CAP)
+        )
         location = params.location
 
         url = _BASE_URL.format(api_key=self._api_key)
@@ -106,7 +112,7 @@ class JoobleSource(JobSourceAdapter):
                     if not isinstance(item, dict):
                         continue
                     job_title = str(item.get("title") or "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
                     jobs.append(
                         JobPosting(

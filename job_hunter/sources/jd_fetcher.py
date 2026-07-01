@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -30,10 +31,15 @@ from job_hunter.llm.prompts.jd_extraction import SYSTEM as _EXTRACT_SYSTEM
 from job_hunter.llm.stage import LLMStage
 from job_hunter.sources._jd_ats import (
     _fetch_ashby_api,
+    _fetch_breezy_api,
     _fetch_greenhouse_api,
     _fetch_lever_api,
+    _fetch_personio_api,
+    _fetch_recruitee_api,
     _fetch_smartrecruiters_api,
+    _fetch_teamtailor_api,
     _fetch_workable_api,
+    _fetch_workday_api,
     _guess_title,
     _looks_like_greenhouse_listing_text,
     is_greenhouse_listing_url,
@@ -164,17 +170,15 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
 
     _host = urlparse(url).hostname or ""
     is_greenhouse = _host == "greenhouse.io" or _host.endswith(".greenhouse.io")
-    is_ashby = _host == "jobs.ashbyhq.com"
-    is_lever = _host == "jobs.lever.co"
-    is_smartrecruiters = _host == "jobs.smartrecruiters.com"
-    is_workable = _host == "apply.workable.com"
 
     # Guard: reject Greenhouse listing pages before any fetch attempt
     if is_greenhouse_listing_url(url):
         logger.warning("[jd_fetcher] Greenhouse listing URL skipped (not a direct JD): %s", url)
         return None
 
-    # ATS API-first path — structured JSON, no HTML scraping needed
+    # ATS API-first path — structured JSON, no HTML scraping needed. Greenhouse
+    # takes an extra expected_title kwarg (listing-page disambiguation), so it's
+    # handled separately from the other same-signature ATS fetchers below.
     if is_greenhouse:
         result = _fetch_greenhouse_api(
             url,
@@ -187,25 +191,22 @@ def fetch_jd(url: str, use_llm: bool = True, *, expected_title: str = "") -> dic
         if result:
             return result
 
-    if is_ashby:
-        result = _fetch_ashby_api(url, timeout, max_description_chars, title_min_chars, title_max_chars)
-        if result:
-            return result
-
-    if is_lever:
-        result = _fetch_lever_api(url, timeout, max_description_chars, title_min_chars, title_max_chars)
-        if result:
-            return result
-
-    if is_smartrecruiters:
-        result = _fetch_smartrecruiters_api(url, timeout, max_description_chars, title_min_chars, title_max_chars)
-        if result:
-            return result
-
-    if is_workable:
-        result = _fetch_workable_api(url, timeout, max_description_chars, title_min_chars, title_max_chars)
-        if result:
-            return result
+    ats_fetchers = (
+        (_host == "jobs.ashbyhq.com", _fetch_ashby_api),
+        (_host == "jobs.lever.co", _fetch_lever_api),
+        (_host == "jobs.smartrecruiters.com", _fetch_smartrecruiters_api),
+        (_host == "apply.workable.com", _fetch_workable_api),
+        (_host.endswith((".jobs.personio.de", ".jobs.personio.com")), _fetch_personio_api),
+        (_host.endswith(".breezy.hr"), _fetch_breezy_api),
+        (_host.endswith(".recruitee.com"), _fetch_recruitee_api),
+        (_host.endswith(".teamtailor.com"), _fetch_teamtailor_api),
+        (bool(re.match(r"^[a-z0-9-]+\.wd\d+\.myworkdayjobs\.com$", _host)), _fetch_workday_api),
+    )
+    for matches, fetcher in ats_fetchers:
+        if matches:
+            result = fetcher(url, timeout, max_description_chars, title_min_chars, title_max_chars)
+            if result:
+                return result
 
     # Generic HTTP fallback (non-ATS or ATS API failure)
     html, status_code = _fetch_html(url, timeout=timeout)

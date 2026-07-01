@@ -8,7 +8,7 @@ from typing import Any
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.core.utils import location_matches, title_matches
+from job_hunter.core.utils import location_matches, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
@@ -80,7 +80,7 @@ class ArbeitsagenturSource(JobSourceAdapter):
             for item in postings:
                 job_title = str(item.get("titel") or "")
                 job_location = _location(item)
-                if not title_matches(job_title, params.job_titles, []):
+                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                     continue
                 if location and job_location and not location_matches(job_location, location):
                     continue

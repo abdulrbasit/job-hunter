@@ -15,7 +15,7 @@ from job_hunter.pipeline import _match_processor
 from job_hunter.pipeline._artifacts import write_match_artifacts
 from job_hunter.pipeline.cover_writer import write_cover
 from job_hunter.pipeline.pdf_compiler import compile_tex
-from job_hunter.pipeline.pre_llm_gate import apply_pre_llm_gate
+from job_hunter.pipeline.quality_gate import apply_pre_llm_quality_gate
 from job_hunter.pipeline.stages.readme import slugify
 from job_hunter.pipeline.stages.readme import update_readme as write_readme_table
 from job_hunter.pipeline.stages.scoring import score_and_filter_jobs, strategic_override_companies
@@ -153,7 +153,7 @@ def process_jobs(
         logger.info("[pipeline] Scoring skipped (--skip-score) - processing all")
         matches = [{"job": job, "score": 0, "matched_keywords": [], "gaps": []} for job in jobs]
     else:
-        jobs, pre_llm_rejected = apply_pre_llm_gate(jobs, scoring_config)
+        jobs, pre_llm_rejected = apply_pre_llm_quality_gate(jobs, scoring_config)
         if pre_llm_rejected:
             logger.info("[pipeline] Pre-LLM gate dropped %s job(s)", len(pre_llm_rejected))
         if not jobs:

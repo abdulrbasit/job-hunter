@@ -26,15 +26,19 @@ from job_hunter.core.api_budget import (
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.utils import location_matches, strip_html, title_matches
+from job_hunter.core.utils import location_matches, strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
+    pages_for_max_results,
     source_page_cap,
     source_page_delay,
 )
+
+# Arbeitnow's API doesn't document a per_page param; ~100 results/page is observed.
+_ARBEITNOW_PAGE_SIZE = 100
 
 _TIMEOUT = get_timeout("job_boards")
 _JSEARCH_FAILURES = 0
@@ -108,7 +112,9 @@ class ArbeitnowSource(JobSourceAdapter):
         if not arbeitnow_config.get("enabled", True):
             return []
 
-        max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        max_pages = pages_for_max_results(
+            params.max_results, _ARBEITNOW_PAGE_SIZE, base_cap=source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        )
         page_delay = source_page_delay()
         location_filter = params.location
 
@@ -141,9 +147,7 @@ class ArbeitnowSource(JobSourceAdapter):
                 title = job.get("title", "")
                 location = job.get("location", "")
 
-                if not title_matches(title, params.job_titles, []):
-                    continue
-                if not location_matches(location, location_filter):
+                if not title_is_allowed(title, params.job_titles, params.excluded_title_terms):
                     continue
 
                 description = strip_html(job.get("description", ""))
@@ -154,6 +158,7 @@ class ArbeitnowSource(JobSourceAdapter):
                         url=job.get("url", ""),
                         posted_date_text=_parse_arbeitnow_date(job.get("created_at")),
                         location=location,
+                        location_restrictions=[location] if location else [],
                         snippet=f"{location} — {description[:JOB_BOARD_SNIPPET_CHARS]}"
                         if location
                         else description[:JOB_BOARD_SNIPPET_CHARS],
@@ -259,7 +264,7 @@ class JSearchSource(JobSourceAdapter):
 
                 for job in data:
                     job_title = job.get("job_title", "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
 
                     city = job.get("job_city") or ""

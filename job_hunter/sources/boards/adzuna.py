@@ -25,10 +25,15 @@ from job_hunter.core.api_budget import (
     mark_api_exhausted,
     reserve_api_call,
 )
-from job_hunter.core.utils import title_matches
+from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
-from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap, terminal_http_status
+from job_hunter.sources.source_config import (
+    DEFAULT_SINGLE_PAGE_SOURCE_CAP,
+    pages_for_max_results,
+    source_page_cap,
+    terminal_http_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +109,9 @@ class AdzunaSource(JobSourceAdapter):
             return []
 
         results_per_page = int(adzuna_config.get("results_per_page", 50))
-        max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        max_pages = pages_for_max_results(
+            params.max_results, results_per_page, base_cap=source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        )
         location = params.location
         jobs: list[JobPosting] = []
 
@@ -151,7 +158,7 @@ class AdzunaSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in data:
                     job_title = item.get("title", "")
-                    if not title_matches(job_title, params.job_titles, []):
+                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                         continue
 
                     location_str = item.get("location", {}).get("display_name", "")

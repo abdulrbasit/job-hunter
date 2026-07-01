@@ -15,7 +15,7 @@ import requests
 
 from job_hunter.config.loader import ROOT, get_api_config, get_timeout
 from job_hunter.core.api_budget import reserve_api_call
-from job_hunter.core.utils import strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.base import JobSourceAdapter
@@ -98,7 +98,7 @@ class JobicySource(JobSourceAdapter):
             if not isinstance(item, dict):
                 continue
             job_title = str(item.get("jobTitle") or "")
-            if not title_matches(job_title, params.job_titles, params.excluded_title_terms):
+            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                 continue
             description = strip_html(str(item.get("jobDescription") or ""))
             jobs.append(

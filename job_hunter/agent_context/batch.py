@@ -11,7 +11,7 @@ from job_hunter.agent_context._utils import _root
 from job_hunter.agent_context.candidates import _title_key
 from job_hunter.config import get_config
 from job_hunter.constants import DEFAULT_BATCH_SIZE
-from job_hunter.core.utils import read_yaml
+from job_hunter.core.utils import has_excluded_title_term, read_yaml
 from job_hunter.sources.policy import JobPolicy
 
 
@@ -93,7 +93,7 @@ def screen_candidate_batch(
                 reasons.append("excluded_company")
             if policy.is_excluded_language(title, snippet):
                 reasons.append("excluded_language")
-            if any(term.lower() in title.lower() for term in policy.excluded_title_terms):
+            if has_excluded_title_term(title, policy.excluded_title_terms):
                 reasons.append("excluded_title")
             if not reasons:
                 reasons.append("title_not_matched")

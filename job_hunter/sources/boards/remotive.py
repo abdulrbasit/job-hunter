@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from job_hunter.core.utils import strip_html, title_matches
+from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources._http import fetch_title_pages
@@ -13,12 +13,14 @@ from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
     job_board_enabled,
     job_board_timeout,
+    pages_for_max_results,
     source_page_cap,
 )
 
 logger = logging.getLogger(__name__)
 
 _API_URL = "https://remotive.com/api/remote-jobs"
+_PAGE_SIZE = 100
 
 
 class RemotiveSource(JobSourceAdapter):
@@ -37,13 +39,15 @@ class RemotiveSource(JobSourceAdapter):
             return []
 
         timeout = job_board_timeout("remotive")
-        max_pages = source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        max_pages = pages_for_max_results(
+            params.max_results, _PAGE_SIZE, base_cap=source_page_cap(DEFAULT_SINGLE_PAGE_SOURCE_CAP)
+        )
         jobs: list[JobPosting] = []
 
         for title, raw_jobs in fetch_title_pages(
             _API_URL,
             params.job_titles,
-            lambda t, p: {"search": t, "limit": 100, "page": p},
+            lambda t, p: {"search": t, "limit": _PAGE_SIZE, "page": p},
             "jobs",
             timeout=timeout,
             max_pages=max_pages,
@@ -53,7 +57,7 @@ class RemotiveSource(JobSourceAdapter):
             for item in raw_jobs:
                 job_title = str(item.get("title") or "")
                 job_location = str(item.get("candidate_required_location") or "Remote")
-                if not title_matches(job_title, params.job_titles, []):
+                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
                     continue
                 description = strip_html(item.get("description") or "")
                 jobs.append(

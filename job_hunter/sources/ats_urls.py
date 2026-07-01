@@ -78,7 +78,9 @@ ATS_CAREER_PATTERNS: tuple[AtsCareerPattern, ...] = (
         "personio",
         r"([^/.]+)\.jobs\.personio\.de",
         "{0}.jobs.personio.de",
-        "https://{slug}.jobs.personio.de/api/v1/jobs",
+        # Personio's newer /api/v1/jobs JSON endpoint sits behind a Vercel bot
+        # checkpoint on many tenants; the public XML feed is the stable one.
+        "https://{slug}.jobs.personio.de/xml",
         "site:jobs.personio.de OR site:jobs.personio.com",
         r"(?:jobs\.personio\.(?:de|com)|\.jobs\.personio\.de)$",
         r"/job/",
@@ -105,7 +107,7 @@ ATS_CAREER_PATTERNS: tuple[AtsCareerPattern, ...] = (
         "teamtailor",
         r"([^/.]+)\.teamtailor\.com",
         "{0}.teamtailor.com",
-        "",
+        "https://{slug}.teamtailor.com/jobs.json",
         "site:teamtailor.com/jobs",
         r"\.teamtailor\.com$",
         r"/jobs/",

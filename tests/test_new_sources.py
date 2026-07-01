@@ -6,6 +6,7 @@ from conftest import mk_params
 
 from job_hunter.models import JobPosting
 from job_hunter.sources.boards.adzuna import AdzunaSource
+from job_hunter.sources.boards.bayt import BaytSource
 from job_hunter.sources.boards.careerjet import CareerjetSource
 from job_hunter.sources.boards.gulftalent import GulfTalentSource
 from job_hunter.sources.boards.jobbank import JobBankSource
@@ -165,6 +166,44 @@ class TestRemoteOKSource:
             jobs = RemoteOKSource().fetch(mk_params(["Software Engineer"], _REGIONS))
         assert jobs == []
 
+    def test_fetch_does_not_early_filter_jobs_outside_region_location(self) -> None:
+        """RemoteOK no longer drops a job locally just because its location string
+        doesn't match the region — that decision moves to JobPolicy/quality_gate.
+        location_restrictions is still populated so the downstream check has a signal."""
+        onsite_job = {**_REMOTEOK_JOB, "location": "San Francisco, CA"}
+        feed = [_REMOTEOK_METADATA, onsite_job]
+        with (
+            patch(
+                "job_hunter.sources.boards.remoteok.get_api_config",
+                return_value=_REMOTEOK_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.remoteok.requests.get",
+                return_value=_make_response(json_data=feed),
+            ),
+        ):
+            jobs = RemoteOKSource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) == 1
+        assert jobs[0].location == "San Francisco, CA"
+        assert jobs[0].location_restrictions == ["San Francisco, CA"]
+
+    def test_fetch_keeps_worldwide_and_remote_jobs(self) -> None:
+        for broad_location in ("Worldwide", "Remote", "Anywhere"):
+            job = {**_REMOTEOK_JOB, "location": broad_location}
+            feed = [_REMOTEOK_METADATA, job]
+            with (
+                patch(
+                    "job_hunter.sources.boards.remoteok.get_api_config",
+                    return_value=_REMOTEOK_CFG,
+                ),
+                patch(
+                    "job_hunter.sources.boards.remoteok.requests.get",
+                    return_value=_make_response(json_data=feed),
+                ),
+            ):
+                jobs = RemoteOKSource().fetch(mk_params(["Software Engineer"], _REGIONS))
+            assert len(jobs) == 1, f"{broad_location!r} should not be dropped"
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # WeWorkRemotely
@@ -187,6 +226,21 @@ _WWR_RSS_MATCHING = b"""<?xml version="1.0" encoding="UTF-8"?>
       <link>https://weworkremotely.com/job/2</link>
       <pubDate>Mon, 01 Jun 2026 12:00:00 +0000</pubDate>
       <description>Market things.</description>
+    </item>
+  </channel>
+</rss>"""
+
+_WWR_RSS_WITH_REGION = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>We Work Remotely</title>
+    <item>
+      <title>ACME Corp: Software Engineer</title>
+      <link>https://weworkremotely.com/job/3</link>
+      <pubDate>Mon, 01 Jun 2026 12:00:00 +0000</pubDate>
+      <region>Anywhere in the World</region>
+      <country>United States</country>
+      <description>Build great things.</description>
     </item>
   </channel>
 </rss>"""
@@ -287,12 +341,83 @@ _JB_HTML = """<html><body>
   <span class="date">2026-06-01</span>
 </article></body></html>"""
 
+# GulfTalent's fetch loop treats responses <=200 chars as blocked/empty (real anti-bot
+# block pages are tiny) — short synthetic fixtures need this padding to read as real HTML.
+_PAD_200 = "<!-- " + "x" * 200 + " -->"
+
 _GT_HTML = """<html><body>
 <div class="job-listing">
   <h2><a class="job-title" href="/jobs/456">Product Manager</a></h2>
   <span class="company-name">GulfCorp</span>
   <span class="location">Dubai, UAE</span>
 </div></body></html>"""
+
+_GT_HTML_INTERN = """<html><body>
+<div class="job-listing">
+  <h2><a class="job-title" href="/jobs/456">Product Manager</a></h2>
+  <span class="company-name">GulfCorp</span>
+  <span class="location">Dubai, UAE</span>
+</div>
+<div class="job-listing">
+  <h2><a class="job-title" href="/jobs/457">Product Manager Intern</a></h2>
+  <span class="company-name">GulfCorp</span>
+  <span class="location">Dubai, UAE</span>
+</div></body></html>"""
+
+_BAYT_HTML = """<html><body>
+<ul>
+<li data-js-job class="has-pointer-d" data-job-id="1">
+  <h2><a data-js-link href="/en/uae/jobs/product-manager-1/" title="Product Manager">Product Manager</a></h2>
+  <div class="job-company-location-wrapper">
+    <div><a class="t-default t-bold" href="/en/company/gulfcorp/">GulfCorp</a></div>
+    <div class="t-mute"><a><span>Dubai</span></a>, <a><span>UAE</span></a></div>
+  </div>
+  <div class="jb-descr">Summary: Lead product strategy.</div>
+  <div class="jb-date">1 hour ago</div>
+</li>
+</ul></body></html>"""
+
+_BAYT_HTML_INTERN = """<html><body>
+<ul>
+<li data-js-job class="has-pointer-d" data-job-id="1">
+  <h2><a data-js-link href="/en/uae/jobs/product-manager-1/" title="Product Manager">Product Manager</a></h2>
+  <div class="job-company-location-wrapper">
+    <div><a class="t-default t-bold" href="/en/company/gulfcorp/">GulfCorp</a></div>
+    <div class="t-mute"><a><span>Dubai</span></a>, <a><span>UAE</span></a></div>
+  </div>
+</li>
+<li data-js-job class="has-pointer-d" data-job-id="2">
+  <h2><a data-js-link href="/en/uae/jobs/product-manager-intern-2/" title="Product Manager Intern">Product Manager Intern</a></h2>
+  <div class="job-company-location-wrapper">
+    <div><a class="t-default t-bold" href="/en/company/gulfcorp/">GulfCorp</a></div>
+    <div class="t-mute"><a><span>Dubai</span></a>, <a><span>UAE</span></a></div>
+  </div>
+</li>
+</ul></body></html>"""
+
+_BAYT_HTML_PAGE1_WITH_NEXT = """<html><head>
+<link rel="next" href="https://www.bayt.com/en/uae/jobs/product-manager-jobs/?page=2">
+</head><body>
+<ul>
+<li data-js-job class="has-pointer-d" data-job-id="1">
+  <h2><a data-js-link href="/en/uae/jobs/product-manager-1/" title="Product Manager">Product Manager</a></h2>
+  <div class="job-company-location-wrapper">
+    <div><a class="t-default t-bold" href="/en/company/gulfcorp/">GulfCorp</a></div>
+    <div class="t-mute"><a><span>Dubai</span></a>, <a><span>UAE</span></a></div>
+  </div>
+</li>
+</ul></body></html>"""
+
+_BAYT_HTML_PAGE2 = """<html><body>
+<ul>
+<li data-js-job class="has-pointer-d" data-job-id="3">
+  <h2><a data-js-link href="/en/uae/jobs/senior-product-manager-3/" title="Senior Product Manager">Senior Product Manager</a></h2>
+  <div class="job-company-location-wrapper">
+    <div><a class="t-default t-bold" href="/en/company/gulfcorp/">GulfCorp</a></div>
+    <div class="t-mute"><a><span>Dubai</span></a>, <a><span>UAE</span></a></div>
+  </div>
+</li>
+</ul></body></html>"""
 
 _JS_RESPONSE = {
     "data": {
@@ -339,6 +464,223 @@ class TestGulfTalentSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "GulfTalent"
+
+    def test_fetch_respects_excluded_title_terms_regardless_of_word_order(self) -> None:
+        """Regression: GulfTalent used to call _parse_cards(..., [], ...), silently
+        dropping params.excluded_title_terms so "Product Manager Intern" leaked through."""
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=_GT_HTML_INTERN),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE, excluded_title_terms=["intern"]))
+        titles = [job.title for job in jobs]
+        assert "Product Manager" in titles
+        assert "Product Manager Intern" not in titles
+
+    def test_fetch_follows_next_page_link(self) -> None:
+        page1 = """<html><head>
+        <link rel="next" href="https://www.gulftalent.com/jobs?keyword=product+manager&page=2">
+        </head><body>
+        <div class="job-listing">
+          <h2><a class="job-title" href="/jobs/1">Product Manager</a></h2>
+          <span class="company-name">GulfCorp</span>
+        </div></body></html>"""
+        page2 = """<html><body>
+        <div class="job-listing">
+          <h2><a class="job-title" href="/jobs/2">Senior Product Manager</a></h2>
+          <span class="company-name">GulfCorp</span>
+        </div></body></html>"""
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                side_effect=[_make_response(text=page1), _make_response(text=page2)],
+            ) as get_mock,
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert {j.title for j in jobs} == {"Product Manager", "Senior Product Manager"}
+        assert get_mock.call_count == 2
+        assert get_mock.call_args_list[1].args[0] == "https://www.gulftalent.com/jobs?keyword=product+manager&page=2"
+
+    def test_fetch_stops_when_no_next_link(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=_GT_HTML),
+            ) as get_mock,
+        ):
+            GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert get_mock.call_count == 1
+
+    def test_fetch_returns_empty_for_no_results_page(self) -> None:
+        no_results_html = (
+            _PAD_200
+            + """<html><body>
+        <div class="no-results">No jobs found matching your search.</div>
+        </body></html>"""
+        )
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=no_results_html),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert jobs == []
+
+    def test_fetch_returns_empty_for_blocked_or_empty_response(self) -> None:
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text="", status_code=403),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert jobs == []
+
+    def test_fetch_extracts_jsonld_jobposting_when_no_cards(self) -> None:
+        jsonld_html = """<html><head>
+        <script type="application/ld+json">
+        {"@type": "JobPosting", "title": "Product Manager", "hiringOrganization": {"name": "GulfCorp"},
+         "applyUrl": "https://www.gulftalent.com/jobs/789", "jobLocation": {"address": {"addressCountry": "AE"}}}
+        </script>
+        </head><body></body></html>"""
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=jsonld_html),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert len(jobs) == 1
+        assert jobs[0].title == "Product Manager"
+        assert jobs[0].url == "https://www.gulftalent.com/jobs/789"
+
+    def test_fetch_extracts_embedded_script_data_when_no_cards_or_jsonld(self) -> None:
+        embedded_html = (
+            _PAD_200
+            + """<html><body>
+        <script>window.__INITIAL_STATE__ = {"jobs": [
+            {"title": "Product Manager", "url": "/jobs/321", "company": "GulfCorp"}
+        ]};</script>
+        </body></html>"""
+        )
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=embedded_html),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert len(jobs) == 1
+        assert jobs[0].title == "Product Manager"
+        assert jobs[0].url == "https://www.gulftalent.com/jobs/321"
+
+    def test_fetch_uses_anchor_fallback_when_no_cards(self) -> None:
+        anchor_html = (
+            _PAD_200
+            + """<html><body>
+        <a href="/jobs/999-product-manager">Product Manager</a>
+        </body></html>"""
+        )
+        with (
+            patch(
+                "job_hunter.sources.boards.gulftalent.get_api_config",
+                return_value=_EMPTY_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.gulftalent.requests.get",
+                return_value=_make_response(text=anchor_html),
+            ),
+        ):
+            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE))
+        assert len(jobs) == 1
+        assert jobs[0].title == "Product Manager"
+
+
+class TestBaytSource:
+    def test_name(self) -> None:
+        assert BaytSource().source_name == "bayt"
+
+    def test_is_enabled_false_when_disabled(self) -> None:
+        disabled = {"http": {"job_boards": {"bayt": {"enabled": False}}}}
+        with patch("job_hunter.sources.boards.bayt.get_api_config", return_value=disabled):
+            assert BaytSource().is_enabled({}) is False
+
+    def test_fetch_skips_unsupported_country(self) -> None:
+        with patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG):
+            jobs = BaytSource().fetch(mk_params(["Product Manager"], _DE))
+        assert jobs == []
+
+    def test_fetch_returns_job_postings(self) -> None:
+        with (
+            patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.boards.bayt.requests.get",
+                return_value=_make_response(text=_BAYT_HTML),
+            ),
+        ):
+            jobs = BaytSource().fetch(mk_params(["Product Manager"], _AE))
+        assert len(jobs) == 1
+        assert isinstance(jobs[0], JobPosting)
+        assert jobs[0].source == "Bayt"
+        assert jobs[0].title == "Product Manager"
+        assert jobs[0].company == "GulfCorp"
+        assert jobs[0].location == "Dubai, UAE"
+
+    def test_fetch_respects_excluded_title_terms(self) -> None:
+        with (
+            patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.boards.bayt.requests.get",
+                return_value=_make_response(text=_BAYT_HTML_INTERN),
+            ),
+        ):
+            jobs = BaytSource().fetch(mk_params(["Product Manager"], _AE, excluded_title_terms=["intern"]))
+        titles = [j.title for j in jobs]
+        assert "Product Manager" in titles
+        assert "Product Manager Intern" not in titles
+
+    def test_fetch_follows_next_page_link(self) -> None:
+        with (
+            patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.boards.bayt.requests.get",
+                side_effect=[_make_response(text=_BAYT_HTML_PAGE1_WITH_NEXT), _make_response(text=_BAYT_HTML_PAGE2)],
+            ) as get_mock,
+        ):
+            jobs = BaytSource().fetch(mk_params(["Product Manager"], _AE))
+        assert {j.title for j in jobs} == {"Product Manager", "Senior Product Manager"}
+        assert get_mock.call_count == 2
 
 
 class TestJobBankSource:
@@ -388,6 +730,39 @@ class TestJobStreetSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "JobStreet"
+
+    def test_deep_max_results_fetches_more_pages_than_standard(self) -> None:
+        # A full page (>= _PAGE_SIZE=30) so the adapter never breaks early on a short page.
+        full_page = {
+            "data": {
+                "jobs": [
+                    {"id": f"js-{i}", "title": "Product Manager", "advertiser": {"description": "Co"}}
+                    for i in range(30)
+                ]
+            }
+        }
+        with (
+            patch("job_hunter.sources.boards.jobstreet.get_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.boards.jobstreet.requests.get",
+                return_value=_make_response(json_data=full_page),
+            ) as get_mock,
+        ):
+            JobStreetSource().fetch(mk_params(["Product Manager"], _MY, max_results=50))
+            standard_calls = get_mock.call_count
+
+        with (
+            patch("job_hunter.sources.boards.jobstreet.get_api_config", return_value=_EMPTY_CFG),
+            patch(
+                "job_hunter.sources.boards.jobstreet.requests.get",
+                return_value=_make_response(json_data=full_page),
+            ) as get_mock,
+        ):
+            JobStreetSource().fetch(mk_params(["Product Manager"], _MY, max_results=150))
+            deep_calls = get_mock.call_count
+
+        assert standard_calls == 3  # DEFAULT_PAGED_SOURCE_CAP, unchanged from before this change
+        assert deep_calls > standard_calls
 
 
 class TestMyCareersFutureSource:
@@ -443,6 +818,24 @@ class TestWeWorkRemotelySource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "WeWorkRemotely"
+
+    def test_fetch_uses_structured_region_and_country_fields(self) -> None:
+        """The RSS feed carries real <region>/<country> tags — use those instead of
+        guessing location_restrictions from description text."""
+        with (
+            patch(
+                "job_hunter.sources.source_config.get_api_config",
+                return_value=_WWR_CFG,
+            ),
+            patch(
+                "job_hunter.sources.boards.weworkremotely.requests.get",
+                return_value=_mock_get_bytes(_WWR_RSS_WITH_REGION),
+            ),
+        ):
+            jobs = WeWorkRemotelySource().fetch(mk_params(["Software Engineer"], _REGIONS))
+        assert len(jobs) == 1
+        assert jobs[0].location == "United States"
+        assert jobs[0].location_restrictions == ["Anywhere in the World", "United States"]
 
 
 class TestReedSource:
@@ -510,6 +903,40 @@ class TestAdzunaSource:
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "Adzuna"
+
+    def test_deep_max_results_fetches_more_pages_than_standard(self) -> None:
+        """Regression: paged adapters used to ignore params.max_results entirely
+        (always source_page_cap()); deep/backfill attempts must fetch more pages."""
+        src = AdzunaSource.__new__(AdzunaSource)
+        src._app_id = "app123"
+        src._api_key = "key123"
+        config = {"http": {"job_boards": {"adzuna": {"enabled": True, "results_per_page": 1}}}}
+        page_data = {"results": [_ADZUNA_JOB(1)]}  # never < results_per_page, so pages never break early
+
+        with (
+            patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
+            patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
+            patch(
+                "job_hunter.sources.boards.adzuna.requests.get",
+                return_value=_make_response(json_data=page_data),
+            ) as get_mock,
+        ):
+            src.fetch(mk_params(["Software Engineer"], _ADZUNA_GB_REGIONS, max_results=50))
+            standard_calls = get_mock.call_count
+
+        with (
+            patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
+            patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
+            patch(
+                "job_hunter.sources.boards.adzuna.requests.get",
+                return_value=_make_response(json_data=page_data),
+            ) as get_mock,
+        ):
+            src.fetch(mk_params(["Software Engineer"], _ADZUNA_GB_REGIONS, max_results=150))
+            deep_calls = get_mock.call_count
+
+        assert standard_calls == 1
+        assert deep_calls > standard_calls
 
 
 class TestJoobleSource:
