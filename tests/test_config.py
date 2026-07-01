@@ -61,6 +61,38 @@ def test_config_check_validates_required_keys() -> None:
     assert check() == 0
 
 
+def test_removed_config_keys_are_rejected() -> None:
+    from job_hunter.config.loader import _reject_removed_user_config
+
+    with pytest.raises(ValueError, match="about_me"):
+        _reject_removed_user_config({"about_me": "stale"})
+
+    with pytest.raises(ValueError, match="sources"):
+        _reject_removed_user_config({"sources": []})
+
+    with pytest.raises(ValueError, match="exclusions.senior_flags"):
+        _reject_removed_user_config({"exclusions": {"senior_flags": []}})
+
+    with pytest.raises(ValueError, match="scoring.prompt_context"):
+        _reject_removed_user_config({"scoring": {"prompt_context": "stale"}})
+
+    with pytest.raises(ValueError, match=r"linkedin\.tone"):
+        _reject_removed_user_config({"linkedin": {"enabled": True, "tone": "casual"}})
+
+
+def test_removed_config_keys_accepts_current_shape() -> None:
+    from job_hunter.config.loader import _reject_removed_user_config
+
+    _reject_removed_user_config(
+        {
+            "mode": "agent",
+            "exclusions": {"companies": [], "title_terms": []},
+            "scoring": {"min_fit_score": 70, "batch_size": 15},
+            "linkedin": {"enabled": False},
+        }
+    )
+
+
 def test_schema_files_are_valid_json() -> None:
     schemas = list((ROOT / "config" / "schemas").glob("*.schema.json"))
     assert schemas, "No schema files found in config/schemas/"
