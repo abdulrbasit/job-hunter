@@ -18,6 +18,7 @@ from job_hunter.core.api_budget import reserve_api_call
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import jobicy_geo_slug
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ class JobicySource(JobSourceAdapter):
                     title=job_title,
                     company=str(item.get("companyName") or ""),
                     url=str(item.get("url") or ""),
-                    posted_date_text=str(item.get("pubDate") or "")[:10],
+                    posted_date_text=truncate_date_text(item.get("pubDate")),
                     location=str(item.get("jobGeo") or "Remote"),
                     snippet=description[:3000],
                     source="Jobicy",

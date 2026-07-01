@@ -34,11 +34,6 @@ class JobSourceAdapter(ABC):
     def source_name(self) -> str:
         """Unique identifier used in JobPosting.source and log messages."""
 
-    @property
-    def name(self) -> str:
-        """Alias for source_name — for backward compat with tests."""
-        return self.source_name
-
     def is_enabled(self, api_cfg: dict) -> bool:
         """Return True by default; sources may override to check config flags."""
         return True

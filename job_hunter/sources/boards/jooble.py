@@ -22,6 +22,7 @@ from job_hunter.core.api_budget import (
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import (
     DEFAULT_PAGED_SOURCE_CAP,
     source_page_cap,
@@ -111,7 +112,7 @@ class JoobleSource(JobSourceAdapter):
                             title=job_title,
                             company=str(item.get("company") or ""),
                             url=str(item.get("link") or ""),
-                            posted_date_text=str(item.get("updated") or "")[:10],
+                            posted_date_text=truncate_date_text(item.get("updated")),
                             location=str(item.get("location") or ""),
                             snippet=str(item.get("snippet") or "")[:3000],
                             source="Jooble",

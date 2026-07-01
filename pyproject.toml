@@ -145,7 +145,8 @@ ignore = ["E501", "S101"]
 "job_hunter/pipeline/stages/{processing,validation}.py" = ["C901"]
 # Narrowed from a blanket "*_source.py" glob (Phase 3): 8 of 18 board adapters had zero C901
 # violations and gained nothing from the ignore. Only list a source here once ruff proves it complex.
-"job_hunter/sources/{adzuna,careerjet,hh,jobbank,jobicy,jobspy,jobstreet,jooble,mycareersfuture,reed}_source.py" = [
+# Phase 7 (2026-07-01): sources/*_source.py moved to sources/boards/<name>.py — glob updated.
+"job_hunter/sources/boards/{adzuna,careerjet,hh,jobbank,jobicy,jobspy,jobstreet,jooble,mycareersfuture,reed}.py" = [
   "C901",
 ]
 "job_hunter/sources/{job_boards,jd_fetcher,orchestrator}.py" = ["C901"]

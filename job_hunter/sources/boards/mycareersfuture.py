@@ -13,6 +13,7 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import (
     sleep_between_pages,
     source_page_cap,
@@ -96,7 +97,7 @@ class MyCareersFutureSource(JobSourceAdapter):
                     description = strip_html(str(item.get("description") or ""))
                     metadata = item.get("metadata") or {}
                     dates = metadata.get("dates") or {}
-                    posted = str(dates.get("posting") or dates.get("created") or "")[:10]
+                    posted = truncate_date_text(dates.get("posting") or dates.get("created"))
                     salary_obj = item.get("salary") or {}
                     salary_min = salary_obj.get("minimum")
                     salary_max = salary_obj.get("maximum")

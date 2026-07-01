@@ -1,8 +1,8 @@
-"""Tests for sources/arbeitsagentur_source.py — all HTTP calls are mocked."""
+"""Tests for sources/boards/arbeitsagentur.py — all HTTP calls are mocked."""
 
 from unittest.mock import MagicMock, patch
 
-from job_hunter.sources import arbeitsagentur_source as aa
+from job_hunter.sources.boards import arbeitsagentur as aa
 
 
 def _mock_get(json_data, status=200):
@@ -55,11 +55,11 @@ _RESPONSE = {
 
 class TestArbeitsagenturSource:
     def test_name(self) -> None:
-        assert aa.ArbeitsagenturSource().name == "arbeitsagentur"
+        assert aa.ArbeitsagenturSource().source_name == "arbeitsagentur"
 
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"arbeitsagentur": {"enabled": False}}}}
-        with patch("job_hunter.sources.arbeitsagentur_source.get_api_config", return_value=disabled):
+        with patch("job_hunter.sources.boards.arbeitsagentur.get_api_config", return_value=disabled):
             assert aa.ArbeitsagenturSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
@@ -74,11 +74,11 @@ class TestArbeitsagenturSource:
         )
         with (
             patch(
-                "job_hunter.sources.arbeitsagentur_source.get_api_config",
+                "job_hunter.sources.boards.arbeitsagentur.get_api_config",
                 return_value=_ENABLED_CFG,
             ),
             patch(
-                "job_hunter.sources.arbeitsagentur_source.requests.get",
+                "job_hunter.sources.boards.arbeitsagentur.requests.get",
                 return_value=_mock_get(_RESPONSE),
             ),
         ):

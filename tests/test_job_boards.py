@@ -68,7 +68,7 @@ _CONFIG = {"exclusions": {"title_terms": []}}
 
 class TestArbeitnowSource:
     def test_name(self) -> None:
-        assert ArbeitnowSource().name == "arbeitnow"
+        assert ArbeitnowSource().source_name == "arbeitnow"
 
     def test_is_enabled_respects_config(self) -> None:
         disabled_cfg = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
@@ -212,7 +212,7 @@ class TestJSearchSource:
     def test_name(self) -> None:
         src = JSearchSource.__new__(JSearchSource)
         src._rapidapi_key = "test-key"
-        assert src.name == "jsearch"
+        assert src.source_name == "jsearch"
 
     def test_is_enabled_false_without_key(self) -> None:
         src = JSearchSource.__new__(JSearchSource)

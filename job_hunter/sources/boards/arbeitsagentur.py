@@ -11,6 +11,7 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class ArbeitsagenturSource(JobSourceAdapter):
                         title=job_title,
                         company=str(item.get("arbeitgeber") or ""),
                         url=_DETAIL_URL.format(ref) if ref else "",
-                        posted_date_text=str(item.get("aktuelleVeroeffentlichungsdatum") or "")[:10],
+                        posted_date_text=truncate_date_text(item.get("aktuelleVeroeffentlichungsdatum")),
                         location=job_location,
                         snippet=str(item.get("stellenbeschreibung") or item.get("beruf") or "")[:3000],
                         source="Arbeitsagentur",

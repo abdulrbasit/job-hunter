@@ -10,6 +10,7 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import DEFAULT_SINGLE_PAGE_SOURCE_CAP, source_page_cap
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ class TheMuseSource(JobSourceAdapter):
                 description = strip_html(item.get("contents") or "")
                 company_name = str((item.get("company") or {}).get("name") or "")
                 job_url = str(item.get("refs", {}).get("landing_page") or "")
-                posted = str(item.get("publication_date") or "")[:10]
+                posted = truncate_date_text(item.get("publication_date"))
                 jobs.append(
                     JobPosting(
                         title=job_title,

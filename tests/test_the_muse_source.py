@@ -1,10 +1,10 @@
-"""Tests for sources/the_muse_source.py — all HTTP calls are mocked."""
+"""Tests for sources/boards/the_muse.py — all HTTP calls are mocked."""
 
 from unittest.mock import MagicMock, patch
 
 from conftest import mk_params
 
-from job_hunter.sources.the_muse_source import TheMuseSource
+from job_hunter.sources.boards.the_muse import TheMuseSource
 
 
 def _mock_get(json_data, status=200):
@@ -35,11 +35,11 @@ _CONFIG = {"exclusions": {"title_terms": []}}
 
 class TestTheMuseSource:
     def test_name(self) -> None:
-        assert TheMuseSource().name == "the_muse"
+        assert TheMuseSource().source_name == "the_muse"
 
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"the_muse": {"enabled": False}}}}
-        with patch("job_hunter.sources.the_muse_source.get_api_config", return_value=disabled):
+        with patch("job_hunter.sources.boards.the_muse.get_api_config", return_value=disabled):
             assert TheMuseSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
@@ -59,11 +59,11 @@ class TestTheMuseSource:
         }
         with (
             patch(
-                "job_hunter.sources.the_muse_source.get_api_config",
+                "job_hunter.sources.boards.the_muse.get_api_config",
                 return_value=_ENABLED_CFG,
             ),
             patch(
-                "job_hunter.sources.the_muse_source.requests.get",
+                "job_hunter.sources.boards.the_muse.requests.get",
                 return_value=_mock_get(response_data),
             ),
         ):

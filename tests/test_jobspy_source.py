@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from conftest import mk_params
 
-from job_hunter.sources.jobspy_source import _ISO_TO_INDEED, JobSpySource
+from job_hunter.sources.boards.jobspy import _ISO_TO_INDEED, JobSpySource
 
 _BASE_CFG = {
     "http": {
@@ -109,11 +109,11 @@ class _Rows:
 
 class TestJobSpySource:
     def test_name(self) -> None:
-        assert JobSpySource().name == "jobspy"
+        assert JobSpySource().source_name == "jobspy"
 
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"jobspy": {"enabled": False}}}}
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=disabled):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=disabled):
             assert JobSpySource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self, monkeypatch) -> None:
@@ -141,7 +141,7 @@ class TestJobSpySource:
             SimpleNamespace(scrape_jobs=lambda **kw: _Rows()),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             jobs = JobSpySource().fetch(mk_params(["Software Engineer"], _DE))
         assert len(jobs) >= 1
         assert isinstance(jobs[0], JobPosting)
@@ -151,7 +151,7 @@ class TestJobSpySource:
 
 class TestJobSpyCircuitBreaker:
     def test_403_disables_site_after_first_failure(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -170,14 +170,14 @@ class TestJobSpyCircuitBreaker:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Product Manager", "Senior PM"], _DE))
 
         assert "indeed" in jspy_mod._DISABLED_SITES
         assert len(indeed_calls) == 1
 
     def test_non_403_does_not_disable_site(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -190,14 +190,14 @@ class TestJobSpyCircuitBreaker:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Product Manager"], _DE))
 
         assert "google" not in jspy_mod._DISABLED_SITES
         assert "indeed" not in jspy_mod._DISABLED_SITES
 
     def test_forbidden_string_also_disables_site(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -213,13 +213,13 @@ class TestJobSpyCircuitBreaker:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Product Manager"], _DE))
 
         assert "indeed" in jspy_mod._DISABLED_SITES
 
     def test_all_sites_disabled_skips_remaining_titles(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", {"google", "indeed"})
 
@@ -235,7 +235,7 @@ class TestJobSpyCircuitBreaker:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             jobs = JobSpySource().fetch(mk_params(["Product Manager", "Senior PM"], _DE))
 
         assert jobs == []
@@ -247,7 +247,7 @@ class TestJobSpyAutoSelection:
         assert _ISO_TO_INDEED == _JOBSPY_INDEED_COUNTRIES
 
     def test_google_and_indeed_selected_for_mapped_country(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -263,14 +263,14 @@ class TestJobSpyAutoSelection:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Engineer"], _DE))
 
         assert "google" in calls
         assert "indeed" in calls
 
     def test_only_google_for_unmapped_country(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -286,14 +286,14 @@ class TestJobSpyAutoSelection:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Engineer"], _ZZ))
 
         assert "google" in calls
         assert "indeed" not in calls
 
     def test_google_search_term_passed_to_scrape(self, monkeypatch) -> None:
-        import job_hunter.sources.jobspy_source as jspy_mod
+        import job_hunter.sources.boards.jobspy as jspy_mod
 
         monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
 
@@ -309,7 +309,7 @@ class TestJobSpyAutoSelection:
             SimpleNamespace(scrape_jobs=fake_scrape),
         )
 
-        with patch("job_hunter.sources.jobspy_source.get_api_config", return_value=_BASE_CFG):
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
             JobSpySource().fetch(mk_params(["Data Scientist"], _US))
 
         assert len(captured) >= 1

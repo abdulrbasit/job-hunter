@@ -16,12 +16,6 @@ def test_board_registry_has_one_normalized_adapter_per_source() -> None:
     assert len(names) == len(set(names))
 
 
-def test_adapter_name_is_a_backward_compat_alias_for_source_name() -> None:
-    for adapter_type in BOARD_REGISTRY.values():
-        adapter = adapter_type()
-        assert adapter.name == adapter.source_name
-
-
 def test_board_registry_preserves_worldwide_coverage() -> None:
     names = set(BOARD_REGISTRY)
 
@@ -30,6 +24,47 @@ def test_board_registry_preserves_worldwide_coverage() -> None:
     assert {"jobbank", "adzuna"} <= names  # Americas
     assert {"gulftalent"} <= names  # Gulf
     assert {"mycareersfuture", "jobstreet"} <= names  # Asia-Pacific
+
+
+def test_board_registry_has_exactly_the_expected_source_names() -> None:
+    """Full membership lock — catches an accidental add/drop the coverage spot-check would miss."""
+    assert set(BOARD_REGISTRY) == {
+        "adzuna",
+        "arbeitsagentur",
+        "arbeitnow",
+        "careerjet",
+        "gulftalent",
+        "hh",
+        "himalayas",
+        "jobbank",
+        "jobicy",
+        "jobspy",
+        "jobstreet",
+        "jooble",
+        "jsearch",
+        "mycareersfuture",
+        "reed",
+        "remoteok",
+        "remotive",
+        "the_muse",
+        "weworkremotely",
+        "workingnomads",
+    }
+
+
+def test_fetch_never_raises_when_fetch_impl_fails() -> None:
+    """JobSourceAdapter.fetch() must never raise — _base.py's contract, verified for every registered adapter."""
+    params = SearchParams(
+        region_key="contract",
+        country="US",
+        location="Remote",
+        search_lang="en",
+        job_titles=["Product Manager"],
+    )
+    for adapter_type in BOARD_REGISTRY.values():
+        adapter = adapter_type()
+        with patch.object(adapter_type, "_fetch", side_effect=RuntimeError("boom")):
+            assert adapter.fetch(params) == []
 
 
 def test_all_adapters_declare_joblisting_return_contract() -> None:

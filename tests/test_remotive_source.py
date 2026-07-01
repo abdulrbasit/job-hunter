@@ -1,11 +1,11 @@
-"""Tests for sources/remotive_source.py — all HTTP calls are mocked."""
+"""Tests for sources/boards/remotive.py — all HTTP calls are mocked."""
 
 from unittest.mock import MagicMock, patch
 
 from conftest import mk_params
 
 from job_hunter.models import JobPosting
-from job_hunter.sources.remotive_source import RemotiveSource
+from job_hunter.sources.boards.remotive import RemotiveSource
 
 
 def _mock_get(json_data, status=200):
@@ -36,7 +36,7 @@ _CONFIG = {"exclusions": {"title_terms": []}}
 
 class TestRemotiveSource:
     def test_name(self) -> None:
-        assert RemotiveSource().name == "remotive"
+        assert RemotiveSource().source_name == "remotive"
 
     def test_is_enabled_respects_config(self) -> None:
         disabled_cfg = {"http": {"job_boards": {"remotive": {"enabled": False}}}}

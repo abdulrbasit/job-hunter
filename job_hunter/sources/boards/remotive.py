@@ -7,6 +7,7 @@ import logging
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources._http import fetch_title_pages
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
@@ -60,7 +61,7 @@ class RemotiveSource(JobSourceAdapter):
                         title=job_title,
                         company=str(item.get("company_name") or ""),
                         url=str(item.get("url") or ""),
-                        posted_date_text=str(item.get("publication_date") or "")[:10],
+                        posted_date_text=truncate_date_text(item.get("publication_date")),
                         location=job_location,
                         snippet=description[:3000],
                         source="Remotive",

@@ -13,6 +13,7 @@ import requests
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import job_board_enabled, job_board_timeout
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class WorkingNomadsSource(JobSourceAdapter):
                     title=job_title,
                     company=str(item.get("company_name") or ""),
                     url=str(item.get("url") or ""),
-                    posted_date_text=str(item.get("pub_date") or "")[:10],
+                    posted_date_text=truncate_date_text(item.get("pub_date")),
                     location=str(item.get("region") or "Remote"),
                     snippet=strip_html(str(item.get("description") or ""))[:3000],
                     source="WorkingNomads",

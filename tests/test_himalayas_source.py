@@ -1,8 +1,8 @@
-"""Tests for sources/himalayas_source.py — all HTTP calls are mocked."""
+"""Tests for sources/boards/himalayas.py — all HTTP calls are mocked."""
 
 from unittest.mock import MagicMock, patch
 
-from job_hunter.sources import himalayas_source as hm
+from job_hunter.sources.boards import himalayas as hm
 
 
 def _mock_get(json_data, status=200):
@@ -104,11 +104,11 @@ def test_country_matches_string_no_match() -> None:
 
 class TestHimalayasSource:
     def test_name(self) -> None:
-        assert hm.HimalayasSource().name == "himalayas"
+        assert hm.HimalayasSource().source_name == "himalayas"
 
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"himalayas": {"enabled": False}}}}
-        with patch("job_hunter.sources.himalayas_source.get_api_config", return_value=disabled):
+        with patch("job_hunter.sources.boards.himalayas.get_api_config", return_value=disabled):
             assert hm.HimalayasSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
@@ -123,7 +123,7 @@ class TestHimalayasSource:
         )
         with (
             patch(
-                "job_hunter.sources.himalayas_source.get_api_config",
+                "job_hunter.sources.boards.himalayas.get_api_config",
                 return_value=_ENABLED_CFG,
             ),
             patch(

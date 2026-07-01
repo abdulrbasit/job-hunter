@@ -17,6 +17,7 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ class HHSource(JobSourceAdapter):
                             title=job_title,
                             company=str((item.get("employer") or {}).get("name") or ""),
                             url=str(item.get("alternate_url") or ""),
-                            posted_date_text=str(item.get("published_at") or "")[:10],
+                            posted_date_text=truncate_date_text(item.get("published_at")),
                             location=str((item.get("area") or {}).get("name") or params.location),
                             snippet=snippet[:3000],
                             source="hh.ru",

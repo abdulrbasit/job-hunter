@@ -15,6 +15,7 @@ from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.core.utils import strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import source_page_cap, terminal_http_status
 
 logger = logging.getLogger(__name__)
@@ -171,7 +172,7 @@ class CareerjetSource(JobSourceAdapter):
                             title=job_title,
                             company=str(item.get("company") or ""),
                             url=str(item.get("url") or ""),
-                            posted_date_text=str(item.get("date") or "")[:10],
+                            posted_date_text=truncate_date_text(item.get("date")),
                             location=str(item.get("locations") or location or country),
                             snippet=strip_html(str(item.get("description") or ""))[:3000],
                             source="Careerjet",

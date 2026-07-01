@@ -8,8 +8,11 @@ import requests
 from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.pipeline import enrichment, hunt
-from job_hunter.sources import careerjet_source, himalayas_source, jobicy_source, orchestrator
+from job_hunter.sources import orchestrator
 from job_hunter.sources._policy import JobPolicy
+from job_hunter.sources.boards import careerjet as careerjet_source
+from job_hunter.sources.boards import himalayas as himalayas_source
+from job_hunter.sources.boards import jobicy as jobicy_source
 
 
 def _posting(**overrides) -> JobPosting:

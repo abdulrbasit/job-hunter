@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from job_hunter.models import SearchParams
-from job_hunter.sources.hh_source import _ISO_TO_HH_AREA, HHSource
+from job_hunter.sources.boards.hh import _ISO_TO_HH_AREA, HHSource
 
 
 def _params(country: str = "RU", location: str = "Moscow") -> SearchParams:

@@ -168,7 +168,7 @@ def test_no_legacy_module_commands_in_tracked_files() -> None:
 
 def test_deterministic_scraping_functions_exist() -> None:
     orchestrator = (ROOT / "job_hunter" / "sources" / "orchestrator.py").read_text(encoding="utf-8")
-    boards = (ROOT / "job_hunter" / "sources" / "boards" / "__init__.py").read_text(encoding="utf-8")
+    boards = (ROOT / "job_hunter" / "sources" / "boards" / "registry.py").read_text(encoding="utf-8")
     search = (ROOT / "job_hunter" / "sources" / "search_providers" / "__init__.py").read_text(encoding="utf-8")
     for symbol in (
         "JobSpySource",

@@ -28,6 +28,7 @@ from job_hunter.core.api_budget import (
 from job_hunter.core.utils import location_matches, strip_html, title_matches
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._base import JobSourceAdapter
+from job_hunter.sources._dates import truncate_date_text
 from job_hunter.sources.source_config import (
     DEFAULT_SINGLE_PAGE_SOURCE_CAP,
     source_page_cap,
@@ -276,7 +277,7 @@ class JSearchSource(JobSourceAdapter):
                             title=job_title,
                             company=job.get("employer_name", ""),
                             url=job.get("job_apply_link", ""),
-                            posted_date_text=(job.get("job_posted_at_datetime_utc") or "")[:10],
+                            posted_date_text=truncate_date_text(job.get("job_posted_at_datetime_utc")),
                             location=location_str,
                             snippet=f"{location_str} — {description}" if location_str else description,
                             source="JSearch",
