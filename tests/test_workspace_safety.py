@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from job_hunter.data_contract import (
+from job_hunter.workspace.safety import (
     changed_paths_from_status,
     classify_path,
     unsafe_update_paths,
+    update_safety_report,
 )
-from job_hunter.update_safety import update_safety_report
 
 
 def test_classifies_user_and_system_paths() -> None:
