@@ -61,14 +61,19 @@ def compile_career_context(src: Path, out_dir: Path) -> Path:
 def compile_story_bank(src: Path, out_dir: Path) -> Path:
     """Strip Draft sections and story metadata from story_bank.md → story_bank.min.md."""
     text = src.read_text(encoding="utf-8")
+    text = _HTML_COMMENT_RE.sub("", text)
     lines = text.splitlines()
 
+    # Preamble ends at the first `---` separator (standard story_bank.md layout).
+    # If a user's file has no such separator, there is no preamble to strip —
+    # treating the whole file as preamble would silently drop every story.
+    has_separator = any(line.strip() == "---" for line in lines)
+
     out: list[str] = []
-    in_preamble = True
+    in_preamble = has_separator
     in_draft = False
 
     for line in lines:
-        # Preamble ends at the first `---` separator (standard story_bank.md layout)
         if in_preamble and line.strip() == "---":
             in_preamble = False
             continue
@@ -78,7 +83,7 @@ def compile_story_bank(src: Path, out_dir: Path) -> Path:
 
         # Track Draft / Final sections
         if line.startswith("## "):
-            in_draft = "Draft" in line
+            in_draft = "draft" in line.lower()
             if in_draft:
                 continue
             out.append(line)
@@ -160,7 +165,16 @@ def compile_all(root: Path) -> None:
 
     for name, before, after in results:
         pct = round((1 - after / before) * 100) if before else 0
-        logger.info("[compile_profile] %-30s %6d → %6d chars  (%d%% saved)", name, before, after, pct)
+        if before > 50 and after <= 2:
+            logger.warning(
+                "[compile_profile] %s compiled to empty (%d → %d chars) — "
+                "check its structure against the template; pipeline will run with no content from it",
+                name,
+                before,
+                after,
+            )
+        else:
+            logger.info("[compile_profile] %-30s %6d → %6d chars  (%d%% saved)", name, before, after, pct)
 
 
 # ---------------------------------------------------------------------------

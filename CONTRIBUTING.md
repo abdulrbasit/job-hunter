@@ -83,11 +83,16 @@ fixture-based test, and register any new secret in
 for exactly how that update runs.
 
 - **Non-YAML files** — always overwritten (e.g. `SETUP.md`, `README.md`).
-- **YAML config files** — deep-merged: new keys from the template are added, existing user values are kept. Lists and scalars: user wins.
+- **YAML config files** (`config/job_hunter.yml`, `config/career_pages.yml`) — fully user-owned.
+  Update only writes them if missing; an existing file is never read or rewritten.
 
 To add a new config key: add it to `config/schemas/job_hunter.schema.json`
 with a default in the template YAML — see [docs/config.md](docs/config.md#adding-a-new-config-key).
-Users get it on next `job-hunter update`.
+Existing users only pick it up automatically if it falls under a runtime-merged
+default section (`llm`, `linkedin`, `tailoring`, `cover_letter`,
+`scoring.prompt_context` — see `job_hunter/config/loader.py::get_job_hunter_config`).
+Anything else requires the user to add the key by hand; `job-hunter doctor` flags
+what's missing against the schema.
 
 ## Commits
 

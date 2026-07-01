@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from job_hunter.ux.health import doctor, onboarding_status
+
+
+@pytest.fixture(autouse=True)
+def _isolated_codex_home(tmp_path: Path, monkeypatch) -> None:
+    """Default to a CODEX_HOME that doesn't exist, so doctor() never reads this machine's real ~/.codex."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "default-codex-home"))
 
 
 def _write_minimal_repo(root: Path) -> None:
@@ -152,3 +159,96 @@ def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:
 
     assert schema["ok"] is False
     assert "required_key" in schema["detail"]
+
+
+def _hooks_json(command: str) -> str:
+    import json
+
+    return json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": command}]}]}})
+
+
+def test_telemetry_hook_check_fails_when_hooks_missing(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["telemetry_hooks_claude"]["ok"] is False
+    assert checks["telemetry_hooks_codex"]["ok"] is False
+    assert "job-hunter update" in checks["telemetry_hooks_claude"]["fix"]
+
+
+def test_telemetry_hook_check_passes_when_wired(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(
+        _hooks_json("job-hunter internal telemetry-hook --backend claude-code --event prompt"),
+        encoding="utf-8",
+    )
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "hooks.json").write_text(
+        _hooks_json("job-hunter internal telemetry-hook --backend codex --event prompt"),
+        encoding="utf-8",
+    )
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["telemetry_hooks_claude"]["ok"] is True
+    assert checks["telemetry_hooks_codex"]["ok"] is True
+
+
+def test_telemetry_hook_check_fails_on_wrong_backend_command(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "hooks.json").write_text(
+        _hooks_json("job-hunter internal telemetry-hook --backend claude-code --event prompt"),
+        encoding="utf-8",
+    )
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["telemetry_hooks_codex"]["ok"] is False
+
+
+def test_codex_otel_check_skipped_when_codex_home_absent(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "no-such-codex-home"))
+
+    payload = doctor(tmp_path)
+    names = {check["name"] for check in payload["checks"]}
+
+    assert "telemetry_codex_otel" not in names
+
+
+def test_codex_otel_check_fails_when_endpoint_not_job_hunter_collector(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "config.toml").write_text(
+        '[otel]\nexporter = { otlp-http = { endpoint = "https://example.com/v1/logs" } }\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["telemetry_codex_otel"]["ok"] is False
+
+
+def test_codex_otel_check_passes_when_pointed_at_job_hunter_collector(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "config.toml").write_text(
+        '[otel]\nexporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/logs", protocol = "json" } }\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks["telemetry_codex_otel"]["ok"] is True

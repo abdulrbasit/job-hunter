@@ -136,6 +136,30 @@ def test_get_analytics_includes_normalized_telemetry(tmp_path: Path) -> None:
     assert payload["telemetry"]["by_mode"]["batch"]["output_tokens"] == 10
 
 
+def test_get_analytics_reports_agent_mode_from_workspace_config(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text("mode: agent\n", encoding="utf-8")
+
+    payload = DashAPI(tmp_path).get_analytics()
+
+    assert payload["mode"] == "agent"
+
+
+def test_get_analytics_reports_llm_api_mode_from_workspace_config(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text("mode: llm-api\n", encoding="utf-8")
+
+    payload = DashAPI(tmp_path).get_analytics()
+
+    assert payload["mode"] == "llm-api"
+
+
+def test_get_analytics_defaults_to_agent_mode_when_config_missing(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_analytics()
+
+    assert payload["mode"] == "agent"
+
+
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir()

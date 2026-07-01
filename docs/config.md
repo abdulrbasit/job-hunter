@@ -104,9 +104,12 @@ migration guidance, instead of silently ignoring it:
    default in the bundled template's `config/job_hunter.yml`.
 2. Read it via `job_hunter.config.loader` — don't reach into raw YAML dicts
    elsewhere.
-3. Existing users get it automatically on their next `job-hunter update`
-   (YAML configs are deep-merged: new template keys are added, existing
-   user values are kept).
+3. `config/job_hunter.yml` is fully user-owned; `job-hunter update` never
+   rewrites an existing one. Existing users only pick up the new key
+   automatically if it falls under a runtime-merged default section (`llm`,
+   `linkedin`, `tailoring`, `cover_letter`, `scoring.prompt_context` — see
+   `get_job_hunter_config()`). Anything else needs the user to add it by
+   hand; `job-hunter doctor` flags what's missing against the schema.
 
 ## What's not in config
 

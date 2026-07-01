@@ -10,6 +10,7 @@ import pytest
 from job_hunter.core.latex_utils import compact_latex_resume, strip_latex_comments
 from job_hunter.tools.compile_profile import (
     _collapse_blanks,
+    compile_all,
     compile_career_context,
     compile_resume,
     compile_story_bank,
@@ -237,6 +238,50 @@ def test_compile_story_bank_drops_rating_and_tags(tmp_dir: Path) -> None:
     assert "**Tags" not in text
 
 
+STORY_BANK_NO_SEPARATOR = textwrap.dedent("""\
+    # My Story Bank
+
+    Some intro notes with no --- separator below them.
+
+    # Senior Engineer — Acme (2020–2023)
+
+    ## Draft — raw notes
+
+    Draft content here.
+
+    ## Final — refined STAR stories
+
+    ### ENG-01: Led migration
+
+    Result: 40% latency reduction.
+""")
+
+
+def test_compile_story_bank_without_separator_keeps_final_content(tmp_dir: Path) -> None:
+    """Regression: a file with no `---` preamble separator must not compile to empty."""
+    src = tmp_dir / "story_bank.md"
+    src.write_text(STORY_BANK_NO_SEPARATOR, encoding="utf-8")
+    dst = compile_story_bank(src, tmp_dir)
+    text = dst.read_text(encoding="utf-8")
+    assert "ENG-01" in text
+    assert "40% latency reduction" in text
+    assert "Draft content" not in text
+
+
+def test_compile_story_bank_strips_html_comments(tmp_dir: Path) -> None:
+    src = tmp_dir / "story_bank.md"
+    src.write_text(
+        STORY_BANK.replace(
+            "## Final — refined STAR stories",
+            "## Final — refined STAR stories\n\n<!-- Only stories promoted here are used. -->",
+        ),
+        encoding="utf-8",
+    )
+    dst = compile_story_bank(src, tmp_dir)
+    text = dst.read_text(encoding="utf-8")
+    assert "<!--" not in text
+
+
 # ---------------------------------------------------------------------------
 # compile_resume
 # ---------------------------------------------------------------------------
@@ -271,3 +316,31 @@ def test_compile_resume_produces_plain_text(tmp_dir: Path) -> None:
 def test_collapse_blanks() -> None:
     assert "\n\n\n" not in _collapse_blanks("a\n\n\n\nb")
     assert _collapse_blanks("a\n\n\n\nb") == "a\n\nb"
+
+
+# ---------------------------------------------------------------------------
+# compile_all
+# ---------------------------------------------------------------------------
+
+
+def test_compile_all_warns_when_a_source_compiles_to_empty(tmp_dir: Path, caplog: pytest.LogCaptureFixture) -> None:
+    (tmp_dir / "config").mkdir()
+    (tmp_dir / "config" / "job_hunter.yml").write_text(
+        "profile:\n  career_context: profile/career_context.md\n  story_bank: profile/story_bank.md\n",
+        encoding="utf-8",
+    )
+    (tmp_dir / "profile").mkdir()
+    (tmp_dir / "profile" / "career_context.md").write_text(
+        "# Career Context\n\nSome real content.\n" * 3, encoding="utf-8"
+    )
+    # Nothing has been promoted to Final yet, so every line after the preamble is Draft content.
+    (tmp_dir / "profile" / "story_bank.md").write_text(
+        "# Story Bank\n\nSome notes about how this file works.\n\n---\n\n"
+        "## Draft — raw notes\n\nNothing finalized yet, still drafting this story.\n",
+        encoding="utf-8",
+    )
+
+    with caplog.at_level("WARNING"):
+        compile_all(tmp_dir)
+
+    assert any("story_bank.md compiled to empty" in record.message for record in caplog.records)

@@ -60,6 +60,15 @@ nothing can import `cli/` or `ux/` except their own package — see
 `job_hunter/config/**` (`[[tool.ty.overrides]]` in `pyproject.toml`);
 everywhere else its rules are relaxed project-wide defaults — this is a
 deliberate, incremental strictness rollout, not a blanket exemption.
+Widening the override to another package is a real type-fixing pass on
+that package, done package-by-package, not a config toggle.
+
+`C901` (complexity) per-file ignores (`[tool.ruff.lint.per-file-ignores]`)
+are a controlled backlog the same way: each entry is dated and was
+verified (`ruff check --select C901` with the ignore removed) to still
+fire. Decomposing those functions is future cleanup; adding a new ignore
+without the same verification is not allowed to grow this list unnoticed —
+both backlogs are meant to shrink over time, not grow.
 
 ## Packaging checks
 

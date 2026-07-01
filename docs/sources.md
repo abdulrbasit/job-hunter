@@ -21,6 +21,15 @@ Every adapter implements `sources/base.py::JobSourceAdapter`: a
 `fetch()` wraps `_fetch()` and never raises — one source failing does not
 stop the run.
 
+Most adapters are one class per `sources/boards/<name>.py` file. Two are
+not: `arbeitnow` and `jsearch` still live as `ArbeitnowSource`/`JSearchSource`
+classes inside `sources/job_boards.py`, a legacy module that predates the
+per-file layout — `registry.py` imports them from there rather than from
+`sources/boards/`. Behavior is unaffected; this is a known backlog item, not
+a bug. Future cleanup may split them into `sources/boards/arbeitnow.py` and
+`sources/boards/jsearch.py` to match every other adapter, but that split is
+out of scope for now.
+
 ## Company career pages (`job_hunter/sources/career_pages/`)
 
 For `config/career_pages.yml` targets, tries in order: ATS public endpoint,

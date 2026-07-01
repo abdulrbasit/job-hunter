@@ -1043,6 +1043,7 @@ const ROLE_LABELS = {
 };
 
 function renderAnalytics(data, container) {
+  const configMode = data.mode || 'agent';
   const runs = data.runs || [];
   const telemetry = data.telemetry || {};
   const normalizedTotals = telemetry.totals || {};
@@ -1065,6 +1066,12 @@ function renderAnalytics(data, container) {
       <div class="run-stat"><div class="run-stat-label">Duration</div><div class="run-stat-value">${latest.duration_s ? latest.duration_s.toFixed(1) + 's' : '—'}</div></div>
       <div class="run-stat"><div class="run-stat-label">Cost</div><div class="run-stat-value" style="color:#56d364">${cost}</div></div>
     `;
+  } else if (configMode === 'agent' && normalizedTokenCount) {
+    // Agent mode never writes pipeline_runs (job-hunter hunt only scrapes); token
+    // activity below comes entirely from skills run via /job-hunter batch.
+    headerHtml = `<span style="color:var(--text-muted)">Agent mode: no scrape pipeline run recorded. Token usage below is from skill activity (/job-hunter batch).</span>`;
+  } else if (configMode === 'agent') {
+    headerHtml = `<span style="color:var(--text-muted)">No skill token telemetry captured yet. Run <code>/job-hunter batch</code> (or another skill) from Claude Code or Codex first.</span>`;
   } else {
     headerHtml = `<span style="color:var(--text-muted)">No pipeline runs recorded yet. Run <code>job-hunter hunt</code> first.</span>`;
   }
@@ -1072,8 +1079,8 @@ function renderAnalytics(data, container) {
   // token chart data
   const tokenTotals = latest?.token_totals || {};
   const hasTokens = Object.keys(tokenTotals).length > 0;
-  const tokenNote = latest?.exec_mode === 'agent' && !hasTokens && !normalizedTokenCount
-    ? `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup.</div>`
+  const tokenNote = configMode === 'agent' && !hasTokens && !normalizedTokenCount
+    ? `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup, then run a skill (e.g. /job-hunter batch).</div>`
     : '';
 
   const roles = Object.keys(ROLE_LABELS).filter(r => tokenTotals[r]);

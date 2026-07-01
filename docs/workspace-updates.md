@@ -7,14 +7,17 @@ changing what it touches.
 
 1. **Workspace assets** — `workspace/assets.py::update_workspace_assets`.
    Iterates `_UPDATE_ASSETS` (currently `README.md`, `SETUP.md`,
-   `SETUP_AGENT.md`, `SETUP_LLM_API.md`, `config/career_pages.yml`,
-   `config/job_hunter.yml`):
+   `SETUP_AGENT.md`, `SETUP_LLM_API.md`, `config/career_pages.yml`):
    - Non-YAML files are overwritten outright, except `README.md`, whose
      `<!-- JOBS_STATS_START -->`/`<!-- JOBS_TABLE_START -->` blocks are
      copied forward from the existing file first (`_preserve_readme_blocks`).
-   - YAML files are deep-merged (`_merge_yaml`): new template keys are
-     added, your existing values win on every conflict, lists and scalars
-     included.
+   - `config/career_pages.yml` and `config/job_hunter.yml` are both
+     user-owned YAML. If the file already exists, update leaves it alone —
+     no reading, no rewriting, no merging of any kind. If it's missing
+     (an older workspace that predates the file), update writes the
+     template default once. `job-hunter doctor` schema-validates
+     `config/job_hunter.yml` and tells you what to add by hand if a future
+     release ever needs a new required key.
    - `_OBSOLETE_CLI_DIRS` (currently just `.gemini/`) is removed outright
      first, if present — an old mirrored agent-CLI skill tree with no user
      data in it.
@@ -38,8 +41,8 @@ changing what it touches.
 
 ## What never gets touched
 
-`profile/`, `outputs/`, `.env`, and any `config/*.yml` key you've already
-set (deep-merge preserves it). See [DATA_CONTRACT.md](../DATA_CONTRACT.md).
+`profile/`, `outputs/`, `.env`, and any existing `config/*.yml` file —
+byte for byte, not just its values. See [DATA_CONTRACT.md](../DATA_CONTRACT.md).
 
 ## Workspace manifest
 
@@ -49,8 +52,9 @@ set (deep-merge preserves it). See [DATA_CONTRACT.md](../DATA_CONTRACT.md).
 
 `managed_files` tracks **skill files only** (the path → sha256 map used for
 stale-skill cleanup in step 2 above) — it is not a record of every file the
-steps above write. Workspace assets and workflows are deep-merged or
-overwritten directly and aren't tracked in the manifest.
+steps above write. Workspace assets and workflows are overwritten (or, for
+existing user-owned YAML, left alone) directly and aren't tracked in the
+manifest.
 
 `applied_migrations` is a list of migration IDs, reserved for any future
 one-off workspace migration; nothing currently writes to it.

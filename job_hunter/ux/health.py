@@ -68,6 +68,7 @@ def doctor(root: Path) -> dict[str, Any]:
         checks.append(_check(rel, (root / rel).exists(), rel, f"Create {rel}."))
     checks.extend(_schema_checks(root))
     checks.append(_config_schema_check(root))
+    checks.extend(_telemetry_checks(root))
     schedule = _workflow_schedule_configured(root)
     checks.append(
         _check(
@@ -132,6 +133,71 @@ def _config_schema_check(root: Path) -> dict[str, Any]:
     except Exception as exc:
         return _check("config_schema", False, str(exc), "Fix config/job_hunter.yml, then rerun job-hunter doctor.")
     return _check("config_schema", True, "config/job_hunter.yml matches schema")
+
+
+def _telemetry_checks(root: Path) -> list[dict[str, Any]]:
+    """Verify agent-CLI hooks are wired for token telemetry (populates Analytics).
+
+    job-hunter installs both hook files unconditionally regardless of which agent
+    CLI the user actually runs, so hooks.json existing is not evidence Codex is in
+    use — gate the machine-global OTel check on ~/.codex existing instead.
+    """
+    import os
+
+    checks = [
+        _hook_check(root, "telemetry_hooks_claude", root / ".claude" / "settings.json", "claude-code"),
+        _hook_check(root, "telemetry_hooks_codex", root / ".codex" / "hooks.json", "codex"),
+    ]
+    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+    if codex_home.exists():
+        checks.append(_codex_otel_check(codex_home))
+    return checks
+
+
+def _hook_check(root: Path, name: str, path: Path, backend: str) -> dict[str, Any]:
+    fix = "Run `job-hunter update` to (re)install token telemetry hooks."
+    rel = path.relative_to(root).as_posix()
+    if not path.exists():
+        return _check(name, False, f"{rel} missing", fix)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return _check(name, False, f"{rel} is not valid JSON", fix)
+    needle = f"job-hunter internal telemetry-hook --backend {backend} --event prompt"
+    prompt_hooks = (data.get("hooks") or {}).get("UserPromptSubmit") or []
+    wired = any(
+        needle in str(hook.get("command", ""))
+        for group in prompt_hooks
+        if isinstance(group, dict)
+        for hook in group.get("hooks", [])
+        if isinstance(hook, dict)
+    )
+    if not wired:
+        return _check(name, False, f"{rel} missing job-hunter's UserPromptSubmit hook", fix)
+    return _check(name, True, f"{rel} wired for token telemetry")
+
+
+def _codex_otel_check(codex_home: Path) -> dict[str, Any]:
+    import tomllib
+
+    config_path = codex_home / "config.toml"
+    fix = "Run `job-hunter update` to add the [otel] export block to ~/.codex/config.toml."
+    if not config_path.exists():
+        return _check("telemetry_codex_otel", False, f"{config_path} missing", fix)
+    try:
+        parsed = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        return _check("telemetry_codex_otel", False, f"invalid TOML: {exc}", fix)
+    endpoint = json.dumps(parsed.get("otel") or {})
+    if "127.0.0.1:4318" not in endpoint:
+        return _check(
+            "telemetry_codex_otel",
+            False,
+            "~/.codex/config.toml [otel] does not export to the job-hunter collector (127.0.0.1:4318) — "
+            "token usage from Codex sessions will never reach Analytics",
+            fix,
+        )
+    return _check("telemetry_codex_otel", True, "~/.codex/config.toml exports OTel logs to the job-hunter collector")
 
 
 def _configured_profile_rel(data: dict[str, Any], key: str, default: str) -> str:

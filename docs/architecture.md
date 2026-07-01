@@ -70,9 +70,15 @@ skills continue the same lifecycle through hidden CLI contracts under
 - `outputs/state/metrics.db`: pipeline and token telemetry.
 - `outputs/jobs/<slug>/`: durable per-application artifacts.
 
-Typed models define public job, search, LLM, and pipeline command contracts.
-Raw dictionaries remain at external JSON, YAML, SQLite, and generated-artifact
-serialization boundaries.
+Typed models (`job_hunter/models.py`) are the canonical contract for job,
+profile, and config data — for new code, and at the boundaries that already
+use them (public job/search/LLM/pipeline command contracts). Raw
+`dict[str, Any]` still remain at legacy pipeline boundaries (job records
+flowing through scrape/score/gate stages, e.g. `PipelineRunContext`,
+`StageResult`, `ModeOutcome` in `job_hunter/pipeline/context.py`) and at
+external JSON, YAML, SQLite, and generated-artifact serialization
+boundaries. Narrowing those remaining dict boundaries to typed models is
+future cleanup, not something this pass claims to have finished.
 
 ## Workspace templates and skills
 

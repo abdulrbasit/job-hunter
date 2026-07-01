@@ -28,6 +28,15 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     assert "data/.gitkeep" not in paths
 
 
+def test_workspace_gitignore_excludes_rebuildable_source_caches() -> None:
+    """Per-source HTTP/computation caches with no downstream reader must not get committed."""
+    files = dict(iter_managed_files())
+    gitignore = files[".gitignore"].decode("utf-8")
+
+    assert "outputs/state/discovery_cache.yml" in gitignore
+    assert "outputs/state/jobicy_feed_cache.json" in gitignore
+
+
 def test_workspace_template_config_is_valid_yaml() -> None:
     files = dict(iter_managed_files())
     config = yaml.safe_load(files["config/job_hunter.yml"].decode("utf-8"))
@@ -83,6 +92,14 @@ def test_workspace_updates_doc_does_not_overclaim_manifest_scope() -> None:
     root = Path(__file__).resolve().parents[1]
     doc = (root / "docs" / "workspace-updates.md").read_text(encoding="utf-8")
     assert "skill files only" in doc
+
+
+def test_architecture_doc_does_not_underclaim_remaining_dict_usage() -> None:
+    """docs/architecture.md must match models.py: dicts remain at pipeline boundaries too, not just serialization."""
+    root = Path(__file__).resolve().parents[1]
+    doc = (root / "docs" / "architecture.md").read_text(encoding="utf-8")
+    assert "legacy pipeline boundaries" in doc
+    assert "future cleanup" in doc
 
 
 def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -> None:
@@ -242,34 +259,43 @@ def test_packaged_workspace_context_is_user_workspace_focused() -> None:
     assert "uv sync --extra dev" not in readme
 
 
-def test_update_workspace_assets_overwrites_doc_and_merges_yaml_config(tmp_path: Path) -> None:
+def test_update_workspace_assets_overwrites_docs_but_not_existing_yaml_config(tmp_path: Path) -> None:
     from job_hunter.workspace.assets import update_workspace_assets
 
     setup = tmp_path / "SETUP.md"
     companies = tmp_path / "config" / "career_pages.yml"
     setup.write_text("stale setup\n", encoding="utf-8")
     companies.parent.mkdir(parents=True)
-    companies.write_text("companies:\n  - name: User Company\n", encoding="utf-8")
+    original_companies = "companies:\n  - name: User Company\n"
+    companies.write_text(original_companies, encoding="utf-8")
 
     written = update_workspace_assets(tmp_path)
 
     packaged = dict(iter_packaged_resource_files())
     assert setup.read_bytes() == packaged["SETUP.md"]
-    # user list wins (template ships companies: [])
-    import yaml
-
-    assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "User Company"}]
-    # user job_hunter.yml is merged: user values preserved, new template keys injected
-    job_config = tmp_path / "config" / "job_hunter.yml"
-    assert job_config.exists()
+    # existing YAML config is untouched, not merged
+    assert companies.read_text(encoding="utf-8") == original_companies
     assert written == [
         "README.md",
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
-        "config/career_pages.yml",
-        "config/job_hunter.yml",
     ]
+
+
+def test_update_workspace_assets_does_not_touch_job_hunter_yml(tmp_path: Path) -> None:
+    """config/job_hunter.yml is fully user-owned; update must never rewrite it."""
+    from job_hunter.workspace.assets import update_workspace_assets
+
+    job_config = tmp_path / "config" / "job_hunter.yml"
+    job_config.parent.mkdir(parents=True)
+    original = "# my comment\nmode: agent\n"
+    job_config.write_text(original, encoding="utf-8")
+
+    written = update_workspace_assets(tmp_path)
+
+    assert job_config.read_text(encoding="utf-8") == original
+    assert "config/job_hunter.yml" not in written
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
@@ -280,14 +306,13 @@ def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) 
     packaged = dict(iter_packaged_resource_files())
     assert (tmp_path / "SETUP.md").read_bytes() == packaged["SETUP.md"]
     assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
-    assert (tmp_path / "config" / "job_hunter.yml").exists()
+    assert not (tmp_path / "config" / "job_hunter.yml").exists()
     assert written == [
         "README.md",
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
         "config/career_pages.yml",
-        "config/job_hunter.yml",
     ]
 
 
@@ -317,24 +342,7 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
         "config/career_pages.yml",
-        "config/job_hunter.yml",
     ]
-
-
-def test_update_workspace_assets_injects_new_yaml_key_without_touching_existing(tmp_path: Path) -> None:
-    """New template key is added; existing user values survive."""
-    import yaml
-
-    from job_hunter.workspace.assets import _merge_yaml
-
-    existing = yaml.dump({"mode": "llm-api", "companies": [{"name": "ACME"}]}).encode()
-    template = yaml.dump({"mode": "agent", "companies": [], "new_feature": True}).encode()
-
-    result = yaml.safe_load(_merge_yaml(existing, template))
-
-    assert result["mode"] == "llm-api"  # user value preserved
-    assert result["companies"] == [{"name": "ACME"}]  # user list preserved
-    assert result["new_feature"] is True  # new template key injected
 
 
 def test_init_configures_codex_telemetry_in_codex_home(tmp_path: Path, monkeypatch) -> None:
@@ -347,16 +355,6 @@ def test_init_configures_codex_telemetry_in_codex_home(tmp_path: Path, monkeypat
 
     assert (codex_home / "config.toml").read_text(encoding="utf-8") == first
     assert "127.0.0.1:4318" in first
-
-
-def test_deep_merge_user_wins_on_scalar_and_list() -> None:
-    from job_hunter.workspace.assets import _deep_merge
-
-    base = {"a": 1, "b": [1, 2], "c": {"x": 10, "y": 20}}
-    override = {"a": 99, "b": [3], "c": {"x": 50}}
-    result = _deep_merge(base, override)
-
-    assert result == {"a": 99, "b": [3], "c": {"x": 50, "y": 20}}
 
 
 def test_preserve_user_schedule_carries_active_cron_into_new_template() -> None:

@@ -106,3 +106,18 @@ def test_job_board_timeout_uses_source_timeout_before_default() -> None:
     ):
         assert job_board_timeout("example") == 9
         assert job_board_timeout("fallback") == 4
+
+
+def test_legacy_combined_board_module_is_backlog_documented() -> None:
+    """arbeitnow/jsearch still live in sources/job_boards.py, not sources/boards/ — known,
+    intentional backlog (docs/sources.md), not something a future refactor should hit unaware."""
+    from pathlib import Path
+
+    from job_hunter.sources.job_boards import ArbeitnowSource, JSearchSource
+
+    assert BOARD_REGISTRY["arbeitnow"] is ArbeitnowSource
+    assert BOARD_REGISTRY["jsearch"] is JSearchSource
+
+    root = Path(__file__).resolve().parents[1]
+    doc = (root / "docs" / "sources.md").read_text(encoding="utf-8")
+    assert "sources/job_boards.py" in doc

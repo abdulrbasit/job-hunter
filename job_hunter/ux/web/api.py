@@ -116,13 +116,26 @@ class DashAPI:
         report["weekly"] = dict(sorted(weekly.items())[-12:])
         return report
 
+    def _config_mode(self) -> str:
+        import yaml
+
+        config_path = self._root / "config" / "job_hunter.yml"
+        if not config_path.exists():
+            return "agent"
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        return str(data.get("mode") or "agent")
+
     def get_analytics(self) -> dict[str, Any]:
         from job_hunter.metrics.store import get_runs
         from job_hunter.metrics.telemetry import get_telemetry_summary
 
         db_path = self._root / "outputs" / "state" / "metrics.db"
         runs = get_runs(db_path)
-        return {"runs": runs, "telemetry": get_telemetry_summary(db_path)}
+        # agent mode never writes pipeline_runs (job-hunter hunt only scrapes; skills
+        # invoked via /job-hunter batch drive tokens, captured only in telemetry below).
+        # llm-api mode writes both: pipeline_runs per hunt/tailor run, plus telemetry
+        # broken out by LLM role (jd_extraction/scoring/tailoring/...).
+        return {"mode": self._config_mode(), "runs": runs, "telemetry": get_telemetry_summary(db_path)}
 
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""

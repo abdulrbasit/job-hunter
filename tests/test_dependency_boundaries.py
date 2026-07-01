@@ -58,3 +58,26 @@ def test_ux_does_not_depend_on_cli() -> None:
     pyproject.toml's TID251 exemption) and agent_context.validate_score_file (health.py's
     repository-integrity check) but must not reach into cli/, the composition root."""
     _assert_no_dependency(_PACKAGE_ROOT / "ux", "job_hunter.cli")
+
+
+def test_banned_import_boundaries_stay_configured() -> None:
+    """The AST checks above are one guard; ruff's TID251 banned-api list (docs/testing.md's
+    'Known technical debt' section) is the other. Catch someone removing the ruff side only."""
+    import tomllib
+
+    pyproject = tomllib.loads((_PACKAGE_ROOT.parent / "pyproject.toml").read_text(encoding="utf-8"))
+    banned = pyproject["tool"]["ruff"]["lint"]["flake8-tidy-imports"]["banned-api"]
+    assert {"job_hunter.cli", "job_hunter.pipeline", "job_hunter.ux", "job_hunter.agent_context"} <= banned.keys()
+
+
+def test_ty_strict_override_still_covers_models_and_config() -> None:
+    """Widening ty strictness to another package is a real type-fixing pass (docs/testing.md);
+    this only guards that the two packages already promoted to strict don't quietly regress."""
+    import tomllib
+
+    pyproject = tomllib.loads((_PACKAGE_ROOT.parent / "pyproject.toml").read_text(encoding="utf-8"))
+    overrides = pyproject["tool"]["ty"]["overrides"]
+    strict_override = next(
+        o for o in overrides if set(o["include"]) >= {"job_hunter/models.py", "job_hunter/config/**"}
+    )
+    assert strict_override["rules"]["invalid-argument-type"] == "error"
