@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from job_hunter.pipeline import validator
+from job_hunter.pipeline.stages import validation as validator
 
 
 def test_validate_accepts_fenced_json_with_preamble(mock_llm_client) -> None:
@@ -22,7 +22,7 @@ def test_validate_accepts_fenced_json_with_preamble(mock_llm_client) -> None:
     }
     raw = 'Result:\n```json\n{"is_active": true, "over_experience": false, "reason": null}\n```'
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock_llm_client(raw)):
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)):
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == jobs
@@ -47,7 +47,7 @@ def test_validate_semantically_rejects_excluded_employer_industry(mock_llm_clien
         '"excluded_industry": true, "reason": "Employer is a retail bank."}'
     )
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock_llm_client(raw)):
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)):
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
@@ -82,7 +82,7 @@ def test_validate_uses_injected_url_checker_before_llm() -> None:
         assert timeout == 5
         return False
 
-    with patch("job_hunter.pipeline.validator.get_llm_client") as client:
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client") as client:
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
@@ -113,7 +113,7 @@ def test_validate_rejects_explicitly_closed_snippet_without_llm() -> None:
         "http": {"url_verification": {"enabled": False}},
     }
 
-    with patch("job_hunter.pipeline.validator.get_llm_client") as client:
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client") as client:
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == []
@@ -139,7 +139,7 @@ def test_validate_rejects_explicit_over_experience_without_llm() -> None:
         "http": {"url_verification": {"enabled": False}},
     }
 
-    with patch("job_hunter.pipeline.validator.get_llm_client") as client:
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client") as client:
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == []
@@ -166,7 +166,7 @@ def test_validate_sends_ambiguous_experience_to_llm(mock_llm_client) -> None:
     }
     raw = '{"is_active": true, "over_experience": false, "reason": null}'
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock_llm_client(raw)) as client:
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)) as client:
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == jobs
@@ -193,7 +193,7 @@ def test_validate_requests_json_response_format(mock_llm_client) -> None:
     }
     mock = mock_llm_client('{"is_active": true, "over_experience": false, "reason": null}')
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock):
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock):
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == jobs
@@ -220,7 +220,7 @@ def test_validate_strategic_company_bypasses_deterministic_years_rejection(mock_
     }
     raw = '{"is_active": true, "over_experience": false, "reason": null}'
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock_llm_client(raw)):
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)):
         valid, rejected = validator.validate(
             jobs,
             max_years=4,
@@ -255,7 +255,7 @@ def test_validate_repairs_malformed_json_once() -> None:
         MagicMock(content='{"is_active": true, "over_experience": false, "reason": null}'),
     ]
 
-    with patch("job_hunter.pipeline.validator.get_llm_client", return_value=mock):
+    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock):
         valid, rejected = validator.validate(jobs, max_years=4, api_cfg=api_cfg)
 
     assert valid == jobs

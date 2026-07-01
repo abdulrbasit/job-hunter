@@ -139,7 +139,10 @@ ignore = ["E501", "S101"]
 # it drifts as functions are refactored. Phase 0 backlog tracks decomposing these, not silencing them.
 "job_hunter/agent_context/{batch,candidates,lifecycle}.py" = ["C901"]
 "job_hunter/core/llm_utils.py" = ["C901"]
-"job_hunter/pipeline/{enrichment,orchestrator,validator}.py" = ["C901"]
+# Phase 5 (2026-07-01): orchestrator.py's content redistributed into runner.py/modes/stages —
+# updated glob to match the C901-complex functions' new homes (process_jobs, validate).
+"job_hunter/pipeline/enrichment.py" = ["C901"]
+"job_hunter/pipeline/stages/{processing,validation}.py" = ["C901"]
 # Narrowed from a blanket "*_source.py" glob (Phase 3): 8 of 18 board adapters had zero C901
 # violations and gained nothing from the ignore. Only list a source here once ruff proves it complex.
 "job_hunter/sources/{adzuna,careerjet,hh,jobbank,jobicy,jobspy,jobstreet,jooble,mycareersfuture,reed}_source.py" = [

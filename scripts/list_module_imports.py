@@ -3,7 +3,7 @@
 Supports the ARCHITECTURE.md migration: run before moving a file to see who would break.
 
     uv run python scripts/list_module_imports.py
-    uv run python scripts/list_module_imports.py --target job_hunter.pipeline.orchestrator
+    uv run python scripts/list_module_imports.py --target job_hunter.pipeline.runner
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Tests for orchestrator._process_match() — artifact creation end-to-end."""
+"""Tests for pipeline/stages/processing.py's _process_match() — artifact creation end-to-end."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from unittest.mock import patch
 
 import yaml
 
-from job_hunter.pipeline import orchestrator
+from job_hunter.pipeline.stages import processing
 
-_MODULE = "job_hunter.pipeline.orchestrator"
+_MODULE = "job_hunter.pipeline.stages.processing"
 _TEX = r"\documentclass{article}\begin{document}Resume\end{document}"
 
 
@@ -86,7 +86,7 @@ def _run_match(
         stack.enter_context(patch(f"{_MODULE}._write_company_research"))
         stack.enter_context(patch(f"{_MODULE}._copy_latex_assets"))
         stack.enter_context(patch(f"{_MODULE}._make_generated_tex_self_contained", side_effect=lambda t: t))
-        return orchestrator._process_match(match or _match())
+        return processing._process_match(match or _match())
 
 
 def test_process_match_happy_path_returns_true(tmp_path: Path) -> None:

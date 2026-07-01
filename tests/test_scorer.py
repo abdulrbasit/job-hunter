@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from job_hunter.pipeline import scorer
+from job_hunter.pipeline.stages import scoring as scorer
 
 CONFIG = {
     "scoring": {
@@ -50,7 +50,7 @@ def test_score_valid_response(mock_llm_client) -> None:
             "years_exp_required": 3,
         }
     )
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock_llm_client(payload)):
+    with patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock_llm_client(payload)):
         result = scorer.score(JOB, CONFIG)
 
     assert result["score"] == 85
@@ -70,7 +70,7 @@ def test_score_requests_json_response_format(mock_llm_client) -> None:
     )
     mock = mock_llm_client(payload)
 
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock):
+    with patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock):
         result = scorer.score(JOB, CONFIG)
 
     assert result["score"] == 85
@@ -93,7 +93,7 @@ def test_score_repairs_malformed_json_once() -> None:
         ),
     ]
 
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock):
+    with patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock):
         result = scorer.score(JOB, CONFIG)
 
     assert result["score"] == 85
@@ -103,7 +103,7 @@ def test_score_repairs_malformed_json_once() -> None:
 
 
 def test_score_json_parse_error(mock_llm_client) -> None:
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock_llm_client("not json")):
+    with patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock_llm_client("not json")):
         result = scorer.score(JOB, CONFIG)
 
     assert result["score"] == 0
@@ -114,7 +114,7 @@ def test_score_json_parse_error(mock_llm_client) -> None:
 def test_score_api_error() -> None:
     mock = MagicMock()
     mock.complete.side_effect = Exception("API down")
-    with patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock):
+    with patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock):
         result = scorer.score(JOB, CONFIG)
 
     assert result["score"] == 0
@@ -195,7 +195,7 @@ def test_score_uses_configured_resume_and_jd_context_caps(monkeypatch) -> None:
         return real_open(path, *args, **kwargs)
 
     with (
-        patch("job_hunter.pipeline.scorer.get_llm_client", return_value=mock),
+        patch("job_hunter.pipeline.stages.scoring.get_llm_client", return_value=mock),
         patch("builtins.open", side_effect=patched_open),
     ):
         result = scorer.score({**JOB, "snippet": "ABCDEFGHIJKLMNO"}, config)

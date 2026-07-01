@@ -118,7 +118,7 @@ def _build_queue_from_db(
 ) -> dict[str, Any]:
     from job_hunter.config import get_config
     from job_hunter.db.jobs import get_discovered_jobs
-    from job_hunter.pipeline.screening import screen_jobs_by_rules
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 
     raw_jobs = get_discovered_jobs(base, run_id=run_id or None)
     processed_urls, _ = _load_processed_for_root(base)
@@ -195,7 +195,7 @@ def _build_queue_from_files(
 ) -> dict[str, Any]:
     """Legacy snapshot-file queue builder (used when --source is given)."""
     from job_hunter.config import get_config
-    from job_hunter.pipeline.screening import screen_jobs_by_rules
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 
     resolved_today_only = today_only
     if scope == "today":

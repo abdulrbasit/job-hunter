@@ -17,7 +17,7 @@ from job_hunter.db.jobs import get_processed_urls, insert_jobs
 from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
 from job_hunter.pipeline.pre_llm_gate import apply_pre_enrichment_gate
-from job_hunter.pipeline.screening import screen_jobs_by_rules
+from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.jd_fetcher import fetch_jd
 from job_hunter.sources.orchestrator import scrape_with_stats
 from job_hunter.sources.search_providers import canonicalize_url
@@ -185,22 +185,19 @@ def run(inp: HuntInput) -> HuntOutput:
             mode=inp.mode,
         )
 
-    # llm-api mode: delegate to orchestrator for full pipeline
-    from job_hunter.pipeline.orchestrator import run as orch_run
+    # llm-api mode: delegate to the pipeline runner for full pipeline
+    from job_hunter.pipeline.context import PipelineCommandOptions
+    from job_hunter.pipeline.runner import run as orch_run
 
-    ns = {
-        "mode": "hunt",
-        "region": region,
-        "depth": inp.depth,
-        "scrape_only": inp.scrape_only,
-        "from_snapshot": str(inp.from_snapshot) if inp.from_snapshot else None,
-        "skip_score": inp.skip_score,
-        "skip_validate": inp.skip_validate,
-        "force": inp.force,
-        "links": None,
-        "jd": None,
-        "title": None,
-        "company": None,
-    }
-    orch_run(ns)
+    options = PipelineCommandOptions(
+        mode="hunt",
+        region=region,
+        depth=inp.depth,
+        scrape_only=inp.scrape_only,
+        from_snapshot=str(inp.from_snapshot) if inp.from_snapshot else None,
+        skip_score=inp.skip_score,
+        skip_validate=inp.skip_validate,
+        force=inp.force,
+    )
+    orch_run(options)
     return HuntOutput(stats=ScrapeStats(), mode=inp.mode)

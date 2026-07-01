@@ -75,49 +75,26 @@ def dispatch_tailor(
     force: bool = False,
 ) -> None:
     """Entry point for `job-hunter tailor`. Routes to pipeline or agent mode."""
+    import dataclasses
+
     from job_hunter.config import get_mode
     from job_hunter.config.loader import ROOT, get_api_config, get_config
     from job_hunter.core.url_liveness import UrlLivenessCache
-    from job_hunter.pipeline.orchestrator import run as orch_run
+    from job_hunter.pipeline.context import PipelineCommandOptions
+    from job_hunter.pipeline.runner import run as orch_run
     from job_hunter.pipeline.tailor import run_tailor
 
     mode = get_mode()
     logger.info("[dispatch] tailor — mode=%s links=%s", mode, bool(links))
 
     if links:
-        ns = {
-            "mode": "tailor-links",
-            "links": links,
-            "jd": None,
-            "title": title,
-            "company": company,
-            "force": force,
-            "region": None,
-            "depth": "standard",
-            "scrape_only": False,
-            "from_snapshot": None,
-            "skip_score": False,
-            "skip_validate": False,
-        }
+        options = PipelineCommandOptions(mode="tailor-links", links=links, title=title, company=company, force=force)
     else:
-        ns = {
-            "mode": "tailor-raw",
-            "links": None,
-            "jd": jd_text,
-            "title": title,
-            "company": company,
-            "force": force,
-            "region": None,
-            "depth": "standard",
-            "scrape_only": False,
-            "from_snapshot": None,
-            "skip_score": False,
-            "skip_validate": False,
-        }
+        options = PipelineCommandOptions(mode="tailor-raw", jd=jd_text, title=title, company=company, force=force)
 
     if mode == "agent":
         jobs, existing_urls, existing_titles = run_tailor(
-            ns,
+            dataclasses.asdict(options),
             get_api_config(),
             get_config("job_hunter"),
             UrlLivenessCache(),
@@ -141,4 +118,4 @@ def dispatch_tailor(
         print("[tailor] Ready for agent skills -> run /job-hunter batch")
         return
 
-    orch_run(ns)
+    orch_run(options)
