@@ -1,51 +1,35 @@
-"""YAML config loading, fixed secret resolution, root detection, and logging setup."""
+"""YAML config loading and merge.
+
+Also re-exports ROOT, get_api_config, get_timeout, and get_mode so existing
+`from job_hunter.config.loader import X` call sites across the codebase keep
+working unchanged after the Phase 8 config split (paths.py, runtime.py,
+secrets.py, removed_keys.py, schema.py). The runtime.* re-exports are lazy
+(module __getattr__, PEP 562) to avoid a loader<->runtime import cycle —
+runtime.py itself imports get_job_hunter_config from this module.
+"""
 
 from __future__ import annotations
 
 import logging
-import os
 from functools import cache
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any
 
 import yaml
 
 from job_hunter.config.defaults import (
     COVER_LETTER_DEFAULTS,
-    HTTP_DEFAULTS,
     LINKEDIN_DEFAULTS,
     LLM_ROLE_DEFAULTS,
     SCORING_PROMPT_CONTEXT,
-    SECRET_ENV_VARS,
     TAILORING_DEFAULTS,
     deep_merge,
 )
+from job_hunter.config.paths import ROOT, profile_path  # noqa: F401 (re-export)
+from job_hunter.config.removed_keys import reject_removed_user_config
 
-
-def _resolve_root() -> Path:
-    """Find the user workspace root."""
-    env_root = os.environ.get("JOB_HUNTER_ROOT")
-    if env_root:
-        path = Path(env_root).resolve()
-        if path.exists():
-            return path
-
-    cwd = Path.cwd().resolve()
-    for path in [cwd, *cwd.parents]:
-        if (path / ".job-hunter" / "manifest.json").exists():
-            return path
-        if (path / "config" / "job_hunter.yml").exists():
-            return path
-
-    package_root = Path(__file__).resolve().parents[2]
-    if (package_root / "config" / "job_hunter.yml").exists():
-        return package_root
-
-    return cwd
-
-
-ROOT: Path = _resolve_root()
+# Kept for existing `from job_hunter.config.loader import _reject_removed_user_config` call sites.
+_reject_removed_user_config = reject_removed_user_config
 
 
 def _load_yaml(name: str) -> dict[str, Any]:
@@ -60,7 +44,7 @@ def _load_yaml(name: str) -> dict[str, Any]:
 def get_job_hunter_config() -> dict[str, Any]:
     """Load config/job_hunter.yml and merge code-owned runtime defaults."""
     data = _load_yaml("job_hunter")
-    _reject_removed_user_config(data)
+    reject_removed_user_config(data)
     defaults: dict[str, Any] = {
         "llm": LLM_ROLE_DEFAULTS,
         "linkedin": LINKEDIN_DEFAULTS,
@@ -73,125 +57,16 @@ def get_job_hunter_config() -> dict[str, Any]:
     return merged
 
 
-def _reject_removed_user_config(data: dict[str, Any]) -> None:
-    """Fail fast when a workspace still uses pre-cutoff config keys."""
-    found = [key for key in ("about_me", "sources", "secrets", "tailoring", "cover_letter") if key in data]
-
-    exclusions = data.get("exclusions", {}) or {}
-    for key in ("senior_flags", "stale_indicators", "url_patterns", "language_indicators"):
-        if key in exclusions:
-            found.append(f"exclusions.{key}")
-
-    scoring = data.get("scoring", {}) or {}
-    if "prompt_context" in scoring:
-        found.append("scoring.prompt_context")
-
-    linkedin = data.get("linkedin", {}) or {}
-    rich_linkedin_keys = sorted(set(linkedin) - {"enabled"})
-    found.extend(f"linkedin.{key}" for key in rich_linkedin_keys)
-
-    if found:
-        joined = ", ".join(found)
-        raise ValueError(f"Removed job_hunter.yml key(s): {joined}. Update to the v1 compact config shape.")
-
-
-@cache
-def get_api_config() -> dict[str, Any]:
-    """Return code-owned API/runtime settings with user LLM settings merged in."""
-    cfg = get_job_hunter_config()
-    llm = cfg.get("llm", {}) or {}
-    return {
-        "llm": {
-            "provider": llm.get("default_provider", "anthropic"),
-            "default_provider": llm.get("default_provider", "anthropic"),
-            "providers": llm.get("providers", {}) or {},
-            "models": llm.get("models", {}) or {},
-            "max_tokens": llm.get("max_tokens", {}) or {},
-            "max_workers": int(llm.get("max_workers", 5) or 5),
-            "rate_limits": llm.get("rate_limits", {}) or {},
-            "ollama": llm.get("ollama", {}) or {},
-        },
-        "http": HTTP_DEFAULTS,
-        "profile": cfg.get("profile", {}) or {},
-    }
-
-
 @cache
 def get_config(name: str) -> dict[str, Any]:
     """Load canonical config by logical name."""
     if name == "job_hunter":
         return get_job_hunter_config()
     if name == "api_config":
+        from job_hunter.config.runtime import get_api_config
+
         return get_api_config()
     return _load_yaml(name)
-
-
-def get_mode() -> Literal["agent", "llm-api"]:
-    """Return the execution mode from config/job_hunter.yml."""
-    raw = get_job_hunter_config().get("mode", "agent")
-    if raw not in ("agent", "llm-api"):
-        raise ValueError(f"Invalid mode '{raw}' in job_hunter.yml; must be agent or llm-api")
-    return cast(Literal["agent", "llm-api"], raw)
-
-
-def get_secret(env_var: str | None, *, required: bool = True) -> str:
-    """Resolve a secret by env-var name. Checks os.environ then keyring."""
-    if not env_var:
-        if required:
-            raise RuntimeError("No env_var name provided for this secret.")
-        return ""
-
-    value = os.environ.get(env_var)
-    if value:
-        return value
-
-    try:
-        import keyring
-
-        value = keyring.get_password("job-hunter", env_var)
-        if value:
-            return value
-    except Exception as exc:
-        if not required:
-            return ""
-        raise RuntimeError(f"keyring unavailable: {exc}. Install with: pip install 'job-hunter-kit[secrets]'") from exc
-
-    if not required:
-        return ""
-    raise RuntimeError(
-        f"Secret '{env_var}' not found.\n"
-        f"  Local: python -c \"import keyring; keyring.set_password('job-hunter', '{env_var}', 'YOUR_VALUE')\"\n"
-        f"  GitHub Actions: add '{env_var}' to repo Secrets and reference it in the workflow env: block."
-    )
-
-
-_TIMEOUT_DEFAULTS: dict[str, int] = {
-    "ats_scraper": 10,
-    "playwright": 10,
-    "lightpanda": 8,
-    "firecrawl": 20,
-    "job_boards": 15,
-    "search_providers": 10,
-    "jd_fetcher": 10,
-}
-
-
-def get_timeout(section: str) -> int:
-    """Return timeout_seconds for a given HTTP section from code defaults."""
-    configured = get_api_config().get("http", {}).get(section, {}).get("timeout_seconds")
-    if configured is not None:
-        return int(configured)
-    if section in _TIMEOUT_DEFAULTS:
-        return _TIMEOUT_DEFAULTS[section]
-    raise KeyError(f"No timeout default for section: {section}")
-
-
-def profile_path(key: str, default: str) -> Path:
-    """Resolve a configured profile path relative to ROOT."""
-    profile = get_job_hunter_config().get("profile", {})
-    value = profile.get(key, default)
-    path = Path(value)
-    return path if path.is_absolute() else ROOT / path
 
 
 def package_version() -> str:
@@ -201,17 +76,6 @@ def package_version() -> str:
         return version("job-hunter-kit")
     except PackageNotFoundError:
         return "unknown"
-
-
-RAPIDAPI_KEY: str = get_secret(SECRET_ENV_VARS["rapidapi"], required=False)
-ADZUNA_API_KEY: str = get_secret(SECRET_ENV_VARS["adzuna_api_key"], required=False)
-ADZUNA_APP_ID: str = get_secret(SECRET_ENV_VARS["adzuna_app_id"], required=False)
-JOOBLE_API_KEY: str = get_secret(SECRET_ENV_VARS["jooble"], required=False)
-REED_API_KEY: str = get_secret(SECRET_ENV_VARS["reed"], required=False)
-FIRECRAWL_API_KEY: str = get_secret(SECRET_ENV_VARS["firecrawl"], required=False)
-BRAVE_API_KEY: str = get_secret(SECRET_ENV_VARS["brave"], required=False)
-EXA_API_KEY: str = get_secret(SECRET_ENV_VARS["exa"], required=False)
-TAVILY_API_KEY: str = get_secret(SECRET_ENV_VARS["tavily"], required=False)
 
 
 def setup_logging(log_level: str = "INFO", log_file: str = "job_hunt.log") -> logging.Logger:
@@ -239,3 +103,14 @@ def setup_logging(log_level: str = "INFO", log_file: str = "job_hunt.log") -> lo
     root.addHandler(file_handler)
 
     return logging.getLogger("job_hunter")
+
+
+_LAZY_RUNTIME_REEXPORTS = frozenset({"get_api_config", "get_timeout", "get_mode"})
+
+
+def __getattr__(name: str):
+    if name in _LAZY_RUNTIME_REEXPORTS:
+        import job_hunter.config.runtime as _runtime
+
+        return getattr(_runtime, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

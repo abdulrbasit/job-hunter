@@ -51,7 +51,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 `_UPDATE_ASSETS` in `job_hunter/workspace/_assets.py` controls what `job-hunter update` refreshes.
 
-- **Non-YAML files** — always overwritten (e.g. `COMMANDS.md`).
+- **Non-YAML files** — always overwritten (e.g. `SETUP.md`, `README.md`).
 - **YAML config files** — deep-merged: new keys from the template are added, existing user values are kept. Lists and scalars: user wins.
 
 To add a new config key: add it with a default to the template YAML. Users get it on next `job-hunter update`.

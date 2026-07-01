@@ -78,7 +78,7 @@ def _run_match(
         return str(tmp_path / "resume.pdf")
 
     with ExitStack() as stack:
-        stack.enter_context(patch(f"{_MODULE}.JOBS_DIR", tmp_path))
+        stack.enter_context(patch(f"{_MODULE}._jobs_dir", return_value=tmp_path))
         stack.enter_context(patch(f"{_MODULE}._today", return_value="2026-06-25"))
         stack.enter_context(patch(f"{_MODULE}.tailor", side_effect=_tailor))
         stack.enter_context(patch(f"{_MODULE}.write_cover", side_effect=_cover))

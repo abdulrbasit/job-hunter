@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 
-from job_hunter.core.config_schema import check
+from job_hunter.config.schema import check
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -61,29 +62,36 @@ def test_config_check_validates_required_keys() -> None:
     assert check() == 0
 
 
-def test_removed_config_keys_are_rejected() -> None:
-    from job_hunter.config.loader import _reject_removed_user_config
+@pytest.mark.parametrize(
+    "data, expected_key",
+    [
+        ({"about_me": "stale"}, "about_me"),
+        ({"sources": []}, "sources"),
+        ({"secrets": {}}, "secrets"),
+        ({"tailoring": {}}, "tailoring"),
+        ({"cover_letter": {}}, "cover_letter"),
+        ({"exclusions": {"senior_flags": []}}, "exclusions.senior_flags"),
+        ({"exclusions": {"stale_indicators": []}}, "exclusions.stale_indicators"),
+        ({"exclusions": {"url_patterns": []}}, "exclusions.url_patterns"),
+        ({"exclusions": {"language_indicators": []}}, "exclusions.language_indicators"),
+        ({"scoring": {"prompt_context": "stale"}}, "scoring.prompt_context"),
+        ({"linkedin": {"enabled": True, "tone": "casual"}}, "linkedin.tone"),
+    ],
+)
+def test_removed_config_keys_are_rejected(data: dict, expected_key: str) -> None:
+    from job_hunter.config.removed_keys import reject_removed_user_config
 
-    with pytest.raises(ValueError, match="about_me"):
-        _reject_removed_user_config({"about_me": "stale"})
+    with pytest.raises(ValueError, match=re.escape(expected_key)) as exc_info:
+        reject_removed_user_config(data)
 
-    with pytest.raises(ValueError, match="sources"):
-        _reject_removed_user_config({"sources": []})
-
-    with pytest.raises(ValueError, match="exclusions.senior_flags"):
-        _reject_removed_user_config({"exclusions": {"senior_flags": []}})
-
-    with pytest.raises(ValueError, match="scoring.prompt_context"):
-        _reject_removed_user_config({"scoring": {"prompt_context": "stale"}})
-
-    with pytest.raises(ValueError, match=r"linkedin\.tone"):
-        _reject_removed_user_config({"linkedin": {"enabled": True, "tone": "casual"}})
+    # Task 3: error message must show migration guidance, not just name the key.
+    assert "v1 compact config shape" in str(exc_info.value)
 
 
 def test_removed_config_keys_accepts_current_shape() -> None:
-    from job_hunter.config.loader import _reject_removed_user_config
+    from job_hunter.config.removed_keys import reject_removed_user_config
 
-    _reject_removed_user_config(
+    reject_removed_user_config(
         {
             "mode": "agent",
             "exclusions": {"companies": [], "title_terms": []},

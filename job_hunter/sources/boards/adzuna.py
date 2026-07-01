@@ -18,7 +18,8 @@ from datetime import datetime
 
 import requests
 
-from job_hunter.config.loader import ADZUNA_API_KEY, ADZUNA_APP_ID, get_api_config, get_timeout
+from job_hunter.config.loader import get_api_config, get_timeout
+from job_hunter.config.secrets import ADZUNA_API_KEY, ADZUNA_APP_ID
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,

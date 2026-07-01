@@ -199,49 +199,51 @@ job_hunter/
 
 ## 10. Migration Table
 
-Patterned moves (one row covers the whole group) are marked with *.
+Patterned moves (one row covers the whole group) are marked with *. Status column added Phase 8 — this
+table drifted out of sync across Phases 4-7 since each phase followed its own task list rather than
+executing this table row-by-row; catching it up here rather than letting it keep misleading readers.
 
-| Old path | New path | Reason | Public/Private | Tests to update | Risk |
-|---|---|---|---|---|---|
-| `cli/__init__.py` (app/internal_app defs) | `cli/app.py` | separate app wiring from command bodies | public | `test_cli.py` (import paths only) | low |
-| `cli/__init__.py` (10 internal command bodies) | `cli/commands/internal.py` | group by CLI surface, not by "everything in `__init__`" | public (Typer contract) | `test_cli.py` | low |
-| `cli/__init__.py` (`hunt`) + `_dispatch.py::dispatch_hunt` | `cli/commands/hunt.py` | one command, one file | public | `test_cli.py`, `test_hunt_pipeline.py` | low |
-| `cli/__init__.py` (`tailor`) + `_dispatch.py::dispatch_tailor` | `cli/commands/tailor.py` | one command, one file | public | `test_tailor_pipeline.py` | low |
-| `cli/_health_commands.py` | `cli/commands/dashboard.py` | matches command name, not a grab-bag | public | `test_cli.py`, `test_health.py` | low |
-| `cli/_application_commands.py` | `cli/commands/applications.py` | rename for consistency | public | `test_applications.py` | low |
-| `cli/_workspace.py` | `cli/commands/update.py` (+ `init` folded in) | matches target grouping | public | `test_workspace_init.py`, `test_cli.py` | low |
-| `cli/_linkedin_commands.py` | `cli/commands/linkedin.py` | rename for consistency | public (internal Typer group) | `test_linkedin.py` | low |
-| `cli/_update_safety_commands.py` | folds into `cli/commands/internal.py` | 2 subcommands, not worth its own file | public (internal Typer group) | `test_cli.py` | low |
-| `models.py` | `domain/models.py` | package boundary, not a rewrite | public | every test importing `job_hunter.models` (~40 files) — mechanical import-path change only | **medium** (import fan-out; do as its own PR, grep-and-replace, no logic change) |
-| `pipeline/orchestrator.py::run/_process_jobs` | `pipeline/runner.py` | resolves name collision with `sources/orchestrator.py`; matches Phase 0 backlog (decompose orchestrator) | public | `test_orchestrator.py` (rename import, logic unchanged) | **high** (core execution path — do last, small commits) |
-| `pipeline/hunt.py` | `pipeline/stages/discovery.py` | stage-per-file | public | `test_hunt_pipeline.py` | medium |
-| `pipeline/validator.py` | `pipeline/stages/validation.py` | naming convention: noun matches stage | public | `test_validator.py` | low |
-| `pipeline/scorer.py` + `pipeline/pre_llm_gate.py` | `pipeline/stages/scoring.py` | gate is pre-scoring filtering, same stage concern | public | `test_scorer.py`, `test_pre_llm_gate.py` | medium (verify gate ordering preserved) |
-| `pipeline/tailor.py` + `pipeline/tailorer.py` | `pipeline/stages/tailoring.py` | two files, one stage — verify no name clash between `run_tailor` and `tailor()` before merging | public | `test_tailor_pipeline.py`, `test_tailorer.py`, `test_tailorer_story_filter.py` | medium |
-| `pipeline/cover_writer.py` | `pipeline/stages/cover_letter.py` | naming convention | public | `test_cover_writer.py` | low |
-| `pipeline/pdf_compiler.py` | `pipeline/stages/pdf.py` | naming convention | public | `test_pdf_compiler.py` | low |
-| `pipeline/readme_writer.py` | `pipeline/stages/readme.py` | **not** `tracking.py` — avoids collision with `tracking/` package | public | `test_orchestrator.py` (readme tests live there today) | low |
-| `core/metrics.py` | `pipeline/timing.py` | it's a pipeline-stage timing helper, not a generic core util; avoids name collision with `metrics/store.py` | private→private, path only | none (no direct tests found) | low |
-| `sources/_base.py` | `sources/base.py` | public: `JobSourceAdapter` is an external contract, imported by every adapter + tests | public | `test_source_contracts.py`, `test_sources.py`, all adapter tests | **medium** (import fan-out across ~20 files) |
-| `sources/_policy.py` | `sources/policy.py` | public: `pipeline/screening.py` and `sources/orchestrator.py` already import it across the package boundary | public | `test_job_policy.py`, `test_orchestrator.py` | medium |
-| `sources/_http.py` | unchanged | **not moved** — only `himalayas_source.py`/`remotive_source.py` import it; stays private | private | `test_http_helpers.py` (no path change) | none |
-| `sources/*_source.py` (18 files)* | `sources/boards/<name>.py` | one adapter, one file, under the package that owns the registry; drop redundant `_source` suffix | public | every `test_*_source.py` file + `test_sources.py`, `test_new_sources.py`, `test_job_boards.py` | **high** (18 files, do 3-4 per commit, diff fixture output per adapter — matches Phase 0 backlog Phase 2) |
-| `sources/boards/__init__.py::BOARD_REGISTRY` | `sources/boards/registry.py` | separates registry from package `__init__` | public | `test_source_contracts.py` | low |
-| `sources/search_providers/` | `sources/search/` | naming convention (shorter, matches target tree) | public | `test_search_providers.py` (rename import) | low |
-| `core/config_schema.py` | `config/schema.py` | belongs with the config it validates | public | `test_config.py` | low |
-| `core/api_budget.py` | `llm/budgets.py` | it's LLM rate/cost budgeting specifically, not a generic core concern | public | `test_api_budget.py` | low |
-| `core/llm_utils.py` + `pipeline/llm_stage.py::get_token_totals/reset_token_totals` | `llm/token_usage.py` | token accounting belongs next to the client that produces it | public | `test_llm_utils.py`, `test_llm_stage.py` | medium (called from `orchestrator.py`'s `_persist_metrics`/`_log_token_summary`) |
-| `db/jobs.py` | `tracking/repository.py` | same package as the other state stores | public | `test_tracker.py` and anything importing `job_hunter.db.jobs` | **medium** (539 lines, widely imported — do as its own commit) |
-| `metrics/store.py` | `tracking/metrics_store.py` | same SQLite-repository shape as `db/jobs.py`, belongs in the same package | public | `test_metrics_store.py` | low |
-| `tracking/tracker.py::load_processed/mark_processed` | `tracking/processed_urls.py` | matches target tree name exactly | public | `test_cli.py`, `test_tracker.py` | low |
-| `tracker.py` (top-level `repo_path`) | `config/paths.py` | it's a path-resolution helper, not a tracking concern — resolves the confusing `tracker.py` vs `tracking/tracker.py` naming collision that exists **today** | public | almost every test file (`repo_path` is imported everywhere) | **high** (highest fan-out in the whole migration — do last, mechanical import-path change only, no logic change) |
-| `tracker.py::import_job_artifact` | `pipeline/artifacts.py` | it writes pipeline job-folder artifacts, not tracking state | public | `test_cli.py`, `test_tracker.py` | medium |
-| `data_contract.py` + `update_safety.py` | `workspace/safety.py` (merged) | always used together (classify → report → gate); nothing outside `workspace/`+`cli/` imports either separately | public | `test_data_contract.py` (rename import, logic unchanged) | low |
-| `workspace/_ops.py::run_init` | `workspace/init.py` | matches target tree | public | `test_workspace_init.py` | low |
-| `workspace/_ops.py::update_skills/update_workflows/_preserve_user_schedule` | `workspace/update.py` | matches target tree | public | `test_workspace_init.py` | low |
-| `workspace/_assets.py` | `workspace/assets.py` | public: `cli/_workspace.py` already imports it across the package boundary | public | `test_workspace_init.py`, `test_skill_contracts.py` (Phase 1 parity test), `test_packaging.py` | medium |
-| `ux/webdash/` | `ux/web/` | matches target tree | public | none found (no direct tests) | low |
-| `ux/dashboard.py` | `ux/terminal/dashboard.py` | groups with the other terminal-only renderer | public | `test_dashboard_analytics.py` | low |
+| Old path | New path | Reason | Public/Private | Tests to update | Risk | Status |
+|---|---|---|---|---|---|---|
+| `cli/__init__.py` (app/internal_app defs) | `cli/app.py` | separate app wiring from command bodies | public | `test_cli.py` (import paths only) | low | done (Phase 4) |
+| `cli/__init__.py` (10 internal command bodies) | `cli/commands/internal.py` | group by CLI surface, not by "everything in `__init__`" | public (Typer contract) | `test_cli.py` | low | done (Phase 4) |
+| `cli/__init__.py` (`hunt`) + `_dispatch.py::dispatch_hunt` | `cli/commands/hunt.py` | one command, one file | public | `test_cli.py`, `test_hunt_pipeline.py` | low | done (Phase 4) |
+| `cli/__init__.py` (`tailor`) + `_dispatch.py::dispatch_tailor` | `cli/commands/tailor.py` | one command, one file | public | `test_tailor_pipeline.py` | low | done (Phase 4) |
+| `cli/_health_commands.py` | `cli/commands/dashboard.py` | matches command name, not a grab-bag | public | `test_cli.py`, `test_health.py` | low | done (Phase 4) |
+| `cli/_application_commands.py` | `cli/commands/applications.py` | rename for consistency | public | `test_applications.py` | low | done (Phase 4) |
+| `cli/_workspace.py` | `cli/commands/update.py` (+ `init` folded in) | matches target grouping | public | `test_workspace_init.py`, `test_cli.py` | low | done (Phase 4) |
+| `cli/_linkedin_commands.py` | `cli/commands/linkedin.py` | rename for consistency | public (internal Typer group) | `test_linkedin.py` | low | done (Phase 4) |
+| `cli/_update_safety_commands.py` | folds into `cli/commands/internal.py` | 2 subcommands, not worth its own file | public (internal Typer group) | `test_cli.py` | low | done (Phase 4) |
+| `models.py` | `domain/models.py` | package boundary, not a rewrite | public | every test importing `job_hunter.models` (~40 files) — mechanical import-path change only | **medium** (import fan-out; do as its own PR, grep-and-replace, no logic change) | **not done, deviated** — Phase 6 kept `models.py` as one file (2 dead-model-removal + field-rename passes made it small enough that the split stopped being worth it — see §12.1) |
+| `pipeline/orchestrator.py::run/_process_jobs` | `pipeline/runner.py` | resolves name collision with `sources/orchestrator.py`; matches Phase 0 backlog (decompose orchestrator) | public | `test_orchestrator.py` (rename import, logic unchanged) | **high** (core execution path — do last, small commits) | done (Phase 5) |
+| `pipeline/hunt.py` | `pipeline/stages/discovery.py` | stage-per-file | public | `test_hunt_pipeline.py` | medium | not done |
+| `pipeline/validator.py` | `pipeline/stages/validation.py` | naming convention: noun matches stage | public | `test_validator.py` | low | done (Phase 5) |
+| `pipeline/scorer.py` + `pipeline/pre_llm_gate.py` | `pipeline/stages/scoring.py` | gate is pre-scoring filtering, same stage concern | public | `test_scorer.py`, `test_pre_llm_gate.py` | medium (verify gate ordering preserved) | **partially done** (Phase 5) — `scorer.py` moved to `pipeline/stages/scoring.py`; `pre_llm_gate.py` deliberately left where it is, since it's shared by `hunt.py` too, not scoring-exclusive |
+| `pipeline/tailor.py` + `pipeline/tailorer.py` | `pipeline/stages/tailoring.py` | two files, one stage — verify no name clash between `run_tailor` and `tailor()` before merging | public | `test_tailor_pipeline.py`, `test_tailorer.py`, `test_tailorer_story_filter.py` | medium | not done |
+| `pipeline/cover_writer.py` | `pipeline/stages/cover_letter.py` | naming convention | public | `test_cover_writer.py` | low | not done |
+| `pipeline/pdf_compiler.py` | `pipeline/stages/pdf.py` | naming convention | public | `test_pdf_compiler.py` | low | not done |
+| `pipeline/readme_writer.py` | `pipeline/stages/readme.py` | **not** `tracking.py` — avoids collision with `tracking/` package | public | `test_orchestrator.py` (readme tests live there today) | low | not done — `readme_writer.py` unmoved; its functions are called from `pipeline/stages/processing.py` |
+| `core/metrics.py` | `pipeline/timing.py` | it's a pipeline-stage timing helper, not a generic core util; avoids name collision with `metrics/store.py` | private→private, path only | none (no direct tests found) | low | not done |
+| `sources/_base.py` | `sources/base.py` | public: `JobSourceAdapter` is an external contract, imported by every adapter + tests | public | `test_source_contracts.py`, `test_sources.py`, all adapter tests | **medium** (import fan-out across ~20 files) | not done — stays `_base.py` for now |
+| `sources/_policy.py` | `sources/policy.py` | public: `pipeline/screening.py` and `sources/orchestrator.py` already import it across the package boundary | public | `test_job_policy.py`, `test_orchestrator.py` | medium | not done |
+| `sources/_http.py` | unchanged | **not moved** — only `himalayas_source.py`/`remotive_source.py` import it; stays private | private | `test_http_helpers.py` (no path change) | none | done (already correct, no action needed) |
+| `sources/*_source.py` (18 files)* | `sources/boards/<name>.py` | one adapter, one file, under the package that owns the registry; drop redundant `_source` suffix | public | every `test_*_source.py` file + `test_sources.py`, `test_new_sources.py`, `test_job_boards.py` | **high** (18 files, do 3-4 per commit, diff fixture output per adapter — matches Phase 0 backlog Phase 2) | done (Phase 7) |
+| `sources/boards/__init__.py::BOARD_REGISTRY` | `sources/boards/registry.py` | separates registry from package `__init__` | public | `test_source_contracts.py` | low | done (Phase 7) |
+| `sources/search_providers/` | `sources/search/` | naming convention (shorter, matches target tree) | public | `test_search_providers.py` (rename import) | low | not done |
+| `core/config_schema.py` | `config/schema.py` | belongs with the config it validates | public | `test_config.py` | low | done (Phase 8) |
+| `core/api_budget.py` | `llm/budgets.py` | it's LLM rate/cost budgeting specifically, not a generic core concern | public | `test_api_budget.py` | low | not done |
+| `core/llm_utils.py` + `pipeline/llm_stage.py::get_token_totals/reset_token_totals` | `llm/token_usage.py` | token accounting belongs next to the client that produces it | public | `test_llm_utils.py`, `test_llm_stage.py` | medium (called from `orchestrator.py`'s `_persist_metrics`/`_log_token_summary`) | not done |
+| `db/jobs.py` | `tracking/repository.py` | same package as the other state stores | public | `test_tracker.py` and anything importing `job_hunter.db.jobs` | **medium** (539 lines, widely imported — do as its own commit) | not done |
+| `metrics/store.py` | `tracking/metrics_store.py` | same SQLite-repository shape as `db/jobs.py`, belongs in the same package | public | `test_metrics_store.py` | low | not done |
+| `tracking/tracker.py::load_processed/mark_processed` | `tracking/processed_urls.py` | matches target tree name exactly | public | `test_cli.py`, `test_tracker.py` | low | not done |
+| `tracker.py` (top-level `repo_path`) | `config/paths.py` | it's a path-resolution helper, not a tracking concern — resolves the confusing `tracker.py` vs `tracking/tracker.py` naming collision that exists **today** | public | almost every test file (`repo_path` is imported everywhere) | **high** (highest fan-out in the whole migration — do last, mechanical import-path change only, no logic change) | **partially done** (Phase 8) — `config/paths.py` now exists (root resolution, `profile_path`), but `tracker.py::repo_path` itself is unmoved; still the highest-fan-out item in this table |
+| `tracker.py::import_job_artifact` | `pipeline/artifacts.py` | it writes pipeline job-folder artifacts, not tracking state | public | `test_cli.py`, `test_tracker.py` | medium | not done |
+| `data_contract.py` + `update_safety.py` | `workspace/safety.py` (merged) | always used together (classify → report → gate); nothing outside `workspace/`+`cli/` imports either separately | public | `test_data_contract.py` (rename import, logic unchanged) | low | done (Phase 8) — test renamed to `test_workspace_safety.py` |
+| `workspace/_ops.py::run_init` | `workspace/init.py` | matches target tree | public | `test_workspace_init.py` | low | not done |
+| `workspace/_ops.py::update_skills/update_workflows/_preserve_user_schedule` | `workspace/update.py` | matches target tree | public | `test_workspace_init.py` | low | not done |
+| `workspace/_assets.py` | `workspace/assets.py` | public: `cli/_workspace.py` already imports it across the package boundary | public | `test_workspace_init.py`, `test_skill_contracts.py` (Phase 1 parity test), `test_packaging.py` | medium | not done |
+| `ux/webdash/` | `ux/web/` | matches target tree | public | none found (no direct tests) | low | not done |
+| `ux/dashboard.py` | `ux/terminal/dashboard.py` | groups with the other terminal-only renderer | public | `test_dashboard_analytics.py` | low | not done |
 | `ux/applications.py` (rendering fns: `render_dashboard`, `render_applications_table`) | `ux/terminal/applications.py` | presentation half of the module | public | `test_applications.py` | medium (split, not move — verify no shared private state between the two halves) |
 | `ux/applications.py` (data fns: `load_applications`, `filtered_applications`, `update_application_status`, `upsert_application_from_job`) | `tracking/applications.py` | data-access half belongs with the other repositories | public | `test_applications.py`, `test_orchestrator.py` (readme test uses `upsert_application_from_job`) | medium |
 | `ux/health.py` | unchanged | **not** split into `ux/terminal/` — serves `--json` output too, not terminal-only | public | `test_health.py` | none |

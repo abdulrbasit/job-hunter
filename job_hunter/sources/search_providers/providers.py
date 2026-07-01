@@ -4,13 +4,8 @@ from __future__ import annotations
 
 import requests
 
-from job_hunter.config.loader import (
-    BRAVE_API_KEY,
-    EXA_API_KEY,
-    TAVILY_API_KEY,
-    get_api_config,
-    get_timeout,
-)
+from job_hunter.config.loader import get_api_config, get_timeout
+from job_hunter.config.secrets import BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY
 from job_hunter.sources.search_providers._constants import (
     BRAVE_SUPPORTED_COUNTRIES,
     BRAVE_URL,

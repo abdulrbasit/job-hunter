@@ -318,3 +318,40 @@ def test_deep_merge_user_wins_on_scalar_and_list() -> None:
     result = _deep_merge(base, override)
 
     assert result == {"a": 99, "b": [3], "c": {"x": 50, "y": 20}}
+
+
+def test_preserve_user_schedule_carries_active_cron_into_new_template() -> None:
+    existing_text = (
+        "on:\n"
+        "  schedule:\n"
+        '    - cron: "0 18 * * 0-4"\n'
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      region:\n"
+        '        default: ""\n'
+    )
+    new_text = (
+        "on:\n"
+        "  # Uncomment and adjust the cron lines below to enable automatic scraping.\n"
+        "  # schedule:\n"
+        '  #   - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri\n'
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      region:\n"
+        '        default: ""\n'
+    )
+
+    result = workspace_ops._preserve_user_schedule(existing_text, new_text)
+
+    assert "  # Uncomment" not in result
+    assert '  schedule:\n    - cron: "0 18 * * 0-4"\n' in result
+    assert "  workflow_dispatch:" in result
+
+
+def test_preserve_user_schedule_leaves_new_text_untouched_when_no_active_cron() -> None:
+    existing_text = 'on:\n  # schedule:\n  #   - cron: "0 18 * * 0-4"\n  workflow_dispatch:\n'
+    new_text = "on:\n  # Uncomment...\n  # schedule:\n  workflow_dispatch:\n"
+
+    result = workspace_ops._preserve_user_schedule(existing_text, new_text)
+
+    assert result == new_text

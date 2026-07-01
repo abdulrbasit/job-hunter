@@ -1,4 +1,4 @@
-"""Config validation helper."""
+"""Config schema validation helper."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 
 import yaml
 
-from job_hunter.config.loader import ROOT
+from job_hunter.config.paths import ROOT
 
 
 def check() -> int:

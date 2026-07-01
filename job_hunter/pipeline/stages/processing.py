@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
@@ -29,8 +30,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ROOT = str(REPO_ROOT)
-JOBS_DIR = profile_path("output_dir", "outputs/jobs")
-JOBS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@cache
+def _jobs_dir() -> Path:
+    d = profile_path("output_dir", "outputs/jobs")
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def _today() -> str:
@@ -72,7 +78,7 @@ def _process_match(match: dict[str, Any]) -> bool:
     return _match_processor.process_match(
         match,
         today=_today,
-        jobs_dir=JOBS_DIR,
+        jobs_dir=_jobs_dir(),
         slugify=slugify,
         write_match_artifacts=write_match_artifacts,
         write_company_research=_write_company_research,

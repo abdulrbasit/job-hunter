@@ -348,8 +348,8 @@ def update_safety_classify(
     json_output: bool = JSON_OPTION,
 ) -> None:
     """Classify file paths by update safety layer."""
-    from job_hunter.update_safety import classify_paths
     from job_hunter.ux.health import dump_json
+    from job_hunter.workspace.safety import classify_paths
 
     payload = {"paths": classify_paths(paths)}
     if json_output:
@@ -366,8 +366,8 @@ def update_safety_report_cmd(
 ) -> None:
     """Show full update-safety report for given paths."""
     from job_hunter.tracker import repo_path
-    from job_hunter.update_safety import update_safety_report
     from job_hunter.ux.health import dump_json
+    from job_hunter.workspace.safety import update_safety_report
 
     payload = update_safety_report(
         repo_path(),

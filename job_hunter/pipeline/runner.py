@@ -12,6 +12,7 @@ Two modes, one entry point:
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from datetime import UTC, datetime
@@ -26,7 +27,7 @@ from job_hunter.pipeline.modes import tailor_raw as tailor_raw_mode
 from job_hunter.pipeline.stages.metrics import log_token_summary, persist_metrics
 from job_hunter.pipeline.stages.processing import finalize_processed_batch, process_jobs
 
-logger = setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("job_hunter")
 
 _MODES = {
     "hunt": hunt_mode,
@@ -41,6 +42,8 @@ def _today() -> str:
 
 def run(options: PipelineCommandOptions) -> PipelineResult:
     from job_hunter.pipeline.llm_stage import reset_token_totals
+
+    setup_logging(log_level=os.environ.get("LOG_LEVEL", "INFO"))
 
     start_ts = datetime.now(UTC).replace(microsecond=0).isoformat()
     start_mono = time.monotonic()
