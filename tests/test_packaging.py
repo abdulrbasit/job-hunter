@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -44,3 +46,16 @@ def test_every_user_facing_skill_has_a_package_data_glob() -> None:
 
     missing = [name for name in user_facing if f"workspace/.claude/skills/{name}/**/*" not in globs]
     assert missing == [], f"skill(s) present in template but missing from package-data: {missing}"
+
+
+def test_list_module_imports_script_runs_and_finds_known_edge() -> None:
+    """Smoke test for scripts/list_module_imports.py — a refactor-support helper, not shipped code."""
+    result = subprocess.run(
+        [sys.executable, "scripts/list_module_imports.py", "--target", "job_hunter.pipeline"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "job_hunter.tracker -> job_hunter.pipeline.enrichment" in result.stdout

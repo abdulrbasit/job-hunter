@@ -51,3 +51,24 @@ def test_hunt_output_snapshot_path_is_optional_legacy_field() -> None:
 
     with_path = HuntOutput(snapshot_path=Path("outputs/state/hunt_scrape_2026-01-01.json"))
     assert with_path.snapshot_path == Path("outputs/state/hunt_scrape_2026-01-01.json")
+
+
+def test_models_module_has_no_dependency_on_config_cli_ux_or_sources() -> None:
+    """Domain models are the lowest layer (ARCHITECTURE.md §1) — importing config/cli/ux/sources
+    into models.py would make a data contract depend on the code that produces or renders it."""
+    import ast
+    from pathlib import Path
+
+    banned_prefixes = ("job_hunter.config", "job_hunter.cli", "job_hunter.ux", "job_hunter.sources")
+    source = Path(__file__).resolve().parents[1].joinpath("job_hunter", "models.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    imported: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.append(node.module)
+
+    offenders = [name for name in imported if name.startswith(banned_prefixes)]
+    assert offenders == [], f"models.py must not import: {offenders}"

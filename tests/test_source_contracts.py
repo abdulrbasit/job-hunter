@@ -32,6 +32,13 @@ def test_board_registry_preserves_worldwide_coverage() -> None:
     assert {"mycareersfuture", "jobstreet"} <= names  # Asia-Pacific
 
 
+def test_all_adapters_declare_joblisting_return_contract() -> None:
+    """Source adapters must return JobPosting contracts (ARCHITECTURE.md §5), not raw dicts."""
+    for adapter_type in BOARD_REGISTRY.values():
+        annotation = signature(adapter_type._fetch).return_annotation
+        assert "JobPosting" in str(annotation), f"{adapter_type.__name__}._fetch must return list[JobPosting]"
+
+
 def test_all_adapters_accept_shared_search_contract() -> None:
     params = SearchParams(
         region_key="contract",
