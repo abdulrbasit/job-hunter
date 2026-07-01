@@ -139,6 +139,22 @@ def test_internal_hunt_split_flags_are_mutually_exclusive() -> None:
         parser.parse_args(["--scrape-only", "--from-snapshot", "snapshot.json"])
 
 
+def test_argparse_entrypoint_defaults_to_hunt_mode() -> None:
+    """orchestrator.py's argparse parser is only reachable via `python -m ...` direct invocation
+    (the Typer CLI never uses it), but it's still live code — lock its current contract."""
+    parser = orchestrator._build_parser()
+
+    args = parser.parse_args([])
+
+    assert args.mode == "hunt"
+    assert args.depth == "standard"
+    assert args.scrape_only is False
+    assert args.from_snapshot is None
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--mode", "not-a-real-mode"])
+
+
 def test_hunt_scrape_only_emits_github_action_output_lines(tmp_path, capsys) -> None:
     args = {
         "mode": "hunt",
@@ -202,6 +218,105 @@ def test_hunt_from_snapshot_preserves_tracker_context() -> None:
 
     assert code == 0
     mark_processed.assert_called_once_with([job], existing_urls)
+
+
+def test_tailor_links_mode_routes_through_run_tailor() -> None:
+    args = {
+        "mode": "tailor-links",
+        "links": "https://example.com/job",
+        "jd": None,
+        "title": None,
+        "company": None,
+        "force": False,
+        "skip_validate": True,
+        "skip_score": True,
+    }
+    job = {"title": "Product Manager", "company": "Acme", "url": args["links"], "snippet": "Role."}
+
+    with (
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
+        patch(
+            "job_hunter.pipeline.orchestrator.run_tailor",
+            return_value=([job], set(), set()),
+        ) as run_tailor,
+        patch("job_hunter.pipeline.orchestrator._process_jobs", return_value=[]),
+    ):
+        code = orchestrator.run(args)
+
+    assert code == 0
+    run_tailor.assert_called_once()
+
+
+def test_tailor_links_mode_without_links_or_env_var_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TAILOR_LINKS", raising=False)
+    args = {
+        "mode": "tailor-links",
+        "links": None,
+        "jd": None,
+        "title": None,
+        "company": None,
+        "force": False,
+        "skip_validate": True,
+        "skip_score": True,
+    }
+
+    with (
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
+    ):
+        code = orchestrator.run(args)
+
+    assert code == 1
+
+
+def test_tailor_raw_mode_routes_through_run_tailor() -> None:
+    args = {
+        "mode": "tailor-raw",
+        "links": None,
+        "jd": "Full job description text.",
+        "title": "Product Manager",
+        "company": "Acme",
+        "force": False,
+        "skip_validate": True,
+        "skip_score": True,
+    }
+    job = {"title": "Product Manager", "company": "Acme", "url": "raw://acme", "snippet": "Role."}
+
+    with (
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
+        patch(
+            "job_hunter.pipeline.orchestrator.run_tailor",
+            return_value=([job], set(), set()),
+        ) as run_tailor,
+        patch("job_hunter.pipeline.orchestrator._process_jobs", return_value=[]),
+    ):
+        code = orchestrator.run(args)
+
+    assert code == 0
+    run_tailor.assert_called_once()
+
+
+def test_tailor_raw_mode_without_jd_fails() -> None:
+    args = {
+        "mode": "tailor-raw",
+        "links": None,
+        "jd": None,
+        "title": None,
+        "company": None,
+        "force": False,
+        "skip_validate": True,
+        "skip_score": True,
+    }
+
+    with (
+        patch("job_hunter.pipeline.orchestrator.get_api_config", return_value={}),
+        patch("job_hunter.pipeline.orchestrator.get_config", return_value={"scoring": {}}),
+    ):
+        code = orchestrator.run(args)
+
+    assert code == 1
 
 
 def test_update_readme_includes_location_and_migrates_existing_rows(tmp_path) -> None:
