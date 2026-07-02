@@ -45,7 +45,7 @@ def install_workspace_telemetry(workspace: Path) -> None:
     claude.setdefault("env", {}).update(
         {
             "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-            "OTEL_METRICS_EXPORTER": "none",
+            "OTEL_METRICS_EXPORTER": "otlp",
             "OTEL_LOGS_EXPORTER": "otlp",
             "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
             "OTEL_EXPORTER_OTLP_ENDPOINT": _ENDPOINT,

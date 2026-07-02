@@ -15,7 +15,9 @@ def test_workspace_telemetry_setup_is_idempotent(tmp_path: Path) -> None:
 
     assert (tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8") == first_claude
     assert (tmp_path / ".codex" / "hooks.json").read_text(encoding="utf-8") == first_codex
-    assert json.loads(first_claude)["env"]["OTEL_LOG_USER_PROMPTS"] == "0"
+    env = json.loads(first_claude)["env"]
+    assert env["OTEL_LOG_USER_PROMPTS"] == "0"
+    assert env["OTEL_METRICS_EXPORTER"] == "otlp"
 
 
 def test_codex_global_config_appends_once_and_preserves_existing_text(tmp_path: Path) -> None:
