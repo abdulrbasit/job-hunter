@@ -1,4 +1,8 @@
-"""Workspace setup operations: init, update-skills, update-workflows."""
+"""Workspace setup operations: init, update-skills, update-workflows.
+
+Plain service layer — no CLI imports. Functions return result objects
+(or raise WorkspaceNotEmptyError); cli/commands/update.py renders them.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,6 @@ import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-
-import typer
 
 from job_hunter.workspace.assets import _AGENT_SKILL_CLI_PREFIXES, iter_managed_files
 from job_hunter.workspace.manifest import (
@@ -31,6 +33,8 @@ _SKILLS_PREFIXES = (".claude/skills/",) + tuple(f"{c}/skills/" for c in _AGENT_S
 @dataclass
 class SkillsUpdateResult:
     written: list[str] = field(default_factory=list)
+    removed_stale: list[str] = field(default_factory=list)
+    preserved_modified: list[str] = field(default_factory=list)
 
 
 def iter_template_skill_files() -> list[tuple[str, bytes]]:
@@ -55,9 +59,9 @@ def update_skills(workspace: Path) -> SkillsUpdateResult:
             unchanged = dest.is_file() and sha256_bytes(dest.read_bytes()) == manifest.managed_files[rel]
             if unchanged and not is_protected(rel):
                 dest.unlink()
-                typer.echo(f"[ok] Removed stale skill: {rel}")
+                result.removed_stale.append(rel)
             elif dest.is_file():
-                typer.echo(f"[warn] Preserved modified stale skill: {rel}")
+                result.preserved_modified.append(rel)
     except FileNotFoundError:
         pass  # no manifest — old workspace, skip cleanup
 
@@ -77,7 +81,6 @@ def update_skills(workspace: Path) -> SkillsUpdateResult:
     except FileNotFoundError:
         pass  # no manifest — old workspace, skip
 
-    typer.echo(f"[ok] Updated {len(result.written)} skill file(s) in {workspace / '.claude' / 'skills'}")
     return result
 
 
@@ -134,7 +137,6 @@ def update_workflows(workspace: Path) -> WorkflowsUpdateResult:
         dest.write_bytes(new_text.encode("utf-8"))
         result.written.append(rel_path)
 
-    typer.echo(f"[ok] Updated {len(result.written)} workflow file(s) in {workspace / '.github'}")
     return result
 
 
@@ -150,18 +152,33 @@ _EMPTY_DIRS = [
 ]
 
 
-def run_init(path: Path, force: bool = False) -> None:
-    """Create a new job-hunter workspace at path."""
+class WorkspaceNotEmptyError(Exception):
+    """Target directory exists and is not empty; caller must pass force=True to proceed."""
+
+    def __init__(self, workspace: Path) -> None:
+        self.workspace = workspace
+        super().__init__(f"{workspace} already exists and is not empty")
+
+
+@dataclass
+class InitResult:
+    workspace: Path
+    reinitialized: bool = False
+    telemetry_warnings: list[str] = field(default_factory=list)
+
+
+def run_init(path: Path, force: bool = False) -> InitResult:
+    """Create a new job-hunter workspace at path.
+
+    Raises WorkspaceNotEmptyError when the target is non-empty and force is False.
+    """
     workspace = path.resolve()
 
+    reinitialized = False
     if workspace.exists() and any(workspace.iterdir()):
         if not force:
-            typer.echo(
-                f"[error] {workspace} already exists and is not empty.\n  Use --force to reinitialise anyway.",
-                err=True,
-            )
-            raise typer.Exit(1)
-        typer.echo(f"[warn] --force: reinitialising existing workspace at {workspace}")
+            raise WorkspaceNotEmptyError(workspace)
+        reinitialized = True
 
     workspace.mkdir(parents=True, exist_ok=True)
     managed: dict[str, str] = {}
@@ -187,26 +204,23 @@ def run_init(path: Path, force: bool = False) -> None:
         managed_files=managed,
     )
     write_manifest(workspace, manifest)
-    install_telemetry(workspace)
+    warnings = install_telemetry(workspace)
 
-    typer.echo(f"\n[ok] Workspace created at: {workspace}")
-    typer.echo("\nNext steps:")
-    typer.echo(f"  cd {workspace}")
-    typer.echo("  job-hunter doctor")
-    typer.echo("  # Open this folder in VS Code and run /setup onboard")
-    typer.echo("  # Commit and push setup, then run GitHub Actions > Find Jobs")
+    return InitResult(workspace=workspace, reinitialized=reinitialized, telemetry_warnings=warnings)
 
 
-def install_telemetry(workspace: Path) -> None:
+def install_telemetry(workspace: Path) -> list[str]:
+    """Install telemetry hooks; returns human-readable warnings for any preserved conflicts."""
     from job_hunter.metrics.setup import configure_codex_telemetry, install_workspace_telemetry
 
     install_workspace_telemetry(workspace)
     codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
     result = configure_codex_telemetry(codex_home / "config.toml")
     if result == "conflict":
-        typer.echo("[warn] Existing Codex OTel config preserved; Job Hunter token telemetry is not enabled for Codex.")
-    elif result == "invalid":
-        typer.echo("[warn] Invalid Codex config preserved; Job Hunter token telemetry is not enabled for Codex.")
+        return ["Existing Codex OTel config preserved; Job Hunter token telemetry is not enabled for Codex."]
+    if result == "invalid":
+        return ["Invalid Codex config preserved; Job Hunter token telemetry is not enabled for Codex."]
+    return []
 
 
 def _promote_examples(workspace: Path) -> None:

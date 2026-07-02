@@ -8,7 +8,6 @@ from conftest import mk_params
 from job_hunter.core import api_budget, utils
 from job_hunter.sources import (
     jd_fetcher,
-    job_boards,
     search,
 )
 from job_hunter.sources.ats_urls import (
@@ -19,6 +18,7 @@ from job_hunter.sources.ats_urls import (
 from job_hunter.sources.boards import adzuna as adzuna_source
 from job_hunter.sources.boards import jobicy as jobicy_source
 from job_hunter.sources.boards import jooble as jooble_source
+from job_hunter.sources.boards import jsearch as job_boards
 from job_hunter.sources.boards import reed as reed_source
 from job_hunter.sources.search import (
     ats_discovery as _ats_mod,

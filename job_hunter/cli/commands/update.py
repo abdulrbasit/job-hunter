@@ -10,15 +10,49 @@ from job_hunter.cli.app import app, internal_app
 from job_hunter.cli.options import WORKSPACE_OPTION
 
 
+def _echo_skills_result(result, workspace: Path) -> None:
+    for rel in result.removed_stale:
+        typer.echo(f"[ok] Removed stale skill: {rel}")
+    for rel in result.preserved_modified:
+        typer.echo(f"[warn] Preserved modified stale skill: {rel}")
+    typer.echo(f"[ok] Updated {len(result.written)} skill file(s) in {workspace.resolve() / '.claude' / 'skills'}")
+
+
+def _echo_workflows_result(result, workspace: Path) -> None:
+    typer.echo(f"[ok] Updated {len(result.written)} workflow file(s) in {workspace.resolve() / '.github'}")
+
+
+def _echo_telemetry_warnings(warnings: list[str]) -> None:
+    for message in warnings:
+        typer.echo(f"[warn] {message}")
+
+
 @app.command()
 def init(
     path: str = typer.Argument("job-hunter-workspace", help="Directory to create"),
     force: bool = typer.Option(False, "--force", "-f", help="Reinitialise a non-empty directory"),
 ) -> None:
     """Create a workspace with bundled assets."""
-    from job_hunter.workspace.operations import run_init
+    from job_hunter.workspace.operations import WorkspaceNotEmptyError, run_init
 
-    run_init(Path(path), force=force)
+    try:
+        result = run_init(Path(path), force=force)
+    except WorkspaceNotEmptyError as exc:
+        typer.echo(
+            f"[error] {exc.workspace} already exists and is not empty.\n  Use --force to reinitialise anyway.",
+            err=True,
+        )
+        raise typer.Exit(1) from exc
+
+    if result.reinitialized:
+        typer.echo(f"[warn] --force: reinitialising existing workspace at {result.workspace}")
+    _echo_telemetry_warnings(result.telemetry_warnings)
+    typer.echo(f"\n[ok] Workspace created at: {result.workspace}")
+    typer.echo("\nNext steps:")
+    typer.echo(f"  cd {result.workspace}")
+    typer.echo("  job-hunter doctor")
+    typer.echo("  # Open this folder in VS Code and run /setup onboard")
+    typer.echo("  # Commit and push setup, then run GitHub Actions > Find Jobs")
 
 
 @internal_app.command(name="update-skills")
@@ -26,7 +60,7 @@ def update_skills(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled agent skills only."""
     from job_hunter.workspace.operations import update_skills as run_update_skills
 
-    run_update_skills(Path(workspace))
+    _echo_skills_result(run_update_skills(Path(workspace)), Path(workspace))
 
 
 @internal_app.command(name="update-workflows")
@@ -34,7 +68,7 @@ def update_workflows(workspace: str = WORKSPACE_OPTION) -> None:
     """Update bundled GitHub workflows only."""
     from job_hunter.workspace.operations import update_workflows as run_update_workflows
 
-    run_update_workflows(Path(workspace))
+    _echo_workflows_result(run_update_workflows(Path(workspace)), Path(workspace))
 
 
 @app.command()
@@ -55,17 +89,17 @@ def update(
 
     root = Path(workspace)
     if skills_only:
-        run_update_skills(root)
+        _echo_skills_result(run_update_skills(root), root)
         return
     if workflows_only:
-        run_update_workflows(root)
+        _echo_workflows_result(run_update_workflows(root), root)
         return
 
     written = update_workspace_assets(root)
     typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
-    run_update_skills(root)
-    run_update_workflows(root)
-    install_telemetry(root)
+    _echo_skills_result(run_update_skills(root), root)
+    _echo_workflows_result(run_update_workflows(root), root)
+    _echo_telemetry_warnings(install_telemetry(root))
 
 
 @app.command()

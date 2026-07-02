@@ -65,15 +65,14 @@ def test_user_contract_commands_run(tmp_path: Path) -> None:
     assert "checks" in result.stdout
 
 
-def test_find_jobs_workflow_splits_scrape_and_briefing() -> None:
+def test_find_jobs_workflow_runs_supported_hunt_command() -> None:
     workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "find-jobs.yml").read_text(encoding="utf-8")
 
     assert "name: Scrape jobs" in workflow
     assert "id: scrape" in workflow
     assert "timeout-minutes: 55" in workflow
     assert "job-hunter hunt ${{ steps.region.outputs.arg }}" in workflow
-    assert "name: Build briefing" in workflow
-    assert "job-hunter brief" in workflow
+    assert "job-hunter brief" not in workflow
     assert "always() && steps.region.outputs.should_run == 'true'" in workflow
     assert "texlive/texlive:latest" in workflow
     assert "texlive.tar" not in workflow

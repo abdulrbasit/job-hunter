@@ -119,10 +119,6 @@ jobs:
           echo "candidate_count=$count" >> "$GITHUB_OUTPUT"
           echo "has_candidates=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Build briefing
-        if: steps.mode.outputs.mode == 'agent' && steps.region.outputs.should_run == 'true' && steps.scrape.outputs.has_candidates == 'true'
-        run: job-hunter brief
-
       - name: Stop SearXNG
         if: always() && steps.region.outputs.should_run == 'true'
         run: docker stop searxng 2>/dev/null || true

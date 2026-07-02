@@ -31,6 +31,21 @@ def _posting(**overrides) -> JobPosting:
     return JobPosting(**values)
 
 
+def test_new_candidate_dicts_converts_models_and_deduplicates_urls() -> None:
+    seen = {"https://example.com/jobs/seen"}
+    postings = [
+        _posting(url="https://example.com/jobs/new"),
+        _posting(url="https://example.com/jobs/new"),
+        _posting(url="https://example.com/jobs/seen"),
+        _posting(url=""),
+    ]
+
+    candidates = hunt._new_candidate_dicts(postings, seen)
+
+    assert [job["url"] for job in candidates] == ["https://example.com/jobs/new"]
+    assert seen == {"https://example.com/jobs/seen", "https://example.com/jobs/new"}
+
+
 def test_configured_title_exclusions_use_word_boundaries() -> None:
     assert title_matches("Staff Product Manager", ["Product Manager"], ["staff"]) is False
     assert title_matches("Staffing Product Manager", ["Product Manager"], ["staff"]) is True

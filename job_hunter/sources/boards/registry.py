@@ -9,6 +9,7 @@ membership is declared — do not duplicate this list elsewhere.
 from __future__ import annotations
 
 from job_hunter.sources.boards.adzuna import AdzunaSource
+from job_hunter.sources.boards.arbeitnow import ArbeitnowSource
 from job_hunter.sources.boards.arbeitsagentur import ArbeitsagenturSource
 from job_hunter.sources.boards.bayt import BaytSource
 from job_hunter.sources.boards.careerjet import CareerjetSource
@@ -20,6 +21,7 @@ from job_hunter.sources.boards.jobicy import JobicySource
 from job_hunter.sources.boards.jobspy import JobSpySource
 from job_hunter.sources.boards.jobstreet import JobStreetSource
 from job_hunter.sources.boards.jooble import JoobleSource
+from job_hunter.sources.boards.jsearch import JSearchSource
 from job_hunter.sources.boards.mycareersfuture import MyCareersFutureSource
 from job_hunter.sources.boards.reed import ReedSource
 from job_hunter.sources.boards.remoteok import RemoteOKSource
@@ -27,7 +29,6 @@ from job_hunter.sources.boards.remotive import RemotiveSource
 from job_hunter.sources.boards.the_muse import TheMuseSource
 from job_hunter.sources.boards.weworkremotely import WeWorkRemotelySource
 from job_hunter.sources.boards.workingnomads import WorkingNomadsSource
-from job_hunter.sources.job_boards import ArbeitnowSource, JSearchSource
 
 BOARD_REGISTRY: dict[str, type] = {
     "adzuna": AdzunaSource,

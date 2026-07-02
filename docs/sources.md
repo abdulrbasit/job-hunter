@@ -21,14 +21,9 @@ Every adapter implements `sources/base.py::JobSourceAdapter`: a
 `fetch()` wraps `_fetch()` and never raises — one source failing does not
 stop the run.
 
-Most adapters are one class per `sources/boards/<name>.py` file. Two are
-not: `arbeitnow` and `jsearch` still live as `ArbeitnowSource`/`JSearchSource`
-classes inside `sources/job_boards.py`, a legacy module that predates the
-per-file layout — `registry.py` imports them from there rather than from
-`sources/boards/`. Behavior is unaffected; this is a known backlog item, not
-a bug. Future cleanup may split them into `sources/boards/arbeitnow.py` and
-`sources/boards/jsearch.py` to match every other adapter, but that split is
-out of scope for now.
+Each adapter lives in `sources/boards/<name>.py`, including
+`sources/boards/arbeitnow.py` and `sources/boards/jsearch.py`.
+`sources/job_boards.py` only preserves the former public import path.
 
 `gulftalent` and `bayt` are the Middle East/Gulf sources (AE, SA, QA, KW, BH,
 OM). Other Middle East boards investigated but not implemented: NaukriGulf

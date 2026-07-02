@@ -179,12 +179,11 @@ ignore = ["E501", "S101"]
 "job_hunter/sources/boards/{adzuna,careerjet,hh,jobbank,jobicy,jobspy,jobstreet,jooble,mycareersfuture,reed}.py" = [
   "C901",
 ]
-"job_hunter/sources/{job_boards,jd_fetcher,orchestrator}.py" = ["C901"]
+"job_hunter/sources/{jd_fetcher,orchestrator}.py" = ["C901"]
 "job_hunter/sources/career_pages/{__init__,_jsonld}.py" = ["C901"]
 "job_hunter/sources/search/{ats_discovery,router}.py" = ["C901"]
 "job_hunter/ux/terminal/dashboard.py" = ["C901"]
 "job_hunter/ux/health.py" = ["C901"]
-"job_hunter/workspace/assets.py" = ["C901"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "Depends"]

@@ -7,6 +7,7 @@ Stage order (agent):   resolve region → scrape → dedup → enrich → write 
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,7 @@ from typing import Any
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.constants import DEFAULT_BATCH_SIZE
 from job_hunter.core.url_liveness import UrlLivenessCache
-from job_hunter.models import HuntInput, HuntOutput, ScrapeStats
+from job_hunter.models import HuntInput, HuntOutput, JobPosting, ScrapeStats
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment, enrich_snippets
 from job_hunter.pipeline.quality_gate import apply_pre_enrichment_quality_gate
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
@@ -27,6 +28,8 @@ from job_hunter.tracking.processed_urls import filter_new_jobs
 from job_hunter.tracking.repository import get_processed_urls, insert_jobs
 
 logger = logging.getLogger(__name__)
+
+type JobData = dict[str, Any]
 
 # Each entry: (pass_name, scrape_with_stats kwargs). "standard"/"deep_boards" vary
 # max_results (existing depth mechanism); "ats_slug"/"ats_discovery" isolate the
@@ -42,10 +45,10 @@ _ADAPTIVE_PASSES: tuple[tuple[str, dict[str, Any]], ...] = (
 
 
 def _drop_dead_urls(
-    jobs: list[dict[str, Any]],
+    jobs: list[JobData],
     api_config: dict[str, Any],
     url_checker: Any = None,
-) -> list[dict[str, Any]]:
+) -> list[JobData]:
     return drop_dead_urls_before_enrichment(
         jobs,
         api_config,
@@ -53,11 +56,11 @@ def _drop_dead_urls(
     )
 
 
-def _enrich(jobs: list[dict[str, Any]], api_config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def _enrich(jobs: list[JobData], api_config: dict[str, Any] | None = None) -> list[JobData]:
     return enrich_snippets(jobs, api_config, fetcher=fetch_jd)
 
 
-def _drop_closed_postings(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _drop_closed_postings(jobs: list[JobData]) -> list[JobData]:
     closed = [j for j in jobs if j.get("job_description_fetch_status") == "position_closed"]
     if closed:
         logger.info("[pipeline] Dropping %s closed/inactive posting(s) before scoring", len(closed))
@@ -75,7 +78,7 @@ def _quality_target(scoring_config: dict[str, Any]) -> int:
     return DEFAULT_BATCH_SIZE
 
 
-def _dropped_by_source(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> dict[str, int]:
+def _dropped_by_source(before: list[JobData], after: list[JobData]) -> dict[str, int]:
     """Counts of `before` items missing from `after`, grouped by job source."""
     after_urls = {j.get("url") for j in after}
     counts: dict[str, int] = {}
@@ -103,13 +106,25 @@ class _PassSummary:
         self.final = 0
 
 
+def _new_candidate_dicts(postings: Iterable[JobPosting], seen_canonical: set[str]) -> list[JobData]:
+    """Convert source models once while dropping URLs already seen in this region."""
+    candidates: list[JobData] = []
+    for posting in postings:
+        job = posting.model_dump()
+        canonical = canonicalize_url(job.get("url", ""))
+        if canonical and canonical not in seen_canonical:
+            seen_canonical.add(canonical)
+            candidates.append(job)
+    return candidates
+
+
 def _process_candidates(
-    jobs: list[dict[str, Any]],
+    jobs: list[JobData],
     api_config: dict[str, Any],
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
     stats: ScrapeStats,
-) -> tuple[list[dict[str, Any]], _PassSummary]:
+) -> tuple[list[JobData], _PassSummary]:
     """Run one batch of raw candidates through the same policy/quality pipeline as
     a standard hunt: dead-url check, pre-enrichment quality gate, enrichment,
     closed-posting drop, objective screen. Used between every adaptive pass so
@@ -157,14 +172,14 @@ def _adaptive_region_hunt(
     url_liveness: UrlLivenessCache,
     target: int,
     stats: ScrapeStats,
-) -> list[dict[str, Any]]:
+) -> list[JobData]:
     """Escalate through scraping passes for one region until `target` quality
     candidates are found, or every pass has run. Each pass's new candidates get
     the full policy/quality pipeline before counting toward the target, and the
     per-region canonical-URL set prevents a later pass from re-processing a job
     an earlier pass already picked up. Per-pass and per-region totals accumulate
     onto `stats` for the final observability summary line."""
-    quality_jobs: list[dict[str, Any]] = []
+    quality_jobs: list[JobData] = []
     seen_canonical: set[str] = set()
     ran_passes: list[str] = []
     fetched_total = 0
@@ -180,12 +195,7 @@ def _adaptive_region_hunt(
         after_policy_total += pass_stats.total_after_policy
         _merge_region_stats(stats, pass_stats)
 
-        candidates = []
-        for job in (p.model_dump() for p in postings):
-            canonical = canonicalize_url(job.get("url", ""))
-            if canonical and canonical not in seen_canonical:
-                seen_canonical.add(canonical)
-                candidates.append(job)
+        candidates = _new_candidate_dicts(postings, seen_canonical)
         new_jobs, _existing = filter_new_jobs(candidates)
         deduped_total += len(new_jobs)
 
@@ -232,7 +242,7 @@ def _adaptive_hunt(
     api_config: dict[str, Any],
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
-) -> tuple[list[dict[str, Any]], ScrapeStats]:
+) -> tuple[list[JobData], ScrapeStats]:
     """Escalate every region in `regions` through _adaptive_region_hunt, returning
     deduped quality candidates ready for DB insert/scoring plus accumulated stats.
 
@@ -245,7 +255,7 @@ def _adaptive_hunt(
     logger.info("[pipeline] Adaptive hunt: %d region(s), target=%d quality jobs each", len(regions), target)
 
     stats = ScrapeStats()
-    all_jobs: list[dict[str, Any]] = []
+    all_jobs: list[JobData] = []
     seen_canonical: set[str] = set()
     for region_key in regions:
         for job in _adaptive_region_hunt(region_key, api_config, scoring_config, url_liveness, target, stats):
@@ -270,7 +280,7 @@ def run_hunt(
     api_config: dict[str, Any],
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
-) -> tuple[list[dict[str, Any]], set[str], set[str]]:
+) -> tuple[list[JobData], set[str], set[str]]:
     """Execute the hunt mode: adaptive per-region scrape, URL-check, enrich."""
     config = load_search_config()
     regions = enabled_regions(config, args.get("region"))
@@ -312,7 +322,7 @@ def run_hunt_scrape_only(
     regions = enabled_regions(config, region)
     if not regions:
         logger.warning("[pipeline] No enabled regions found in config/job_hunter.yml")
-        jobs: list[dict[str, Any]] = []
+        jobs: list[JobData] = []
         stats = ScrapeStats()
     else:
         url_liveness = UrlLivenessCache(checker=url_checker)
@@ -333,7 +343,7 @@ def run_hunt_scrape_only(
     return run_id, len(jobs), stats
 
 
-def load_hunt_snapshot(path: str | Path) -> tuple[list[dict[str, Any]], set[str], set[str]]:
+def load_hunt_snapshot(path: str | Path) -> tuple[list[JobData], set[str], set[str]]:
     """Load a scrape handoff snapshot for downstream hunt processing (llm-api mode)."""
     import json
 

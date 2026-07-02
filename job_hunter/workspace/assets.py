@@ -129,39 +129,47 @@ def iter_packaged_resource_files() -> Iterator[tuple[str, bytes]]:
     yield from _iter_resource_files(workspace_assets_root())
 
 
-def _iter_source_checkout_files(root: Path) -> Iterator[tuple[str, bytes]]:
-    yielded: set[str] = set()
+def is_resource_only_file(rel: str) -> bool:
+    """True when the workspace file has no canonical root counterpart — bundled template owns it."""
+    return rel in _RESOURCE_ONLY_FILES or rel.startswith(_RESOURCE_ONLY_PREFIXES)
 
+
+def is_dev_only_skill(rel: str) -> bool:
+    """True for contributor-only skills that must not ship to user workspaces."""
+    parts = rel.split("/")
+    return parts[:2] == [".claude", "skills"] and len(parts) > 2 and parts[2] in _DEV_SKILL_DIRS
+
+
+def _iter_canonical_files(root: Path) -> Iterator[tuple[str, bytes]]:
+    """Yield workspace assets owned by canonical repo-root files (editable checkout only)."""
     for rel in _CANONICAL_FILES:
         path = root / rel
         if path.is_file():
-            yielded.add(rel)
             yield rel, path.read_bytes()
 
     for rel_dir in _CANONICAL_DIRS:
         path = root / rel_dir
-        if path.is_dir():
-            for rel, content in _walk_path(path, rel_dir):
-                if rel in _RESOURCE_ONLY_FILES:
-                    continue
-                parts = rel.split("/")
-                # Skip dev-only skills — not user-facing.
-                if parts[:2] == [".claude", "skills"] and len(parts) > 2 and parts[2] in _DEV_SKILL_DIRS:
-                    continue
-                yielded.add(rel)
-                yield rel, content
+        if not path.is_dir():
+            continue
+        for rel, content in _walk_path(path, rel_dir):
+            if rel in _RESOURCE_ONLY_FILES or is_dev_only_skill(rel):
+                continue
+            yield rel, content
 
     state_file = root / "outputs" / "state" / "discovered_urls.yml"
     if state_file.is_file():
-        rel = "outputs/state/discovered_urls.yml"
+        yield "outputs/state/discovered_urls.yml", state_file.read_bytes()
+
+
+def _iter_source_checkout_files(root: Path) -> Iterator[tuple[str, bytes]]:
+    yielded: set[str] = set()
+    for rel, content in _iter_canonical_files(root):
         yielded.add(rel)
-        yield rel, state_file.read_bytes()
+        yield rel, content
 
     # Workspace-only files come from the bundled template (no canonical root counterpart).
     for rel, content in iter_packaged_resource_files():
-        if rel in yielded:
-            continue
-        if rel in _RESOURCE_ONLY_FILES or rel.startswith(_RESOURCE_ONLY_PREFIXES):
+        if rel not in yielded and is_resource_only_file(rel):
             yield rel, content
 
 

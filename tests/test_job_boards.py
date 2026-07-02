@@ -1,4 +1,4 @@
-"""Tests for sources/job_boards.py — all HTTP calls are mocked."""
+"""Tests for sources/job_boards.py â€” all HTTP calls are mocked."""
 
 from unittest.mock import MagicMock, patch
 
@@ -7,8 +7,9 @@ from conftest import mk_params
 
 from job_hunter.core import api_budget
 from job_hunter.models import JobPosting
-from job_hunter.sources import job_boards
-from job_hunter.sources.job_boards import ArbeitnowSource, JSearchSource
+from job_hunter.sources.boards import jsearch as job_boards
+from job_hunter.sources.boards.arbeitnow import ArbeitnowSource
+from job_hunter.sources.boards.jsearch import JSearchSource
 
 
 def _make_response(json_data=None, text=None, status_code=200, raise_error=False):
@@ -59,7 +60,7 @@ JSEARCH_JOB = {
 JSEARCH_RESPONSE = {"status": "OK", "data": [JSEARCH_JOB]}
 
 
-# ── ArbeitnowSource ──────────────────────────────────────────────────────────
+# â”€â”€ ArbeitnowSource â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _ENABLED_ARBEITNOW_CFG = {"http": {"job_boards": {"arbeitnow": {"enabled": True}}}}
 _REGIONS = {"DE": {"location": "Berlin", "country": "DE"}}
@@ -72,17 +73,17 @@ class TestArbeitnowSource:
 
     def test_is_enabled_respects_config(self) -> None:
         disabled_config = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
+        with patch("job_hunter.sources.boards.arbeitnow.get_api_config", return_value=disabled_config):
             assert ArbeitnowSource().is_enabled({}) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ),
         ):
@@ -94,18 +95,18 @@ class TestArbeitnowSource:
 
     def test_fetch_returns_empty_when_disabled(self) -> None:
         disabled_config = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
+        with patch("job_hunter.sources.boards.arbeitnow.get_api_config", return_value=disabled_config):
             postings = ArbeitnowSource().fetch(mk_params(["Product Manager"], _REGIONS))
         assert postings == []
 
     def test_fetch_filters_by_title_and_location(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ),
         ):
@@ -115,11 +116,11 @@ class TestArbeitnowSource:
     def test_fetch_returns_correct_fields(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ),
         ):
@@ -132,11 +133,11 @@ class TestArbeitnowSource:
     def test_fetch_strips_html(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ),
         ):
@@ -146,11 +147,11 @@ class TestArbeitnowSource:
     def test_fetch_parses_unix_timestamp(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ),
         ):
@@ -162,11 +163,11 @@ class TestArbeitnowSource:
         job = {**ARBEITNOW_JOB, "created_at": "2026-04-15T10:00:00Z"}
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data={"data": [job]}),
             ),
         ):
@@ -176,11 +177,11 @@ class TestArbeitnowSource:
     def test_fetch_uses_code_owned_single_page_cap(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 return_value=_make_response(json_data=ARBEITNOW_PAGE),
             ) as mock_get,
         ):
@@ -191,11 +192,11 @@ class TestArbeitnowSource:
     def test_fetch_returns_empty_on_api_error(self) -> None:
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.arbeitnow.get_api_config",
                 return_value=_ENABLED_ARBEITNOW_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.arbeitnow.requests.get",
                 side_effect=Exception("timeout"),
             ),
         ):
@@ -203,7 +204,7 @@ class TestArbeitnowSource:
         assert postings == []
 
 
-# ── JSearchSource ─────────────────────────────────────────────────────────────
+# â”€â”€ JSearchSource â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _ENABLED_JSEARCH_CFG = {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": 1}}}}
 
@@ -233,11 +234,11 @@ class TestJSearchSource:
         with (
             patch.object(_budget, "ROOT", tmp_path),
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ),
         ):
@@ -251,7 +252,7 @@ class TestJSearchSource:
         src = JSearchSource.__new__(JSearchSource)
         src._rapidapi_key = "test-key"
         disabled_config = {"http": {"job_boards": {"jsearch": {"enabled": False}}}}
-        with patch("job_hunter.sources.job_boards.get_api_config", return_value=disabled_config):
+        with patch("job_hunter.sources.boards.jsearch.get_api_config", return_value=disabled_config):
             postings = src.fetch(mk_params(["Product Manager"], _REGIONS))
         assert postings == []
 
@@ -260,11 +261,11 @@ class TestJSearchSource:
         src._rapidapi_key = "test-key"
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ),
         ):
@@ -280,11 +281,11 @@ class TestJSearchSource:
         src._rapidapi_key = "test-key"
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ) as mock_get,
         ):
@@ -298,11 +299,11 @@ class TestJSearchSource:
         regions_with_lang = {"DE": {"location": "Berlin", "country": "DE", "search_lang": "en"}}
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ) as mock_get,
         ):
@@ -317,11 +318,11 @@ class TestJSearchSource:
         job = {**JSEARCH_JOB, "job_title": "Product Engineer"}
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data={"status": "OK", "data": [job]}),
             ) as mock_get,
         ):
@@ -342,11 +343,11 @@ class TestJSearchSource:
         src._rapidapi_key = "test-key"
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ) as mock_get,
         ):
@@ -359,11 +360,11 @@ class TestJSearchSource:
         job = {**JSEARCH_JOB, "job_city": None, "job_country": None}
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data={"status": "OK", "data": [job]}),
             ),
         ):
@@ -383,8 +384,8 @@ class TestJSearchSource:
             }
         }
         with (
-            patch("job_hunter.sources.job_boards.get_api_config", return_value=config),
-            patch("job_hunter.sources.job_boards.requests.get", side_effect=Exception("limit")) as mock_get,
+            patch("job_hunter.sources.boards.jsearch.get_api_config", return_value=config),
+            patch("job_hunter.sources.boards.jsearch.requests.get", side_effect=Exception("limit")) as mock_get,
         ):
             for _ in range(4):
                 postings = src.fetch(mk_params(["Product Manager"], _REGIONS))
@@ -397,11 +398,11 @@ class TestJSearchSource:
         job_boards._JSEARCH_FAILURES = 2
         with (
             patch(
-                "job_hunter.sources.job_boards.get_api_config",
+                "job_hunter.sources.boards.jsearch.get_api_config",
                 return_value=_ENABLED_JSEARCH_CFG,
             ),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ),
         ):
@@ -419,7 +420,7 @@ class TestJSearchSource:
             lambda *args, **kwargs: pytest.fail("HTTP should not run"),
         )
         with patch(
-            "job_hunter.sources.job_boards.get_api_config",
+            "job_hunter.sources.boards.jsearch.get_api_config",
             return_value=_ENABLED_JSEARCH_CFG,
         ):
             postings = src.fetch(mk_params(["Product Manager"], _REGIONS))
@@ -438,7 +439,7 @@ class TestJSearchSource:
         monkeypatch.setattr(job_boards.requests, "get", fake_get)
 
         with patch(
-            "job_hunter.sources.job_boards.get_api_config",
+            "job_hunter.sources.boards.jsearch.get_api_config",
             return_value=_ENABLED_JSEARCH_CFG,
         ):
             assert src.fetch(mk_params(["Product Manager"], _REGIONS)) == []
@@ -451,9 +452,9 @@ class TestJSearchSource:
         config = {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": num_pages_config}}}}
         monkeypatch.setattr(job_boards, "reserve_api_call", lambda _provider: True)
         with (
-            patch("job_hunter.sources.job_boards.get_api_config", return_value=config),
+            patch("job_hunter.sources.boards.jsearch.get_api_config", return_value=config),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ) as mock_get,
         ):
@@ -466,7 +467,7 @@ class TestJSearchSource:
     def test_deep_pass_uses_more_pages_capped_by_code(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from job_hunter.constants import MAX_SAFE_PAGES_PER_SOURCE
 
-        # max_results=150 at ~10/page needs 15 pages — code cap wins.
+        # max_results=150 at ~10/page needs 15 pages â€” code cap wins.
         assert self._count_pages(monkeypatch, max_results=150) == MAX_SAFE_PAGES_PER_SOURCE
 
     def test_config_cannot_raise_pages_beyond_code_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -480,11 +481,14 @@ class TestJSearchSource:
         grants = iter([True, True, False])
         monkeypatch.setattr(job_boards, "reserve_api_call", lambda _provider: next(grants, False))
         with (
-            patch("job_hunter.sources.job_boards.get_api_config", return_value=_ENABLED_JSEARCH_CFG),
+            patch("job_hunter.sources.boards.jsearch.get_api_config", return_value=_ENABLED_JSEARCH_CFG),
             patch(
-                "job_hunter.sources.job_boards.requests.get",
+                "job_hunter.sources.boards.jsearch.requests.get",
                 return_value=_make_response(json_data=JSEARCH_RESPONSE),
             ) as mock_get,
         ):
             src.fetch(mk_params(["Product Manager"], _REGIONS, max_results=150))
         assert mock_get.call_count == 2
+
+
+# ── JSearchSource

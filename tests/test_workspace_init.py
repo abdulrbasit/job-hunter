@@ -3,12 +3,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from job_hunter.workspace import operations as workspace_ops
-from job_hunter.workspace.assets import iter_managed_files, iter_packaged_resource_files
+from job_hunter.workspace.assets import (
+    _iter_source_checkout_files,
+    is_dev_only_skill,
+    is_resource_only_file,
+    iter_managed_files,
+    iter_packaged_resource_files,
+)
 from job_hunter.workspace.manifest import MANIFEST_PATH
-from job_hunter.workspace.operations import iter_template_skill_files, run_init, update_skills
+from job_hunter.workspace.operations import (
+    WorkspaceNotEmptyError,
+    iter_template_skill_files,
+    run_init,
+    update_skills,
+)
 
 
 def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
@@ -159,6 +171,70 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     assert "data/.gitkeep" not in manifest["managed_files"]
 
 
+def test_run_init_raises_on_non_empty_dir_without_force(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "existing.txt").write_text("data\n", encoding="utf-8")
+
+    with pytest.raises(WorkspaceNotEmptyError):
+        run_init(workspace)
+
+    assert (workspace / "existing.txt").read_text(encoding="utf-8") == "data\n"
+    assert not (workspace / MANIFEST_PATH).exists()
+
+
+def test_run_init_force_reinitializes_and_reports_it(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "existing.txt").write_text("data\n", encoding="utf-8")
+
+    result = run_init(workspace, force=True)
+
+    assert result.reinitialized is True
+    assert result.workspace == workspace.resolve()
+    assert (workspace / MANIFEST_PATH).exists()
+
+
+def test_workspace_operations_is_a_plain_service_layer() -> None:
+    """operations.py must not import typer — presentation lives in cli/commands/update.py."""
+    import inspect
+
+    source = inspect.getsource(workspace_ops)
+    assert "typer" not in source
+
+
+@pytest.mark.parametrize(
+    ("setup_result", "expected"),
+    [
+        (
+            "conflict",
+            ["Existing Codex OTel config preserved; Job Hunter token telemetry is not enabled for Codex."],
+        ),
+        (
+            "invalid",
+            ["Invalid Codex config preserved; Job Hunter token telemetry is not enabled for Codex."],
+        ),
+        ("configured", []),
+    ],
+)
+def test_install_telemetry_returns_presentation_warnings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    setup_result: str,
+    expected: list[str],
+) -> None:
+    monkeypatch.setattr(
+        "job_hunter.metrics.setup.install_workspace_telemetry",
+        lambda _workspace: None,
+    )
+    monkeypatch.setattr(
+        "job_hunter.metrics.setup.configure_codex_telemetry",
+        lambda _path: setup_result,
+    )
+
+    assert workspace_ops.install_telemetry(tmp_path) == expected
+
+
 def test_update_skills_writes_only_skill_files_and_preserves_user_data(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     run_init(workspace)
@@ -191,11 +267,13 @@ def test_update_skills_removes_unchanged_stale_managed_skill(tmp_path: Path, mon
     current = [(rel, content) for rel, content in iter_template_skill_files() if rel != stale_rel]
     monkeypatch.setattr(workspace_ops, "iter_template_skill_files", lambda: current)
 
-    update_skills(workspace)
+    result = update_skills(workspace)
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert not stale.exists()
     assert stale_rel not in manifest["managed_files"]
+    assert stale_rel in result.removed_stale
+    assert result.preserved_modified == []
 
 
 def test_update_skills_preserves_modified_stale_managed_skill(tmp_path: Path, monkeypatch) -> None:
@@ -207,11 +285,13 @@ def test_update_skills_preserves_modified_stale_managed_skill(tmp_path: Path, mo
     current = [(rel, content) for rel, content in iter_template_skill_files() if rel != stale_rel]
     monkeypatch.setattr(workspace_ops, "iter_template_skill_files", lambda: current)
 
-    update_skills(workspace)
+    result = update_skills(workspace)
 
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
     assert stale.read_text(encoding="utf-8") == "user customization\n"
     assert stale_rel not in manifest["managed_files"]
+    assert stale_rel in result.preserved_modified
+    assert stale_rel not in result.removed_stale
 
 
 def test_template_skill_files_are_subset_of_workspace_assets() -> None:
@@ -246,6 +326,27 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
         if profile_file.is_file():
             rel = f"profile/{profile_file.name}"
             assert rel in packaged, f"packaged template missing profile asset: {rel}"
+
+
+def test_asset_ownership_predicates_are_explicit() -> None:
+    assert is_resource_only_file("README.md")
+    assert is_resource_only_file(".github/workflows/find-jobs.yml")
+    assert not is_resource_only_file("config/career_pages.yml")
+    assert is_dev_only_skill(".claude/skills/commit/SKILL.md")
+    assert not is_dev_only_skill(".claude/skills/job-hunter/SKILL.md")
+    assert not is_dev_only_skill(".agents/skills/commit/SKILL.md")
+
+
+def test_source_checkout_assets_use_canonical_and_resource_owners() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = dict(_iter_source_checkout_files(root))
+    packaged = dict(iter_packaged_resource_files())
+
+    assert source["config/career_pages.yml"] == (root / "config/career_pages.yml").read_bytes()
+    assert source["README.md"] == packaged["README.md"]
+    assert source["profile/story_bank.md"] == packaged["profile/story_bank.md"]
+    assert ".claude/skills/commit/SKILL.md" not in source
+    assert ".claude/skills/job-hunter/SKILL.md" in source
 
 
 def test_packaged_workspace_context_is_user_workspace_focused() -> None:
