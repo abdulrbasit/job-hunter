@@ -200,7 +200,7 @@ class DashAPI:
         return True
 
     def get_unprocessed(self) -> dict[str, Any]:
-        from job_hunter.tracking.repository import display_status, get_jobs
+        from job_hunter.tracking.repository import display_status, get_jobs_summary
 
         def visible(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
             return [
@@ -213,7 +213,7 @@ class DashAPI:
                     "url": job.get("url"),
                     "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
                 }
-                for job in get_jobs(self._root, statuses=statuses)
+                for job in get_jobs_summary(self._root, statuses=statuses)
                 if str(job.get("title") or "").strip() and str(job.get("company") or "").strip()
             ]
 
@@ -224,6 +224,16 @@ class DashAPI:
             "discarded": discarded,
             "counts": {"active": len(active), "discarded": len(discarded), "total": len(active) + len(discarded)},
         }
+
+    def discard_unprocessed(self, job_id: int) -> bool:
+        """Move one or more candidates to status='discarded' (never touches applications)."""
+        from job_hunter.tracking.repository import set_status_by_id
+
+        try:
+            set_status_by_id(self._root, int(job_id), "discarded")
+        except Exception:  # noqa: BLE001
+            return False
+        return True
 
     def delete_unprocessed(self, job_id: int) -> bool:
         from job_hunter.tracking.repository import delete_job_by_id

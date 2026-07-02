@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status        ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_run_id        ON jobs(run_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_region        ON jobs(region);
 CREATE INDEX IF NOT EXISTS idx_jobs_canonical_url ON jobs(canonical_url);
+CREATE INDEX IF NOT EXISTS idx_jobs_status_processed_at ON jobs(status, processed_at);
 """
 
 PIPELINE_STATUSES = ("candidate", "discarded", "tailored", "applied", "responded", "interview", "offer", "rejected")
@@ -426,12 +427,27 @@ def update_job_status(root: Path, slug: str, status: str, note: str = "") -> dic
         notes = json.loads(row["notes"] or "[]")
         if note:
             notes.append(note)
-        processed_at = now if status == "processed" and not row["processed_at"] else row["processed_at"]
+        processed_at = now if status == "discarded" and not row["processed_at"] else row["processed_at"]
         conn.execute(
             "UPDATE jobs SET status=?, notes=?, processed_at=?, updated_at=? WHERE slug=?",
             (status, json.dumps(notes), processed_at, now, slug),
         )
     return get_job_by_slug(root, slug) or {}
+
+
+def set_status_by_id(root: Path, job_id: int, status: str) -> None:
+    """Update status for a job by DB id — used for candidates that have no slug yet
+    (e.g. discarding from the dashboard before tailoring)."""
+    now = _now()
+    with _conn(root) as conn:
+        row = conn.execute("SELECT processed_at FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if not row:
+            raise KeyError(f"job not found: id={job_id}")
+        processed_at = now if status == "discarded" and not row["processed_at"] else row["processed_at"]
+        conn.execute(
+            "UPDATE jobs SET status=?, processed_at=?, updated_at=? WHERE id=?",
+            (status, processed_at, now, job_id),
+        )
 
 
 def get_jobs(
@@ -466,6 +482,22 @@ def get_jobs(
     return [_row_to_dict(row) for row in rows]
 
 
+_JOB_LIST_COLUMNS = "id, company, title, location, status, url, discovered_at, created_at"
+
+
+def get_jobs_summary(root: Path, *, statuses: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Lightweight listing query — skips large TEXT columns (jd_text, cover_letter_text,
+    evaluation_text) so candidate/discarded list views stay fast as the DB grows."""
+    placeholders = ",".join("?" * len(statuses))
+    with _conn(root) as conn:
+        rows = conn.execute(
+            f"SELECT {_JOB_LIST_COLUMNS} FROM jobs WHERE status IN ({placeholders}) "  # noqa: S608
+            "ORDER BY discovered_at DESC, created_at DESC",
+            statuses,
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_job_by_slug(root: Path, slug: str) -> dict[str, Any] | None:
     with _conn(root) as conn:
         row = conn.execute("SELECT * FROM jobs WHERE slug = ?", (slug,)).fetchone()
@@ -486,6 +518,18 @@ def delete_job(root: Path, slug: str) -> None:
 def delete_job_by_id(root: Path, job_id: int) -> None:
     with _conn(root) as conn:
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+
+
+def delete_discarded_older_than(root: Path, days: int = 90) -> int:
+    """Delete discarded/legacy-processed rows older than `days`. Never touches
+    candidate rows or any post-tailor application status (tailored/applied/etc)."""
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).replace(microsecond=0).isoformat()
+    with _conn(root) as conn:
+        cur = conn.execute(
+            "DELETE FROM jobs WHERE status IN ('discarded', 'processed') AND COALESCE(processed_at, updated_at) < ?",
+            (cutoff,),
+        )
+    return cur.rowcount
 
 
 def count_active(root: Path) -> int:

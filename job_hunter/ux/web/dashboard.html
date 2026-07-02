@@ -753,13 +753,14 @@ td.td-title { color: var(--text-muted); }
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
         </div>
+        <button class="btn btn-danger" id="discard-selected-btn" style="display:none" onclick="discardSelected()">Discard selected</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th class="td-num">#</th>
+              <th class="td-num"><input type="checkbox" id="candidate-select-all" onchange="toggleSelectAll(this.checked)"></th>
               <th>Company</th>
               <th>Title</th>
               <th>Location</th>
@@ -809,6 +810,7 @@ let activeArtifact = null;
 let artifactObjectUrl = null;
 let candidateData = { active: [], discarded: [], counts: { active: 0, discarded: 0, total: 0 } };
 let candidateScope = 'active';
+let selectedCandidateIds = new Set();
 
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
@@ -853,6 +855,7 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     document.querySelectorAll('[data-candidate-scope]').forEach(button => button.classList.remove('active'));
     tab.classList.add('active');
     candidateScope = tab.dataset.candidateScope;
+    selectedCandidateIds.clear();
     renderCandidates();
   });
 });
@@ -893,12 +896,14 @@ function renderCandidates() {
   const jobs = (candidateData[candidateScope] || []).filter(job =>
     !query || `${job.company || ''} ${job.title || ''} ${job.location || ''}`.toLowerCase().includes(query)
   );
+  document.getElementById('candidate-select-all').style.visibility = candidateScope === 'active' ? 'visible' : 'hidden';
   if (!jobs.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
+    updateDiscardButton();
     return;
   }
   tbody.innerHTML = jobs.map((job, i) => `<tr>
-      <td class="td-num">${i + 1}</td>
+      <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''} onchange="toggleCandidateSelected(${job.id}, this.checked)">` : i + 1}</td>
       <td class="td-company">${esc(job.company || '—')}</td>
       <td class="td-title">${job.url ? `<a href="${esc(job.url)}" target="_blank">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
@@ -906,6 +911,39 @@ function renderCandidates() {
       <td class="td-date">${esc(job.date || '')}</td>
       <td>${candidateScope === 'active' ? `<button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button>` : ''}</td>
     </tr>`).join('');
+  updateDiscardButton();
+}
+
+function toggleCandidateSelected(id, checked) {
+  if (checked) selectedCandidateIds.add(id); else selectedCandidateIds.delete(id);
+  updateDiscardButton();
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.candidate-checkbox').forEach(box => {
+    box.checked = checked;
+    const id = Number(box.dataset.id);
+    if (checked) selectedCandidateIds.add(id); else selectedCandidateIds.delete(id);
+  });
+  updateDiscardButton();
+}
+
+function updateDiscardButton() {
+  const btn = document.getElementById('discard-selected-btn');
+  btn.style.display = (candidateScope === 'active' && selectedCandidateIds.size) ? '' : 'none';
+  btn.textContent = `Discard selected (${selectedCandidateIds.size})`;
+}
+
+async function discardSelected() {
+  const ids = [...selectedCandidateIds];
+  if (!ids.length || !confirm(`Move ${ids.length} candidate(s) to Discarded?`)) return;
+  try {
+    await Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(id)));
+    selectedCandidateIds.clear();
+    loadUnprocessed();
+  } catch(e) {
+    alert('Discard failed: ' + e);
+  }
 }
 
 async function deleteUnprocessed(id) {

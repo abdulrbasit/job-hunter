@@ -12,11 +12,16 @@ logger = logging.getLogger(__name__)
 
 
 def execute(ctx: PipelineRunContext) -> ModeOutcome:
+    from job_hunter.config.loader import ROOT as REPO_ROOT
+    from job_hunter.tracking.repository import delete_discarded_older_than
+
+    deleted = delete_discarded_older_than(REPO_ROOT)
+    if deleted:
+        logger.info("[pipeline] Cleaned up %s discarded job(s) older than 90 days", deleted)
+
     options = ctx.options
 
     if options.scrape_only:
-        from job_hunter.config.loader import ROOT as REPO_ROOT
-
         snapshot_path, count, _stats = run_hunt_scrape_only(
             options.region, REPO_ROOT, ctx.api_config, ctx.url_liveness.is_alive, depth=options.depth
         )

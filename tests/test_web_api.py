@@ -307,6 +307,21 @@ def test_get_unprocessed_separates_real_candidates_from_history_and_hides_url_ca
     assert payload["counts"] == {"active": 1, "discarded": 1, "total": 2}
 
 
+def test_discard_unprocessed_moves_a_candidate_to_discarded(tmp_path: Path) -> None:
+    insert_jobs(
+        tmp_path,
+        [{"url": "https://example.com/discard-me", "title": "PM", "company": "Discard Co", "location": "Berlin"}],
+    )
+    api = DashAPI(tmp_path)
+    job_id = api.get_unprocessed()["active"][0]["id"]
+
+    assert api.discard_unprocessed(job_id) is True
+
+    payload = api.get_unprocessed()
+    assert payload["active"] == []
+    assert [job["url"] for job in payload["discarded"]] == ["https://example.com/discard-me"]
+
+
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir()
