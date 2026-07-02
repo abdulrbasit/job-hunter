@@ -11,7 +11,7 @@ import requests
 from job_hunter.config.defaults import _COUNTRY_NAME_TO_CODE
 from job_hunter.config.loader import get_api_config
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
-from job_hunter.core.utils import location_matches, title_matches
+from job_hunter.core.utils import title_matches
 from job_hunter.sources._jd_ats_parsers import (
     breezy_job_ref,
     personio_job_ref,
@@ -153,213 +153,227 @@ def _passes_ats_discovery_shape(url: str, source: str) -> bool:
     )
 
 
-def _verify_lever_location(url: str, location_filter: str) -> bool:
+# Each evidence function returns the posting's location strings from the ATS
+# API, or None when the location is unknown/unfetchable (treated as a match —
+# unknown must never drop a job). Matching itself is centralized in JobPolicy
+# via _ats_location_matches_policy, never done here.
+
+
+def _lever_locations(url: str) -> list[str] | None:
     parts = urlparse(url).path.strip("/").split("/")
     if len(parts) < 2:
-        return True
+        return None
     slug, job_id = parts[0], parts[1]
     resp = requests.get(f"https://api.lever.co/v0/postings/{slug}/{job_id}", timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     categories = resp.json().get("categories", {})
     primary = categories.get("location", "")
-    all_locs = list(categories.get("allLocations") or ([primary] if primary else []))
-    if not all_locs:
-        return True
-    return any(location_matches(loc, location_filter) for loc in all_locs)
+    all_locs = [str(loc) for loc in (categories.get("allLocations") or ([primary] if primary else [])) if str(loc)]
+    return all_locs or None
 
 
-def _verify_greenhouse_location(url: str, location_filter: str) -> bool:
+def _greenhouse_locations(url: str) -> list[str] | None:
     parts = urlparse(url).path.strip("/").split("/")
     if len(parts) < 3:
-        return False  # not a valid JD URL; valid paths always have ≥3 parts
+        return None  # shape gate upstream guarantees valid JD URLs; defensive only
     slug, job_id = parts[0], parts[2]
     resp = requests.get(
         f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}", timeout=ATS_DISCOVERY_API_TIMEOUT
     )
     if not resp.ok:
-        return True
+        return None
     location = resp.json().get("location", {}).get("name", "")
-    return not location or location_matches(location, location_filter)
+    return [location] if location else None
 
 
-def _verify_ashby_location(url: str, location_filter: str) -> bool:
+def _ashby_locations(url: str) -> list[str] | None:
     parts = urlparse(url).path.strip("/").split("/")
     if len(parts) < 2:
-        return True
+        return None
     slug, job_id = parts[0], parts[1]
     resp = requests.get(
         f"https://api.ashbyhq.com/posting-api/job-board/{slug}/job-posting/{job_id}",
         timeout=ATS_DISCOVERY_API_TIMEOUT,
     )
     if not resp.ok:
-        return True
+        return None
     location = resp.json().get("jobPosting", {}).get("locationName", "")
-    return not location or location_matches(location, location_filter)
+    return [location] if location else None
 
 
-def _verify_smartrecruiters_location(url: str, location_filter: str) -> bool:
+def _smartrecruiters_locations(url: str) -> list[str] | None:
     parts = urlparse(url).path.strip("/").split("/")
     if len(parts) < 2:
-        return True
+        return None
     slug, posting_id = parts[0], parts[1]
     resp = requests.get(
         f"https://api.smartrecruiters.com/v1/companies/{slug}/postings/{posting_id}",
         timeout=ATS_DISCOVERY_API_TIMEOUT,
     )
     if not resp.ok:
-        return True
+        return None
     loc = resp.json().get("location", {})
-    city = loc.get("city", "")
-    country = loc.get("country", "")
-    location_str = ", ".join(filter(None, [city, country]))
-    return (
-        not location_str or location_matches(city, location_filter) or location_matches(location_str, location_filter)
-    )
+    evidence = [v for v in (loc.get("city", ""), loc.get("country", "")) if v]
+    return evidence or None
 
 
-def _verify_workable_location(url: str, location_filter: str) -> bool:
+def _workable_locations(url: str) -> list[str] | None:
     parts = urlparse(url).path.strip("/").split("/")
     if len(parts) < 3:
-        return True
+        return None
     slug, shortcode = parts[0], parts[2]
     resp = requests.get(
         f"https://apply.workable.com/api/v3/accounts/{slug}/jobs/{shortcode}", timeout=ATS_DISCOVERY_API_TIMEOUT
     )
     if not resp.ok:
-        return True
+        return None
     location = resp.json().get("location", {}).get("location", "")
-    return not location or location_matches(location, location_filter)
+    return [location] if location else None
 
 
-def _verify_recruitee_location(url: str, location_filter: str) -> bool:
+def _recruitee_locations(url: str) -> list[str] | None:
     parsed = urlparse(url)
     subdomain = parsed.netloc.split(".recruitee.com", 1)[0]
     slug = parsed.path.strip("/").split("/")[-1]
     if not subdomain or not slug:
-        return True
+        return None
     resp = requests.get(f"https://{subdomain}.recruitee.com/api/offers/{slug}", timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     offer = resp.json().get("offer", {})
-    city = offer.get("city", "")
-    location = offer.get("location", "")
-    return (
-        not (city or location) or location_matches(city, location_filter) or location_matches(location, location_filter)
-    )
+    evidence = [v for v in (offer.get("city", ""), offer.get("location", "")) if v]
+    return evidence or None
 
 
-def _verify_personio_location(url: str, location_filter: str) -> bool:
+def _personio_locations(url: str) -> list[str] | None:
     ref = personio_job_ref(url)
     if not ref:
-        return True
+        return None
     slug, job_id = ref
     resp = requests.get(f"https://{slug}.jobs.personio.de/xml", timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     import xml.etree.ElementTree as ET
 
     try:
         root = ET.fromstring(resp.text)  # noqa: S314
     except ET.ParseError:
-        return True
+        return None
     for position in root.findall("position"):
         if (position.findtext("id") or "").strip() != job_id:
             continue
         offices = [(position.findtext("office") or "").strip()]
         offices.extend(o.strip() for o in (e.text or "" for e in position.findall("additionalOffices/office")) if o)
         offices = [o for o in offices if o]
-        if not offices:
-            return True
-        return any(location_matches(office, location_filter) for office in offices)
-    return True
+        return offices or None
+    return None
 
 
-def _verify_breezy_location(url: str, location_filter: str) -> bool:
+def _breezy_locations(url: str) -> list[str] | None:
     ref = breezy_job_ref(url)
     if not ref:
-        return True
+        return None
     slug, friendly_id = ref
     resp = requests.get(f"https://{slug}.breezy.hr/json", timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     data = resp.json()
     if not isinstance(data, list):
-        return True
+        return None
     for item in data:
         if not isinstance(item, dict) or item.get("friendly_id") != friendly_id:
             continue
         loc = item.get("location") or {}
         city = loc.get("city", "") if isinstance(loc, dict) else ""
         country = (loc.get("country") or {}).get("name", "") if isinstance(loc, dict) else ""
-        if not (city or country):
-            return True
-        return location_matches(city, location_filter) or location_matches(country, location_filter)
-    return True
+        evidence = [v for v in (city, country) if v]
+        return evidence or None
+    return None
 
 
-def _verify_teamtailor_location(url: str, location_filter: str) -> bool:
+def _teamtailor_locations(url: str) -> list[str] | None:
     slug = teamtailor_job_ref(url)
     if not slug:
-        return True
+        return None
     resp = requests.get(f"https://{slug}.teamtailor.com/jobs.json", timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     data = resp.json()
     for item in (data.get("items") or []) if isinstance(data, dict) else []:
         if not isinstance(item, dict) or item.get("url") != url:
             continue
         locations = ((item.get("_jobposting") or {}).get("jobLocation")) or []
         if not locations:
-            return True
+            return None
         address = (locations[0] or {}).get("address") or {}
-        locality = address.get("addressLocality", "")
-        country = address.get("addressCountry", "")
-        if not (locality or country):
-            return True
-        return location_matches(locality, location_filter) or location_matches(country, location_filter)
-    return True
+        evidence = [v for v in (address.get("addressLocality", ""), address.get("addressCountry", "")) if v]
+        return evidence or None
+    return None
 
 
-def _verify_workday_location(url: str, location_filter: str) -> bool:
+def _workday_locations(url: str) -> list[str] | None:
     ref = workday_job_ref(url)
     if not ref:
-        return True
+        return None
     tenant, wd_host, site, external_path = ref
     api_url = f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}{external_path}"
     resp = requests.get(api_url, timeout=ATS_DISCOVERY_API_TIMEOUT)
     if not resp.ok:
-        return True
+        return None
     info = resp.json().get("jobPostingInfo", {})
     location = info.get("location", "") or info.get("country", "")
-    return not location or location_matches(location, location_filter)
+    return [location] if location else None
 
 
-_ATS_LOCATION_VERIFIERS = {
-    "lever": _verify_lever_location,
-    "greenhouse": _verify_greenhouse_location,
-    "ashby": _verify_ashby_location,
-    "smartrecruiters": _verify_smartrecruiters_location,
-    "workable": _verify_workable_location,
-    "recruitee": _verify_recruitee_location,
-    "personio": _verify_personio_location,
-    "breezy": _verify_breezy_location,
-    "teamtailor": _verify_teamtailor_location,
-    "workday": _verify_workday_location,
+_ATS_LOCATION_EVIDENCE = {
+    "lever": _lever_locations,
+    "greenhouse": _greenhouse_locations,
+    "ashby": _ashby_locations,
+    "smartrecruiters": _smartrecruiters_locations,
+    "workable": _workable_locations,
+    "recruitee": _recruitee_locations,
+    "personio": _personio_locations,
+    "breezy": _breezy_locations,
+    "teamtailor": _teamtailor_locations,
+    "workday": _workday_locations,
 }
-_ATS_LOCATION_VERIFIABLE = frozenset(_ATS_LOCATION_VERIFIERS)
+_ATS_LOCATION_VERIFIABLE = frozenset(_ATS_LOCATION_EVIDENCE)
 
 
-def _verify_ats_location(url: str, source: str, location_filter: str) -> bool:
-    """Return True if the ATS posting's location matches location_filter, or if unknown."""
-    verifier = _ATS_LOCATION_VERIFIERS.get(source)
-    if not verifier:
-        return True
+def _ats_location_evidence(url: str, source: str) -> list[str] | None:
+    """Fetch the posting's location strings from the ATS API; None when unknown."""
+    fetcher = _ATS_LOCATION_EVIDENCE.get(source)
+    if not fetcher:
+        return None
     try:
-        return verifier(url, location_filter)
+        return fetcher(url)
     except Exception as e:
-        logger.debug("[ats_discovery] filter skipped: %s", e)
+        logger.debug("[ats_discovery] location evidence skipped: %s", e)
+        return None
+
+
+def _ats_location_matches_policy(url: str, source: str, region_config: dict | None, fallback_location: str) -> bool:
+    """Decide location compatibility for the no-enriched-location fallback path.
+
+    ATS API evidence is judged by the same JobPolicy rules as enriched locations
+    — country-level ("Germany"), remote-country, and broad-region ("Europe"/
+    "EMEA"/"MENA"/"GCC"/"Middle East") evidence matches its region instead of
+    being substring-compared against the configured city. Unknown evidence is a
+    match: unknown must never drop a job.
+    """
+    from job_hunter.sources.policy import JobPolicy
+
+    evidence = _ats_location_evidence(url, source)
+    if not evidence:
         return True
+    candidate = {"location": evidence[0], "location_restrictions": evidence}
+    policy = JobPolicy({})
+    effective_region_config = region_config or {"location": fallback_location}
+    return not (
+        policy.has_incompatible_location_metadata(candidate, effective_region_config)
+        or policy.has_wrong_location(candidate, effective_region_config)
+    )
 
 
 def _enrich_ats_discovery_job(url: str) -> dict | None:
@@ -437,8 +451,10 @@ def _process_ats_result(
                     result.url,
                 )
             return
-    elif source in _ATS_LOCATION_VERIFIABLE and not _verify_ats_location(result.url, source, location):
-        # ATS-specific verifier fallback: only when enrichment yielded no location.
+    elif source in _ATS_LOCATION_VERIFIABLE and not _ats_location_matches_policy(
+        result.url, source, region_config, location
+    ):
+        # ATS API evidence fallback: only when enrichment yielded no location.
         if log_skips:
             logger.debug(
                 "[search-discovery] %s location mismatch, skipping: %s",

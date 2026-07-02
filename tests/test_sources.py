@@ -1077,7 +1077,7 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
     monkeypatch.setattr(api_budget, "ROOT", tmp_path)
     monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", lambda *_args, **_kwargs: Router())
     monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
-    monkeypatch.setattr(_ats_mod, "_verify_ats_location", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(_ats_mod, "_ats_location_matches_policy", lambda *_args, **_kwargs: True)
 
     jobs = search.discover_ats_jobs_by_search(
         ["Product Manager", "Product Owner"],

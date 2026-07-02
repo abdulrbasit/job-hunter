@@ -388,6 +388,94 @@ def test_ats_discovery_rejects_wrong_region_locations(monkeypatch) -> None:
         assert jobs == [], f"accepted wrong-region location: {enriched_location}"
 
 
+def _discover_with_ats_evidence(monkeypatch, evidence: list[str] | None, region_name: str, region_config: dict):
+    """Run _discover_region with one lever result, no enriched location, and the
+    given ATS API location evidence — exercising the policy-based fallback path."""
+
+    class OneResultProvider:
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return [
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/55555555-5555-5555-5555-555555555555",
+                    title="Product Manager",
+                    description="role",
+                    source="static",
+                )
+            ]
+
+    monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
+    monkeypatch.setattr(_ats_mod, "_ats_location_evidence", lambda _url, _source: evidence)
+
+    return _ats_mod._discover_region(
+        region_name,
+        region_config,
+        ["Product Manager"],
+        [],
+        ["lever"],
+        OneResultProvider(),
+        max_queries_per_region=1,
+    )
+
+
+def test_ats_fallback_evidence_accepts_broad_region_locations_for_germany(monkeypatch) -> None:
+    """The no-enriched-location fallback judges ATS API evidence via JobPolicy,
+    so country-level and broad-region evidence must not be substring-compared
+    against the configured city."""
+    for evidence in (["Germany"], ["Remote Germany"], ["Europe"], ["EMEA"]):
+        jobs = _discover_with_ats_evidence(monkeypatch, evidence, "berlin", {"location": "Berlin", "country": "DE"})
+        assert len(jobs) == 1, f"dropped valid evidence: {evidence}"
+
+
+def test_ats_fallback_evidence_accepts_broad_region_locations_for_bahrain(monkeypatch) -> None:
+    for evidence in (["Middle East"], ["GCC"], ["MENA"]):
+        jobs = _discover_with_ats_evidence(monkeypatch, evidence, "bahrain", {"location": "Manama", "country": "BH"})
+        assert len(jobs) == 1, f"dropped valid evidence: {evidence}"
+
+
+def test_ats_fallback_evidence_rejects_wrong_region(monkeypatch) -> None:
+    for evidence, region_name, region_config in (
+        (["United States"], "berlin", {"location": "Berlin", "country": "DE"}),
+        (["US only"], "berlin", {"location": "Berlin", "country": "DE"}),
+        (["Remote US"], "berlin", {"location": "Berlin", "country": "DE"}),
+        (["United States"], "bahrain", {"location": "Manama", "country": "BH"}),
+    ):
+        jobs = _discover_with_ats_evidence(monkeypatch, evidence, region_name, region_config)
+        assert jobs == [], f"accepted wrong-region evidence: {evidence}"
+
+
+def test_ats_fallback_unknown_evidence_is_accepted(monkeypatch) -> None:
+    """Unknown/unfetchable ATS location evidence must never drop a job."""
+    jobs = _discover_with_ats_evidence(monkeypatch, None, "berlin", {"location": "Berlin", "country": "DE"})
+
+    assert len(jobs) == 1
+
+
+def test_greenhouse_evidence_extracts_location_from_api(monkeypatch) -> None:
+    """_greenhouse_locations returns the API location name as evidence."""
+
+    class FakeResp:
+        ok = True
+
+        @staticmethod
+        def json():
+            return {"location": {"name": "Germany"}}
+
+    monkeypatch.setattr(_ats_mod.requests, "get", lambda *_a, **_k: FakeResp())
+
+    evidence = _ats_mod._greenhouse_locations("https://boards.greenhouse.io/acme/jobs/123")
+
+    assert evidence == ["Germany"]
+    assert (
+        _ats_mod._ats_location_matches_policy(
+            "https://boards.greenhouse.io/acme/jobs/123",
+            "greenhouse",
+            {"location": "Berlin", "country": "DE"},
+            "Berlin",
+        )
+        is True
+    )
+
+
 def test_discover_region_rejects_closed_postings(monkeypatch) -> None:
     class OneResultProvider:
         def search(self, query: str, region_config: dict, count: int = 10):
