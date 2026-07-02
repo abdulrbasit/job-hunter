@@ -330,7 +330,7 @@ def discard_job(
         existing_urls = load_processed()
         mark_processed([meta], existing_urls)
     shutil.rmtree(folder)
-    typer.echo(f"[discard-job] deleted and marked processed: {job}")
+    typer.echo(f"[discard-job] deleted and marked discarded: {job}")
 
 
 @internal_app.command(name="compile-profile")

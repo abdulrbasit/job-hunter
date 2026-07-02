@@ -42,8 +42,16 @@ body {
   overflow: hidden;
 }
 
-/* ── Sidebar ── */
+/* ── Sidebar ──
+   position:fixed takes the sidebar out of the body flex flow, so its hover-expand
+   width transition never forces a reflow of `main` (previously a flex sibling that
+   had to resize on every mouseenter/mouseleave — the main source of mouse lag).
+   z-index must stay above .detail-panel's (20): once the sidebar overlays main
+   instead of pushing it, an open detail panel would otherwise paint over the
+   hover-expanded sidebar where their boxes now overlap. */
 .sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
   width: var(--sidebar-w);
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -51,8 +59,8 @@ body {
   flex-direction: column;
   transition: width var(--transition);
   overflow: hidden;
-  flex-shrink: 0;
-  z-index: 10;
+  z-index: 30;
+  contain: layout style;
 }
 .sidebar:hover { width: var(--sidebar-w-open); }
 
@@ -123,6 +131,7 @@ nav { flex: 1; padding: 8px 0; }
 /* ── Main content ── */
 main {
   flex: 1;
+  margin-left: var(--sidebar-w);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -243,6 +252,9 @@ tbody tr {
   border-bottom: 1px solid rgba(48,54,61,0.6);
   cursor: pointer;
   transition: background var(--transition);
+  /* Skip layout/paint for off-screen rows so long tables don't cost more as the DB grows. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 41px;
 }
 tbody tr:hover { background: rgba(255,255,255,0.03); }
 tbody tr.selected { background: rgba(31,111,235,0.08); }
@@ -250,8 +262,11 @@ td { padding: 10px 12px; color: var(--text); }
 td.td-num { color: var(--text-muted); font-size: 12px; width: 36px; }
 td.td-score { font-weight: 600; }
 td.td-date { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
-td.td-company { font-weight: 500; }
-td.td-title { color: var(--text-muted); }
+/* Single-line + ellipsis: keeps every row at the same height, which content-visibility's
+   contain-intrinsic-size (above) assumes — unclamped text could wrap to 2 lines and cause
+   a visible height jump/scroll-shift as off-screen rows scroll into view and get measured. */
+td.td-company { font-weight: 500; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .badge {
   display: inline-block;

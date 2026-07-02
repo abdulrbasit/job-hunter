@@ -139,8 +139,6 @@ def _build_queue_from_db(
         if title_key in seen_titles:
             skipped_duplicate += 1
             continue
-        if len(queued) >= limit:
-            break
         seen_urls.add(url)
         seen_titles.add(title_key)
         snippet = str(job.get("snippet") or job.get("jd_text") or "")
@@ -167,6 +165,7 @@ def _build_queue_from_db(
 
     config = get_config("job_hunter") if base == _root() else {}
     queued, _hard_rejected = screen_jobs_by_rules(queued, config)
+    queued = queued[:limit]
 
     return {
         "generated": date.today().isoformat(),

@@ -154,6 +154,38 @@ def test_candidate_queue_db_skips_processed_url(tmp_path: Path) -> None:
     assert queue["source_reports"] == []
 
 
+def test_candidate_queue_db_limit_applies_after_screening(tmp_path: Path) -> None:
+    """A screened-out candidate must not consume the limit slot ahead of a valid one
+    further down the (oldest-first) queue — regression test for the bug where `limit`
+    was applied to the raw scan window before dedup/screening ran."""
+    from job_hunter.tracking.repository import insert_jobs
+
+    insert_jobs(
+        tmp_path,
+        [
+            {
+                "title": "Contract PM",
+                "company": "ContractCo",
+                "url": "https://example.com/contract",
+                "snippet": "This is a contract role.",
+            },
+            {
+                "title": "Full-time PM",
+                "company": "RealCo",
+                "url": "https://example.com/full-time",
+                "snippet": "Own roadmap.",
+            },
+        ],
+        run_id="20260630T120000Z",
+    )
+
+    queue = build_candidate_queue(root=tmp_path, limit=1)
+
+    assert queue["count"] == 1
+    assert queue["jobs"][0]["company"] == "RealCo"
+    assert queue["skipped_hard_screen"] == 1
+
+
 def test_candidate_queue_file_source_skips_db_processed_url(tmp_path: Path) -> None:
     from job_hunter.tracking.repository import mark_urls_processed
 

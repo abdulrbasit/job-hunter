@@ -79,7 +79,12 @@ def agent_context_batch(
     if not dry_run:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(batch, indent=2), encoding="utf-8")
-    typer.echo(f"Batch {batch['batch_number']}: {batch['count']} loaded -> {output_path.as_posix()}")
+    typer.echo(
+        f"Batch {batch['batch_number']}: {batch['count']} loaded "
+        f"({queue['total_seen']} seen, {queue['skipped_processed']} processed, "
+        f"{queue['skipped_duplicate']} duplicate, {queue['skipped_hard_screen']} hard-screened) "
+        f"-> {output_path.as_posix()}"
+    )
 
 
 @agent_context_app.command("screen-batch")
