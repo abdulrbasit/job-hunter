@@ -24,8 +24,10 @@ jobs:
 
       - name: Install job-hunter-kit with browser support
         run: |
+          uv venv --python 3.12
           uv pip install "job-hunter-kit[browser]"
-          playwright install --with-deps chromium
+          uv run --no-project playwright install --with-deps chromium
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install Lightpanda
         run: |
@@ -39,6 +41,7 @@ jobs:
       - name: Commit results
         if: always()
         run: |
+          [ -d outputs/browser_hunt ] || exit 0
           git config user.name "Job Hunter"
           git config user.email "noreply@github.com"
           git add outputs/browser_hunt/

@@ -56,20 +56,30 @@ jobs:
 
       - name: Install package and browser extra
         run: |
+          uv venv --python 3.12
           uv pip install "job-hunter-kit[browser]"
-          playwright install --with-deps chromium
+          uv run --no-project playwright install --with-deps chromium
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Pull texlive image
         run: docker pull texlive/texlive:latest
 
       - name: Process links
+        env:
+          URL1: ${{ inputs.url1 }}
+          URL2: ${{ inputs.url2 }}
+          URL3: ${{ inputs.url3 }}
+          URL4: ${{ inputs.url4 }}
+          URL5: ${{ inputs.url5 }}
+          FORCE: ${{ inputs.force }}
         run: |
-          links="${{ inputs.url1 }}"
-          for extra in "${{ inputs.url2 }}" "${{ inputs.url3 }}" "${{ inputs.url4 }}" "${{ inputs.url5 }}"; do
+          set -euo pipefail
+          links="$URL1"
+          for extra in "$URL2" "$URL3" "$URL4" "$URL5"; do
             [ -n "$extra" ] && links="$links,$extra"
           done
           args=(tailor --links "$links")
-          if [ "${{ inputs.force }}" = "true" ]; then args+=(--force); fi
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
           job-hunter "${args[@]}"
 
       - name: Commit results
@@ -81,6 +91,7 @@ jobs:
             outputs/jobs/ \
             outputs/candidates/ \
             outputs/linkedin/ \
+            outputs/state/jobs.db \
             outputs/state/discovered_urls.yml \
             outputs/state/agent_candidate_queue.json \
             outputs/state/api_usage.json \
