@@ -7,7 +7,7 @@
 
 `job-hunter hunt` runs the whole pipeline inside Python, no agent session
 involved: discovery (`sources/`) → enrichment → screening → validation →
-pre-LLM gate → scoring → tailoring → cover letter → PDF compile → README
+quality gate → scoring → tailoring → cover letter → PDF compile → README
 update → tracker. `pipeline/runner.py` is the mode dispatcher; it calls
 each stage module in order (see [architecture.md](architecture.md#pipeline) for
 ownership).

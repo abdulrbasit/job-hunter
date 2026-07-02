@@ -16,6 +16,7 @@ import threading
 from typing import Any
 
 from job_hunter.config.loader import get_api_config
+from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
@@ -23,6 +24,9 @@ from job_hunter.sources.base import JobSourceAdapter
 logger = logging.getLogger(__name__)
 
 _RESULTS_PER_QUERY = 50
+# Code-owned ceiling for deep/adaptive passes — params.max_results can raise
+# results_wanted up to this, never beyond (no config knob).
+_MAX_RESULTS_PER_QUERY = DEFAULT_BACKFILL_MAX_RESULTS
 _SCRAPE_TIMEOUT = 45  # seconds per site call; guards against hung network requests
 
 # Sites that returned HTTP 403 this run — never called again until process restarts.
@@ -177,6 +181,8 @@ class JobSpySource(JobSourceAdapter):
             return []
 
         hours_old = int(jobspy_config.get("hours_old", 72))
+        results_wanted = max(1, min(int(params.max_results or _RESULTS_PER_QUERY), _MAX_RESULTS_PER_QUERY))
+        logger.info("[jobspy] results_wanted=%d", results_wanted)
         location = params.location
         iso = params.country.upper()
         country_indeed = _ISO_TO_INDEED.get(iso, "")
@@ -211,7 +217,7 @@ class JobSpySource(JobSourceAdapter):
                     search_term=title,
                     google_search_term=google_search_term,
                     location=location,
-                    results_wanted=_RESULTS_PER_QUERY,
+                    results_wanted=results_wanted,
                     hours_old=hours_old,
                     country_indeed=country_indeed or "usa",
                     description_format="markdown",

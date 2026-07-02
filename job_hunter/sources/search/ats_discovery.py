@@ -381,10 +381,16 @@ def _process_ats_result(
     excluded_title_terms: list[str],
     seen: set[str],
     jobs: list[dict],
+    region_name: str,
+    region_config: dict | None = None,
     *,
     log_skips: bool = False,
 ) -> None:
     """Enrich, filter, and append a single search result to jobs (mutates seen and jobs)."""
+    # Deferred import: job_hunter.sources.policy imports job_hunter.sources.search
+    # (for canonicalize_url), so a module-level import here would be circular.
+    from job_hunter.sources.policy import JobPolicy
+
     if not _passes_ats_discovery_shape(result.url, source):
         return
     canonical = canonicalize_url(result.url)
@@ -399,7 +405,40 @@ def _process_ats_result(
     if not title_matches(job_title, title_filters, excluded_title_terms):
         return
     enriched_location = str((enriched or {}).get("location") or "")
-    if enriched_location and not location_matches(enriched_location, location):
+    candidate = {
+        "title": enriched.get("title", job_title) if enriched else job_title,
+        "company": (enriched or {}).get("company") or company_name_from_url(result.url) or "",
+        "location": enriched_location or location,
+        "url": result.url,
+        "posted_date_text": (enriched or {}).get("posted_date_text", ""),
+        "snippet": (enriched or {}).get("snippet", result.description),
+        "source": (
+            f"{result.source} ATS discovery: {source} API" if enriched else f"{result.source} ATS discovery: {source}"
+        ),
+        "search_query": query,
+        "location_restrictions": [enriched_location] if enriched_location else [],
+        "region": region_name,
+    }
+    if enriched_location:
+        # JobPolicy is the source of truth for location compatibility: it accepts
+        # country-level ("Germany"), remote-country ("Remote Germany"), and broad
+        # region ("Europe"/"EMEA"/"MENA"/"GCC"/"Middle East") locations that a
+        # plain substring match against the configured city would wrongly drop,
+        # while still rejecting wrong-country restrictions ("United States").
+        policy = JobPolicy({})
+        effective_region_config = region_config or {"location": location}
+        if policy.has_incompatible_location_metadata(candidate, effective_region_config) or policy.has_wrong_location(
+            candidate, effective_region_config
+        ):
+            if log_skips:
+                logger.debug(
+                    "[search-discovery] %s location mismatch, skipping: %s",
+                    source,
+                    result.url,
+                )
+            return
+    elif source in _ATS_LOCATION_VERIFIABLE and not _verify_ats_location(result.url, source, location):
+        # ATS-specific verifier fallback: only when enrichment yielded no location.
         if log_skips:
             logger.debug(
                 "[search-discovery] %s location mismatch, skipping: %s",
@@ -407,35 +446,7 @@ def _process_ats_result(
                 result.url,
             )
         return
-    if (
-        not enriched_location
-        and source in _ATS_LOCATION_VERIFIABLE
-        and not _verify_ats_location(result.url, source, location)
-    ):
-        if log_skips:
-            logger.debug(
-                "[search-discovery] %s location mismatch, skipping: %s",
-                source,
-                result.url,
-            )
-        return
-    jobs.append(
-        {
-            "title": enriched.get("title", job_title) if enriched else job_title,
-            "company": (enriched or {}).get("company") or company_name_from_url(result.url) or "",
-            "location": enriched_location or location,
-            "url": result.url,
-            "posted_date_text": (enriched or {}).get("posted_date_text", ""),
-            "snippet": (enriched or {}).get("snippet", result.description),
-            "source": (
-                f"{result.source} ATS discovery: {source} API"
-                if enriched
-                else f"{result.source} ATS discovery: {source}"
-            ),
-            "search_query": query,
-            "location_restrictions": [enriched_location] if enriched_location else [],
-        }
-    )
+    jobs.append(candidate)
 
 
 def _discover_region(
@@ -477,6 +488,8 @@ def _discover_region(
                         excluded_title_terms,
                         seen,
                         jobs,
+                        region_name,
+                        region_config,
                     )
 
     return jobs
@@ -549,6 +562,8 @@ def discover_ats_jobs_by_search(
                             excluded_title_terms,
                             seen,
                             jobs,
+                            region_name,
+                            region_config,
                             log_skips=True,
                         )
 

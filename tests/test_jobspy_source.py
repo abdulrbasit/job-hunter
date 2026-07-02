@@ -349,3 +349,36 @@ class TestJobSpyAutoSelection:
         for call in captured:
             assert call.get("google_search_term") == "Data Scientist jobs near Austin"
             assert call.get("search_term") == "Data Scientist"
+
+    def _capture_results_wanted(self, monkeypatch, max_results: int) -> list[int]:
+        import job_hunter.sources.boards.jobspy as jspy_mod
+
+        monkeypatch.setattr(jspy_mod, "_DISABLED_SITES", set())
+        captured: list[int] = []
+
+        def fake_scrape(**kw) -> None:
+            captured.append(kw["results_wanted"])
+            return None
+
+        monkeypatch.setitem(
+            __import__("sys").modules,
+            "jobspy",
+            SimpleNamespace(scrape_jobs=fake_scrape),
+        )
+        with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=_BASE_CFG):
+            JobSpySource().fetch(mk_params(["Software Engineer"], _US, max_results=max_results))
+        return captured
+
+    def test_standard_pass_keeps_current_results_wanted(self, monkeypatch) -> None:
+        captured = self._capture_results_wanted(monkeypatch, max_results=50)
+
+        assert captured and all(n == 50 for n in captured)
+
+    def test_deep_pass_raises_results_wanted_with_code_owned_cap(self, monkeypatch) -> None:
+        from job_hunter.sources.boards.jobspy import _MAX_RESULTS_PER_QUERY
+
+        captured = self._capture_results_wanted(monkeypatch, max_results=150)
+        assert captured and all(n == 150 for n in captured)
+
+        capped = self._capture_results_wanted(monkeypatch, max_results=10_000)
+        assert capped and all(n == _MAX_RESULTS_PER_QUERY for n in capped)

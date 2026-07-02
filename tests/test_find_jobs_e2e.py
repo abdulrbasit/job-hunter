@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from job_hunter import agent_context
-from job_hunter.models import ScrapeStats
 from job_hunter.pipeline import hunt as hunt_pipeline
 
 _FAKE_JOBS = [
@@ -36,21 +35,16 @@ _FAKE_JOBS = [
 
 
 def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -> None:
-    """run_hunt_scrape_only inserts jobs into DB and returns (run_id, count, stats)."""
+    """run_hunt_scrape_only inserts jobs into DB and returns (run_id, count, stats).
+
+    run_hunt_scrape_only routes through the adaptive per-region hunt, so mock
+    _adaptive_region_hunt (the per-region unit) rather than a one-shot scrape.
+    """
     from job_hunter.tracking.repository import get_discovered_jobs
 
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "_jobs_from_hunt",
-        lambda region, depth="standard": (
-            _FAKE_JOBS,
-            set(),
-            set(),
-            ScrapeStats(total_fetched=2, total_after_policy=2),
-        ),
-    )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: jobs)
+    monkeypatch.setattr(hunt_pipeline, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt_pipeline, "enabled_regions", lambda _config, _region: {"primary": {}})
+    monkeypatch.setattr(hunt_pipeline, "_adaptive_region_hunt", lambda *_a, **_k: _FAKE_JOBS)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
@@ -66,18 +60,9 @@ def test_agent_mode_scrape_writes_candidates_file(monkeypatch, tmp_path: Path) -
 
 def test_agent_context_brief_reads_candidates_file(monkeypatch, tmp_path: Path) -> None:
     """After scrape, agent-context build_candidate_queue finds the candidates file."""
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "_jobs_from_hunt",
-        lambda region, depth="standard": (
-            _FAKE_JOBS,
-            set(),
-            set(),
-            ScrapeStats(total_fetched=2, total_after_policy=2),
-        ),
-    )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: jobs)
+    monkeypatch.setattr(hunt_pipeline, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt_pipeline, "enabled_regions", lambda _config, _region: {"primary": {}})
+    monkeypatch.setattr(hunt_pipeline, "_adaptive_region_hunt", lambda *_a, **_k: _FAKE_JOBS)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
@@ -98,11 +83,9 @@ def test_agent_mode_empty_scrape_writes_zero_count_file(monkeypatch, tmp_path: P
     """Even with 0 results, run_hunt_scrape_only returns count=0 and run_id string."""
     from job_hunter.tracking.repository import get_discovered_jobs
 
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "_jobs_from_hunt",
-        lambda region, depth="standard": ([], set(), set(), ScrapeStats()),
-    )
+    monkeypatch.setattr(hunt_pipeline, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt_pipeline, "enabled_regions", lambda _config, _region: {"primary": {}})
+    monkeypatch.setattr(hunt_pipeline, "_adaptive_region_hunt", lambda *_a, **_k: [])
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 

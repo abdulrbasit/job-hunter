@@ -41,29 +41,6 @@ _ADAPTIVE_PASSES: tuple[tuple[str, dict[str, Any]], ...] = (
 )
 
 
-def _jobs_from_hunt(
-    region: str | None = None, depth: str = "standard"
-) -> tuple[list[dict[str, Any]], set[str], set[str], ScrapeStats]:
-    """Scrape all enabled sources, then deduplicate against processed jobs."""
-    postings, stats = scrape_with_stats(region=region, depth=depth)
-    jobs = [posting.model_dump() for posting in postings]
-    if not jobs:
-        return [], set(), set(), stats
-    new_jobs, existing_urls = filter_new_jobs(jobs)
-    seen_canonical: set[str] = set()
-    deduped: list[dict[str, Any]] = []
-    for job in new_jobs:
-        c = canonicalize_url(job.get("url", ""))
-        if not c or c not in seen_canonical:
-            if c:
-                seen_canonical.add(c)
-            deduped.append(job)
-    dropped = len(new_jobs) - len(deduped)
-    if dropped:
-        logger.info("[pipeline] Dropped %s canonical-URL duplicate(s) before enrichment", dropped)
-    return deduped, existing_urls, set(), stats
-
-
 def _drop_dead_urls(
     jobs: list[dict[str, Any]],
     api_config: dict[str, Any],
@@ -250,26 +227,20 @@ def _adaptive_region_hunt(
     return quality_jobs
 
 
-def run_hunt(
-    args: dict,
+def _adaptive_hunt(
+    regions: dict[str, dict[str, Any]],
     api_config: dict[str, Any],
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
-) -> tuple[list[dict[str, Any]], set[str], set[str]]:
-    """Execute the hunt mode: adaptive per-region scrape, URL-check, enrich.
+) -> tuple[list[dict[str, Any]], ScrapeStats]:
+    """Escalate every region in `regions` through _adaptive_region_hunt, returning
+    deduped quality candidates ready for DB insert/scoring plus accumulated stats.
 
-    Each enabled region escalates independently through _ADAPTIVE_PASSES until
-    it reaches the quality target (scoring.batch_size or DEFAULT_BATCH_SIZE) or
-    every pass has run — so a small region (e.g. Bahrain) gets its own full
-    pass budget instead of being diluted inside one global scrape+filter run
-    dominated by larger regions (e.g. Germany).
+    Shared by run_hunt (llm-api) and run_hunt_scrape_only (agent/scrape-only) so
+    both modes get the same per-region escalation: each region (e.g. Bahrain)
+    gets its own full pass budget instead of being diluted inside one global
+    scrape+filter run dominated by larger regions (e.g. Germany).
     """
-    config = load_search_config()
-    regions = enabled_regions(config, args.get("region"))
-    if not regions:
-        logger.warning("[pipeline] No enabled regions found in config/job_hunter.yml")
-        return [], set(), set()
-
     target = _quality_target(scoring_config)
     logger.info("[pipeline] Adaptive hunt: %d region(s), target=%d quality jobs each", len(regions), target)
 
@@ -291,6 +262,23 @@ def run_hunt(
             len(regions),
             stats.under_target_regions,
         )
+    return all_jobs, stats
+
+
+def run_hunt(
+    args: dict,
+    api_config: dict[str, Any],
+    scoring_config: dict[str, Any],
+    url_liveness: UrlLivenessCache,
+) -> tuple[list[dict[str, Any]], set[str], set[str]]:
+    """Execute the hunt mode: adaptive per-region scrape, URL-check, enrich."""
+    config = load_search_config()
+    regions = enabled_regions(config, args.get("region"))
+    if not regions:
+        logger.warning("[pipeline] No enabled regions found in config/job_hunter.yml")
+        return [], set(), set()
+
+    all_jobs, _stats = _adaptive_hunt(regions, api_config, scoring_config, url_liveness)
     if not all_jobs:
         logger.warning("[pipeline] No new jobs found. Exiting.")
         return [], set(), set()
@@ -305,7 +293,11 @@ def run_hunt_scrape_only(
     url_checker: Any = None,
     depth: str = "standard",
 ) -> tuple[str, int, ScrapeStats]:
-    """Run scrape, dedup, URL check, enrichment, then write jobs to DB.
+    """Adaptive per-region scrape (same escalation as run_hunt), URL-check,
+    enrichment, screening, then write jobs to DB.
+
+    `depth` is accepted for CLI/API compatibility but unused: adaptive mode
+    always escalates through its own fixed pass depths (see run_hunt).
 
     Returns (run_id, candidate_count, stats).
     """
@@ -314,48 +306,18 @@ def run_hunt_scrape_only(
     root = Path(root)
     now = datetime.now(UTC)
     run_id = now.strftime("%Y%m%dT%H%M%SZ")
-    jobs, _existing_urls, _existing_titles, stats = _jobs_from_hunt(region, depth=depth)
-    deduped_count = len(jobs)
-    after_quality_gate_count = deduped_count
+    scoring_config = get_config("job_hunter")
 
-    if jobs:
-        before_dead = jobs
-        jobs = _drop_dead_urls(jobs, api_config or {}, url_checker)
-        _merge_counts(stats.dead_by_source, _dropped_by_source(before_dead, jobs))
-    if jobs:
-        _scoring_config = get_config("job_hunter")
-        jobs, pre_enrich_rejected = apply_pre_enrichment_quality_gate(jobs, _scoring_config)
-        after_quality_gate_count = len(jobs)
-        if pre_enrich_rejected:
-            logger.info("[pipeline] Pre-enrichment gate dropped %s job(s)", len(pre_enrich_rejected))
-        jobs = _enrich(jobs, api_config or {})
-        before_closed = jobs
-        jobs = _drop_closed_postings(jobs)
-        _merge_counts(stats.closed_by_source, _dropped_by_source(before_closed, jobs))
-    if jobs:
-        jobs, rejected = screen_jobs_by_rules(jobs, get_config("job_hunter"))
-        if rejected:
-            logger.info("[pipeline] Objective screen rejected %s job(s)", len(rejected))
+    config = load_search_config()
+    regions = enabled_regions(config, region)
+    if not regions:
+        logger.warning("[pipeline] No enabled regions found in config/job_hunter.yml")
+        jobs: list[dict[str, Any]] = []
+        stats = ScrapeStats()
+    else:
+        url_liveness = UrlLivenessCache(checker=url_checker)
+        jobs, stats = _adaptive_hunt(regions, api_config or {}, scoring_config, url_liveness)
     stats.total_after_policy = len(jobs)
-
-    # Single log line per region touched by this scrape-only run. dead_url/closed
-    # are run-wide (not tracked per region upstream of enrichment), so they're
-    # reported once rather than duplicated identically across region lines.
-    target = _quality_target(get_config("job_hunter"))
-    for region_key in stats.fetched_by_region:
-        logger.info(
-            "region=%s fetched=%d deduped=%d after_policy=%d after_quality_gate=%d "
-            "dead_url=%d closed=%d final_candidates=%d target_met=%s",
-            region_key,
-            stats.fetched_by_region.get(region_key, 0),
-            deduped_count,
-            stats.accepted_by_region.get(region_key, 0),
-            after_quality_gate_count,
-            sum(stats.dead_by_source.values()),
-            sum(stats.closed_by_source.values()),
-            len(jobs),
-            str(len(jobs) >= target).lower(),
-        )
 
     # Write to DB (replaces snapshot JSON)
     if jobs:

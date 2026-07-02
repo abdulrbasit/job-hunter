@@ -20,7 +20,7 @@ import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.config.secrets import RAPIDAPI_KEY
-from job_hunter.constants import JOB_BOARD_SNIPPET_CHARS
+from job_hunter.constants import JOB_BOARD_SNIPPET_CHARS, MAX_SAFE_PAGES_PER_SOURCE
 from job_hunter.core.api_budget import (
     is_api_quota_exhausted,
     mark_api_exhausted,
@@ -39,6 +39,8 @@ from job_hunter.sources.source_config import (
 
 # Arbeitnow's API doesn't document a per_page param; ~100 results/page is observed.
 _ARBEITNOW_PAGE_SIZE = 100
+# JSearch returns ~10 results per page on the free tier.
+_JSEARCH_PAGE_SIZE = 10
 
 _TIMEOUT = get_timeout("job_boards")
 _JSEARCH_FAILURES = 0
@@ -206,7 +208,11 @@ class JSearchSource(JobSourceAdapter):
         if _jsearch_suppressed():
             return []
 
-        num_pages = int(jsearch_config.get("num_pages", 1))
+        # Configured num_pages is the standard-pass default; params.max_results
+        # (the deep/adaptive signal) can raise pages, but never past the
+        # code-owned MAX_SAFE_PAGES_PER_SOURCE ceiling — config cannot either.
+        configured_pages = max(1, min(int(jsearch_config.get("num_pages", 1)), MAX_SAFE_PAGES_PER_SOURCE))
+        num_pages = pages_for_max_results(params.max_results, _JSEARCH_PAGE_SIZE, base_cap=configured_pages)
         location_filter = params.location
         country = params.country
         language = params.search_lang
@@ -223,6 +229,7 @@ class JSearchSource(JobSourceAdapter):
             query = f"{base_query} {exclusions}".strip() if exclusions else base_query
 
             for page in range(1, num_pages + 1):
+                logger.info("[jsearch] page=%d/%d query=%r", page, num_pages, query)
                 req_params: dict = {
                     "query": query,
                     "page": str(page),

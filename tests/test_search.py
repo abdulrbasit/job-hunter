@@ -137,6 +137,62 @@ def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -
     assert jobs[0]["source"] == "SearXNG ATS discovery: smartrecruiters"
 
 
+def test_discover_ats_jobs_by_search_sets_region_for_bahrain(monkeypatch) -> None:
+    """ATS discovery jobs must carry the source region (task: region propagation),
+    not fall back to an empty/"unknown" region."""
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
+
+    class FakeRouter:
+        def __init__(self, provider_order, **kwargs) -> None:
+            pass
+
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return StaticProvider().search(query, region_config, count=count)
+
+    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(
+        _ats_mod,
+        "_search_config",
+        lambda: {"ats_discovery": {"enabled": True, "sources": ["smartrecruiters"], "results_per_query": 10}},
+    )
+    monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
+
+    jobs = search.discover_ats_jobs_by_search(
+        ["Product Manager"],
+        {"BH": {"location": "Manama", "country": "BH"}},
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0]["region"] == "BH"
+
+
+def test_discover_ats_jobs_by_search_sets_region_for_germany(monkeypatch) -> None:
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
+
+    class FakeRouter:
+        def __init__(self, provider_order, **kwargs) -> None:
+            pass
+
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return StaticProvider().search(query, region_config, count=count)
+
+    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(
+        _ats_mod,
+        "_search_config",
+        lambda: {"ats_discovery": {"enabled": True, "sources": ["smartrecruiters"], "results_per_query": 10}},
+    )
+    monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
+
+    jobs = search.discover_ats_jobs_by_search(
+        ["Product Manager"],
+        {"DE": {"location": "Berlin", "country": "DE"}},
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0]["region"] == "DE"
+
+
 def test_discover_ats_jobs_respects_query_caps(monkeypatch) -> None:
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
     queries = []
@@ -230,6 +286,106 @@ def test_discover_region_dedupes_by_canonical_url(monkeypatch) -> None:
     )
 
     assert len(jobs) == 1
+    assert jobs[0]["region"] == "berlin"
+
+
+def test_discover_region_sets_region_and_validates_as_job_posting(monkeypatch) -> None:
+    """_discover_region jobs must carry the source region and still validate as
+    a JobPosting (region propagation must not break the model contract)."""
+    from job_hunter.models import JobPosting
+
+    class OneResultProvider:
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return [
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/22222222-2222-2222-2222-222222222222",
+                    title="Product Manager",
+                    description="role",
+                    source="static",
+                )
+            ]
+
+    monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
+
+    jobs = _ats_mod._discover_region(
+        "BH",
+        {"location": "Manama", "country": "BH"},
+        ["Product Manager"],
+        [],
+        ["lever"],
+        OneResultProvider(),
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0]["region"] == "BH"
+    posting = JobPosting.model_validate(jobs[0])
+    assert posting.region == "BH"
+
+
+def _discover_with_enriched_location(monkeypatch, enriched_location: str, region_name: str, region_config: dict):
+    """Run _discover_region with one lever result whose enrichment reports enriched_location."""
+
+    class OneResultProvider:
+        def search(self, query: str, region_config: dict, count: int = 10):
+            return [
+                _ats_mod.SearchResult(
+                    url="https://jobs.lever.co/acme/44444444-4444-4444-4444-444444444444",
+                    title="Product Manager",
+                    description="role",
+                    source="static",
+                )
+            ]
+
+    monkeypatch.setattr(
+        _ats_mod,
+        "_enrich_ats_discovery_job",
+        lambda _url: {
+            "title": "Product Manager",
+            "company": "Acme",
+            "location": enriched_location,
+            "snippet": "Own the roadmap.",
+        },
+    )
+
+    return _ats_mod._discover_region(
+        region_name,
+        region_config,
+        ["Product Manager"],
+        [],
+        ["lever"],
+        OneResultProvider(),
+        max_queries_per_region=1,
+    )
+
+
+def test_ats_discovery_accepts_broad_region_locations_for_germany(monkeypatch) -> None:
+    """JobPolicy (not substring match against the configured city) decides location
+    compatibility: country-level, remote-country, and broad-region enriched
+    locations must all be accepted for a Berlin/DE region."""
+    for enriched_location in ("Germany", "Remote Germany", "Europe", "EMEA"):
+        jobs = _discover_with_enriched_location(
+            monkeypatch, enriched_location, "berlin", {"location": "Berlin", "country": "DE"}
+        )
+        assert len(jobs) == 1, f"dropped valid location: {enriched_location}"
+        assert jobs[0]["location"] == enriched_location
+
+
+def test_ats_discovery_accepts_broad_region_locations_for_bahrain(monkeypatch) -> None:
+    for enriched_location in ("Middle East", "GCC", "MENA"):
+        jobs = _discover_with_enriched_location(
+            monkeypatch, enriched_location, "bahrain", {"location": "Manama", "country": "BH"}
+        )
+        assert len(jobs) == 1, f"dropped valid location: {enriched_location}"
+
+
+def test_ats_discovery_rejects_wrong_region_locations(monkeypatch) -> None:
+    for enriched_location, region_name, region_config in (
+        ("United States", "bahrain", {"location": "Manama", "country": "BH"}),
+        ("US only", "berlin", {"location": "Berlin", "country": "DE"}),
+        ("Remote US", "berlin", {"location": "Berlin", "country": "DE"}),
+    ):
+        jobs = _discover_with_enriched_location(monkeypatch, enriched_location, region_name, region_config)
+        assert jobs == [], f"accepted wrong-region location: {enriched_location}"
 
 
 def test_discover_region_rejects_closed_postings(monkeypatch) -> None:

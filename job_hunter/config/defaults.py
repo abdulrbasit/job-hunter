@@ -69,6 +69,8 @@ JOB_BOARD_SOURCE_NAMES: tuple[str, ...] = (
     "jobstreet",
     "jobbank",
     "gulftalent",
+    "bayt",
+    "hh",
     "arbeitsagentur",
     "arbeitnow",
     "jsearch",

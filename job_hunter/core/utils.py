@@ -98,13 +98,8 @@ def location_matches(location: str, filter_location: str) -> bool:
 
 
 def url_is_alive(url: str, timeout: int = 10) -> bool:
-    """Return True if url returns a 2xx/3xx response to a HEAD request."""
-    if not url:
-        return False
-    try:
-        import requests
+    """Compatibility alias — job_hunter.core.url_liveness is the single implementation
+    (HEAD→GET fallback, bot-block tolerance, closed-posting body check)."""
+    from job_hunter.core.url_liveness import url_is_alive as _url_is_alive
 
-        resp = requests.head(url, timeout=timeout, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-        return resp.status_code < 400 or resp.status_code == 403
-    except Exception:
-        return False
+    return _url_is_alive(url, timeout)

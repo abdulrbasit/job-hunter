@@ -259,11 +259,11 @@ def test_skip_score_bypasses_scoring_and_wraps_jobs_as_zero_score_matches() -> N
     assert all(match["score"] == 0 for match in processed_matches)
 
 
-def test_pre_llm_gate_rejecting_all_jobs_yields_no_processed_matches() -> None:
+def test_quality_gate_rejecting_all_jobs_yields_no_processed_matches() -> None:
     jobs = [_match(0)["job"]]
 
     with (
-        patch("job_hunter.pipeline.stages.processing.apply_pre_llm_quality_gate", return_value=([], jobs)),
+        patch("job_hunter.pipeline.stages.processing.apply_pre_scoring_quality_gate", return_value=([], jobs)),
         patch("job_hunter.pipeline.stages.processing.score_and_filter_jobs") as score_and_filter_jobs,
     ):
         processed = processing.process_jobs(
@@ -353,3 +353,33 @@ def test_finalize_processed_batch_is_a_noop_when_nothing_processed() -> None:
 
     update_readme.assert_not_called()
     mark_processed.assert_not_called()
+
+
+def test_excluded_title_jobs_never_reach_llm_scoring() -> None:
+    """Objective screening runs before the quality gate and before scoring, so
+    an excluded-title job must never appear in score_and_filter_jobs input."""
+    good = _match(0)["job"]
+    excluded = {**_match(1)["job"], "title": "Staff Product Manager"}
+    scored_inputs: list[list[dict]] = []
+
+    def fake_score(jobs, config):
+        scored_inputs.append(jobs)
+        return [{"score": 90, "matched_keywords": [], "gaps": [], "job": job} for job in jobs]
+
+    with (
+        patch("job_hunter.pipeline.stages.processing.score_and_filter_jobs", side_effect=fake_score),
+        patch("job_hunter.pipeline.stages.processing._process_match", return_value=True),
+    ):
+        processing.process_jobs(
+            [good, excluded],
+            skip_validate=True,
+            skip_score=False,
+            max_years=4,
+            api_config={},
+            scoring_config={"scoring": {}, "exclusions": {"title_terms": ["staff"]}, "regions": {}},
+        )
+
+    assert len(scored_inputs) == 1
+    scored_titles = [job["title"] for job in scored_inputs[0]]
+    assert "Staff Product Manager" not in scored_titles
+    assert good["title"] in scored_titles

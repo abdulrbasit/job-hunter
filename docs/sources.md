@@ -56,7 +56,7 @@ rendered fetch would.
 | `hh` | no-key | region-specific (Russia/CIS) | structured API |
 | `jobspy` | no-key | global (Google Jobs + Indeed via python-jobspy) | scraped, per-site format |
 | `gulftalent`, `bayt` | no-key | region-specific (Gulf/Middle East) | fragile HTML (anti-bot-protected; multi-strategy parsing, no rendering fallback) |
-| `careerjet` | optional free key (affiliate id) | global (90+ locales) | structured API |
+| `careerjet` | optional free key (affiliate id) | global (90+ locales; skips countries without a Careerjet locale instead of falling back to en_GB) | structured API |
 | `adzuna` | optional free key | region-specific (per-country allowlist) | structured API |
 | `jooble` | optional free key | global | structured API |
 | `reed` | optional free key | region-specific (UK) | structured API |

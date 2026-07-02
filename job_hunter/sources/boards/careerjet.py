@@ -115,7 +115,12 @@ class CareerjetSource(JobSourceAdapter):
         timeout = int(source_config.get("timeout_seconds") or get_timeout("job_boards"))
         max_pages = pages_for_max_results(params.max_results, _PAGE_SIZE, base_cap=source_page_cap())
         country = params.country.upper()
-        locale_code = _ISO_TO_LOCALE.get(country, "en_GB")
+        locale_code = _ISO_TO_LOCALE.get(country)
+        if not locale_code:
+            # No en_GB fallback: querying the UK locale for an unsupported country
+            # would return wrong-country results. Skip this source for the region.
+            logger.info("[careerjet] [%s] country %r not supported — skipping", params.region_key, country)
+            return []
         location = params.location
         jobs: list[JobPosting] = []
 

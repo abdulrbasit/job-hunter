@@ -2,28 +2,19 @@ from __future__ import annotations
 
 import json
 
-from job_hunter.models import ScrapeStats
 from job_hunter.pipeline import hunt as hunt_pipeline
 
 
 def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, tmp_path) -> None:
+    """run_hunt_scrape_only routes through the adaptive per-region hunt, not a
+    one-shot scrape — mock _adaptive_region_hunt (the per-region unit) instead."""
     from job_hunter.tracking.repository import get_discovered_jobs
 
     jobs = [{"title": "PM", "company": "Acme", "url": "https://example.com/pm"}]
-    enriched = [{**jobs[0], "snippet": "rich"}]
 
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "_jobs_from_hunt",
-        lambda region, depth="standard": (
-            jobs,
-            {"https://example.com/old"},
-            set(),
-            ScrapeStats(total_fetched=1, total_after_policy=1),
-        ),
-    )
-    monkeypatch.setattr(hunt_pipeline, "_drop_dead_urls", lambda jobs, api_config, checker: jobs)
-    monkeypatch.setattr(hunt_pipeline, "_enrich", lambda jobs, api_config: enriched)
+    monkeypatch.setattr(hunt_pipeline, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt_pipeline, "enabled_regions", lambda _config, _region: {"primary": {}})
+    monkeypatch.setattr(hunt_pipeline, "_adaptive_region_hunt", lambda *_a, **_k: jobs)
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 
@@ -44,11 +35,9 @@ def test_run_hunt_scrape_only_writes_snapshot_with_tracker_context(monkeypatch, 
 def test_run_hunt_scrape_only_writes_empty_snapshot(monkeypatch, tmp_path) -> None:
     from job_hunter.tracking.repository import get_discovered_jobs
 
-    monkeypatch.setattr(
-        hunt_pipeline,
-        "_jobs_from_hunt",
-        lambda region, depth="standard": ([], set(), set(), ScrapeStats()),
-    )
+    monkeypatch.setattr(hunt_pipeline, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt_pipeline, "enabled_regions", lambda _config, _region: {"primary": {}})
+    monkeypatch.setattr(hunt_pipeline, "_adaptive_region_hunt", lambda *_a, **_k: [])
     monkeypatch.setattr(hunt_pipeline, "load_cached_candidate_urls", lambda: set())
     monkeypatch.setattr(hunt_pipeline, "save_cached_candidate_urls", lambda _urls: None)
 

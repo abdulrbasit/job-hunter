@@ -53,7 +53,7 @@ Hunt flow:
 
 1. Resolve region and discover postings through `sources/orchestrator.py`.
 2. Deduplicate, enrich descriptions, and reject closed listings.
-3. Screen objective exclusions and apply the pre-LLM gate.
+3. Screen objective exclusions and apply the quality gate (rank/cap before LLM scoring).
 4. Validate, score, research, tailor, write cover letters, and compile PDFs.
 5. Persist job/application state, generated artifacts, README summaries, and
    telemetry.

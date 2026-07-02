@@ -1,12 +1,19 @@
 """Deterministic quality gate. No LLM calls — purely keyword scoring.
 
+This gate ranks/caps candidates before expensive stages. It is NOT a hard
+rejection layer: hard exclusions (excluded titles, companies, locations, …)
+are enforced by JobPolicy and the objective screen (stages/screening.py),
+which always run before LLM scoring.
+
 Two gates in the pipeline:
   apply_pre_enrichment_quality_gate — caps volume before expensive HTTP JD fetches
-  apply_pre_llm_quality_gate        — filters + caps before LLM scoring calls
+  apply_pre_scoring_quality_gate    — ranks + caps before LLM scoring calls
 
 Scoring folds in config.exclusions.title_terms (the same deterministic title
-exclusion JobPolicy and the source adapters apply) so quality/rejection reasons
-show up in _pre_llm_reasons even when the gate itself is what ranks a job out.
+exclusion JobPolicy and the source adapters apply) as a *ranking signal only*
+so quality/rejection reasons show up in _quality_reasons — one excluded term
+scores -5 against a -10 threshold and does not by itself reject the job here;
+screen_jobs_by_rules is what hard-rejects it.
 
 Both are no-ops when disabled or when positive_terms/negative_terms are empty.
 """
@@ -43,6 +50,8 @@ _GATE_DEFAULTS: dict[str, Any] = {
 
 def _resolve_gate_config(config: dict[str, Any]) -> dict[str, Any]:
     """Merge user config over defaults. Single config-lookup point."""
+    # Config key stays "pre_llm_gate" for compatibility with existing user configs;
+    # the feature itself is now called the quality gate everywhere else.
     user_config = config.get("scoring", {}).get("pre_llm_gate", {}) or {}
     merged = {**_GATE_DEFAULTS, **user_config}
     # Nested weights dict needs its own merge so partial overrides work.
@@ -53,12 +62,12 @@ def _resolve_gate_config(config: dict[str, Any]) -> dict[str, Any]:
 def score_quality_signals(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
     """Score a job dict deterministically against positive/negative term lists.
 
-    Adds _pre_llm_score (float) and _pre_llm_reasons (list[str]) to the job.
+    Adds _quality_score (float) and _quality_reasons (list[str]) to the job.
     Returns a new dict — does not mutate the input.
     """
     gate_config = _resolve_gate_config(config)
     if not gate_config["enabled"]:
-        return {**job, "_pre_llm_score": 0.0, "_pre_llm_reasons": []}
+        return {**job, "_quality_score": 0.0, "_quality_reasons": []}
 
     title = (job.get("title") or "").lower()
     snippet = (job.get("snippet") or "").lower()
@@ -92,16 +101,16 @@ def score_quality_signals(job: dict[str, Any], config: dict[str, Any]) -> dict[s
             score += weights["title_negative"]
             reasons.append(f"title:excluded:{term}")
 
-    return {**job, "_pre_llm_score": score, "_pre_llm_reasons": reasons}
+    return {**job, "_quality_score": score, "_quality_reasons": reasons}
 
 
 def rank_jobs_by_quality(jobs: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Sort jobs by _pre_llm_score descending. Scores jobs that haven't been scored yet."""
+    """Sort jobs by _quality_score descending. Scores jobs that haven't been scored yet."""
     gate_config = _resolve_gate_config(config)
     if not gate_config["enabled"]:
         return jobs
-    scored = [j if "_pre_llm_score" in j else score_quality_signals(j, config) for j in jobs]
-    return sorted(scored, key=lambda j: j.get("_pre_llm_score", 0.0), reverse=True)
+    scored = [j if "_quality_score" in j else score_quality_signals(j, config) for j in jobs]
+    return sorted(scored, key=lambda j: j.get("_quality_score", 0.0), reverse=True)
 
 
 def apply_pre_enrichment_quality_gate(
@@ -125,7 +134,7 @@ def apply_pre_enrichment_quality_gate(
     return ranked[:cap], ranked[cap:]
 
 
-def apply_pre_llm_quality_gate(
+def apply_pre_scoring_quality_gate(
     jobs: list[dict[str, Any]], config: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Filter and cap jobs before LLM scoring.
@@ -142,8 +151,8 @@ def apply_pre_llm_quality_gate(
 
     scored = [score_quality_signals(j, config) for j in jobs]
     min_score = gate_config["min_pre_score"]
-    above = [j for j in scored if j.get("_pre_llm_score", 0.0) >= min_score]
-    below = [j for j in scored if j.get("_pre_llm_score", 0.0) < min_score]
+    above = [j for j in scored if j.get("_quality_score", 0.0) >= min_score]
+    below = [j for j in scored if j.get("_quality_score", 0.0) < min_score]
 
     ranked = rank_jobs_by_quality(above, config)
     cap = gate_config["max_before_llm_scoring"]

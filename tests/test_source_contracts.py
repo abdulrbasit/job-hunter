@@ -157,3 +157,83 @@ def test_legacy_combined_board_module_is_backlog_documented() -> None:
     root = Path(__file__).resolve().parents[1]
     doc = (root / "docs" / "sources.md").read_text(encoding="utf-8")
     assert "sources/job_boards.py" in doc
+
+
+# ── Registry / defaults / docs consistency ────────────────────────────────────
+
+
+def test_every_registry_source_has_code_owned_http_defaults() -> None:
+    """BOARD_REGISTRY and JOB_BOARD_SOURCE_NAMES must not drift: every registered
+    source needs a code-owned HTTP default so it can be disabled via config."""
+    from job_hunter.config.defaults import HTTP_DEFAULTS, JOB_BOARD_SOURCE_NAMES
+
+    assert set(BOARD_REGISTRY) == set(JOB_BOARD_SOURCE_NAMES)
+    for source in BOARD_REGISTRY:
+        defaults = HTTP_DEFAULTS["job_boards"].get(source)
+        assert isinstance(defaults, dict), f"{source} missing from HTTP_DEFAULTS['job_boards']"
+        assert "enabled" in defaults, f"{source} defaults must expose an 'enabled' switch"
+
+
+def test_every_source_is_disabled_by_enabled_false() -> None:
+    """Setting http.job_boards.<source>.enabled=false must disable every adapter.
+
+    jsearch is the one exception: is_enabled() gates on the RapidAPI key and
+    enabled=false is honored inside _fetch instead (covered by
+    test_fetch_returns_empty_when_disabled in test_job_boards.py).
+    """
+    from contextlib import ExitStack
+
+    import job_hunter.sources.source_config as source_config
+
+    for source_name, adapter_type in BOARD_REGISTRY.items():
+        if source_name == "jsearch":
+            continue
+        adapter = adapter_type()
+        config = {"http": {"job_boards": {source_name: {"enabled": False}}}}
+        module = inspect.getmodule(adapter_type)
+        with ExitStack() as stack:
+            # Adapters read config either directly (module-level get_api_config)
+            # or via source_config.job_board_enabled — cover both.
+            stack.enter_context(patch.object(source_config, "get_api_config", return_value=config))
+            if hasattr(module, "get_api_config"):
+                stack.enter_context(patch.object(module, "get_api_config", return_value=config))
+            assert adapter.is_enabled(config) is False, f"{source_name} ignores enabled=false"
+
+
+def test_region_specific_sources_skip_unsupported_countries() -> None:
+    """No source may silently fall back to a wrong country for an unsupported
+    region — each must return [] without any HTTP call."""
+    from job_hunter.sources.boards.bayt import BaytSource
+    from job_hunter.sources.boards.careerjet import CareerjetSource
+    from job_hunter.sources.boards.gulftalent import GulfTalentSource
+    from job_hunter.sources.boards.jobicy import JobicySource
+    from job_hunter.sources.boards.jobstreet import JobStreetSource
+
+    unsupported = SearchParams(
+        region_key="sudan",
+        country="SD",
+        location="Khartoum",
+        search_lang="en",
+        job_titles=["Product Manager"],
+    )
+    careerjet_cfg = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": "x"}}}}
+
+    for adapter, module_path, extra_cfg in (
+        (CareerjetSource(), "job_hunter.sources.boards.careerjet", careerjet_cfg),
+        (GulfTalentSource(), "job_hunter.sources.boards.gulftalent", None),
+        (BaytSource(), "job_hunter.sources.boards.bayt", None),
+        (JobStreetSource(), "job_hunter.sources.boards.jobstreet", None),
+        (JobicySource(), "job_hunter.sources.boards.jobicy", None),
+    ):
+        patches = []
+        if extra_cfg is not None:
+            patches.append(patch(f"{module_path}.get_api_config", return_value=extra_cfg))
+        with patch(f"{module_path}.requests", autospec=True) as mock_requests:
+            mock_requests.get.side_effect = AssertionError(f"{adapter.source_name} must not call HTTP")
+            for p in patches:
+                p.start()
+            try:
+                assert adapter.fetch(unsupported) == [], f"{adapter.source_name} returned jobs for unsupported country"
+            finally:
+                for p in patches:
+                    p.stop()

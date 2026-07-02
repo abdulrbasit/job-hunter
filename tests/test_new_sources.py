@@ -1040,6 +1040,23 @@ class TestCareerjetSource:
             jobs = CareerjetSource().fetch(mk_params(["Software Engineer"], _DE))
         assert jobs == []
 
+    def test_unsupported_country_skips_without_api_call(self) -> None:
+        """No silent en_GB fallback: an unsupported country (e.g. BH-only Sudan/SD)
+        must skip Careerjet entirely instead of returning UK results."""
+        get_mock = MagicMock()
+        with (
+            patch(
+                "job_hunter.sources.boards.careerjet.get_api_config",
+                return_value=_CAREERJET_CFG,
+            ),
+            patch("job_hunter.sources.boards.careerjet.requests.get", get_mock),
+        ):
+            jobs = CareerjetSource().fetch(
+                mk_params(["Software Engineer"], {"sudan": {"country": "SD", "location": "Khartoum"}})
+            )
+        assert jobs == []
+        get_mock.assert_not_called()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Working Nomads

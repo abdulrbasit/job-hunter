@@ -444,3 +444,47 @@ class TestJSearchSource:
             assert src.fetch(mk_params(["Product Manager"], _REGIONS)) == []
             assert src.fetch(mk_params(["Product Manager"], _REGIONS)) == []
         assert calls["count"] == 1
+
+    def _count_pages(self, monkeypatch, max_results: int, num_pages_config: int = 1) -> int:
+        src = JSearchSource.__new__(JSearchSource)
+        src._rapidapi_key = "test-key"
+        config = {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": num_pages_config}}}}
+        monkeypatch.setattr(job_boards, "reserve_api_call", lambda _provider: True)
+        with (
+            patch("job_hunter.sources.job_boards.get_api_config", return_value=config),
+            patch(
+                "job_hunter.sources.job_boards.requests.get",
+                return_value=_make_response(json_data=JSEARCH_RESPONSE),
+            ) as mock_get,
+        ):
+            src.fetch(mk_params(["Product Manager"], _REGIONS, max_results=max_results))
+        return mock_get.call_count
+
+    def test_standard_pass_uses_configured_page_count(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert self._count_pages(monkeypatch, max_results=50) == 1
+
+    def test_deep_pass_uses_more_pages_capped_by_code(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from job_hunter.constants import MAX_SAFE_PAGES_PER_SOURCE
+
+        # max_results=150 at ~10/page needs 15 pages — code cap wins.
+        assert self._count_pages(monkeypatch, max_results=150) == MAX_SAFE_PAGES_PER_SOURCE
+
+    def test_config_cannot_raise_pages_beyond_code_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from job_hunter.constants import MAX_SAFE_PAGES_PER_SOURCE
+
+        assert self._count_pages(monkeypatch, max_results=50, num_pages_config=50) == MAX_SAFE_PAGES_PER_SOURCE
+
+    def test_deep_pass_stops_when_budget_reserve_denies(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        src = JSearchSource.__new__(JSearchSource)
+        src._rapidapi_key = "test-key"
+        grants = iter([True, True, False])
+        monkeypatch.setattr(job_boards, "reserve_api_call", lambda _provider: next(grants, False))
+        with (
+            patch("job_hunter.sources.job_boards.get_api_config", return_value=_ENABLED_JSEARCH_CFG),
+            patch(
+                "job_hunter.sources.job_boards.requests.get",
+                return_value=_make_response(json_data=JSEARCH_RESPONSE),
+            ) as mock_get,
+        ):
+            src.fetch(mk_params(["Product Manager"], _REGIONS, max_results=150))
+        assert mock_get.call_count == 2

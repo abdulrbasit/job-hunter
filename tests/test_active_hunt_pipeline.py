@@ -13,6 +13,7 @@ from job_hunter.sources.boards import careerjet as careerjet_source
 from job_hunter.sources.boards import himalayas as himalayas_source
 from job_hunter.sources.boards import jobicy as jobicy_source
 from job_hunter.sources.policy import JobPolicy
+from job_hunter.sources.search import ats_discovery as _ats_mod
 
 
 def _posting(**overrides) -> JobPosting:
@@ -182,6 +183,48 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
     assert [job.region for job in jobs] == ["berlin"]
 
 
+def test_ats_discovery_jobs_counted_under_source_region_not_unknown(monkeypatch) -> None:
+    """ATS-discovered jobs must carry region="berlin" so stats attribute them to
+    the region that was actually searched, not the "unknown" fallback bucket
+    (task: _process_ats_result must set "region" on every appended job dict)."""
+    config = {
+        "job_titles": ["Product Manager"],
+        "exclusions": {"companies": [], "title_terms": [], "industries": [], "languages": []},
+        "regions": {
+            "berlin": {"enabled": True, "country": "DE", "location": "Berlin", "search_lang": "en"},
+        },
+        "search": {},
+    }
+
+    monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
+    monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(
+        _ats_mod,
+        "discover_ats_jobs_by_search",
+        lambda *_a, **_k: [
+            {
+                "title": "Product Manager",
+                "company": "Acme",
+                "url": "https://jobs.lever.co/acme/33333333-3333-3333-3333-333333333333",
+                "location": "Berlin",
+                "source": "SearXNG ATS discovery: lever",
+                "region": "berlin",
+            }
+        ],
+    )
+
+    jobs, stats = orchestrator.scrape_with_stats(
+        depth="standard", include_boards=False, include_ats_slug=False, include_ats_discovery=True
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0].region == "berlin"
+    assert "unknown" not in stats.accepted_by_region
+    assert stats.accepted_by_region.get("berlin") == 1
+
+
 def test_deep_depth_passes_larger_max_results_than_standard() -> None:
     """_params_for_region only raises max_results for depth='deep' — the
     adaptive/deep-attempt signal paged adapters use to fetch more pages."""
@@ -333,22 +376,23 @@ def test_careerjet_stops_after_terminal_http_error(monkeypatch) -> None:
 
 
 def test_snapshot_updates_candidate_cache_and_contains_run_metadata(monkeypatch, tmp_path) -> None:
+    """run_hunt_scrape_only routes through the adaptive per-region hunt, so mock
+    _adaptive_region_hunt (the per-region unit) rather than a one-shot scrape."""
     from job_hunter.tracking.repository import get_discovered_jobs
 
     job = _posting().model_dump()
-    stats = ScrapeStats(total_fetched=2, total_after_dedup=1, total_after_policy=1, duration_seconds=1.25)
     saved: list[set[str]] = []
 
-    monkeypatch.setattr(hunt, "_jobs_from_hunt", lambda *_args, **_kwargs: ([job], set(), set(), stats))
-    monkeypatch.setattr(hunt, "_drop_dead_urls", lambda jobs, *_args: jobs)
-    monkeypatch.setattr(hunt, "_enrich", lambda jobs, _config: jobs)
+    monkeypatch.setattr(hunt, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt, "enabled_regions", lambda _config, _region: {"berlin": {}})
+    monkeypatch.setattr(hunt, "_adaptive_region_hunt", lambda *_a, **_k: [job])
     monkeypatch.setattr(hunt, "load_cached_candidate_urls", lambda: {"https://example.com/jobs/old"})
     monkeypatch.setattr(hunt, "save_cached_candidate_urls", lambda urls: saved.append(urls))
 
     run_id, count, returned_stats = hunt.run_hunt_scrape_only("berlin", tmp_path, api_config={})
 
     assert count == 1
-    assert returned_stats == stats
+    assert isinstance(returned_stats, ScrapeStats)
     assert isinstance(run_id, str) and "T" in run_id
     assert saved == [{"https://example.com/jobs/old", "https://example.com/jobs/pm"}]
     db_jobs = get_discovered_jobs(tmp_path, run_id=run_id)
@@ -535,3 +579,125 @@ def test_adaptive_hunt_three_regions_uneven_supply_respects_downstream_batch_siz
     batch = build_candidate_batch({"jobs": jobs}, batch_size=5)
     assert batch["count"] == 5
     assert len(batch["jobs"]) == 5
+
+
+def test_scrape_only_reaches_target_only_after_deep_pass_and_writes_db(monkeypatch, tmp_path) -> None:
+    """run_hunt_scrape_only (agent/scrape-only mode) must reuse the same adaptive
+    per-region escalation as run_hunt: the standard pass alone is short of the
+    conftest batch_size=15 target, so the deep pass has to run before target is
+    met, and only then are the accumulated quality jobs written to the DB."""
+    from job_hunter.tracking.repository import get_discovered_jobs
+
+    calls: list[str | None] = []
+    stub = _scrape_stub(standard=5, deep=11, ats_slug=20, ats_discovery=20)
+
+    def tracking_stub(region=None, **kwargs):
+        calls.append(kwargs.get("depth"))
+        return stub(region=region, **kwargs)
+
+    monkeypatch.setattr(hunt, "scrape_with_stats", tracking_stub)
+    _pass_through_quality_pipeline(monkeypatch)
+    monkeypatch.setattr(hunt, "load_search_config", lambda: {})
+    monkeypatch.setattr(hunt, "enabled_regions", lambda _config, _region: {"bh": {"country": "BH"}})
+    monkeypatch.setattr(hunt, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt, "save_cached_candidate_urls", lambda _urls: None)
+
+    run_id, count, _stats = hunt.run_hunt_scrape_only("bh", tmp_path, api_config={})
+
+    assert calls == ["fast", "deep"]  # standard pass alone (5) is under the target=15; deep pass fills the gap
+    assert count == 16  # 5 (standard) + 11 (deep)
+    db_jobs = get_discovered_jobs(tmp_path, run_id=run_id)
+    assert len(db_jobs) == 16
+
+
+def test_agent_mode_uses_adaptive_scraping(monkeypatch, tmp_path) -> None:
+    """run(inp) with mode="agent" must escalate per region: DE meets the target
+    in the standard pass, BH is short until deep_boards, and insert_jobs receives
+    the combined adaptive result."""
+    from job_hunter.models import HuntInput
+
+    calls: list[tuple[str | None, str | None]] = []
+    supply = {"de": {"fast": 20}, "bh": {"fast": 2, "deep": 20}}
+    counters = {"de": 0, "bh": 0}
+
+    def fake_scrape(
+        region=None, *, depth="standard", include_boards=True, include_ats_slug=True, include_ats_discovery=True
+    ):
+        if include_boards and depth == "fast":
+            key = "fast"
+        elif include_boards and depth == "deep":
+            key = "deep"
+        elif not include_boards and not include_ats_discovery:
+            key = "ats_slug"
+        else:
+            key = "ats_discovery"
+        calls.append((region, key))
+        n = supply.get(region, {}).get(key, 0)
+        counters[region] += 1
+        return _fake_postings(n, f"{region}-{key}-{counters[region]}"), ScrapeStats()
+
+    inserted: list[list[dict]] = []
+    monkeypatch.setattr(hunt, "scrape_with_stats", fake_scrape)
+    _pass_through_quality_pipeline(monkeypatch)
+    monkeypatch.setattr(hunt, "load_search_config", lambda: {})
+    monkeypatch.setattr(
+        hunt, "enabled_regions", lambda _config, _region: {"de": {"country": "DE"}, "bh": {"country": "BH"}}
+    )
+    monkeypatch.setattr(hunt, "insert_jobs", lambda _root, jobs, run_id: inserted.append(jobs) or len(jobs))
+    monkeypatch.setattr(hunt, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(hunt, "save_cached_candidate_urls", lambda _urls: None)
+
+    out = hunt.run(HuntInput(region_key="all", mode="agent"))
+
+    # conftest batch_size=15: DE meets it in pass 1; BH needs deep_boards.
+    assert [c for c in calls if c[0] == "de"] == [("de", "fast")]
+    assert [c for c in calls if c[0] == "bh"] == [("bh", "fast"), ("bh", "deep")]
+    assert len(inserted) == 1
+    assert len(inserted[0]) == 20 + 2 + 20
+    assert out.run_id
+
+
+def test_region_meeting_target_via_ats_discovery_is_not_under_target(monkeypatch) -> None:
+    stub = _scrape_stub(standard=1, deep=1, ats_slug=1, ats_discovery=10)
+    monkeypatch.setattr(hunt, "scrape_with_stats", stub)
+    _pass_through_quality_pipeline(monkeypatch)
+    stats = ScrapeStats()
+
+    jobs = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 5, stats)
+
+    assert len(jobs) == 13
+    assert stats.under_target_regions == []
+
+
+def test_under_target_region_logs_exhausted_passes(monkeypatch, caplog) -> None:
+    stub = _scrape_stub(standard=1, deep=1, ats_slug=1, ats_discovery=1)
+    monkeypatch.setattr(hunt, "scrape_with_stats", stub)
+    _pass_through_quality_pipeline(monkeypatch)
+    stats = ScrapeStats()
+
+    with caplog.at_level("INFO"):
+        hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 15, stats)
+
+    assert stats.under_target_regions == ["bh"]
+    under = [r.message for r in caplog.records if "status=under_target" in r.message]
+    assert under and "exhausted_passes=['standard', 'deep_boards', 'ats_slug', 'ats_discovery']" in under[0]
+
+
+def test_ats_discovery_jobs_keep_region_through_adaptive_hunt(monkeypatch) -> None:
+    """A job found only by the ats_discovery pass must reach the final adaptive
+    result with its source region intact (region propagation, task 8)."""
+
+    def fake_scrape(
+        region=None, *, depth="standard", include_boards=True, include_ats_slug=True, include_ats_discovery=True
+    ):
+        if not include_boards and not include_ats_slug:  # the ats_discovery pass
+            return [_posting(url="https://jobs.lever.co/acme/bh-1", region="BH")], ScrapeStats()
+        return [], ScrapeStats()
+
+    monkeypatch.setattr(hunt, "scrape_with_stats", fake_scrape)
+    _pass_through_quality_pipeline(monkeypatch)
+
+    jobs = hunt._adaptive_region_hunt("BH", {}, {}, MagicMock(), 5, ScrapeStats())
+
+    assert len(jobs) == 1
+    assert jobs[0]["region"] == "BH"
