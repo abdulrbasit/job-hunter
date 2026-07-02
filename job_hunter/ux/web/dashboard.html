@@ -267,7 +267,8 @@ td.td-title { color: var(--text-muted); }
 .badge-interview { background: rgba(137,87,229,0.15); color: #d2a8ff; }
 .badge-offer     { background: rgba(35,134,54,0.15);  color: #56d364; }
 .badge-rejected  { background: rgba(248,81,73,0.12); color: #ff7b72; }
-.badge-processed { background: rgba(110,118,129,0.12); color: #8b949e; }
+.badge-candidate { background: rgba(31,111,235,0.12); color: #79c0ff; }
+.badge-discarded { background: rgba(110,118,129,0.12); color: #8b949e; }
 
 .score-pill {
   display: inline-block;
@@ -750,7 +751,7 @@ td.td-title { color: var(--text-muted); }
         <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…" oninput="renderCandidates()">
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
-          <button class="status-tab" data-candidate-scope="processed">Processed History <span id="candidate-processed-count">0</span></button>
+          <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
         </div>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
@@ -806,7 +807,7 @@ let weekChart = null;
 let tokenChart = null;
 let activeArtifact = null;
 let artifactObjectUrl = null;
-let candidateData = { active: [], processed: [], counts: { active: 0, processed: 0, total: 0 } };
+let candidateData = { active: [], discarded: [], counts: { active: 0, discarded: 0, total: 0 } };
 let candidateScope = 'active';
 
 // ── Init ──
@@ -878,7 +879,7 @@ async function loadUnprocessed() {
   try {
     candidateData = await window.pywebview.api.get_unprocessed();
     document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
-    document.getElementById('candidate-processed-count').textContent = candidateData.counts.processed;
+    document.getElementById('candidate-discarded-count').textContent = candidateData.counts.discarded;
     document.getElementById('candidate-total-count').textContent = `${candidateData.counts.total} candidates`;
     renderCandidates();
   } catch(e) {
@@ -901,7 +902,7 @@ function renderCandidates() {
       <td class="td-company">${esc(job.company || '—')}</td>
       <td class="td-title">${job.url ? `<a href="${esc(job.url)}" target="_blank">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
-      <td><span class="badge badge-${candidateScope === 'processed' ? 'processed' : 'tailored'}">${candidateScope === 'processed' ? 'Processed' : 'Candidate'}</span></td>
+      <td><span class="badge badge-${candidateScope === 'discarded' ? 'discarded' : 'candidate'}">${candidateScope === 'discarded' ? 'Discarded' : 'Candidate'}</span></td>
       <td class="td-date">${esc(job.date || '')}</td>
       <td>${candidateScope === 'active' ? `<button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button>` : ''}</td>
     </tr>`).join('');

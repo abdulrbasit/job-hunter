@@ -13,17 +13,13 @@ from typing import Any, TypedDict
 
 from job_hunter.core.utils import read_yaml
 from job_hunter.tracker import repo_path
-
-CANONICAL_STATUSES = (
-    "tailored",
-    "applied",
-    "responded",
-    "interview",
-    "offer",
-    "rejected",
+from job_hunter.tracking.repository import (
+    ACTIVE_STATUSES,  # noqa: F401  (re-exported for job_hunter.agent_context.batch)
+    CANONICAL_STATUSES,
+    PIPELINE_STATUSES,
+    display_status,
 )
 
-ACTIVE_STATUSES = {"tailored", "applied", "responded", "interview", "offer"}
 HIDDEN_LEGACY_STATUSES = {"discarded", "skip"}
 
 
@@ -58,15 +54,17 @@ def normalize_status(status: str) -> str:
         "reply": "responded",
         "screen": "interview",
         "onsite": "interview",
-        "declined": "rejected",
-        "discard": "rejected",
-        "discarded": "rejected",
-        "skip": "rejected",
-        "skipped": "rejected",
+        "decline": "discarded",
+        "declined": "discarded",
+        "discard": "discarded",
+        "skip": "discarded",
+        "skipped": "discarded",
+        "discovered": "candidate",
+        "processed": "discarded",
     }
-    normalized = aliases.get(normalized, normalized)
-    if normalized not in CANONICAL_STATUSES:
-        raise ValueError(f"invalid status '{status}'. Expected one of: {', '.join(CANONICAL_STATUSES)}")
+    normalized = display_status(aliases.get(normalized, normalized))
+    if normalized not in PIPELINE_STATUSES:
+        raise ValueError(f"invalid status '{status}'. Expected one of: {', '.join(PIPELINE_STATUSES)}")
     return normalized
 
 

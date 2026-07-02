@@ -303,8 +303,8 @@ def test_get_unprocessed_separates_real_candidates_from_history_and_hides_url_ca
     payload = DashAPI(tmp_path).get_unprocessed()
 
     assert [job["company"] for job in payload["active"]] == ["Active Co"]
-    assert [job["company"] for job in payload["processed"]] == ["Past Co"]
-    assert payload["counts"] == {"active": 1, "processed": 1, "total": 2}
+    assert [job["company"] for job in payload["discarded"]] == ["Past Co"]
+    assert payload["counts"] == {"active": 1, "discarded": 1, "total": 2}
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
@@ -333,6 +333,6 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     assert "URL.revokeObjectURL" in html
     assert "@media (max-width: 900px)" in html
     assert 'data-candidate-scope="active"' in html
-    assert 'data-candidate-scope="processed"' in html
+    assert 'data-candidate-scope="discarded"' in html
     assert 'id="candidate-search"' in html
     assert ".badge-rejected  { background: rgba(248,81,73" in html

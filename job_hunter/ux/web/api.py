@@ -200,7 +200,7 @@ class DashAPI:
         return True
 
     def get_unprocessed(self) -> dict[str, Any]:
-        from job_hunter.tracking.repository import get_jobs
+        from job_hunter.tracking.repository import display_status, get_jobs
 
         def visible(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
             return [
@@ -209,7 +209,7 @@ class DashAPI:
                     "company": job.get("company"),
                     "title": job.get("title"),
                     "location": job.get("location"),
-                    "status": job.get("status"),
+                    "status": display_status(str(job.get("status") or "")),
                     "url": job.get("url"),
                     "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
                 }
@@ -218,11 +218,11 @@ class DashAPI:
             ]
 
         active = visible(("candidate", "discovered"))
-        processed = visible(("processed",))
+        discarded = visible(("discarded", "processed"))
         return {
             "active": active,
-            "processed": processed,
-            "counts": {"active": len(active), "processed": len(processed), "total": len(active) + len(processed)},
+            "discarded": discarded,
+            "counts": {"active": len(active), "discarded": len(discarded), "total": len(active) + len(discarded)},
         }
 
     def delete_unprocessed(self, job_id: int) -> bool:

@@ -97,9 +97,9 @@ def test_filtered_applications_skips_non_canonical_status(tmp_path: Path) -> Non
     assert filtered_applications(root=tmp_path) == []
 
 
-def test_internal_status_aliases_normalize_to_rejected() -> None:
-    assert normalize_status("discarded") == "rejected"
-    assert normalize_status("skip") == "rejected"
+def test_internal_status_aliases_normalize_to_discarded() -> None:
+    assert normalize_status("discarded") == "discarded"
+    assert normalize_status("skip") == "discarded"
 
 
 def test_verify_repository_validates_applications_and_processed_state(tmp_path: Path) -> None:

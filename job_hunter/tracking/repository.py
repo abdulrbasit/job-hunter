@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     url                 TEXT NOT NULL UNIQUE,
     canonical_url       TEXT UNIQUE,
     slug                TEXT UNIQUE,
-    status              TEXT NOT NULL DEFAULT 'discovered',
+    status              TEXT NOT NULL DEFAULT 'candidate',
     run_id              TEXT,
 
     title               TEXT,
@@ -72,9 +72,20 @@ CREATE INDEX IF NOT EXISTS idx_jobs_region        ON jobs(region);
 CREATE INDEX IF NOT EXISTS idx_jobs_canonical_url ON jobs(canonical_url);
 """
 
+PIPELINE_STATUSES = ("candidate", "discarded", "tailored", "applied", "responded", "interview", "offer", "rejected")
 CANONICAL_STATUSES = ("tailored", "applied", "responded", "interview", "offer", "rejected")
 ACTIVE_STATUSES = {"tailored", "applied", "responded", "interview", "offer"}
-_PROCESSED_STATUSES = {"discovered", "processed", "tailored", "applied", "responded", "interview", "offer", "rejected"}
+_STATUS_RANK = {status: rank for rank, status in enumerate(PIPELINE_STATUSES)}
+_LEGACY_STATUS_ALIASES = {"discovered": "candidate", "processed": "discarded"}
+
+
+def display_status(raw_status: str) -> str:
+    """Translate legacy DB status values to the current vocabulary (no DB migration needed)."""
+    return _LEGACY_STATUS_ALIASES.get(raw_status, raw_status)
+
+
+def _status_rank(status: str) -> int:
+    return _STATUS_RANK.get(display_status(status), -1)
 
 
 def db_path(root: Path) -> Path:
@@ -125,7 +136,7 @@ def get_all_known_urls(root: Path) -> set[str]:
 
 
 def get_processed_urls(root: Path) -> set[str]:
-    """URLs processed by agent (past 'discovered') — used to skip already-handled candidates."""
+    """URLs past the candidate stage — used to skip already-handled candidates."""
     with _conn(root) as conn:
         rows = conn.execute(
             "SELECT url, canonical_url FROM jobs WHERE status NOT IN ('candidate', 'discovered')"
@@ -185,7 +196,7 @@ def get_candidate_urls_with_metadata(root: Path) -> dict[str, dict[str, Any]]:
 
 
 def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int:
-    """Insert scrape results as status='discovered'. Returns count of new rows."""
+    """Insert scrape results as status='candidate'. Returns count of new rows."""
     from job_hunter.sources.search import canonicalize_url
 
     now = _now()
@@ -211,7 +222,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     jd_text, llm_posting_status_check,
                     discovered_at, created_at, updated_at
                 ) VALUES (
-                    ?, ?, 'discovered', ?,
+                    ?, ?, 'candidate', ?,
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?,
@@ -220,7 +231,6 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                     ?, ?,
                     ?, ?, ?
                 ) ON CONFLICT(url) DO UPDATE SET
-                    status          = CASE WHEN jobs.status = 'candidate' THEN 'discovered' ELSE jobs.status END,
                     run_id          = COALESCE(excluded.run_id, jobs.run_id),
                     employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
                     country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
@@ -262,15 +272,15 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
 
 
 def get_discovered_jobs(root: Path, run_id: str | None = None, limit: int = 0) -> list[dict[str, Any]]:
-    """Jobs with status='discovered' for the agent queue."""
+    """Jobs with status='candidate' (or legacy 'discovered') for the agent queue."""
     with _conn(root) as conn:
         if run_id:
             rows = conn.execute(
-                "SELECT * FROM jobs WHERE status = 'discovered' AND run_id = ? ORDER BY created_at",
+                "SELECT * FROM jobs WHERE status IN ('candidate', 'discovered') AND run_id = ? ORDER BY created_at",
                 (run_id,),
             ).fetchall()
         else:
-            q = "SELECT * FROM jobs WHERE status = 'discovered' ORDER BY created_at"
+            q = "SELECT * FROM jobs WHERE status IN ('candidate', 'discovered') ORDER BY created_at"
             if limit:
                 q += f" LIMIT {limit}"
             rows = conn.execute(q).fetchall()
@@ -283,7 +293,7 @@ def get_discovered_jobs(root: Path, run_id: str | None = None, limit: int = 0) -
 
 
 def mark_urls_processed(root: Path, urls: set[str]) -> None:
-    """Set status='processed' for given URLs (dedup mark-as-done).
+    """Set status='discarded' for given URLs (dedup mark-as-skipped).
 
     Inserts a minimal row if the URL is not already in the DB.
     """
@@ -297,11 +307,11 @@ def mark_urls_processed(root: Path, urls: set[str]) -> None:
             canonical = canonicalize_url(url) or None
             conn.execute(
                 """INSERT OR IGNORE INTO jobs (url, canonical_url, status, processed_at, created_at, updated_at)
-                   VALUES (?, ?, 'processed', ?, ?, ?)""",
+                   VALUES (?, ?, 'discarded', ?, ?, ?)""",
                 (url, canonical, now, now, now),
             )
             conn.execute(
-                """UPDATE jobs SET status = 'processed', processed_at = COALESCE(processed_at, ?), updated_at = ?
+                """UPDATE jobs SET status = 'discarded', processed_at = COALESCE(processed_at, ?), updated_at = ?
                    WHERE (url = ? OR canonical_url = ?) AND status IN ('discovered', 'candidate')""",
                 (now, now, url, url),
             )
@@ -326,6 +336,12 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
             old_notes = json.loads(existing["notes"] or "[]")
             new_notes = [n for n in list(entry.get("notes") or []) if n and n not in old_notes]
             notes = json.dumps(old_notes + new_notes)
+            requested_status = str(entry.get("status") or "")
+            resolved_status = (
+                requested_status
+                if requested_status and _status_rank(requested_status) >= _status_rank(existing["status"])
+                else existing["status"]
+            )
             conn.execute(
                 """UPDATE jobs SET
                     slug            = COALESCE(?, slug),
@@ -346,7 +362,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                    WHERE id = ?""",
                 (
                     slug or None,
-                    str(entry.get("status") or existing["status"]),
+                    resolved_status,
                     str(entry.get("title") or ""),
                     str(entry.get("company") or ""),
                     str(entry.get("location") or ""),
@@ -380,7 +396,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                 url,
                 canonical,
                 slug or None,
-                str(entry.get("status") or "discovered"),
+                str(entry.get("status") or "candidate"),
                 str(entry.get("title") or ""),
                 str(entry.get("company") or ""),
                 str(entry.get("location") or ""),
@@ -500,7 +516,6 @@ def sync_from_job_folders(root: Path) -> int:
         if not url:
             continue
         job_dir = meta_path.parent
-        existing = get_job_by_slug(root, slug) or get_job_by_url(root, url)
         entry: dict[str, Any] = {
             "slug": slug,
             "url": url,
@@ -509,7 +524,8 @@ def sync_from_job_folders(root: Path) -> int:
             "location": meta.get("location") or "",
             "region": meta.get("region") or "",
             "job_description_fetch_status": meta.get("job_description_fetch_status") or "",
-            "status": existing["status"] if existing else "tailored",
+            # upsert_job only promotes forward (never demotes an already-advanced job)
+            "status": "tailored",
         }
         # Read jd.md if present
         jd_path = job_dir / "jd.md"
