@@ -61,7 +61,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
    - `job-hunter internal discard-job --job <slug>` for below-threshold jobs.
 
 6. Tailor all APPLY jobs (descending score, at or above fit threshold). For each:
-   - **Full mode only:** `job-hunter internal write-research --job <slug>`. Non-blocking if it fails.
+   - **Full mode only:** Execute `research.md` inline for `<slug>`. Non-blocking if it fails.
    - Execute `tailor.md` inline. **Lite mode: omit cover letter generation** — produce tailored resume `.tex` only.
    - `job-hunter internal update-readme --job <slug>`
    - `job-hunter internal mark-processed --url "<url>" --company "<company>" --title "<title>"`
