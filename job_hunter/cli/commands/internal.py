@@ -295,9 +295,9 @@ def finalize_run(
     if synced:
         typer.echo(f"[finalize-run] synced {synced} processed job tracker entry(s)")
 
-    if not _commit_finalizable_changes(root, FINALIZE_PATHS, message):
-        return
-    _push_finalized_run(root, push=push, mode=mode)
+    committed = _commit_finalizable_changes(root, FINALIZE_PATHS, message)
+    if committed:
+        _push_finalized_run(root, push=push, mode=mode)
     _cleanup_transient_state(root, label="finalize-run")
 
 

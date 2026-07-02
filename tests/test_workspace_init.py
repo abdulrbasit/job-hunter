@@ -47,6 +47,7 @@ def test_workspace_gitignore_excludes_rebuildable_source_caches() -> None:
 
     assert "outputs/state/discovery_cache.yml" in gitignore
     assert "outputs/state/jobicy_feed_cache.json" in gitignore
+    assert "outputs/state/metrics.db" in gitignore
 
 
 def test_workspace_template_config_is_valid_yaml() -> None:

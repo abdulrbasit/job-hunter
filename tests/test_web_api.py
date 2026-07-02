@@ -17,7 +17,15 @@ def _write_job(root: Path, slug: str = "2026-06-12_acme_pm") -> Path:
     job_dir = root / "outputs" / "jobs" / slug
     job_dir.mkdir(parents=True)
     (job_dir / "meta.json").write_text(
-        json.dumps({"date": "2026-06-12", "company": "Acme", "title": "Product Manager", "url": "https://x"}),
+        json.dumps(
+            {
+                "date": "2026-06-12",
+                "company": "Acme",
+                "title": "Product Manager",
+                "location": "Berlin",
+                "url": "https://x",
+            }
+        ),
         encoding="utf-8",
     )
     (job_dir / "score.yml").write_text(yaml.safe_dump({"score": 82, "decision": "APPLY"}), encoding="utf-8")
@@ -32,7 +40,18 @@ def test_get_applications_returns_json_serializable_dicts(tmp_path: Path) -> Non
 
     assert isinstance(apps, list)
     assert apps[0]["slug"] == "2026-06-12_acme_pm"
+    assert apps[0]["date"] == "2026-06-12"
+    assert apps[0]["location"] == "Berlin"
     json.dumps(apps)  # must round-trip through JSON for the JS bridge
+
+
+def test_dashboard_table_renders_application_location_and_date() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'data-col="location"' in html
+    assert "app.location" in html
+    assert "app.date" in html
 
 
 def test_get_job_detail_reads_from_db(tmp_path: Path) -> None:

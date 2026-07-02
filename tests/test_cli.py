@@ -615,6 +615,8 @@ def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> No
     from job_hunter.cli import _run_artifacts
 
     assert "outputs/state/agent_candidate_queue.json" in _run_artifacts.TRANSIENT_STATE_PATHS
+    assert "outputs/state/jobs.db" in _run_artifacts.FINALIZE_PATHS
+    assert "outputs/state/metrics.db" not in _run_artifacts.FINALIZE_PATHS
 
     transient = tmp_path / "outputs" / "state" / "agent_candidate_queue.json"
     transient.parent.mkdir(parents=True)
@@ -622,6 +624,30 @@ def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> No
 
     assert _run_artifacts.cleanup_transient_state(tmp_path, label="test") == 1
     assert not transient.exists()
+
+
+def test_finalize_run_cleans_transient_state_when_nothing_is_committed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    from job_hunter.cli.commands import internal
+
+    compiled = tmp_path / "outputs" / "state" / "compiled"
+    compiled.mkdir(parents=True)
+    (compiled / "career_context.min.md").write_text("compact", encoding="utf-8")
+
+    monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
+    monkeypatch.setattr("job_hunter.ux.health.verify_repository", lambda _root: {"errors": []})
+    monkeypatch.setattr(internal, "_validate_run_artifacts", lambda _root: [])
+    monkeypatch.setattr(internal, "_sync_processed_from_job_outputs", lambda _root: 0)
+    monkeypatch.setattr(internal, "_commit_finalizable_changes", lambda *_args: False)
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "finalize-run"])
+
+    assert result.exit_code == 0
+    assert not compiled.exists()
 
 
 # --- version ---

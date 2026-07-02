@@ -14,7 +14,15 @@ class DashAPI:
     def get_applications(self) -> list[dict[str, Any]]:
         from job_hunter.tracking.applications import filtered_applications
 
-        return [dict(app) for app in filtered_applications(root=self._root)]
+        applications = [dict(app) for app in filtered_applications(root=self._root)]
+        for app in applications:
+            slug_date = str(app.get("slug") or "")[:10]
+            app["date"] = (
+                app.get("date")
+                or (slug_date if len(slug_date) == 10 and slug_date[4:5] == "-" and slug_date[7:8] == "-" else "")
+                or str(app.get("discovered_at") or app.get("created_at") or "")[:10]
+            )
+        return applications
 
     def get_job_detail(self, slug: str) -> dict[str, Any]:
         from job_hunter.tracking.repository import get_job_by_slug
