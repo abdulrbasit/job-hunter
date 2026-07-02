@@ -548,6 +548,10 @@ td.td-title { color: var(--text-muted); }
       <span class="nav-icon">📋</span>
       <span class="nav-label">Applications</span>
     </button>
+    <button class="nav-btn" data-view="unprocessed">
+      <span class="nav-icon">📥</span>
+      <span class="nav-label">Job Candidates</span>
+    </button>
     <button class="nav-btn" data-view="insights">
       <span class="nav-icon">📈</span>
       <span class="nav-label">Insights</span>
@@ -654,6 +658,30 @@ td.td-title { color: var(--text-muted); }
     </div>
   </section>
 
+  <!-- Unprocessed view -->
+  <section id="view-unprocessed" class="view">
+    <div class="app-panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="td-num">#</th>
+              <th>Company</th>
+              <th>Title</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="unprocessed-tbody">
+            <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Insights view -->
   <section id="view-insights" class="view">
     <div class="stats-cards" id="insights-cards">
@@ -706,6 +734,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
+    if (view === 'unprocessed') loadUnprocessed();
     if (view === 'insights' && !insightsLoaded) loadInsights();
     if (view === 'analytics' && !analyticsLoaded) loadAnalytics();
   });
@@ -735,6 +764,38 @@ async function loadApplications() {
     applyFilters();
   } catch(e) {
     document.getElementById('app-tbody').innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load applications: ${e}</div></td></tr>`;
+  }
+}
+
+async function loadUnprocessed() {
+  const tbody = document.getElementById('unprocessed-tbody');
+  try {
+    const jobs = await window.pywebview.api.get_unprocessed();
+    if (!jobs.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No unprocessed jobs</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = jobs.map((job, i) => `<tr>
+      <td class="td-num">${i + 1}</td>
+      <td class="td-company">${esc(job.company || '—')}</td>
+      <td class="td-title">${job.url ? `<a href="${esc(job.url)}" target="_blank">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
+      <td>${esc(job.location || '—')}</td>
+      <td><span class="badge badge-${job.status || 'unknown'}">${job.status || '—'}</span></td>
+      <td class="td-date">${esc(job.date || '')}</td>
+      <td><button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button></td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
+  }
+}
+
+async function deleteUnprocessed(id) {
+  if (!confirm('Delete this job from the database? Cannot be undone.')) return;
+  try {
+    await window.pywebview.api.delete_unprocessed(id);
+    loadUnprocessed();
+  } catch(e) {
+    alert('Delete failed: ' + e);
   }
 }
 

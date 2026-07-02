@@ -101,6 +101,32 @@ class DashAPI:
         self._refresh_readme()
         return True
 
+    def get_unprocessed(self) -> list[dict[str, Any]]:
+        from job_hunter.tracking.repository import get_jobs
+
+        jobs = get_jobs(self._root, statuses=("candidate", "discovered"))
+        return [
+            {
+                "id": job.get("id"),
+                "company": job.get("company"),
+                "title": job.get("title"),
+                "location": job.get("location"),
+                "status": job.get("status"),
+                "url": job.get("url"),
+                "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
+            }
+            for job in jobs
+        ]
+
+    def delete_unprocessed(self, job_id: int) -> bool:
+        from job_hunter.tracking.repository import delete_job_by_id
+
+        try:
+            delete_job_by_id(self._root, int(job_id))
+        except Exception:  # noqa: BLE001
+            return False
+        return True
+
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict
 

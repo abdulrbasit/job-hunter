@@ -466,6 +466,11 @@ def delete_job(root: Path, slug: str) -> None:
         conn.execute("DELETE FROM jobs WHERE slug = ?", (slug,))
 
 
+def delete_job_by_id(root: Path, job_id: int) -> None:
+    with _conn(root) as conn:
+        conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+
+
 def count_active(root: Path) -> int:
     placeholders = ",".join("?" * len(ACTIVE_STATUSES))
     with _conn(root) as conn:
