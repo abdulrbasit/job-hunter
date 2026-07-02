@@ -778,7 +778,7 @@ wheels = [
 
 [[package]]
 name = "job-hunter-kit"
-version = "0.21"
+version = "0.22"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
