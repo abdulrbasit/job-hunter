@@ -15,6 +15,9 @@ Configure per role in config/job_hunter.yml:
     max_tokens:
       scoring: 1000
       tailoring: 4000
+    rate_limits:
+      scoring: {requests_per_minute: 10}
+      tailoring: {requests_per_minute: 60}
 
 Call via call(role, prompt, system) — never instantiate LLMClient directly.
 """
@@ -178,7 +181,14 @@ class LLMClient:
 
         if self._provider in ("openai", "ollama"):
             msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]
-            resp = self._raw.chat.completions.create(model=model, max_tokens=max_tokens, messages=msgs)
+            kwargs: dict[str, Any] = dict(model=model, max_tokens=max_tokens, messages=msgs)
+            if response_format == "json":
+                # OpenAI-compatible JSON mode. Requires the word "json" somewhere in the
+                # prompt (OpenAI API constraint) — every response_format="json" caller's
+                # prompt already asks for JSON output, since Anthropic has no native mode
+                # and relies entirely on that instruction plus parse+repair fallback.
+                kwargs["response_format"] = {"type": "json_object"}
+            resp = self._raw.chat.completions.create(**kwargs)
             usage = resp.usage
             return resp.choices[0].message.content.strip(), usage.prompt_tokens, usage.completion_tokens, 0
 
@@ -206,7 +216,13 @@ _lock = threading.Lock()
 
 
 def get_client(role: str) -> LLMClient:
-    """Return a cached LLMClient for the given pipeline role."""
+    """Return a cached LLMClient for the given pipeline role.
+
+    Cached per role, not per provider: `rate_limits` is keyed by role (see
+    docs/config.md), and two roles on the same provider can carry different
+    requests_per_minute — sharing one client/throttle bucket across them would
+    make one role's limit win for both, silently ignoring the other's config.
+    """
     from job_hunter.config import get_config, get_secret
     from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS, resolve_provider
 
@@ -215,8 +231,8 @@ def get_client(role: str) -> LLMClient:
     provider = resolve_provider(role, llm)
 
     with _lock:
-        if provider in _cache:
-            return _cache[provider]
+        if role in _cache:
+            return _cache[role]
 
         if provider == "ollama":
             api_key, base_url = "", llm.get("ollama", {}).get("base_url", "http://localhost:11434")
@@ -225,10 +241,10 @@ def get_client(role: str) -> LLMClient:
             api_key = get_secret(env_var, required=bool(env_var)) if env_var else ""
             base_url = ""
 
-        rpm = int(llm.get("rate_limits", {}).get(provider, {}).get("requests_per_minute", 0) or 0)
-        logger.info("[llm] initialising %s client for role '%s'", provider, role)
+        rpm = int(llm.get("rate_limits", {}).get(role, {}).get("requests_per_minute", 0) or 0)
+        logger.info("[llm] initialising %s client for role '%s' (rpm=%d)", provider, role, rpm)
         client = LLMClient(provider, api_key=api_key, base_url=base_url, requests_per_minute=rpm)
-        _cache[provider] = client
+        _cache[role] = client
         return client
 
 

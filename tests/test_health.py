@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -145,6 +147,31 @@ def test_llm_api_mode_requires_docker_and_provider_sdk(tmp_path: Path, monkeypat
     assert "Reinstall job-hunter-kit" in checks["llm_provider:anthropic"]["fix"]
 
 
+def test_doctor_warns_when_skill_files_missing(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks[".claude/skills/job-hunter/SKILL.md"]["ok"] is False
+    assert checks[".agents/skills/job-hunter/SKILL.md"]["ok"] is False
+    assert "job-hunter update" in checks[".claude/skills/job-hunter/SKILL.md"]["fix"]
+
+
+def test_doctor_passes_when_skill_files_present(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    for prefix in (".claude", ".agents"):
+        skill_dir = tmp_path / prefix / "skills" / "job-hunter"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# Job Hunter", encoding="utf-8")
+
+    payload = doctor(tmp_path)
+    checks = {check["name"]: check for check in payload["checks"]}
+
+    assert checks[".claude/skills/job-hunter/SKILL.md"]["ok"] is True
+    assert checks[".agents/skills/job-hunter/SKILL.md"]["ok"] is True
+
+
 def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     schema_dir = tmp_path / "config" / "schemas"
@@ -236,6 +263,46 @@ def test_codex_otel_check_fails_when_endpoint_not_job_hunter_collector(tmp_path:
     checks = {check["name"]: check for check in payload["checks"]}
 
     assert checks["telemetry_codex_otel"]["ok"] is False
+
+
+def test_doctor_warns_when_collector_unreachable(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value=None):
+        payload = doctor(tmp_path)
+
+    assert any("collector is not running" in w for w in payload["warnings"])
+
+
+def test_doctor_warns_on_protocol_mismatch(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(
+        json.dumps({"env": {"OTEL_EXPORTER_OTLP_PROTOCOL": "grpc"}}),
+        encoding="utf-8",
+    )
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value={"workspace": str(tmp_path)}):
+        payload = doctor(tmp_path)
+
+    assert any("OTEL_EXPORTER_OTLP_PROTOCOL=grpc" in w for w in payload["warnings"])
+
+
+def test_doctor_warns_when_hooks_wired_but_no_otel_events_arrived(tmp_path: Path) -> None:
+    from job_hunter.metrics.telemetry import begin_run
+
+    _write_minimal_repo(tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(
+        _hooks_json("job-hunter internal telemetry-hook --backend claude-code --event prompt"),
+        encoding="utf-8",
+    )
+    begin_run(tmp_path / "outputs" / "state" / "metrics.db", backend="claude-code", session_id="s", mode="batch")
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value={"workspace": str(tmp_path)}):
+        payload = doctor(tmp_path)
+
+    assert any("no OTel token events" in w for w in payload["warnings"])
 
 
 def test_codex_otel_check_passes_when_pointed_at_job_hunter_collector(tmp_path: Path, monkeypatch) -> None:

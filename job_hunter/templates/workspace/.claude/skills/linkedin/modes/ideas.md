@@ -4,7 +4,8 @@ Single responsibility: generate a weekly batch of grounded post ideas. Nothing i
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context linkedin-weekly`.
+- Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
+- Then `job-hunter internal agent-context linkedin-weekly`.
 - Use `story-index` metadata first; use `stories-final` only when the LLM needs to compare verified achievements for proof-point ideas.
 - Do not read all job folders, Draft/raw stories, or full candidate snapshots.
 
@@ -18,7 +19,8 @@ Single responsibility: generate a weekly batch of grounded post ideas. Nothing i
 ## Rules
 
 - Every proof point must cite a selected verified story ID or job slug.
-- No invented facts or motivational filler.
+- Apply every rule in `writing_rules.evidence` exactly — universal (code-owned), wins over any
+  conflicting `career_context.md` preference.
 - Do not draft or post.
 
 ## Output

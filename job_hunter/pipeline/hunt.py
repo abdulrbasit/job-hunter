@@ -172,6 +172,7 @@ def _adaptive_region_hunt(
     url_liveness: UrlLivenessCache,
     target: int,
     stats: ScrapeStats,
+    force: bool = False,
 ) -> list[JobData]:
     """Escalate through scraping passes for one region until `target` quality
     candidates are found, or every pass has run. Each pass's new candidates get
@@ -196,7 +197,7 @@ def _adaptive_region_hunt(
         _merge_region_stats(stats, pass_stats)
 
         candidates = _new_candidate_dicts(postings, seen_canonical)
-        new_jobs, _existing = filter_new_jobs(candidates)
+        new_jobs, _existing = filter_new_jobs(candidates, force=force)
         deduped_total += len(new_jobs)
 
         pass_quality, summary = _process_candidates(new_jobs, api_config, scoring_config, url_liveness, stats)
@@ -242,6 +243,7 @@ def _adaptive_hunt(
     api_config: dict[str, Any],
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
+    force: bool = False,
 ) -> tuple[list[JobData], ScrapeStats]:
     """Escalate every region in `regions` through _adaptive_region_hunt, returning
     deduped quality candidates ready for DB insert/scoring plus accumulated stats.
@@ -250,6 +252,9 @@ def _adaptive_hunt(
     both modes get the same per-region escalation: each region (e.g. Bahrain)
     gets its own full pass budget instead of being diluted inside one global
     scrape+filter run dominated by larger regions (e.g. Germany).
+
+    `force` allows previously-processed URLs to re-enter this run (--force) while
+    same-run canonical-URL dedup (seen_canonical, both here and per-region) still applies.
     """
     target = _quality_target(scoring_config)
     logger.info("[pipeline] Adaptive hunt: %d region(s), target=%d quality jobs each", len(regions), target)
@@ -258,7 +263,9 @@ def _adaptive_hunt(
     all_jobs: list[JobData] = []
     seen_canonical: set[str] = set()
     for region_key in regions:
-        for job in _adaptive_region_hunt(region_key, api_config, scoring_config, url_liveness, target, stats):
+        for job in _adaptive_region_hunt(
+            region_key, api_config, scoring_config, url_liveness, target, stats, force=force
+        ):
             canonical = canonicalize_url(job.get("url", ""))
             if not canonical or canonical not in seen_canonical:
                 if canonical:
@@ -281,14 +288,18 @@ def run_hunt(
     scoring_config: dict[str, Any],
     url_liveness: UrlLivenessCache,
 ) -> tuple[list[JobData], set[str], set[str]]:
-    """Execute the hunt mode: adaptive per-region scrape, URL-check, enrich."""
+    """Execute the hunt mode: adaptive per-region scrape, URL-check, enrich.
+
+    `args["depth"]` (from --depth) is accepted for CLI/API compatibility but unused here:
+    adaptive mode always escalates through its own fixed pass depths (see _ADAPTIVE_PASSES).
+    """
     config = load_search_config()
     regions = enabled_regions(config, args.get("region"))
     if not regions:
         logger.warning("[pipeline] No enabled regions found in config/job_hunter.yml")
         return [], set(), set()
 
-    all_jobs, _stats = _adaptive_hunt(regions, api_config, scoring_config, url_liveness)
+    all_jobs, _stats = _adaptive_hunt(regions, api_config, scoring_config, url_liveness, force=bool(args.get("force")))
     if not all_jobs:
         logger.warning("[pipeline] No new jobs found. Exiting.")
         return [], set(), set()
@@ -302,12 +313,14 @@ def run_hunt_scrape_only(
     api_config: dict[str, Any] | None = None,
     url_checker: Any = None,
     depth: str = "standard",
+    force: bool = False,
 ) -> tuple[str, int, ScrapeStats]:
     """Adaptive per-region scrape (same escalation as run_hunt), URL-check,
     enrichment, screening, then write jobs to DB.
 
     `depth` is accepted for CLI/API compatibility but unused: adaptive mode
     always escalates through its own fixed pass depths (see run_hunt).
+    `force` (--force) lets previously-processed URLs re-enter this run.
 
     Returns (run_id, candidate_count, stats).
     """
@@ -326,7 +339,7 @@ def run_hunt_scrape_only(
         stats = ScrapeStats()
     else:
         url_liveness = UrlLivenessCache(checker=url_checker)
-        jobs, stats = _adaptive_hunt(regions, api_config or {}, scoring_config, url_liveness)
+        jobs, stats = _adaptive_hunt(regions, api_config or {}, scoring_config, url_liveness, force=force)
     stats.total_after_policy = len(jobs)
 
     # Write to DB (replaces snapshot JSON)
@@ -366,7 +379,7 @@ def run(inp: HuntInput) -> HuntOutput:
                 stats=ScrapeStats(total_fetched=len(jobs)),
                 mode=inp.mode,
             )
-        run_id, count, stats = run_hunt_scrape_only(region, depth=inp.depth)
+        run_id, count, stats = run_hunt_scrape_only(region, depth=inp.depth, force=inp.force)
         return HuntOutput(
             run_id=run_id,
             stats=stats,

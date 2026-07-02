@@ -70,7 +70,7 @@ class TestJobicySource:
     def test_is_enabled_respects_config(self) -> None:
         disabled = {"http": {"job_boards": {"jobicy": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.jobicy.get_api_config", return_value=disabled):
-            assert JobicySource().is_enabled({}) is False
+            assert JobicySource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         get_mock = MagicMock(return_value=_make_response(json_data={"jobs": [_JOBICY_JOB]}))
@@ -140,7 +140,7 @@ class TestRemoteOKSource:
     def test_is_enabled_respects_config(self) -> None:
         disabled = {"http": {"job_boards": {"remoteok": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.remoteok.get_api_config", return_value=disabled):
-            assert RemoteOKSource().is_enabled({}) is False
+            assert RemoteOKSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         feed = [_REMOTEOK_METADATA, _REMOTEOK_JOB]
@@ -447,7 +447,7 @@ class TestGulfTalentSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"gulftalent": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.gulftalent.get_api_config", return_value=disabled):
-            assert GulfTalentSource().is_enabled({}) is False
+            assert GulfTalentSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
@@ -634,7 +634,7 @@ class TestBaytSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"bayt": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.bayt.get_api_config", return_value=disabled):
-            assert BaytSource().is_enabled({}) is False
+            assert BaytSource().is_enabled(disabled) is False
 
     def test_fetch_skips_unsupported_country(self) -> None:
         with patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG):
@@ -690,7 +690,7 @@ class TestJobBankSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"jobbank": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.jobbank.get_api_config", return_value=disabled):
-            assert JobBankSource().is_enabled({}) is False
+            assert JobBankSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
@@ -713,7 +713,7 @@ class TestJobStreetSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"jobstreet": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.jobstreet.get_api_config", return_value=disabled):
-            assert JobStreetSource().is_enabled({}) is False
+            assert JobStreetSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
@@ -775,7 +775,7 @@ class TestMyCareersFutureSource:
             "job_hunter.sources.boards.mycareersfuture.get_api_config",
             return_value=disabled,
         ):
-            assert MyCareersFutureSource().is_enabled({}) is False
+            assert MyCareersFutureSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
@@ -801,7 +801,7 @@ class TestWeWorkRemotelySource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"weworkremotely": {"enabled": False}}}}
         with patch("job_hunter.sources.source_config.get_api_config", return_value=disabled):
-            assert WeWorkRemotelySource().is_enabled({}) is False
+            assert WeWorkRemotelySource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (
@@ -849,7 +849,7 @@ class TestReedSource:
         src._api_key = "test-key"
         disabled = {"http": {"job_boards": {"reed": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.reed.get_api_config", return_value=disabled):
-            assert src.is_enabled({}) is False
+            assert src.is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         src = ReedSource.__new__(ReedSource)
@@ -883,7 +883,7 @@ class TestAdzunaSource:
         src._api_key = "key123"
         disabled = {"http": {"job_boards": {"adzuna": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=disabled):
-            assert src.is_enabled({}) is False
+            assert src.is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         src = AdzunaSource.__new__(AdzunaSource)
@@ -950,7 +950,7 @@ class TestJoobleSource:
         src._api_key = "test-key"
         disabled = {"http": {"job_boards": {"jooble": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.jooble.get_api_config", return_value=disabled):
-            assert src.is_enabled({}) is False
+            assert src.is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         src = JoobleSource.__new__(JoobleSource)
@@ -995,12 +995,12 @@ class TestCareerjetSource:
     def test_is_enabled_false_when_no_affid(self) -> None:
         config = {"http": {"job_boards": {"careerjet": {"enabled": True, "affid": ""}}}}
         with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=config):
-            assert CareerjetSource().is_enabled({}) is False
+            assert CareerjetSource().is_enabled(config) is False
 
     def test_is_enabled_false_when_disabled(self) -> None:
         config = {"http": {"job_boards": {"careerjet": {"enabled": False, "affid": "x"}}}}
         with patch("job_hunter.sources.boards.careerjet.get_api_config", return_value=config):
-            assert CareerjetSource().is_enabled({}) is False
+            assert CareerjetSource().is_enabled(config) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         response = {"jobs": [_CAREERJET_JOB], "total": 1}
@@ -1081,7 +1081,7 @@ class TestWorkingNomadsSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         config = {"http": {"job_boards": {"workingnomads": {"enabled": False}}}}
         with patch("job_hunter.sources.source_config.get_api_config", return_value=config):
-            assert WorkingNomadsSource().is_enabled({}) is False
+            assert WorkingNomadsSource().is_enabled(config) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (

@@ -59,6 +59,35 @@ def test_parse_json_object_raises_on_non_dict() -> None:
         LLMStage.parse_json_object("[1, 2, 3]", "not a dict")
 
 
+def test_parse_json_object_raises_on_malformed_syntax() -> None:
+    import json as _json
+
+    with pytest.raises(_json.JSONDecodeError):
+        LLMStage.parse_json_object('{"score": 85, "gaps": [}', "bad parse")
+
+
+def test_malformed_response_is_recovered_via_repair_fallback() -> None:
+    """Mirrors pipeline/stages/scoring.py's parse -> except -> repair pattern."""
+    import json as _json
+
+    stage, client = _stage()
+    raw = '{"score": 85, "gaps": [}'  # truncated/invalid JSON
+    client.complete.return_value = MagicMock(content='{"score": 85, "gaps": []}')
+
+    try:
+        result = stage.parse_json_object(raw, "scoring response must be a JSON object")
+    except (_json.JSONDecodeError, ValueError):
+        result = stage.repair_json_object(
+            system="sys",
+            raw=raw,
+            repair_prompt="Fix this JSON: {raw}",
+            max_chars=4000,
+            error_message="scoring response must be a JSON object",
+        )
+
+    assert result == {"score": 85, "gaps": []}
+
+
 def test_repair_json_object_calls_complete_with_formatted_prompt() -> None:
     repaired = '{"score": 70}'
     stage, client = _stage(response=repaired)

@@ -60,6 +60,18 @@ def test_filter_new_jobs_removes_already_processed(tmp_path: Path) -> None:
     assert existing_urls & {"https://seen.com", "https://seen.com/"}
 
 
+def test_filter_new_jobs_force_reincludes_historical_urls(tmp_path: Path) -> None:
+    mark_urls_processed(tmp_path, {"https://seen.com"})
+    jobs = [
+        {"title": "PM", "company": "Seen", "url": "https://seen.com"},
+        {"title": "PO", "company": "New", "url": "https://new.com"},
+    ]
+    with _with_tmp_root(tmp_path):
+        new_jobs, existing_urls = filter_new_jobs(jobs, force=True)
+    assert len(new_jobs) == 2
+    assert existing_urls & {"https://seen.com", "https://seen.com/"}
+
+
 def test_filter_new_jobs_all_new_when_no_tracker(tmp_path: Path) -> None:
     with _with_tmp_root(tmp_path):
         new_jobs, existing_urls = filter_new_jobs([{"title": "PM", "company": "X", "url": "https://x.com"}])

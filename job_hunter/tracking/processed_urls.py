@@ -21,9 +21,18 @@ def save_processed(urls: set[str]) -> None:
     insert_candidate_urls(REPO_ROOT, urls)
 
 
-def filter_new_jobs(jobs: list[dict]) -> tuple[list[dict], set[str]]:
-    """Remove jobs already discovered in previous runs by URL."""
+def filter_new_jobs(jobs: list[dict], *, force: bool = False) -> tuple[list[dict], set[str]]:
+    """Remove jobs already discovered in previous runs by URL.
+
+    `force` (--force) lets historical URLs re-enter processing for this run; the
+    returned `processed_urls` set is unchanged either way (callers use it as the
+    "known before this run" reference, not as an active filter).
+    """
     processed_urls = load_processed()
+    if force:
+        print(f"[tracker] --force: bypassing historical-URL filter for {len(jobs)} job(s)")
+        return jobs, processed_urls
+
     new_jobs = []
     skipped = 0
 

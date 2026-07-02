@@ -14,6 +14,7 @@ from job_hunter.config.loader import get_config, profile_path
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.llm.providers import resolve_model_config
 from job_hunter.llm.stage import LLMStage
+from job_hunter.writing.rules import universal_cover_letter_rules
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +59,14 @@ def _build_system(cover_config: dict, candidate_background: str, story_limit: in
     style_rules = forbidden_config.get("style", []) or []
     forbidden_phrases = forbidden_config.get("phrases", []) or []
 
-    rules_lines = [f"- {rule}" for rule in style_rules]
+    rules_lines = [f"- {rule}" for rule in universal_cover_letter_rules()]
+    rules_lines += [f"- {rule}" for rule in style_rules]
     if forbidden_phrases:
         phrases_str = ", ".join(f'"{p}"' for p in forbidden_phrases)
         rules_lines.append(f"- Forbidden phrases: {phrases_str}")
     # Output format rules — always required, not config-driven
     rules_lines += [
-        "- No story IDs or bracketed citations, such as [STORY-01] or similar tags",
         "- No sender details, address blocks, contact information, or Re: subject lines",
-        "- Return plain text only. No markdown, no headers, no bullet points.",
         "- Start directly with the first sentence of the letter body.",
     ]
 

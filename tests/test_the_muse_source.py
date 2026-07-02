@@ -40,7 +40,7 @@ class TestTheMuseSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"the_muse": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.the_muse.get_api_config", return_value=disabled):
-            assert TheMuseSource().is_enabled({}) is False
+            assert TheMuseSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         from job_hunter.models import JobPosting

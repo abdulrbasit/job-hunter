@@ -131,7 +131,7 @@ class BaytSource(JobSourceAdapter):
         return "bayt"
 
     def is_enabled(self, api_config: dict) -> bool:
-        config = get_api_config().get("http", {}).get("job_boards", {}).get("bayt", {}) or {}
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("bayt", {}) or {}
         return bool(config.get("enabled", True))
 
     def _fetch_title(self, title: str, url: str, params: SearchParams, timeout: int) -> tuple[list[JobPosting], bool]:

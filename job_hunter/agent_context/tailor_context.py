@@ -11,6 +11,12 @@ from typing import Any
 
 from job_hunter.agent_context._utils import _root
 from job_hunter.core.utils import read_yaml
+from job_hunter.writing.rules import (
+    universal_ats_rules,
+    universal_cover_letter_rules,
+    universal_evidence_rules,
+    universal_resume_rules,
+)
 
 
 def _score(root: Path, job: str) -> dict[str, Any]:
@@ -70,4 +76,10 @@ def tailor_context(job: str, root: Path | None = None) -> dict[str, Any]:
         "positioning_rules": _build_positioning_rules(config),
         "project_rules": _build_project_rules(config, base_tex, story_bank),
         "cover_constraints": _cover_constraints(config.get("cover_letter") or {}),
+        "writing_rules": {
+            "resume": list(universal_resume_rules()),
+            "cover_letter": list(universal_cover_letter_rules()),
+            "evidence": list(universal_evidence_rules()),
+            "ats": list(universal_ats_rules()),
+        },
     }

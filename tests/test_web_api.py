@@ -198,14 +198,25 @@ def test_update_status_returns_error_dict_for_invalid_status(tmp_path: Path) -> 
     assert "error" in result
 
 
-def test_delete_application_removes_record_and_returns_true(tmp_path: Path) -> None:
+def test_delete_application_removes_record_and_returns_ok(tmp_path: Path) -> None:
     _write_job(tmp_path)
     upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
 
-    ok = DashAPI(tmp_path).delete_application("2026-06-12_acme_pm")
+    result = DashAPI(tmp_path).delete_application("2026-06-12_acme_pm")
 
-    assert ok is True
+    assert result == {"ok": True, "error": ""}
     assert DashAPI(tmp_path).get_applications() == []
+
+
+def test_delete_application_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom(_slug, _root):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("job_hunter.tracking.applications.delete_application", boom)
+
+    result = DashAPI(tmp_path).delete_application("2026-06-12_acme_pm")
+
+    assert result == {"ok": False, "error": "disk full"}
 
 
 def test_get_insights_returns_json_serializable_report(tmp_path: Path) -> None:
@@ -253,6 +264,36 @@ def test_get_analytics_includes_normalized_telemetry(tmp_path: Path) -> None:
 
     assert payload["telemetry"]["totals"]["input_tokens"] == 50
     assert payload["telemetry"]["by_mode"]["batch"]["output_tokens"] == 10
+
+
+def test_get_analytics_distinguishes_observed_from_unavailable_tokens(tmp_path: Path) -> None:
+    from job_hunter.metrics.telemetry import begin_run, end_run, record_outcome
+
+    db_path = tmp_path / "outputs" / "state" / "metrics.db"
+    run_id = begin_run(db_path, backend="codex", session_id="s", mode="batch")
+    record_outcome(db_path, run_id=run_id, job_slug="acme", decision="APPLY")
+    end_run(db_path, run_id, status="completed")
+
+    payload = DashAPI(tmp_path).get_analytics()
+
+    assert payload["telemetry"]["token_status"] == "unavailable"
+    assert payload["telemetry"]["outcomes"]["processed"] == 1
+
+
+def test_get_analytics_operational_summary_present(tmp_path: Path) -> None:
+    from job_hunter.metrics.telemetry import TelemetryEvent, begin_run, end_run, ingest_otlp
+
+    db_path = tmp_path / "outputs" / "state" / "metrics.db"
+    run_id = begin_run(db_path, backend="codex", session_id="s", mode="batch")
+    ingest_otlp(db_path, [TelemetryEvent(backend="codex", session_id="s", model="gpt-5.4", input_tokens=10)])
+    end_run(db_path, run_id, status="completed")
+
+    payload = DashAPI(tmp_path).get_analytics()
+
+    op = payload["telemetry"]["operational"]
+    assert op["sessions"] == 1
+    assert op["favorite_model"] == "gpt-5.4"
+    assert "current_streak" in op and "longest_streak" in op and "peak_hour" in op
 
 
 def test_get_analytics_reports_agent_mode_from_workspace_config(tmp_path: Path) -> None:
@@ -315,11 +356,33 @@ def test_discard_unprocessed_moves_a_candidate_to_discarded(tmp_path: Path) -> N
     api = DashAPI(tmp_path)
     job_id = api.get_unprocessed()["active"][0]["id"]
 
-    assert api.discard_unprocessed(job_id) is True
+    assert api.discard_unprocessed(job_id) == {"ok": True, "error": ""}
 
     payload = api.get_unprocessed()
     assert payload["active"] == []
     assert [job["url"] for job in payload["discarded"]] == ["https://example.com/discard-me"]
+
+
+def test_discard_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom(_root, _job_id, _status):
+        raise OSError("db locked")
+
+    monkeypatch.setattr("job_hunter.tracking.repository.set_status_by_id", boom)
+
+    result = DashAPI(tmp_path).discard_unprocessed(1)
+
+    assert result == {"ok": False, "error": "db locked"}
+
+
+def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom(_root, _job_id):
+        raise OSError("db locked")
+
+    monkeypatch.setattr("job_hunter.tracking.repository.delete_job_by_id", boom)
+
+    result = DashAPI(tmp_path).delete_unprocessed(1)
+
+    assert result == {"ok": False, "error": "db locked"}
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
@@ -351,3 +414,27 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     assert 'data-candidate-scope="discarded"' in html
     assert 'id="candidate-search"' in html
     assert ".badge-rejected  { background: rgba(248,81,73" in html
+
+
+def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None:
+    """Untrusted scrape data (slugs, ids) must travel via data-* attributes and
+    delegated listeners, not string-interpolated into inline onclick/onchange —
+    interpolating into a single-quoted JS literal inside a double-quoted HTML
+    attribute is a JS-injection vector that a plain HTML-escaper doesn't cover."""
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'onclick="selectApp(' not in html
+    assert 'onclick="deleteUnprocessed(${' not in html
+    assert 'onchange="toggleCandidateSelected(${' not in html
+    assert "data-delete-id=" in html
+    assert "data-slug=" in html
+
+
+def test_dashboard_uses_safe_url_for_scraped_job_links() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "function safeUrl(" in html
+    assert 'href="${esc(job.url)}"' not in html
+    assert "linkEl.href = meta.url" not in html

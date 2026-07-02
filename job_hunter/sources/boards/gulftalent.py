@@ -314,7 +314,7 @@ class GulfTalentSource(JobSourceAdapter):
         return "gulftalent"
 
     def is_enabled(self, api_config: dict) -> bool:
-        config = get_api_config().get("http", {}).get("job_boards", {}).get("gulftalent", {}) or {}
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("gulftalent", {}) or {}
         return bool(config.get("enabled", True))
 
     def _fetch_page(self, url: str, timeout: int) -> tuple[str, bool]:

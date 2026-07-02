@@ -6,6 +6,7 @@ Paste posts or content here: `$ARGUMENTS`
 
 ## Token Rules
 
+- Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
 - Use pasted content as the primary input.
 - Read `job-hunter internal agent-context linkedin-weekly` only if candidate context helps.
 - Read selected stories by ID only when a comment needs a verified proof point.
@@ -21,7 +22,8 @@ Paste posts or content here: `$ARGUMENTS`
 
 - Add substance, not praise-only comments.
 - Skip posts where there is no genuine angle.
-- Never fabricate personal experience or outcomes.
+- Apply every rule in `writing_rules.evidence` exactly — universal (code-owned), wins over any
+  conflicting `career_context.md` preference.
 
 ## Output
 

@@ -85,7 +85,7 @@ class TestHimalayasSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"himalayas": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.himalayas.get_api_config", return_value=disabled):
-            assert hm.HimalayasSource().is_enabled({}) is False
+            assert hm.HimalayasSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         from job_hunter.models import JobPosting, SearchParams

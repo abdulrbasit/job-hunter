@@ -60,7 +60,7 @@ class TestArbeitsagenturSource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"arbeitsagentur": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.arbeitsagentur.get_api_config", return_value=disabled):
-            assert aa.ArbeitsagenturSource().is_enabled({}) is False
+            assert aa.ArbeitsagenturSource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         from job_hunter.models import JobPosting, SearchParams

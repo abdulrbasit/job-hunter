@@ -61,6 +61,16 @@ Agent mode never commits, pushes, or applies on your behalf. Auto mode's
 scope is `outputs/` writes, `job-hunter internal ...` commands, and
 WebFetch — nothing else.
 
+## Shared writing policy
+
+`job_hunter/writing/rules.py` is the single source of truth for fabrication,
+evidence, ATS, cover-letter, and outreach safety rules. `agent_context.tailor_context`
+and `agent_context.outreach_context` deliver them as `writing_rules` via
+`job-hunter internal agent-context tailor-context`/`outreach-context`;
+`tailor.md` and `outreach.md` apply the delivered rules alongside
+`career_context.md` style preferences, and the universal rules win on any
+conflict. See [llm-api-mode.md](llm-api-mode.md#shared-writing-policy).
+
 ## Profile compilation
 
 Before a run, `job_hunter/tools/compile_profile.py` compiles

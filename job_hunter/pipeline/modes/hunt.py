@@ -23,7 +23,12 @@ def execute(ctx: PipelineRunContext) -> ModeOutcome:
 
     if options.scrape_only:
         snapshot_path, count, _stats = run_hunt_scrape_only(
-            options.region, REPO_ROOT, ctx.api_config, ctx.url_liveness.is_alive, depth=options.depth
+            options.region,
+            REPO_ROOT,
+            ctx.api_config,
+            ctx.url_liveness.is_alive,
+            depth=options.depth,
+            force=options.force,
         )
         print(f"snapshot_path={snapshot_path.as_posix()}")
         print(f"candidate_count={count}")

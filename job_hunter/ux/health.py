@@ -66,9 +66,14 @@ def doctor(root: Path) -> dict[str, Any]:
     story_rel = _configured_profile_rel(job_hunter_config, "story_bank", "profile/story_bank.md")
     for rel in ("config/job_hunter.yml", resume_rel, story_rel):
         checks.append(_check(rel, (root / rel).exists(), rel, f"Create {rel}."))
+    for skill_md in (".claude/skills/job-hunter/SKILL.md", ".agents/skills/job-hunter/SKILL.md"):
+        checks.append(
+            _check(skill_md, (root / skill_md).exists(), skill_md, "Run `job-hunter update` to reinstall skills.")
+        )
     checks.extend(_schema_checks(root))
     checks.append(_config_schema_check(root))
     checks.extend(_telemetry_checks(root))
+    telemetry_warnings = _telemetry_warnings(root)
     schedule = _workflow_schedule_configured(root)
     checks.append(
         _check(
@@ -93,7 +98,7 @@ def doctor(root: Path) -> dict[str, Any]:
         "checks": checks,
         "onboardingNeeded": onboarding["onboardingNeeded"],
         "missing": onboarding["missing"],
-        "warnings": onboarding["warnings"],
+        "warnings": onboarding["warnings"] + telemetry_warnings,
         "onboarding": onboarding,
     }
 
@@ -198,6 +203,52 @@ def _codex_otel_check(codex_home: Path) -> dict[str, Any]:
             fix,
         )
     return _check("telemetry_codex_otel", True, "~/.codex/config.toml exports OTel logs to the job-hunter collector")
+
+
+def _telemetry_warnings(root: Path) -> list[str]:
+    """Non-blocking telemetry pipeline warnings — collector/protocol/correlation health.
+
+    Separate from `_telemetry_checks` (hook file wiring, hard pass/fail) because these
+    require live collector/DB state and should never fail doctor outright.
+    """
+    from job_hunter.metrics.telemetry import telemetry_status
+
+    warnings: list[str] = []
+    status = telemetry_status(root)
+    if not status["collector_healthy"]:
+        warnings.append(
+            "telemetry collector is not running or not reachable at 127.0.0.1:4318 — "
+            "restart Claude Code/Codex or run a skill to relaunch it"
+        )
+    if status["last_rejected_content_type"]:
+        warnings.append(
+            f"telemetry collector rejected a payload with Content-Type "
+            f"'{status['last_rejected_content_type']}' — only http/json OTLP is supported; "
+            "set OTEL_EXPORTER_OTLP_PROTOCOL=http/json"
+        )
+    protocol = _claude_otlp_protocol(root)
+    if protocol and protocol != "http/json":
+        warnings.append(
+            f"'.claude/settings.json' sets OTEL_EXPORTER_OTLP_PROTOCOL={protocol} — "
+            "the local collector only understands http/json; run `job-hunter update` to fix it"
+        )
+    if status["hooks_wired_but_no_otel_events"]:
+        warnings.append(
+            "telemetry hooks are wired and a run was recorded, but no OTel token events "
+            "have arrived — run `job-hunter internal telemetry-status --json` for details"
+        )
+    return warnings
+
+
+def _claude_otlp_protocol(root: Path) -> str:
+    path = root / ".claude" / "settings.json"
+    if not path.exists():
+        return ""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return ""
+    return str((data.get("env") or {}).get("OTEL_EXPORTER_OTLP_PROTOCOL") or "")
 
 
 def _configured_profile_rel(data: dict[str, Any], key: str, default: str) -> str:

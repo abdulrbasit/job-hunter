@@ -114,7 +114,7 @@ class TestJobSpySource:
     def test_is_enabled_false_when_disabled(self) -> None:
         disabled = {"http": {"job_boards": {"jobspy": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.jobspy.get_api_config", return_value=disabled):
-            assert JobSpySource().is_enabled({}) is False
+            assert JobSpySource().is_enabled(disabled) is False
 
     def test_fetch_returns_job_postings(self, monkeypatch) -> None:
         from job_hunter.models import JobPosting

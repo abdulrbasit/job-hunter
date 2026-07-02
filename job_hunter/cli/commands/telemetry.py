@@ -17,6 +17,7 @@ from job_hunter.metrics.telemetry import (
     end_run,
     record_outcome,
     start_phase,
+    telemetry_status,
 )
 from job_hunter.workspace.manifest import find_workspace_root
 
@@ -50,7 +51,13 @@ def telemetry_hook(
             ensure_collector(root)
             mode = classify_job_hunter_mode(str(payload.get("prompt") or ""))
             if mode and session_id:
-                begin_run(db_path, backend=backend, session_id=session_id, mode=mode)
+                begin_run(
+                    db_path,
+                    backend=backend,
+                    session_id=session_id,
+                    mode=mode,
+                    app_entrypoint=str(payload.get("app_entrypoint") or ""),
+                )
         elif session_id:
             run_id = active_run(db_path, session_id)
             if run_id:
@@ -83,6 +90,21 @@ def telemetry_mark(
             end_active_phase(db_path, run_id, status=status)
     except Exception:  # noqa: BLE001
         return
+
+
+@internal_app.command(name="telemetry-status")
+def telemetry_status_command(
+    workspace: str = typer.Option("", "--workspace"),
+    as_json: bool = typer.Option(True, "--json/--no-json"),
+) -> None:
+    """Print a privacy-safe telemetry diagnostic snapshot (no prompts/content)."""
+    root = _root(workspace)
+    status = telemetry_status(root)
+    if as_json:
+        typer.echo(json.dumps(status, indent=2, default=str))
+    else:
+        for key, value in status.items():
+            typer.echo(f"{key}: {value}")
 
 
 @internal_app.command(name="telemetry-outcome")

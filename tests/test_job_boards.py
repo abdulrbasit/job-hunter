@@ -74,7 +74,7 @@ class TestArbeitnowSource:
     def test_is_enabled_respects_config(self) -> None:
         disabled_config = {"http": {"job_boards": {"arbeitnow": {"enabled": False}}}}
         with patch("job_hunter.sources.boards.arbeitnow.get_api_config", return_value=disabled_config):
-            assert ArbeitnowSource().is_enabled({}) is False
+            assert ArbeitnowSource().is_enabled(disabled_config) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         with (

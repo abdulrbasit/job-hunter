@@ -7,7 +7,7 @@ Slug: `$ARGUMENTS`
 ## Inputs
 
 - `job-hunter internal agent-context tailor-context --job <slug>` → tailoring_rules, positioning_rules,
-  project_rules, keywords, gaps, cover_constraints
+  project_rules, keywords, gaps, cover_constraints, writing_rules
 - `job-hunter internal agent-context score --mode full --job <slug>` → story_index, job meta, score.yml
 - `outputs/jobs/<slug>/score.yml` — matched_story_ids
 - Configured base resume from `config/job_hunter.yml:profile.resume_tex`
@@ -20,6 +20,8 @@ Slug: `$ARGUMENTS`
 1. Run `job-hunter internal telemetry-mark --phase tailoring --job <slug> --state start`, then
    `job-hunter internal agent-context tailor-context --job <slug>`.
    Apply every field exactly as delivered — these are the same constraints that llm-api mode uses.
+   `writing_rules` are universal (code-owned): apply them plus any `career_context.md` style
+   preferences, and the universal rules win on any conflict.
 2. Read `outputs/state/compiled/career_context.min.md` (if present) else `profile/career_context.md`
    for resume style, cover-letter style, and evidence boundaries.
 3. Resolve the configured resume path from `config/job_hunter.yml:profile.resume_tex`
@@ -50,6 +52,7 @@ Slug: `$ARGUMENTS`
 6. Run `job-hunter internal telemetry-mark --phase tailoring --state end`, then
    `job-hunter internal telemetry-mark --phase cover-letter --job <slug> --state start`.
    Write `outputs/jobs/<slug>/cover_letter.md`:
+   - Apply `writing_rules.cover_letter` and `writing_rules.evidence` — universal, win over any conflicting style preference.
    - Tone: `cover_constraints.tone`.
    - Length: target `cover_constraints.target_words` words,
      hard max `cover_constraints.max_words` words,

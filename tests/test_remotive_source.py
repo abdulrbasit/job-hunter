@@ -44,7 +44,7 @@ class TestRemotiveSource:
             "job_hunter.sources.source_config.get_api_config",
             return_value=disabled_config,
         ):
-            assert RemotiveSource().is_enabled({}) is False
+            assert RemotiveSource().is_enabled(disabled_config) is False
 
     def test_fetch_returns_job_postings(self) -> None:
         response_data = {

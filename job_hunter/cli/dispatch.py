@@ -47,6 +47,7 @@ def dispatch_hunt(
     inp = HuntInput(
         region_key=resolved_key,
         mode=mode,
+        depth=depth,
         from_snapshot=Path(from_snapshot) if from_snapshot else None,
         scrape_only=scrape_only,
         skip_score=skip_score,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import subprocess
 import sys
@@ -17,15 +18,40 @@ from job_hunter.metrics.telemetry import ingest_otlp
 HOST = "127.0.0.1"
 PORT = 4318
 IDLE_TIMEOUT_SECONDS = 15 * 60
+# Bumped by the request handler on any payload it cannot decode (protobuf/grpc clients,
+# or anything not http/json) so doctor/telemetry-status can surface a protocol warning
+# instead of failing silently the way a bare 200-with-accepted:0 response would.
+LAST_REJECTED_CONTENT_TYPE = ""
 
 
-def handle_otlp_request(db_path: Path, body: bytes) -> tuple[int, int]:
+def _decompress(body: bytes, content_encoding: str) -> bytes:
+    if "gzip" in content_encoding.lower():
+        try:
+            return gzip.decompress(body)
+        except OSError:
+            return body
+    return body
+
+
+def handle_otlp_request(
+    db_path: Path, body: bytes, *, content_type: str = "", content_encoding: str = ""
+) -> tuple[int, int]:
+    global LAST_REJECTED_CONTENT_TYPE
+    if (
+        content_type
+        and "json" not in content_type.lower()
+        and content_type.lower() not in ("", "application/octet-stream")
+    ):
+        LAST_REJECTED_CONTENT_TYPE = content_type
+        return 200, 0
     try:
-        payload = json.loads(body)
+        payload = json.loads(_decompress(body, content_encoding))
         if not isinstance(payload, dict):
             return 200, 0
         return 200, ingest_otlp(db_path, payload)
     except (json.JSONDecodeError, UnicodeDecodeError, TypeError, ValueError):
+        if content_type:
+            LAST_REJECTED_CONTENT_TYPE = content_type
         return 200, 0
 
 
@@ -34,7 +60,12 @@ def _handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
         def do_GET(self) -> None:  # noqa: N802
             self.server.last_activity = time.monotonic()  # type: ignore[attr-defined]
             if self.path == "/health":
-                data = json.dumps({"workspace": str(db_path.parent.parent.parent)}).encode()
+                data = json.dumps(
+                    {
+                        "workspace": str(db_path.parent.parent.parent),
+                        "last_rejected_content_type": LAST_REJECTED_CONTENT_TYPE,
+                    }
+                ).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
@@ -46,7 +77,16 @@ def _handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
         def do_POST(self) -> None:  # noqa: N802
             self.server.last_activity = time.monotonic()  # type: ignore[attr-defined]
             length = int(self.headers.get("Content-Length", "0") or 0)
-            status, accepted = handle_otlp_request(db_path, self.rfile.read(length))
+            body = self.rfile.read(length)
+            if self.path.startswith("/v1/traces"):
+                status, accepted = 200, 0  # accepted-but-ignored: no token data in traces
+            else:
+                status, accepted = handle_otlp_request(
+                    db_path,
+                    body,
+                    content_type=self.headers.get("Content-Type", ""),
+                    content_encoding=self.headers.get("Content-Encoding", ""),
+                )
             data = json.dumps({"accepted": accepted}).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -76,12 +116,18 @@ def serve(workspace: Path) -> None:
     server.serve_forever()
 
 
-def _collector_workspace() -> str:
+def collector_health(timeout: float = 0.3) -> dict[str, Any] | None:
+    """Return the collector's /health payload, or None if it isn't reachable."""
     try:
-        with urllib.request.urlopen(f"http://{HOST}:{PORT}/health", timeout=0.3) as response:  # noqa: S310
-            return str(json.loads(response.read()).get("workspace") or "")
+        with urllib.request.urlopen(f"http://{HOST}:{PORT}/health", timeout=timeout) as response:  # noqa: S310
+            return dict(json.loads(response.read()))
     except (OSError, ValueError, json.JSONDecodeError):
-        return ""
+        return None
+
+
+def _collector_workspace() -> str:
+    health = collector_health()
+    return str(health.get("workspace") or "") if health else ""
 
 
 def ensure_collector(workspace: Path) -> bool:

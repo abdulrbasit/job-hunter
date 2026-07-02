@@ -594,6 +594,33 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
   color: var(--text-muted);
 }
 
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 4px 0 -4px;
+}
+
+.heatmap-wrap { display: flex; gap: 3px; overflow-x: auto; padding: 4px 0; }
+.heatmap-col { display: flex; flex-direction: column; gap: 3px; }
+.heatmap-cell {
+  width: 11px; height: 11px; border-radius: 2px;
+  background: rgba(48,54,61,0.6);
+}
+.heatmap-cell[data-level="1"] { background: rgba(31,111,235,0.35); }
+.heatmap-cell[data-level="2"] { background: rgba(31,111,235,0.55); }
+.heatmap-cell[data-level="3"] { background: rgba(31,111,235,0.75); }
+.heatmap-cell[data-level="4"] { background: rgba(31,111,235,0.95); }
+
+.model-bar-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.model-bar-label { width: 160px; font-size: 12px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-bar-track { flex: 1; height: 8px; background: rgba(48,54,61,0.5); border-radius: 4px; overflow: hidden; display: flex; }
+.model-bar-fill.input { background: rgba(31,111,235,0.8); height: 100%; }
+.model-bar-fill.output { background: rgba(137,87,229,0.8); height: 100%; }
+.model-bar-share { width: 48px; text-align: right; font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -701,7 +728,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
       <div class="detail-body">
         <div>
           <div class="detail-section-title">Job Posting</div>
-          <a id="dp-link" class="detail-link" href="#" target="_blank">🔗 Open posting</a>
+          <a id="dp-link" class="detail-link" href="#" target="_blank" rel="noopener">🔗 Open posting</a>
         </div>
         <div>
           <div class="detail-section-title">Update Status</div>
@@ -875,11 +902,34 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
   });
 });
 
+// Delegated row/button handlers (tbody markup is untrusted scrape data — no
+// per-row inline onclick/onchange string interpolation; identifiers travel via
+// data-* attributes read here instead).
+document.getElementById('app-tbody').addEventListener('click', (e) => {
+  const row = e.target.closest('tr[data-slug]');
+  if (row) selectApp(row.dataset.slug);
+});
+
+document.getElementById('unprocessed-tbody').addEventListener('click', (e) => {
+  const deleteBtn = e.target.closest('[data-delete-id]');
+  if (deleteBtn) deleteUnprocessed(Number(deleteBtn.dataset.deleteId));
+});
+
+document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
+  if (e.target.classList.contains('candidate-checkbox')) {
+    toggleCandidateSelected(Number(e.target.dataset.id), e.target.checked);
+  }
+});
+
 // ── Data loading ──
 async function refreshAll() {
   insightsLoaded = false;
   analyticsLoaded = false;
   await loadApplications();
+  const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
+  if (activeView === 'analytics') await loadAnalytics();
+  if (activeView === 'insights') await loadInsights();
+  if (activeView === 'unprocessed') await loadUnprocessed();
 }
 
 async function loadApplications() {
@@ -918,13 +968,13 @@ function renderCandidates() {
     return;
   }
   tbody.innerHTML = jobs.map((job, i) => `<tr>
-      <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''} onchange="toggleCandidateSelected(${job.id}, this.checked)">` : i + 1}</td>
+      <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''}>` : i + 1}</td>
       <td class="td-company">${esc(job.company || '—')}</td>
-      <td class="td-title">${job.url ? `<a href="${esc(job.url)}" target="_blank">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
+      <td class="td-title">${job.url ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
       <td><span class="badge badge-${candidateScope === 'discarded' ? 'discarded' : 'candidate'}">${candidateScope === 'discarded' ? 'Discarded' : 'Candidate'}</span></td>
       <td class="td-date">${esc(job.date || '')}</td>
-      <td>${candidateScope === 'active' ? `<button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button>` : ''}</td>
+      <td>${candidateScope === 'active' ? `<button class="btn btn-danger" data-delete-id="${job.id}">🗑</button>` : ''}</td>
     </tr>`).join('');
   updateDiscardButton();
 }
@@ -953,7 +1003,9 @@ async function discardSelected() {
   const ids = [...selectedCandidateIds];
   if (!ids.length || !confirm(`Move ${ids.length} candidate(s) to Discarded?`)) return;
   try {
-    await Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(id)));
+    const results = await Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(id)));
+    const failed = results.filter(r => !r.ok);
+    if (failed.length) alert(`${failed.length} of ${ids.length} discard(s) failed: ${failed[0].error}`);
     selectedCandidateIds.clear();
     loadUnprocessed();
   } catch(e) {
@@ -964,7 +1016,8 @@ async function discardSelected() {
 async function deleteUnprocessed(id) {
   if (!confirm('Delete this job from the database? Cannot be undone.')) return;
   try {
-    await window.pywebview.api.delete_unprocessed(id);
+    const result = await window.pywebview.api.delete_unprocessed(id);
+    if (!result.ok) { alert('Delete failed: ' + result.error); return; }
     loadUnprocessed();
   } catch(e) {
     alert('Delete failed: ' + e);
@@ -1037,7 +1090,7 @@ function renderTable() {
     const scorePill = score !== '' ? `<span class="score-pill ${scoreClass}">${score}</span>` : '—';
     const date = (app.date || '').substring(0, 10);
     const sel = app.slug === activeSlug ? ' selected' : '';
-    return `<tr data-slug="${esc(app.slug)}"${sel} onclick="selectApp('${esc(app.slug)}')">
+    return `<tr data-slug="${esc(app.slug)}"${sel}>
       <td class="td-num">${i + 1}</td>
       <td class="td-company">${esc(app.company || '—')}</td>
       <td class="td-title">${esc(app.title || '—')}</td>
@@ -1095,7 +1148,7 @@ function populateDetail(slug, detail) {
   // link
   const linkEl = document.getElementById('dp-link');
   if (meta.url) {
-    linkEl.href = meta.url;
+    linkEl.href = safeUrl(meta.url);
     linkEl.style.display = '';
   } else {
     linkEl.style.display = 'none';
@@ -1233,7 +1286,8 @@ async function deleteApp() {
   const name = app ? `${app.company} — ${app.title}` : activeSlug;
   if (!confirm(`Delete "${name}"?\n\nThis removes it from the tracker and deletes the job folder. Cannot be undone.`)) return;
   try {
-    await window.pywebview.api.delete_application(activeSlug);
+    const result = await window.pywebview.api.delete_application(activeSlug);
+    if (!result.ok) { alert('Delete failed: ' + result.error); return; }
     allApps = allApps.filter(a => a.slug !== activeSlug);
     closeDetail();
     applyFilters();
@@ -1366,12 +1420,62 @@ const ROLE_LABELS = {
   research: 'Research',
 };
 
+function buildHeatmap(daily) {
+  const days = [];
+  const today = new Date();
+  for (let i = 83; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ key, ...(daily[key] || { runs: 0, tokens: 0 }) });
+  }
+  const max = Math.max(1, ...days.map(d => d.tokens || d.runs));
+  const level = v => v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4));
+  // Group into weeks (columns), 7 rows each, aligned to the end.
+  const cols = [];
+  for (let i = 0; i < days.length; i += 7) cols.push(days.slice(i, i + 7));
+  return `<div class="heatmap-wrap">${cols.map(week => `
+    <div class="heatmap-col">${week.map(d => {
+      const v = d.tokens || d.runs;
+      return `<div class="heatmap-cell" data-level="${level(v)}" title="${d.key}: ${d.runs} run(s), ${d.tokens.toLocaleString()} token(s)"></div>`;
+    }).join('')}</div>`).join('')}</div>`;
+}
+
+function buildModelBars(byModel) {
+  const entries = Object.entries(byModel || {}).sort((a, b) => (b[1].share || 0) - (a[1].share || 0));
+  if (!entries.length) return `<div class="no-data">No model data yet.</div>`;
+  return entries.map(([model, v]) => {
+    const total = (v.input_tokens || 0) + (v.output_tokens || 0);
+    const inPct = total ? (v.input_tokens || 0) / total * 100 : 0;
+    const outPct = total ? (v.output_tokens || 0) / total * 100 : 0;
+    return `
+    <div class="model-bar-row">
+      <div class="model-bar-label" title="${esc(model)}">${esc(model)}</div>
+      <div class="model-bar-track">
+        <div class="model-bar-fill input" style="width:${inPct}%"></div>
+        <div class="model-bar-fill output" style="width:${outPct}%"></div>
+      </div>
+      <div class="model-bar-share">${(v.share ?? 0)}%</div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin:-4px 0 4px 170px">
+      in ${ (v.input_tokens || 0).toLocaleString() } · out ${ (v.output_tokens || 0).toLocaleString() }
+      ${ v.cache_read_tokens ? `· cache-read ${v.cache_read_tokens.toLocaleString()}` : '' }
+      ${ v.cache_creation_tokens ? `· cache-create ${v.cache_creation_tokens.toLocaleString()}` : '' }
+      ${ v.reasoning_tokens ? `· reasoning ${v.reasoning_tokens.toLocaleString()}` : '' }
+    </div>`;
+  }).join('');
+}
+
 function renderAnalytics(data, container) {
   const configMode = data.mode || 'agent';
   const runs = data.runs || [];
   const telemetry = data.telemetry || {};
   const normalizedTotals = telemetry.totals || {};
   const outcomes = telemetry.outcomes || {};
+  const operational = telemetry.operational || {};
+  const unattributed = telemetry.unattributed || { count: 0 };
+  const byModel = telemetry.by_model || {};
+  const tokenStatus = telemetry.token_status || 'unavailable';
   const normalizedTokenCount = (normalizedTotals.input_tokens || 0) + (normalizedTotals.output_tokens || 0);
   const tokensPerTailored = outcomes.tailored ? Math.round(normalizedTokenCount / outcomes.tailored) : 0;
   const latest = runs[0];
@@ -1403,9 +1507,12 @@ function renderAnalytics(data, container) {
   // token chart data
   const tokenTotals = latest?.token_totals || {};
   const hasTokens = Object.keys(tokenTotals).length > 0;
-  const tokenNote = configMode === 'agent' && !hasTokens && !normalizedTokenCount
-    ? `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup, then run a skill (e.g. /job-hunter batch).</div>`
-    : '';
+  let tokenNote = '';
+  if (outcomes.processed > 0 && tokenStatus === 'unavailable') {
+    tokenNote = `<div class="agent-note">Job Hunter outcomes are captured, but Claude/Codex token telemetry has not reached the local collector yet. Run <code>job-hunter internal telemetry-status --json</code> for diagnostics.</div>`;
+  } else if (configMode === 'agent' && !hasTokens && !normalizedTokenCount) {
+    tokenNote = `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup, then run a skill (e.g. /job-hunter batch). Diagnose with <code>job-hunter internal telemetry-status --json</code>.</div>`;
+  }
 
   const roles = Object.keys(ROLE_LABELS).filter(r => tokenTotals[r]);
   const inputData = roles.map(r => tokenTotals[r]?.in || 0);
@@ -1437,21 +1544,39 @@ function renderAnalytics(data, container) {
     </tr>`;
   }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">No runs yet</td></tr>`;
 
+  const tokenDisplay = v => tokenStatus === 'unavailable' && !v ? 'not observed' : v.toLocaleString();
+
   container.innerHTML = `
     <div class="run-header">${headerHtml}</div>
 
     ${tokenNote}
 
+    <div class="section-title">Overview</div>
     <div class="run-header">
-      <div class="run-stat"><div class="run-stat-label">Agent/API Input</div><div class="run-stat-value">${(normalizedTotals.input_tokens || 0).toLocaleString()}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Output</div><div class="run-stat-value">${(normalizedTotals.output_tokens || 0).toLocaleString()}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Cached</div><div class="run-stat-value">${(normalizedTotals.cached_tokens || 0).toLocaleString()}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Reasoning</div><div class="run-stat-value">${(normalizedTotals.reasoning_tokens || 0).toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Sessions</div><div class="run-stat-value">${operational.sessions ?? 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Messages</div><div class="run-stat-value">${operational.messages ?? 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Total Tokens</div><div class="run-stat-value">${tokenDisplay(normalizedTokenCount)}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Active Days</div><div class="run-stat-value">${operational.active_days ?? 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Current Streak</div><div class="run-stat-value">${operational.current_streak ?? 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Longest Streak</div><div class="run-stat-value">${operational.longest_streak ?? 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Peak Hour</div><div class="run-stat-value">${operational.peak_hour != null ? operational.peak_hour + ':00' : '—'}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Favorite Model</div><div class="run-stat-value" style="font-size:14px">${esc(operational.favorite_model) || '—'}</div></div>
+    </div>
+
+    <div class="run-header">
       <div class="run-stat"><div class="run-stat-label">Processed</div><div class="run-stat-value">${outcomes.processed || 0}</div></div>
       <div class="run-stat"><div class="run-stat-label">APPLY / SKIP</div><div class="run-stat-value">${outcomes.apply || 0} / ${outcomes.skip || 0}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Tokens / Tailored</div><div class="run-stat-value">${tokensPerTailored.toLocaleString()}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Tailored</div><div class="run-stat-value">${outcomes.tailored || 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Tokens / Tailored</div><div class="run-stat-value">${tokenDisplay(tokensPerTailored)}</div></div>
       <div class="run-stat"><div class="run-stat-label">Failures</div><div class="run-stat-value">${outcomes.failed || 0}</div></div>
     </div>
+
+    <div class="chart-card">
+      <h3>Daily Activity (last 12 weeks)</h3>
+      ${buildHeatmap(operational.daily || {})}
+    </div>
+
+    ${unattributed.count ? `<div class="agent-note">${unattributed.count} token event(s) could not be linked to a specific run/session (${(unattributed.input_tokens || 0) + (unattributed.output_tokens || 0)} tokens) — shown in totals but not broken out by mode/phase/job.</div>` : ''}
 
     <div class="analytics-grid">
       <div class="chart-card" style="grid-column: ${hasTokens ? '1' : '1 / -1'}">
@@ -1460,6 +1585,10 @@ function renderAnalytics(data, container) {
           ? `<div class="chart-wrap"><canvas id="token-chart" height="200"></canvas></div>`
           : `<div class="no-data">No token data for latest run.</div>`
         }
+      </div>
+      <div class="chart-card" style="grid-column: 1 / -1">
+        <h3>Models</h3>
+        ${buildModelBars(byModel)}
       </div>
       <div class="chart-card">
         <h3>Tokens by Mode</h3>
@@ -1526,6 +1655,12 @@ function renderAnalytics(data, container) {
 // ── Utils ──
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Scraped job URLs are untrusted — block javascript:/data: schemes before use in an href.
+function safeUrl(url) {
+  const value = String(url || '').trim();
+  return /^https?:\/\//i.test(value) ? esc(value) : '#';
 }
 </script>
 </body>

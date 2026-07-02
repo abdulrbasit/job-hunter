@@ -6,7 +6,8 @@ Slug: `$ARGUMENTS`
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context score --mode full --job <slug>`.
+- Start with `job-hunter internal agent-context outreach-context` → `writing_rules.outreach`.
+- Then `job-hunter internal agent-context score --mode full --job <slug>`.
 - Use `matched_story_ids` from `score.yml`; read selected stories only with `agent-context story --id`.
 - Read `profile/career_context.md` when present for writing-style and targeting preferences.
 - Search for at most three public profiles and print only the output path.
@@ -19,9 +20,8 @@ Slug: `$ARGUMENTS`
 
 ## Rules
 
-- Public web search only; no login or scraping.
-- Never invent contacts or claims.
-- Ground fit claims in selected stories or the JD.
+- Apply every rule in `writing_rules.outreach` exactly — universal (code-owned), wins over any
+  conflicting `career_context.md` preference.
 - No external action beyond writing drafts.
 
 ## Output

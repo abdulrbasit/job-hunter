@@ -217,6 +217,22 @@ def agent_context_tailor_context(
     typer.echo(json.dumps(agent_context.tailor_context(job=job), indent=2))
 
 
+@agent_context_app.command("outreach-context")
+def agent_context_outreach_context() -> None:
+    """Print universal outreach writing rules."""
+    from job_hunter import agent_context
+
+    typer.echo(json.dumps(agent_context.outreach_context(), indent=2))
+
+
+@agent_context_app.command("evidence-context")
+def agent_context_evidence_context() -> None:
+    """Print universal no-fabrication evidence rules."""
+    from job_hunter import agent_context
+
+    typer.echo(json.dumps(agent_context.evidence_context(), indent=2))
+
+
 @agent_context_app.command("validate-score")
 def agent_context_validate_score(
     path: str = typer.Option(..., "--path"),

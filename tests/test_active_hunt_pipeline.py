@@ -424,7 +424,7 @@ def _fake_postings(n: int, prefix: str) -> list[JobPosting]:
 def _pass_through_quality_pipeline(monkeypatch) -> None:
     """Make every stage between passes a no-op pass-through so a test controls
     quality count purely via how many postings scrape_with_stats returns."""
-    monkeypatch.setattr(hunt, "filter_new_jobs", lambda jobs: (jobs, set()))
+    monkeypatch.setattr(hunt, "filter_new_jobs", lambda jobs, **_k: (jobs, set()))
     monkeypatch.setattr(hunt, "_drop_dead_urls", lambda jobs, *_a, **_k: jobs)
     monkeypatch.setattr(hunt, "apply_pre_enrichment_quality_gate", lambda jobs, _cfg: (jobs, []))
     monkeypatch.setattr(hunt, "_enrich", lambda jobs, _cfg: jobs)
@@ -493,6 +493,26 @@ def test_adaptive_region_reaches_target_only_after_ats_discovery(monkeypatch) ->
     assert len(jobs) == 13  # 1 + 1 + 1 + 10 — every pass had to run
 
 
+def test_adaptive_region_hunt_force_reincludes_previously_processed_url(monkeypatch, tmp_path) -> None:
+    import job_hunter.tracking.processed_urls as tracker
+    from job_hunter.tracking.repository import mark_urls_processed
+
+    mark_urls_processed(tmp_path, {"https://example.com/standard/0"})
+    monkeypatch.setattr(tracker, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(hunt, "scrape_with_stats", _scrape_stub(standard=2))
+    monkeypatch.setattr(hunt, "_drop_dead_urls", lambda jobs, *_a, **_k: jobs)
+    monkeypatch.setattr(hunt, "apply_pre_enrichment_quality_gate", lambda jobs, _cfg: (jobs, []))
+    monkeypatch.setattr(hunt, "_enrich", lambda jobs, _cfg: jobs)
+    monkeypatch.setattr(hunt, "screen_jobs_by_rules", lambda jobs, _cfg: (jobs, []))
+
+    without_force = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 2, ScrapeStats(), force=False)
+    with_force = hunt._adaptive_region_hunt("bh", {}, {}, MagicMock(), 2, ScrapeStats(), force=True)
+
+    assert len(without_force) == 1  # the previously-processed URL was filtered out
+    assert len(with_force) == 2  # --force re-includes it
+    assert "https://example.com/standard/0" in {j["url"] for j in with_force}
+
+
 def test_adaptive_region_remains_under_target_and_reports_clearly(monkeypatch, caplog) -> None:
     stub = _scrape_stub(standard=1, deep=1, ats_slug=1, ats_discovery=1)
     monkeypatch.setattr(hunt, "scrape_with_stats", stub)
@@ -510,7 +530,7 @@ def test_global_cap_does_not_starve_smaller_regions(monkeypatch) -> None:
     region from running its own full escalation."""
     region_calls: dict[str, list[str | None]] = {"de": [], "bh": []}
 
-    def fake_adaptive(region_key, _api_config, _scoring_config, _url_liveness, _target, _stats):
+    def fake_adaptive(region_key, _api_config, _scoring_config, _url_liveness, _target, _stats, **_kwargs):
         if region_key == "de":
             region_calls["de"].append("standard")
             return [p.model_dump() for p in _fake_postings(20, "de")]

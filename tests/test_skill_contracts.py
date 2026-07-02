@@ -237,6 +237,36 @@ def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template(
     assert mismatches == [], f"skill/template drift: {mismatches}"
 
 
+def test_tailor_skill_references_universal_writing_rules() -> None:
+    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "tailor.md").read_text(encoding="utf-8")
+
+    assert "writing_rules" in text
+    assert "universal" in text.lower()
+    assert "win" in text.lower()
+
+
+def test_outreach_skill_references_universal_outreach_rules() -> None:
+    text = (ROOT / ".claude" / "skills" / "job-hunter" / "modes" / "outreach.md").read_text(encoding="utf-8")
+
+    assert "agent-context outreach-context" in text
+    assert "writing_rules.outreach" in text
+
+
+def test_linkedin_network_references_universal_outreach_rules() -> None:
+    text = (ROOT / ".claude" / "skills" / "linkedin" / "modes" / "network.md").read_text(encoding="utf-8")
+
+    assert "agent-context outreach-context" in text
+    assert "writing_rules.outreach" in text
+
+
+def test_linkedin_content_modes_reference_universal_evidence_rules() -> None:
+    for filename in ("draft.md", "ideas.md", "engage.md"):
+        text = (ROOT / ".claude" / "skills" / "linkedin" / "modes" / filename).read_text(encoding="utf-8")
+
+        assert "agent-context evidence-context" in text
+        assert "writing_rules.evidence" in text
+
+
 def test_rules_md_is_the_file_agents_md_flags_as_manually_mirrored() -> None:
     """Guards the specific drift risk AGENTS.md calls out by name."""
     root_rules = ROOT / ".claude" / "skills" / "job-hunter" / "_rules.md"

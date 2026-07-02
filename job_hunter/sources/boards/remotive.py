@@ -31,7 +31,8 @@ class RemotiveSource(JobSourceAdapter):
         return "remotive"
 
     def is_enabled(self, api_config: dict) -> bool:
-        return job_board_enabled("remotive")
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("remotive", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Remotive's free public API."""

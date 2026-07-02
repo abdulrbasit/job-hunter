@@ -41,6 +41,14 @@ cap — set spend limits in your provider's own console (Anthropic Console,
 OpenAI usage limits, etc.); a code-side budget module would just duplicate
 what the provider already offers.
 
+## Shared writing policy
+
+`job_hunter/writing/rules.py` holds the fabrication, evidence, ATS,
+cover-letter, and outreach rules used by both modes. `llm/prompts/tailoring.py`
+and `pipeline/cover_writer.py` build these into the system prompt sent to the
+provider on every call — unconditionally, regardless of `career_context.md`
+content. See [agent-mode.md](agent-mode.md#shared-writing-policy).
+
 ## GitHub Actions
 
 The shipped **Find Jobs** workflow

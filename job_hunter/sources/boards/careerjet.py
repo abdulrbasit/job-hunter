@@ -99,7 +99,7 @@ class CareerjetSource(JobSourceAdapter):
         return "careerjet"
 
     def is_enabled(self, api_config: dict) -> bool:
-        config = get_api_config().get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("careerjet", {}) or {}
         return bool(config.get("enabled", True)) and bool(config.get("affid", ""))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:

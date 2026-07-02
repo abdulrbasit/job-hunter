@@ -6,6 +6,7 @@ Idea reference: `$ARGUMENTS`
 
 ## Token Rules
 
+- Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
 - Read only the matched idea from `outputs/linkedin/ideas.md`.
 - Read the cited story ID with `job-hunter internal agent-context story --id <ID>`, or use `stories-final` only when the source idea requires comparing verified achievements.
 - Do not read Draft/raw stories or all prior drafts.
@@ -20,7 +21,8 @@ Idea reference: `$ARGUMENTS`
 ## Rules
 
 - 200-400 words, short paragraphs, no filler.
-- Every claim must be traceable to selected evidence.
+- Apply every rule in `writing_rules.evidence` exactly — universal (code-owned), wins over any
+  conflicting `career_context.md` preference.
 - Do not post or call external services.
 
 ## Output

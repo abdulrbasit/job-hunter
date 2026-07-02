@@ -8,6 +8,12 @@ import pytest
 import yaml
 
 from job_hunter.agent_context.tailor_context import tailor_context
+from job_hunter.writing.rules import (
+    universal_ats_rules,
+    universal_cover_letter_rules,
+    universal_evidence_rules,
+    universal_resume_rules,
+)
 
 
 def _write_score(root: Path, slug: str, data: dict) -> Path:
@@ -29,6 +35,7 @@ def test_tailor_context_returns_all_required_keys(tmp_path: Path) -> None:
         "positioning_rules",
         "project_rules",
         "cover_constraints",
+        "writing_rules",
     }
 
 
@@ -90,3 +97,14 @@ def test_tailor_context_tailoring_rules_is_nonempty_string(tmp_path: Path) -> No
     assert isinstance(result["tailoring_rules"], str)
     assert isinstance(result["positioning_rules"], str)
     assert isinstance(result["project_rules"], str)
+
+
+def test_tailor_context_includes_universal_writing_rules(tmp_path: Path) -> None:
+    _write_score(tmp_path, "slug-6", {"matched": [], "gaps": []})
+
+    rules = tailor_context(job="slug-6", root=tmp_path)["writing_rules"]
+
+    assert rules["resume"] == list(universal_resume_rules())
+    assert rules["cover_letter"] == list(universal_cover_letter_rules())
+    assert rules["evidence"] == list(universal_evidence_rules())
+    assert rules["ats"] == list(universal_ats_rules())

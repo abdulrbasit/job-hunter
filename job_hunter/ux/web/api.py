@@ -189,15 +189,15 @@ class DashAPI:
         self._refresh_readme()
         return result
 
-    def delete_application(self, slug: str) -> bool:
+    def delete_application(self, slug: str) -> dict[str, Any]:
         from job_hunter.tracking.applications import delete_application
 
         try:
             delete_application(slug, self._root)
-        except Exception:  # noqa: BLE001
-            return False
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc)}
         self._refresh_readme()
-        return True
+        return {"ok": True, "error": ""}
 
     def get_unprocessed(self) -> dict[str, Any]:
         from job_hunter.tracking.repository import display_status, get_jobs_summary
@@ -225,24 +225,24 @@ class DashAPI:
             "counts": {"active": len(active), "discarded": len(discarded), "total": len(active) + len(discarded)},
         }
 
-    def discard_unprocessed(self, job_id: int) -> bool:
+    def discard_unprocessed(self, job_id: int) -> dict[str, Any]:
         """Move one or more candidates to status='discarded' (never touches applications)."""
         from job_hunter.tracking.repository import set_status_by_id
 
         try:
             set_status_by_id(self._root, int(job_id), "discarded")
-        except Exception:  # noqa: BLE001
-            return False
-        return True
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "error": ""}
 
-    def delete_unprocessed(self, job_id: int) -> bool:
+    def delete_unprocessed(self, job_id: int) -> dict[str, Any]:
         from job_hunter.tracking.repository import delete_job_by_id
 
         try:
             delete_job_by_id(self._root, int(job_id))
-        except Exception:  # noqa: BLE001
-            return False
-        return True
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "error": ""}
 
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict

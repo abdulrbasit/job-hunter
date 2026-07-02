@@ -4,7 +4,8 @@ Single responsibility: find relevant public contacts and draft connection reques
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context linkedin-weekly`.
+- Start with `job-hunter internal agent-context outreach-context` → `writing_rules.outreach`.
+- Then `job-hunter internal agent-context linkedin-weekly`.
 - Prioritize companies with active tailored jobs from the compact context.
 - Search at most five companies and print only the output path.
 
@@ -18,9 +19,8 @@ Single responsibility: find relevant public contacts and draft connection reques
 
 ## Rules
 
-- Public web search only; no login or scraping.
-- Never invent contacts.
-- Do not send or automate requests.
+- Apply every rule in `writing_rules.outreach` exactly — universal (code-owned), wins over any
+  conflicting `career_context.md` preference.
 
 ## Output
 

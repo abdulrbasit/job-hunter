@@ -49,6 +49,10 @@ def install_workspace_telemetry(workspace: Path) -> None:
             "OTEL_LOGS_EXPORTER": "otlp",
             "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
             "OTEL_EXPORTER_OTLP_ENDPOINT": _ENDPOINT,
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": f"{_ENDPOINT}/v1/metrics",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": f"{_ENDPOINT}/v1/logs",
+            "OTEL_METRIC_EXPORT_INTERVAL": "10000",
+            "OTEL_LOGS_EXPORT_INTERVAL": "5000",
             "OTEL_LOG_USER_PROMPTS": "0",
             "OTEL_LOG_TOOL_DETAILS": "0",
         }
@@ -93,6 +97,7 @@ def configure_codex_telemetry(config_path: Path) -> str:
         'environment = "job-hunter"\n'
         "log_user_prompt = false\n"
         'exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/logs", protocol = "json" } }\n'
+        'metrics_exporter = "otlp-http"\n'
     )
     config_path.write_text(text + separator + block, encoding="utf-8")
     return "configured"

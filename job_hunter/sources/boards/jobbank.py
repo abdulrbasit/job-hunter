@@ -40,7 +40,7 @@ class JobBankSource(JobSourceAdapter):
         return "jobbank"
 
     def is_enabled(self, api_config: dict) -> bool:
-        config = get_api_config().get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("jobbank", {}) or {}
         return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:

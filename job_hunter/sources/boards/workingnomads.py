@@ -29,7 +29,8 @@ class WorkingNomadsSource(JobSourceAdapter):
         return "workingnomads"
 
     def is_enabled(self, api_config: dict) -> bool:
-        return job_board_enabled("workingnomads")
+        config = (api_config or {}).get("http", {}).get("job_boards", {}).get("workingnomads", {}) or {}
+        return bool(config.get("enabled", True))
 
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         """Fetch remote jobs from Working Nomads public API."""

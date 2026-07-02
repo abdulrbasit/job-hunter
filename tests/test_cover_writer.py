@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from job_hunter.pipeline import cover_writer
+from job_hunter.writing.rules import universal_cover_letter_rules
 
 CONFIG = {
     "header": {
@@ -97,3 +98,17 @@ def test_write_cover_no_story_id_citations(tmp_path, mock_llm_client) -> None:
     import re
 
     assert not re.search(r"\[[A-Z]+-\d+\]", content), "Story ID citation found in cover letter"
+
+
+def test_cover_writer_system_prompt_includes_universal_rules() -> None:
+    system = cover_writer._build_system(CONFIG.get("cover_letter", {}), "candidate background", 6000)
+    for rule in universal_cover_letter_rules():
+        assert rule in system
+
+
+def test_cover_writer_system_prompt_keeps_universal_rules_despite_config() -> None:
+    """cover_letter config (user-editable) cannot remove the evidence/citation rules."""
+    permissive_config = {"forbidden": {"style": [], "phrases": []}}
+    system = cover_writer._build_system(permissive_config, "candidate background", 6000)
+    for rule in universal_cover_letter_rules():
+        assert rule in system

@@ -80,6 +80,21 @@ external JSON, YAML, SQLite, and generated-artifact serialization
 boundaries. Narrowing those remaining dict boundaries to typed models is
 future cleanup, not something this pass claims to have finished.
 
+## Shared writing policy
+
+`job_hunter/writing/` is code-owned and mode-agnostic: `rules.py` exposes
+`universal_resume_rules()`, `universal_cover_letter_rules()`,
+`universal_outreach_rules()`, `universal_evidence_rules()`, and
+`universal_ats_rules()`. `llm-api` mode bakes these into system prompts
+(`llm/prompts/tailoring.py`, `pipeline/cover_writer.py`); `agent` mode
+delivers them via `agent_context/tailor_context.py`, `outreach_context.py`,
+and `evidence_context.py`'s `writing_rules` field, consumed through
+`job-hunter internal agent-context tailor-context`/`outreach-context`/`evidence-context`.
+The `job-hunter` and `linkedin` skill modes (`tailor.md`, `outreach.md`,
+`draft.md`, `ideas.md`, `engage.md`, `network.md`) all read `writing_rules`
+this way instead of hand-mirroring rule text. `career_context.md` preferences
+never override them.
+
 ## Workspace templates and skills
 
 `.claude/skills/` is canonical. `scripts/sync_workspace_template.py` mirrors
