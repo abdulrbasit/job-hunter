@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,6 +16,7 @@ from job_hunter.metrics.telemetry import ingest_otlp
 
 HOST = "127.0.0.1"
 PORT = 4318
+IDLE_TIMEOUT_SECONDS = 15 * 60
 
 
 def handle_otlp_request(db_path: Path, body: bytes) -> tuple[int, int]:
@@ -29,6 +32,7 @@ def handle_otlp_request(db_path: Path, body: bytes) -> tuple[int, int]:
 def _handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
+            self.server.last_activity = time.monotonic()  # type: ignore[attr-defined]
             if self.path == "/health":
                 data = json.dumps({"workspace": str(db_path.parent.parent.parent)}).encode()
                 self.send_response(200)
@@ -40,6 +44,7 @@ def _handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
             self.send_error(404)
 
         def do_POST(self) -> None:  # noqa: N802
+            self.server.last_activity = time.monotonic()  # type: ignore[attr-defined]
             length = int(self.headers.get("Content-Length", "0") or 0)
             status, accepted = handle_otlp_request(db_path, self.rfile.read(length))
             data = json.dumps({"accepted": accepted}).encode()
@@ -58,6 +63,16 @@ def _handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
 def serve(workspace: Path) -> None:
     db_path = workspace.resolve() / "outputs" / "state" / "metrics.db"
     server = ThreadingHTTPServer((HOST, PORT), _handler(db_path))
+    server.last_activity = time.monotonic()  # type: ignore[attr-defined]
+
+    def watchdog() -> None:
+        while True:
+            time.sleep(30)
+            if time.monotonic() - server.last_activity > IDLE_TIMEOUT_SECONDS:  # type: ignore[attr-defined]
+                server.shutdown()
+                return
+
+    threading.Thread(target=watchdog, daemon=True).start()
     server.serve_forever()
 
 
@@ -73,7 +88,7 @@ def ensure_collector(workspace: Path) -> bool:
     active_workspace = _collector_workspace()
     if active_workspace:
         return Path(active_workspace).resolve() == workspace.resolve()
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     kwargs: dict[str, Any] = {
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
