@@ -24,7 +24,7 @@ jobs:
 
       - name: Install job-hunter-kit with browser support
         run: |
-          uv venv --python 3.12
+          uv venv --python 3.12 --clear
           uv pip install "job-hunter-kit[browser]"
           uv run --no-project playwright install --with-deps chromium
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
