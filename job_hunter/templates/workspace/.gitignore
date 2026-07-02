@@ -25,6 +25,8 @@ outputs/jobs/**/*.pdf
 outputs/state/discovery_cache.yml
 outputs/state/jobicy_feed_cache.json
 outputs/state/metrics.db
+outputs/state/jobs.db-wal
+outputs/state/jobs.db-shm
 __pycache__/
 *.pyc
 .DS_Store

@@ -48,6 +48,8 @@ def test_workspace_gitignore_excludes_rebuildable_source_caches() -> None:
     assert "outputs/state/discovery_cache.yml" in gitignore
     assert "outputs/state/jobicy_feed_cache.json" in gitignore
     assert "outputs/state/metrics.db" in gitignore
+    assert "outputs/state/jobs.db-wal" in gitignore
+    assert "outputs/state/jobs.db-shm" in gitignore
 
 
 def test_workspace_template_config_is_valid_yaml() -> None:
@@ -401,6 +403,20 @@ def test_update_workspace_assets_does_not_touch_job_hunter_yml(tmp_path: Path) -
 
     assert job_config.read_text(encoding="utf-8") == original
     assert "config/job_hunter.yml" not in written
+
+
+def test_update_workspace_assets_appends_sqlite_ignores_without_overwriting_existing_rules(tmp_path: Path) -> None:
+    from job_hunter.workspace.assets import update_workspace_assets
+
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("# mine\ncustom.cache\n", encoding="utf-8")
+
+    update_workspace_assets(tmp_path)
+    updated = gitignore.read_text(encoding="utf-8")
+
+    assert updated.startswith("# mine\ncustom.cache\n")
+    assert updated.count("outputs/state/jobs.db-wal") == 1
+    assert updated.count("outputs/state/jobs.db-shm") == 1
 
 
 def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:

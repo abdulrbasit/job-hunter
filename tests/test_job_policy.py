@@ -218,6 +218,30 @@ def test_global_feed_accepts_broad_location_restrictions() -> None:
     assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Remote"]})
 
 
+def test_explicit_country_overrides_broad_remote_restriction() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+
+    assert policy.has_incompatible_location_for_global_feed(
+        {"location_restrictions": ["Anywhere in the World", "United States"]}
+    )
+    assert policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Worldwide", "Spain"]})
+    assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["Worldwide", "Germany"]})
+
+
+def test_explicit_country_overrides_broad_remote_for_region() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    berlin = _MULTI_REGION_CONFIG["regions"]["berlin"]
+
+    assert policy.has_incompatible_location_metadata(
+        {"location": "Remote", "location_restrictions": ["Anywhere", "United States"]},
+        berlin,
+    )
+    assert not policy.has_incompatible_location_metadata(
+        {"location": "Remote", "location_restrictions": ["Anywhere", "Germany"]},
+        berlin,
+    )
+
+
 def test_global_feed_rejects_location_field_named_non_configured_country() -> None:
     policy = JobPolicy(_MULTI_REGION_CONFIG)
     assert policy.has_incompatible_location_for_global_feed({"location": "Barcelona, Spain"})

@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import Any
 
 _DDL = """
-PRAGMA journal_mode=WAL;
+PRAGMA busy_timeout=10000;
+PRAGMA journal_mode=DELETE;
 
 CREATE TABLE IF NOT EXISTS jobs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +84,7 @@ def db_path(root: Path) -> Path:
 
 
 def _conn(root: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path(root))
+    conn = sqlite3.connect(db_path(root), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
     return conn

@@ -140,6 +140,7 @@ _SHORT_COUNTRY_CODES: frozenset[str] = frozenset(_COUNTRY_NAME_TO_CODE.values())
 _BROAD_LOCATION_RESTRICTIONS: frozenset[str] = frozenset(
     {
         "anywhere",
+        "anywhere in the world",
         "global",
         "remote",
         "worldwide",
@@ -472,11 +473,10 @@ class JobPolicy:
         restrictions = [str(value) for value in job.get("location_restrictions", []) or [] if str(value).strip()]
         if not restrictions or not allowed_codes:
             return False
-        return any(
-            _is_broad_location_restriction(value, allowed_codes)
-            or bool(_codes_from_location_text(value) & allowed_codes)
-            for value in restrictions
-        )
+        explicit_codes = set().union(*(_codes_from_location_text(value) for value in restrictions))
+        if explicit_codes:
+            return bool(explicit_codes & allowed_codes)
+        return any(_is_broad_location_restriction(value, allowed_codes) for value in restrictions)
 
     def has_incompatible_location_metadata(self, job: dict, region_config: dict) -> bool:
         allowed_codes = {str(region_config.get("country") or "").strip().upper()}
@@ -505,10 +505,10 @@ class JobPolicy:
             return False
         restrictions = [str(v) for v in job.get("location_restrictions", []) or [] if str(v).strip()]
         if restrictions:
-            return not any(
-                _is_broad_location_restriction(v, allowed_codes) or bool(_codes_from_location_text(v) & allowed_codes)
-                for v in restrictions
-            )
+            explicit_codes = set().union(*(_codes_from_location_text(value) for value in restrictions))
+            if explicit_codes:
+                return not bool(explicit_codes & allowed_codes)
+            return not any(_is_broad_location_restriction(v, allowed_codes) for v in restrictions)
         location = str(job.get("location") or "")
         if not location or _norm_location_text(location) in _REMOTE_ONLY_LOCATIONS:
             return False

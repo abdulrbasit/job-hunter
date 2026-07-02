@@ -266,7 +266,8 @@ td.td-title { color: var(--text-muted); }
 .badge-responded { background: rgba(240,136,62,0.15); color: #ffa657; }
 .badge-interview { background: rgba(137,87,229,0.15); color: #d2a8ff; }
 .badge-offer     { background: rgba(35,134,54,0.15);  color: #56d364; }
-.badge-rejected  { background: rgba(110,118,129,0.12); color: #8b949e; }
+.badge-rejected  { background: rgba(248,81,73,0.12); color: #ff7b72; }
+.badge-processed { background: rgba(110,118,129,0.12); color: #8b949e; }
 
 .score-pill {
   display: inline-block;
@@ -281,16 +282,20 @@ td.td-title { color: var(--text-muted); }
 
 /* ── Detail panel ── */
 .detail-panel {
-  width: 0;
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(860px, 70vw);
   border-left: 1px solid var(--border);
   background: var(--surface);
   display: flex;
   flex-direction: column;
-  transition: width 0.22s ease;
+  transition: transform 0.22s ease;
+  transform: translateX(100%);
   overflow: hidden;
-  flex-shrink: 0;
+  box-shadow: -12px 0 36px rgba(0,0,0,0.35);
+  z-index: 20;
 }
-.detail-panel.open { width: 380px; }
+.detail-panel.open { transform: translateX(0); }
 
 .detail-header {
   padding: 16px 20px;
@@ -386,12 +391,69 @@ td.td-title { color: var(--text-muted); }
   color: var(--text-muted);
 }
 
+.artifact-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.artifact-tab {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+.artifact-tab:hover:not(:disabled), .artifact-tab.active {
+  border-color: var(--blue);
+  background: rgba(31,111,235,0.1);
+}
+.artifact-tab:disabled { cursor: not-allowed; color: var(--text-muted); opacity: 0.65; }
+.artifact-state { float: right; color: var(--text-muted); font-size: 10px; }
+.artifact-preview {
+  min-height: 380px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  overflow: hidden;
+}
+.artifact-preview-header {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.artifact-preview-title { flex: 1; font-size: 13px; font-weight: 600; }
+.artifact-preview-body { height: 420px; overflow: auto; }
+.artifact-text {
+  margin: 0;
+  padding: 16px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 13px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.artifact-pdf { width: 100%; height: 100%; border: 0; background: #fff; }
+.artifact-empty { height: 100%; display: grid; place-items: center; color: var(--text-muted); font-size: 13px; }
+
 .detail-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+.detail-footer-spacer { flex: 1; }
+
+@media (max-width: 900px) {
+  .detail-panel { width: calc(100% - 24px); }
+  .artifact-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .artifact-preview-body { height: 340px; }
 }
 
 /* ── Insights view ── */
@@ -643,6 +705,27 @@ td.td-title { color: var(--text-muted); }
             <div class="save-msg" id="dp-save-msg"></div>
           </div>
         </div>
+        <div>
+          <div class="detail-section-title">Job Artifacts</div>
+          <div class="artifact-tabs" id="dp-artifact-tabs">
+            <button class="artifact-tab" data-artifact="resume" onclick="selectArtifact('resume')">Resume PDF <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="cover_letter" onclick="selectArtifact('cover_letter')">Cover Letter <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="evaluation" onclick="selectArtifact('evaluation')">Evaluation <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="research" onclick="selectArtifact('research')">Company Research <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="outreach" onclick="selectArtifact('outreach')">Outreach Drafts <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="interview" onclick="selectArtifact('interview')">Interview Prep <span class="artifact-state">N/A</span></button>
+          </div>
+        </div>
+        <div class="artifact-preview" id="dp-artifact-preview">
+          <div class="artifact-preview-header">
+            <span class="artifact-preview-title" id="dp-artifact-title">Select an artifact</span>
+            <button class="btn" id="dp-copy-artifact" onclick="copyArtifact()" style="display:none">Copy</button>
+            <button class="btn" id="dp-open-artifact" onclick="openArtifact()" style="display:none">Open file</button>
+          </div>
+          <div class="artifact-preview-body" id="dp-artifact-body">
+            <div class="artifact-empty">Available job files appear here.</div>
+          </div>
+        </div>
         <div id="dp-jd-section">
           <div class="detail-section-title">Job Description</div>
           <div class="jd-text" id="dp-jd">—</div>
@@ -653,6 +736,8 @@ td.td-title { color: var(--text-muted); }
         </div>
       </div>
       <div class="detail-footer">
+        <button class="btn" onclick="openJobFolder()">Open Folder</button>
+        <span class="detail-footer-spacer"></span>
         <button class="btn btn-danger" onclick="deleteApp()">🗑 Delete</button>
       </div>
     </div>
@@ -661,6 +746,14 @@ td.td-title { color: var(--text-muted); }
   <!-- Unprocessed view -->
   <section id="view-unprocessed" class="view">
     <div class="app-panel">
+      <div class="filter-bar">
+        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…" oninput="renderCandidates()">
+        <div class="status-tabs">
+          <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
+          <button class="status-tab" data-candidate-scope="processed">Processed History <span id="candidate-processed-count">0</span></button>
+        </div>
+        <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -711,6 +804,10 @@ let analyticsLoaded = false;
 let statusChart = null;
 let weekChart = null;
 let tokenChart = null;
+let activeArtifact = null;
+let artifactObjectUrl = null;
+let candidateData = { active: [], processed: [], counts: { active: 0, processed: 0, total: 0 } };
+let candidateScope = 'active';
 
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
@@ -741,12 +838,21 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 });
 
 // Status tab filter
-document.querySelectorAll('.status-tab').forEach(tab => {
+document.querySelectorAll('#status-tabs .status-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#status-tabs .status-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     activeStatus = tab.dataset.status;
     applyFilters();
+  });
+});
+
+document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-candidate-scope]').forEach(button => button.classList.remove('active'));
+    tab.classList.add('active');
+    candidateScope = tab.dataset.candidateScope;
+    renderCandidates();
   });
 });
 
@@ -770,23 +876,35 @@ async function loadApplications() {
 async function loadUnprocessed() {
   const tbody = document.getElementById('unprocessed-tbody');
   try {
-    const jobs = await window.pywebview.api.get_unprocessed();
-    if (!jobs.length) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No unprocessed jobs</div></td></tr>`;
-      return;
-    }
-    tbody.innerHTML = jobs.map((job, i) => `<tr>
+    candidateData = await window.pywebview.api.get_unprocessed();
+    document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
+    document.getElementById('candidate-processed-count').textContent = candidateData.counts.processed;
+    document.getElementById('candidate-total-count').textContent = `${candidateData.counts.total} candidates`;
+    renderCandidates();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
+  }
+}
+
+function renderCandidates() {
+  const tbody = document.getElementById('unprocessed-tbody');
+  const query = document.getElementById('candidate-search').value.toLowerCase();
+  const jobs = (candidateData[candidateScope] || []).filter(job =>
+    !query || `${job.company || ''} ${job.title || ''} ${job.location || ''}`.toLowerCase().includes(query)
+  );
+  if (!jobs.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = jobs.map((job, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-company">${esc(job.company || '—')}</td>
       <td class="td-title">${job.url ? `<a href="${esc(job.url)}" target="_blank">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
-      <td><span class="badge badge-${job.status || 'unknown'}">${job.status || '—'}</span></td>
+      <td><span class="badge badge-${candidateScope === 'processed' ? 'processed' : 'tailored'}">${candidateScope === 'processed' ? 'Processed' : 'Candidate'}</span></td>
       <td class="td-date">${esc(job.date || '')}</td>
-      <td><button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button></td>
+      <td>${candidateScope === 'active' ? `<button class="btn btn-danger" onclick="deleteUnprocessed(${job.id})">🗑</button>` : ''}</td>
     </tr>`).join('');
-  } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
-  }
 }
 
 async function deleteUnprocessed(id) {
@@ -902,6 +1020,7 @@ function openDetail() {
 }
 
 function closeDetail() {
+  clearArtifactPreview();
   activeSlug = null;
   document.getElementById('detail-panel').classList.remove('open');
   document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
@@ -932,6 +1051,18 @@ function populateDetail(slug, detail) {
   const jd = detail.jd || '';
   document.getElementById('dp-jd').textContent = jd || 'No job description available.';
 
+  const artifacts = detail.artifacts || [];
+  document.querySelectorAll('.artifact-tab').forEach(button => {
+    const artifact = artifacts.find(item => item.key === button.dataset.artifact);
+    const available = Boolean(artifact && artifact.available);
+    button.disabled = !available;
+    button.classList.remove('active');
+    button.querySelector('.artifact-state').textContent = available ? 'Ready' : 'N/A';
+  });
+  clearArtifactPreview();
+  const firstAvailable = artifacts.find(item => item.available);
+  if (firstAvailable) selectArtifact(firstAvailable.key);
+
   // notes from app
   const app = allApps.find(a => a.slug === slug);
   const notes = (app && app.notes) || [];
@@ -943,6 +1074,82 @@ function populateDetail(slug, detail) {
     notesEl.innerHTML = '';
     document.getElementById('dp-notes-section').style.display = 'none';
   }
+}
+
+function clearArtifactPreview() {
+  if (artifactObjectUrl) {
+    URL.revokeObjectURL(artifactObjectUrl);
+    artifactObjectUrl = null;
+  }
+  activeArtifact = null;
+  document.querySelectorAll('.artifact-tab').forEach(button => button.classList.remove('active'));
+  document.getElementById('dp-artifact-title').textContent = 'Select an artifact';
+  document.getElementById('dp-copy-artifact').style.display = 'none';
+  document.getElementById('dp-open-artifact').style.display = 'none';
+  document.getElementById('dp-artifact-body').innerHTML = '<div class="artifact-empty">Available job files appear here.</div>';
+}
+
+async function selectArtifact(key) {
+  if (!activeSlug) return;
+  const button = document.querySelector(`.artifact-tab[data-artifact="${key}"]`);
+  if (!button || button.disabled) return;
+  clearArtifactPreview();
+  activeArtifact = key;
+  button.classList.add('active');
+  document.getElementById('dp-artifact-title').textContent = button.childNodes[0].textContent.trim();
+  document.getElementById('dp-artifact-body').innerHTML = '<div class="artifact-empty"><span class="spinner"></span></div>';
+  try {
+    const result = await window.pywebview.api.get_artifact(activeSlug, key);
+    if (!result.ok) throw new Error(result.error || 'Preview unavailable.');
+    document.getElementById('dp-open-artifact').style.display = '';
+    if (result.kind === 'pdf') {
+      const bytes = Uint8Array.from(atob(result.content), char => char.charCodeAt(0));
+      artifactObjectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      document.getElementById('dp-artifact-body').innerHTML = `<iframe class="artifact-pdf" title="${esc(result.filename)}"></iframe>`;
+      document.querySelector('.artifact-pdf').src = artifactObjectUrl;
+    } else {
+      const pre = document.createElement('pre');
+      pre.className = 'artifact-text';
+      pre.id = 'dp-artifact-text';
+      pre.textContent = result.content || '';
+      const body = document.getElementById('dp-artifact-body');
+      body.innerHTML = '';
+      body.appendChild(pre);
+      document.getElementById('dp-copy-artifact').style.display = '';
+    }
+  } catch(e) {
+    document.getElementById('dp-artifact-body').innerHTML = `<div class="artifact-empty">${esc(e.message || e)}</div>`;
+  }
+}
+
+async function copyArtifact() {
+  const text = document.getElementById('dp-artifact-text');
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text.textContent);
+  } catch(_) {
+    const area = document.createElement('textarea');
+    area.value = text.textContent;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  const button = document.getElementById('dp-copy-artifact');
+  button.textContent = 'Copied';
+  setTimeout(() => { button.textContent = 'Copy'; }, 1200);
+}
+
+async function openArtifact() {
+  if (!activeSlug || !activeArtifact) return;
+  const result = await window.pywebview.api.open_artifact(activeSlug, activeArtifact);
+  if (!result.ok) alert(result.error || 'Could not open file.');
+}
+
+async function openJobFolder() {
+  if (!activeSlug) return;
+  const result = await window.pywebview.api.open_job_folder(activeSlug);
+  if (!result.ok) alert(result.error || 'Could not open folder.');
 }
 
 async function saveStatus() {

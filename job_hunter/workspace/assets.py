@@ -54,6 +54,7 @@ _README_BLOCKS = (
     ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
     ("<!-- JOBS_TABLE_START -->", "<!-- JOBS_TABLE_END -->"),
 )
+_SQLITE_IGNORE_LINES = ("outputs/state/jobs.db-wal", "outputs/state/jobs.db-shm")
 
 
 def workspace_assets_root() -> Traversable:
@@ -121,6 +122,13 @@ def update_workspace_assets(workspace: Path) -> list[str]:
             content = _preserve_readme_blocks(dest.read_bytes(), content)
         dest.write_bytes(content)
         written.append(rel)
+
+    gitignore = workspace / ".gitignore"
+    existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
+    missing = [line for line in _SQLITE_IGNORE_LINES if line not in existing.splitlines()]
+    if missing:
+        separator = "" if not existing or existing.endswith("\n") else "\n"
+        gitignore.write_text(existing + separator + "\n".join(missing) + "\n", encoding="utf-8")
     return written
 
 
