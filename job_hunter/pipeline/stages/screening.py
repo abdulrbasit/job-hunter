@@ -7,19 +7,6 @@ from typing import Any
 from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.sources.policy import JobPolicy
 
-# Snippet phrases that explicitly mark a fixed-term/contract posting.
-_CONTRACT_PHRASES: frozenset[str] = frozenset(
-    {
-        "employment type: contract",
-        "employment type : contract",
-        "this is a contract role",
-        "this is a contract position",
-        "contract-only",
-        "contractors only",
-        "fixed-term contract",
-    }
-)
-
 
 def _requires_excluded_language(title_lower: str, excluded_langs: list[str]) -> bool:
     for lang in excluded_langs:
@@ -33,12 +20,13 @@ def _screen_job(
     policy: JobPolicy,
     regions: dict[str, Any],
     industries: list[str],
+    title_filters: list[str],
 ) -> tuple[str, list[str]]:
     title = str(job.get("title") or "")
     snippet = str(job.get("snippet") or "")
     snippet_lower = snippet.lower()
 
-    reason = policy.rejection_reason(job, [])
+    reason = policy.rejection_reason(job, title_filters)
     if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
         reason = "excluded_title"
     if not reason and _requires_excluded_language(title.lower(), policy.excluded_languages):
@@ -61,8 +49,6 @@ def _screen_job(
 
     if not reason and policy.is_excluded_industry(snippet_lower):
         reason = "excluded_industry"
-    if not reason and any(phrase in snippet_lower for phrase in _CONTRACT_PHRASES):
-        reason = "contract_role"
 
     signals = [] if reason else [term for term in industries if term in snippet_lower]
     return reason, signals
@@ -76,11 +62,12 @@ def screen_jobs_by_rules(
     policy = JobPolicy(config)
     regions = config.get("regions", {}) or {}
     industries = [str(term).lower() for term in policy.excluded_industries]
+    title_filters = [str(term) for term in config.get("job_titles", []) or []]
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, signals = _screen_job(job, policy, regions, industries)
+        reason, signals = _screen_job(job, policy, regions, industries, title_filters)
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
         else:

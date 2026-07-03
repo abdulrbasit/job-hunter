@@ -7,7 +7,7 @@ Semantically judge candidates retained by deterministic Python screening.
 - `outputs/state/agent_candidate_queue.json`
 - `outputs/state/batch_screen.yml`
 - `config/job_hunter.yml`
-- `profile/career_context.md`
+- `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`
 
 Python already removes objective failures: exact excluded title terms, exact excluded
 companies, duplicates, invalid URLs, clear stale dates/content, strong excluded-language

@@ -127,7 +127,21 @@ def compile_resume(src: Path, out_dir: Path) -> Path:
 
 
 def compile_all(root: Path) -> None:
-    """Compile all configured profile files. Called at pipeline/skill start."""
+    """Compile all configured profile files. Called at pipeline/skill start.
+
+    Never raises. A missing config/profile file is a silent no-op (fine for a fresh
+    workspace — see the config_path.exists() check below). Any other failure (malformed
+    YAML, a bad-encoding profile file, a bug in the LaTeX compactor) is caught and logged
+    as one compact warning line, and the pipeline falls back to raw profile files —
+    matching the "compile-profile is silent on failure" contract documented in SKILL.md.
+    """
+    try:
+        _compile_all_unsafe(root)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[compile_profile] failed, continuing with raw profile files: %s", exc)
+
+
+def _compile_all_unsafe(root: Path) -> None:
     import yaml
 
     config_path = root / "config" / "job_hunter.yml"

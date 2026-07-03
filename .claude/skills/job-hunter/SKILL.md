@@ -37,13 +37,16 @@ Arguments: `$ARGUMENTS`
 
 ## Initialization
 
-Before any mode that reads profile files (batch, one, tailor, score), run:
+Before any mode that reads profile files (batch, one, tailor, score, screen, interview, outreach), run:
 
 ```bash
 job-hunter internal compile-profile
 ```
 
-This compiles profile files into minified versions for the session. Silent on failure.
+This compiles profile files into minified versions for the session. A missing config or
+profile file is a silent no-op (fine for a fresh workspace). Any other failure logs one
+compact warning line to `job_hunt.log` and falls back to the raw profile files — it never
+raises or blocks the session.
 
 ## Routing
 

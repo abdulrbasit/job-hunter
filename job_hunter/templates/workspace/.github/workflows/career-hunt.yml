@@ -30,6 +30,10 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install Lightpanda
+        # Non-fatal: the career-page extraction ladder falls back to Playwright/Firecrawl
+        # when the lightpanda binary is unavailable (see sources/career_pages/_rendering.py),
+        # so a nightly-asset hiccup here must not fail the whole job.
+        continue-on-error: true
         run: |
           set -euo pipefail
           curl -fsSL -o /tmp/lightpanda https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux
@@ -41,10 +45,23 @@ jobs:
       - name: Commit results
         if: always()
         run: |
-          [ -d outputs/browser_hunt ] || exit 0
           git config user.name "Job Hunter"
           git config user.email "noreply@github.com"
-          git add outputs/browser_hunt/
+          git add outputs/ README.md
           git diff --staged --quiet && exit 0
           git commit -m "chore(career-hunt): $(date -u +%Y-%m-%d)"
-          git push
+          for i in 1 2 3; do
+            git push && exit 0
+            git fetch origin main
+            git rebase origin/main || {
+              git diff --name-only --diff-filter=U | while IFS= read -r f; do
+                case "$f" in
+                  outputs/*) git checkout --ours -- "$f" ;;
+                  *) git checkout --theirs -- "$f" ;;
+                esac
+              done
+              git add -u
+              git rebase --continue || { git rebase --abort; exit 1; }
+            }
+          done
+          echo "Push failed after 3 retries" && exit 1

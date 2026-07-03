@@ -269,6 +269,23 @@ def test_hook_and_marker_commands_attribute_usage(tmp_path: Path) -> None:
     )
 
 
+def test_telemetry_hook_writes_heartbeat_even_when_inner_logic_fails(tmp_path: Path) -> None:
+    """The heartbeat marker must be written before the fragile telemetry work runs, so it
+    still lands even if that work raises — this is what lets doctor tell "hook never
+    fires" apart from "hook fires but crashes before writing a run"."""
+    payload = json.dumps({"session_id": "s", "cwd": str(tmp_path), "prompt": "/job-hunter batch"})
+
+    with patch("job_hunter.metrics.collector.ensure_collector", side_effect=RuntimeError("boom")):
+        result = runner.invoke(
+            app,
+            ["internal", "telemetry-hook", "--backend", "codex", "--event", "prompt", "--workspace", str(tmp_path)],
+            input=payload,
+        )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "outputs" / "state" / ".telemetry_hook_heartbeat").exists()
+
+
 def test_stop_hook_keeps_run_open_while_waiting_for_confirmation(tmp_path: Path) -> None:
     db = tmp_path / "outputs" / "state" / "metrics.db"
     begin_run(db, backend="codex", session_id="s", mode="one")
@@ -539,3 +556,51 @@ def test_telemetry_status_reports_privacy_safe_diagnostics(tmp_path: Path) -> No
     assert status["latest_phase"]["phase"] == "scoring"
     assert status["claude_hooks_wired"] is False
     assert "prompt" not in json.dumps(status)
+
+
+def _write_claude_hook(root: Path) -> None:
+    (root / ".claude").mkdir(parents=True, exist_ok=True)
+    (root / ".claude" / "settings.json").write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "UserPromptSubmit": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "job-hunter internal telemetry-hook --backend claude-code --event prompt",
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_telemetry_status_flags_hook_that_fires_but_never_writes_a_run(tmp_path: Path) -> None:
+    """The hook heartbeat proves Claude Code invoked the hook process; zero runs ever
+    existing despite that means the process is failing before it can write to metrics.db —
+    a blind spot the existing hooks_wired_but_no_otel_events check can't see."""
+    _write_claude_hook(tmp_path)
+    (tmp_path / "outputs" / "state").mkdir(parents=True)
+    (tmp_path / "outputs" / "state" / ".telemetry_hook_heartbeat").write_text("2026-07-01T00:00:00", encoding="utf-8")
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value=None):
+        status = telemetry_status(tmp_path)
+
+    assert status["hooks_invoked_but_no_runs_ever"] is True
+
+
+def test_telemetry_status_does_not_flag_fresh_workspace_with_no_heartbeat(tmp_path: Path) -> None:
+    """A workspace that's never invoked the hook at all (fresh install) must not be flagged —
+    only a hook that's firing yet failing to record anything is a real problem."""
+    _write_claude_hook(tmp_path)
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value=None):
+        status = telemetry_status(tmp_path)
+
+    assert status["hooks_invoked_but_no_runs_ever"] is False

@@ -75,6 +75,20 @@ def _normalized_title(job: dict[str, Any]) -> str:
     return _title_key(job).split("::", 1)[-1]
 
 
+def _job_hunter_config_for(base: Path) -> dict[str, Any]:
+    """Load job_hunter.yml for `base`, whether or not it's the process-default root.
+
+    get_config("job_hunter") is cached against the process-default root (config/paths.py::ROOT,
+    resolved once at import). A caller passing a different root (multi-workspace tooling, tests)
+    must not reuse that cache — it would silently apply the wrong workspace's policy.
+    """
+    from job_hunter.config import get_config, get_job_hunter_config_for_root
+
+    if base == _root():
+        return get_config("job_hunter")
+    return get_job_hunter_config_for_root(base)
+
+
 # ---------------------------------------------------------------------------
 # Main queue builder — reads from DB, falls back to snapshot files
 # ---------------------------------------------------------------------------
@@ -116,7 +130,6 @@ def _build_queue_from_db(
     limit: int = 100,
     max_snippet_chars: int = MAX_SNIPPET_CHARS,
 ) -> dict[str, Any]:
-    from job_hunter.config import get_config
     from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
     from job_hunter.tracking.repository import get_discovered_jobs
 
@@ -124,6 +137,7 @@ def _build_queue_from_db(
     processed_urls = _load_processed_for_root(base)
 
     seen_urls: set[str] = set()
+    seen_canonicals: set[str] = set()
     seen_titles: set[str] = set()
     queued: list[dict[str, Any]] = []
     skipped_processed = 0
@@ -133,13 +147,15 @@ def _build_queue_from_db(
         url = str(job.get("url") or "")
         title_key = _title_key(job)
         canonical = canonicalize_url(url) if url else ""
-        if url and (canonical in processed_urls or url in seen_urls):
+        if url and (canonical in processed_urls or url in seen_urls or (canonical and canonical in seen_canonicals)):
             skipped_processed += 1
             continue
         if title_key in seen_titles:
             skipped_duplicate += 1
             continue
         seen_urls.add(url)
+        if canonical:
+            seen_canonicals.add(canonical)
         seen_titles.add(title_key)
         snippet = str(job.get("snippet") or job.get("jd_text") or "")
         queued.append(
@@ -163,7 +179,7 @@ def _build_queue_from_db(
             }
         )
 
-    config = get_config("job_hunter") if base == _root() else {}
+    config = _job_hunter_config_for(base)
     queued, _hard_rejected = screen_jobs_by_rules(queued, config)
     queued = queued[:limit]
 
@@ -193,7 +209,6 @@ def _build_queue_from_files(
     max_snippet_chars: int = MAX_SNIPPET_CHARS,
 ) -> dict[str, Any]:
     """Legacy snapshot-file queue builder (used when --source is given)."""
-    from job_hunter.config import get_config
     from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 
     resolved_today_only = today_only
@@ -206,6 +221,7 @@ def _build_queue_from_files(
 
     processed_urls = _load_processed_for_root(base)
     seen_urls: set[str] = set()
+    seen_canonicals: set[str] = set()
     seen_titles: set[str] = set()
     queued: list[dict[str, Any]] = []
     total_seen = 0
@@ -225,7 +241,9 @@ def _build_queue_from_files(
             url = str(job.get("url") or "")
             title_key = _title_key(job)
             canonical = canonicalize_url(url) if url else ""
-            if url and (canonical in processed_urls or url in seen_urls):
+            if url and (
+                canonical in processed_urls or url in seen_urls or (canonical and canonical in seen_canonicals)
+            ):
                 if canonical in processed_urls:
                     source_skip_proc += 1
                     skipped_processed += 1
@@ -239,6 +257,8 @@ def _build_queue_from_files(
                 continue
             if len(queued) < limit:
                 seen_urls.add(url)
+                if canonical:
+                    seen_canonicals.add(canonical)
                 seen_titles.add(title_key)
                 snippet = str(job.get("snippet") or job.get("description") or "")
                 queued.append(
@@ -282,7 +302,7 @@ def _build_queue_from_files(
             }
         )
 
-    config = get_config("job_hunter") if base == _root() else {}
+    config = _job_hunter_config_for(base)
     queued, _hard_rejected = screen_jobs_by_rules(queued, config)
 
     return {

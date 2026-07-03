@@ -8,10 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.agent_context._utils import _root
-from job_hunter.agent_context.candidates import _title_key
-from job_hunter.config import get_config
+from job_hunter.agent_context.candidates import _job_hunter_config_for, _title_key
 from job_hunter.constants import DEFAULT_BATCH_SIZE
-from job_hunter.core.utils import has_excluded_title_term, read_yaml
 from job_hunter.sources.policy import JobPolicy
 
 
@@ -75,7 +73,7 @@ def screen_candidate_batch(
     root: Path | None = None,
 ) -> dict[str, Any]:
     base = _root(root)
-    search_config = get_config("job_hunter") if base == _root() else read_yaml(base / "config" / "job_hunter.yml")
+    search_config = _job_hunter_config_for(base)
     policy = JobPolicy(search_config)
     title_filters = search_config.get("job_titles", []) or []
     applied_keys = _applied_title_keys(base)
@@ -88,15 +86,9 @@ def screen_candidate_batch(
         title = str(candidate.get("title") or "")
         snippet = str(candidate.get("snippet") or "")
         region = str(candidate.get("region") or "")
-        if not policy.accepts_job_content(candidate, title_filters):
-            if policy.is_excluded_company(str(candidate.get("company") or "")):
-                reasons.append("excluded_company")
-            if policy.is_excluded_language(title, snippet):
-                reasons.append("excluded_language")
-            if has_excluded_title_term(title, policy.excluded_title_terms):
-                reasons.append("excluded_title")
-            if not reasons:
-                reasons.append("title_not_matched")
+        content_reason = policy.rejection_reason(candidate, title_filters)
+        if content_reason:
+            reasons.append(content_reason)
         region_config = _region_config(search_config, region)
         if policy.has_incompatible_location_metadata(candidate, region_config):
             reasons.append("incompatible_location_metadata")

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from functools import cache
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -37,10 +38,12 @@ def _load_yaml(name: str) -> dict[str, Any]:
         return yaml.safe_load(file) or {}
 
 
-@cache
-def get_job_hunter_config() -> dict[str, Any]:
-    """Load config/job_hunter.yml and merge code-owned runtime defaults."""
-    data = _load_yaml("job_hunter")
+def _build_job_hunter_config(root: Path) -> dict[str, Any]:
+    path = root / "config" / "job_hunter.yml"
+    data: dict[str, Any] = {}
+    if path.exists():
+        with path.open(encoding="utf-8") as file:
+            data = yaml.safe_load(file) or {}
     reject_removed_user_config(data)
     defaults: dict[str, Any] = {
         "llm": LLM_ROLE_DEFAULTS,
@@ -52,6 +55,23 @@ def get_job_hunter_config() -> dict[str, Any]:
     scoring = merged.setdefault("scoring", {})
     scoring["prompt_context"] = SCORING_PROMPT_CONTEXT
     return merged
+
+
+@cache
+def get_job_hunter_config() -> dict[str, Any]:
+    """Load config/job_hunter.yml and merge code-owned runtime defaults."""
+    return _build_job_hunter_config(ROOT)
+
+
+def get_job_hunter_config_for_root(root: Path) -> dict[str, Any]:
+    """Same as get_job_hunter_config(), for an explicit non-default workspace root.
+
+    ROOT is resolved once at import time from cwd/JOB_HUNTER_ROOT, so callers that
+    operate on a different workspace root (multi-workspace tooling, tests) can't use
+    the cached, ROOT-bound get_job_hunter_config() without silently loading the wrong
+    workspace's config. Uncached — these callers are not a hot path.
+    """
+    return _build_job_hunter_config(root)
 
 
 @cache

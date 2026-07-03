@@ -27,7 +27,7 @@ Set `mode:` in `config/job_hunter.yml`.
 ## Skills
 
 ```text
-/job-hunter          job search command center (batch, one, search, finalize, screen,
+/job-hunter          job search command center (batch, one, finalize, screen,
                      tailor, score, research, interview, outreach, stories, linkedin)
 /linkedin            LinkedIn content center (ideas, draft, engage, network)
 /setup               workspace setup center (onboard, doctor, region, style, stories)

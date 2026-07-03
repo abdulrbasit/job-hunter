@@ -94,6 +94,7 @@ _WORKFLOW_PREFIXES = (".github/",)
 @dataclass
 class WorkflowsUpdateResult:
     written: list[str] = field(default_factory=list)
+    customized: list[str] = field(default_factory=list)
 
 
 def iter_template_workflow_files() -> list[tuple[str, bytes]]:
@@ -122,20 +123,45 @@ def _preserve_user_schedule(existing_text: str, new_text: str) -> str:
 
 
 def update_workflows(workspace: Path) -> WorkflowsUpdateResult:
-    """Copy bundled .github/ files into a workspace, preserving user cron schedules."""
+    """Copy bundled .github/ files into a workspace, preserving user cron schedules.
+
+    Also tracks each workflow file's hash in the manifest. find-jobs.yml's schedule is
+    preserved by _preserve_user_schedule above and is always safe to update past that.
+    Other workflow files (career-hunt.yml, tailor-job.yml) have no such merge logic — if
+    the on-disk file differs from what was last installed here, the user has customized
+    it (timeout, added env var, etc.). It's still updated, so fixes keep landing, but the
+    file is reported back in `customized` instead of the edit being silently discarded.
+    """
     workspace = workspace.resolve()
     result = WorkflowsUpdateResult()
 
+    try:
+        manifest = read_manifest(workspace)
+    except FileNotFoundError:
+        manifest = None
+
+    new_managed: dict[str, str] = {}
     for rel_path, content in iter_template_workflow_files():
         dest = workspace / rel_path
         dest.parent.mkdir(parents=True, exist_ok=True)
 
         new_text = content.decode("utf-8")
-        if dest.is_file() and rel_path == ".github/workflows/find-jobs.yml":
-            new_text = _preserve_user_schedule(dest.read_text(encoding="utf-8"), new_text)
+        if dest.is_file():
+            existing_bytes = dest.read_bytes()
+            if rel_path == ".github/workflows/find-jobs.yml":
+                new_text = _preserve_user_schedule(existing_bytes.decode("utf-8"), new_text)
+            else:
+                last_hash = manifest.managed_files.get(rel_path) if manifest else None
+                if last_hash and sha256_bytes(existing_bytes) != last_hash:
+                    result.customized.append(rel_path)
 
         dest.write_bytes(new_text.encode("utf-8"))
         result.written.append(rel_path)
+        new_managed[rel_path] = sha256_bytes(new_text.encode("utf-8"))
+
+    if manifest is not None:
+        manifest.managed_files.update(new_managed)
+        write_manifest(workspace, manifest)
 
     return result
 
@@ -187,7 +213,7 @@ def run_init(path: Path, force: bool = False) -> InitResult:
         dest = workspace / rel_path
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
-        if any(rel_path.startswith(p) for p in _SKILLS_PREFIXES):
+        if any(rel_path.startswith(p) for p in _SKILLS_PREFIXES + _WORKFLOW_PREFIXES):
             managed[rel_path] = sha256_bytes(content)
 
     _promote_examples(workspace)

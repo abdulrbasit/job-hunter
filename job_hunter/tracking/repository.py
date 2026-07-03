@@ -211,63 +211,86 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
             loc_r = job.get("location_restrictions")
             mk = job.get("matched_keywords")
             gaps = job.get("gaps")
+            employment_type = str(job.get("employment_type") or "")
+            country_code = str(job.get("country_code") or "")
+            snippet = str(job.get("snippet") or "")
+            fetch_status = str(job.get("job_description_fetch_status") or "")
 
-            conn.execute(
-                """INSERT INTO jobs (
-                    url, canonical_url, status, run_id,
-                    title, company, location, country_code, snippet, source,
-                    posted_date_text, posting_date_status, region, search_query,
-                    employment_type, job_description_fetch_status,
-                    location_restrictions, ats_platform, enrichment_source,
-                    score, matched_keywords, gaps,
-                    jd_text, llm_posting_status_check,
-                    discovered_at, created_at, updated_at
-                ) VALUES (
-                    ?, ?, 'candidate', ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?,
-                    ?, ?, ?,
-                    ?, ?, ?,
-                    ?, ?,
-                    ?, ?, ?
-                ) ON CONFLICT(url) DO UPDATE SET
-                    run_id          = COALESCE(excluded.run_id, jobs.run_id),
-                    employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
-                    country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
-                    snippet         = COALESCE(excluded.snippet, jobs.snippet),
-                    job_description_fetch_status    = COALESCE(excluded.job_description_fetch_status, jobs.job_description_fetch_status),
-                    jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
-                    updated_at      = excluded.updated_at""",
-                (
-                    url,
-                    canonical,
-                    run_id or None,
-                    str(job.get("title") or ""),
-                    str(job.get("company") or ""),
-                    str(job.get("location") or ""),
-                    str(job.get("country_code") or ""),
-                    str(job.get("snippet") or ""),
-                    str(job.get("source") or ""),
-                    str(job.get("posted_date_text") or ""),
-                    str(job.get("posting_date_status") or ""),
-                    str(job.get("region") or ""),
-                    str(job.get("search_query") or ""),
-                    str(job.get("employment_type") or ""),
-                    str(job.get("job_description_fetch_status") or ""),
-                    json.dumps(loc_r) if loc_r is not None else None,
-                    str(job.get("ats_platform") or ""),
-                    str(job.get("enrichment_source") or ""),
-                    job.get("score"),
-                    json.dumps(mk) if mk is not None else None,
-                    json.dumps(gaps) if gaps is not None else None,
-                    str(job.get("snippet") or ""),  # jd_text seeded from snippet
-                    str(job.get("llm_posting_status_check") or ""),
-                    now,
-                    now,
-                    now,
-                ),
-            )
+            try:
+                conn.execute(
+                    """INSERT INTO jobs (
+                        url, canonical_url, status, run_id,
+                        title, company, location, country_code, snippet, source,
+                        posted_date_text, posting_date_status, region, search_query,
+                        employment_type, job_description_fetch_status,
+                        location_restrictions, ats_platform, enrichment_source,
+                        score, matched_keywords, gaps,
+                        jd_text, llm_posting_status_check,
+                        discovered_at, created_at, updated_at
+                    ) VALUES (
+                        ?, ?, 'candidate', ?,
+                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?,
+                        ?, ?, ?
+                    ) ON CONFLICT(url) DO UPDATE SET
+                        run_id          = COALESCE(excluded.run_id, jobs.run_id),
+                        employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
+                        country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
+                        snippet         = COALESCE(excluded.snippet, jobs.snippet),
+                        job_description_fetch_status    = COALESCE(excluded.job_description_fetch_status, jobs.job_description_fetch_status),
+                        jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
+                        updated_at      = excluded.updated_at""",
+                    (
+                        url,
+                        canonical,
+                        run_id or None,
+                        str(job.get("title") or ""),
+                        str(job.get("company") or ""),
+                        str(job.get("location") or ""),
+                        country_code,
+                        snippet,
+                        str(job.get("source") or ""),
+                        str(job.get("posted_date_text") or ""),
+                        str(job.get("posting_date_status") or ""),
+                        str(job.get("region") or ""),
+                        str(job.get("search_query") or ""),
+                        employment_type,
+                        fetch_status,
+                        json.dumps(loc_r) if loc_r is not None else None,
+                        str(job.get("ats_platform") or ""),
+                        str(job.get("enrichment_source") or ""),
+                        job.get("score"),
+                        json.dumps(mk) if mk is not None else None,
+                        json.dumps(gaps) if gaps is not None else None,
+                        snippet,  # jd_text seeded from snippet
+                        str(job.get("llm_posting_status_check") or ""),
+                        now,
+                        now,
+                        now,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                # A different raw url already maps to this canonical_url (e.g. differs only by a
+                # tracking query param). canonical_url is UNIQUE but isn't the INSERT's conflict
+                # target, so this row can't be inserted — merge into the existing row instead.
+                if canonical is None:
+                    raise
+                conn.execute(
+                    """UPDATE jobs SET
+                        run_id          = COALESCE(?, run_id),
+                        employment_type = COALESCE(NULLIF(?, ''), employment_type),
+                        country_code    = COALESCE(NULLIF(?, ''), country_code),
+                        snippet         = COALESCE(NULLIF(?, ''), snippet),
+                        job_description_fetch_status = COALESCE(NULLIF(?, ''), job_description_fetch_status),
+                        jd_text         = COALESCE(NULLIF(?, ''), jd_text),
+                        updated_at      = ?
+                       WHERE canonical_url = ?""",
+                    (run_id or None, employment_type, country_code, snippet, fetch_status, snippet, now, canonical),
+                )
             inserted += 1
     return inserted
 

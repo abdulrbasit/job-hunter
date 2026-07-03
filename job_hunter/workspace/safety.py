@@ -98,6 +98,18 @@ def classify_paths(paths: list[str]) -> list[dict[str, str]]:
     return [{"path": path, "layer": classify_path(path)} for path in paths]
 
 
+def dirty_system_paths(root: Path) -> list[str]:
+    """Return currently git-dirty paths that fall in the system layer (skills, workflows,
+    schemas, etc.) — the files an automated `job-hunter update` is about to overwrite.
+
+    Used to warn the user before local edits to those files are silently discarded by an
+    update, instead of failing open. Raises RuntimeError if `root` isn't a git repo or git
+    isn't available — callers should treat that as "nothing to compare against", not an error.
+    """
+    changed = _git_changed_paths(root)
+    return [path for path in changed if classify_path(path) == "system"]
+
+
 def update_safety_report(
     root: Path,
     paths: list[str] | None = None,

@@ -237,6 +237,13 @@ def _telemetry_warnings(root: Path) -> list[str]:
             "telemetry hooks are wired and a run was recorded, but no OTel token events "
             "have arrived — run `job-hunter internal telemetry-status --json` for details"
         )
+    if status.get("hooks_invoked_but_no_runs_ever"):
+        warnings.append(
+            "telemetry hooks are wired and firing, but zero runs have ever been recorded — "
+            "the hook process may be failing before it can write to metrics.db; run "
+            "`job-hunter internal telemetry-hook --backend claude-code --event prompt` "
+            "manually from this workspace to see the error"
+        )
     return warnings
 
 

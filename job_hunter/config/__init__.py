@@ -7,6 +7,7 @@ Usage:
 from job_hunter.config.loader import (
     get_config,
     get_job_hunter_config,
+    get_job_hunter_config_for_root,
     package_version,
     setup_logging,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "get_api_config",
     "get_config",
     "get_job_hunter_config",
+    "get_job_hunter_config_for_root",
     "get_mode",
     "get_secret",
     "get_timeout",

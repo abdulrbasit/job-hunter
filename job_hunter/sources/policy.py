@@ -34,6 +34,20 @@ _LISTING_ONLY_PATHS = {
     "/join-us",
 }
 
+# Snippet phrases that explicitly mark a fixed-term/contract posting — fallback for sources
+# that don't populate the structured employment_type field.
+CONTRACT_PHRASES: frozenset[str] = frozenset(
+    {
+        "employment type: contract",
+        "employment type : contract",
+        "this is a contract role",
+        "this is a contract position",
+        "contract-only",
+        "contractors only",
+        "fixed-term contract",
+    }
+)
+
 _GERMAN_WORD_RE = re.compile(r"[a-z\u00e4\u00f6\u00fc\u00df]+", re.IGNORECASE)
 _GERMAN_MIN_WORDS = 18
 _GERMAN_MIN_HITS = 6
@@ -376,6 +390,16 @@ class JobPolicy:
         text = snippet.lower()
         return any(re.search(r"\b" + re.escape(kw) + r"\b", text) for kw in self.excluded_industries)
 
+    def is_contract_posting(self, job: dict) -> bool:
+        """True for fixed-term/contract postings — checks the structured employment_type
+        field first (reliable, ATS-sourced), falling back to snippet phrase matching for
+        sources that don't populate it."""
+        employment_type = str(job.get("employment_type") or "").strip().lower()
+        if "contract" in employment_type:
+            return True
+        snippet = str(job.get("snippet") or "").lower()
+        return any(phrase in snippet for phrase in CONTRACT_PHRASES)
+
     def posting_date_status(self, posted: str) -> str:
         if not posted:
             return "missing"
@@ -439,6 +463,9 @@ class JobPolicy:
         if self.is_excluded_language(title, snippet):
             logger.info("[skip] Excluded-language posting: %s", title[:60])
             return "excluded_language"
+        if self.is_contract_posting(job):
+            logger.info("[skip] Contract/fixed-term posting: %s", title[:60])
+            return "contract_role"
         date_status = self.posting_date_status(str(job.get("posted_date_text") or ""))
         if date_status not in {"current", "missing"}:
             logger.info("[skip] %s: %s", date_status, title[:60])

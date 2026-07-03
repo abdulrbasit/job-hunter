@@ -8,7 +8,7 @@ Slug: `$ARGUMENTS`
 
 - Start with `job-hunter internal agent-context score --mode full --job <slug>`.
 - Story bank: use matched_story_ids first → story-index if thin → stories-final for broad comparison. Never use Draft/raw sections.
-- Read `profile/career_context.md` when present for learned interview preferences, dealbreakers, and calibration notes.
+- Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`, for learned interview preferences, dealbreakers, and calibration notes.
 
 ## Steps
 

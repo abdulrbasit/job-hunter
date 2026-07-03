@@ -45,7 +45,7 @@ def test_company_hunt_handles_empty_results_and_tailor_preserves_state() -> None
     company = (workflows / "career-hunt.yml").read_text(encoding="utf-8")
     tailor = (workflows / "tailor-job.yml").read_text(encoding="utf-8")
 
-    assert "[ -d outputs/browser_hunt ] || exit 0" in company
+    assert "git diff --staged --quiet && exit 0" in company
     assert "URL1: ${{ inputs.url1 }}" in tailor
     assert 'links="${{ inputs.url1 }}"' not in tailor
     assert "outputs/state/jobs.db" in tailor

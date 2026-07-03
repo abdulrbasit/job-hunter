@@ -36,8 +36,10 @@ def persist_metrics(ctx: PipelineRunContext, jobs_found: int, jobs_tailored: int
         )
         if exec_mode == "llm-api" and token_totals:
             _persist_normalized_llm_usage(db_path, ctx, token_totals)
-    except Exception:  # noqa: BLE001,S110
-        pass
+    except Exception as exc:  # noqa: BLE001
+        # Metrics must never break a pipeline run — but a swallowed failure here (locked/corrupt
+        # metrics.db, etc.) previously left zero trace anywhere. Log so it's at least debuggable.
+        logger.debug("[metrics] persist_metrics failed, continuing without recording this run: %s", exc)
 
 
 def _persist_normalized_llm_usage(

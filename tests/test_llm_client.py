@@ -175,6 +175,61 @@ def test_openai_omits_response_format_when_not_requested() -> None:
     assert "response_format" not in kwargs
 
 
+def test_openai_extracts_cached_tokens_from_prompt_tokens_details() -> None:
+    """OpenAI auto-caches prompts >~1024 tokens and reports it via prompt_tokens_details —
+    must be read, not hardcoded to 0."""
+    client = _client_for_call("openai")
+    resp = MagicMock()
+    resp.choices[0].message.content = "plain text"
+    usage = _Usage()
+    usage.prompt_tokens_details = MagicMock(cached_tokens=5)
+    resp.usage = usage
+    client._raw.chat.completions.create.return_value = resp
+
+    _text, _in_tok, _out_tok, cached = client._call(
+        real_llm_client.LLMRequest(role="scoring", prompt="Hello", system=""), "gpt-5.4", 100, False, "5m", None
+    )
+
+    assert cached == 5
+
+
+class _GoogleUsage:
+    def __init__(self) -> None:
+        self.prompt_token_count = 12
+        self.candidates_token_count = 7
+        self.cached_content_token_count = 3
+
+
+def test_google_extracts_token_usage_from_usage_metadata() -> None:
+    """google-genai responses carry real usage on resp.usage_metadata — was previously
+    hardcoded to (0, 0, 0), silently undercounting cost for any role on provider: google."""
+    client = _client_for_call("google")
+    resp = MagicMock()
+    resp.text = "hello"
+    resp.usage_metadata = _GoogleUsage()
+    client._raw.models.generate_content.return_value = resp
+
+    _text, in_tok, out_tok, cached = client._call(
+        real_llm_client.LLMRequest(role="scoring", prompt="Hi", system=""), "gemini-x", 100, False, "5m", None
+    )
+
+    assert (in_tok, out_tok, cached) == (12, 7, 3)
+
+
+def test_google_reports_zero_tokens_when_usage_metadata_missing() -> None:
+    client = _client_for_call("google")
+    resp = MagicMock()
+    resp.text = "hello"
+    resp.usage_metadata = None
+    client._raw.models.generate_content.return_value = resp
+
+    _text, in_tok, out_tok, cached = client._call(
+        real_llm_client.LLMRequest(role="scoring", prompt="Hi", system=""), "gemini-x", 100, False, "5m", None
+    )
+
+    assert (in_tok, out_tok, cached) == (0, 0, 0)
+
+
 def test_anthropic_ignores_response_format_and_keeps_parse_repair_contract() -> None:
     """Anthropic has no native JSON mode — callers rely on parse_json_object/repair_json_object."""
     client = _client_for_call("anthropic")

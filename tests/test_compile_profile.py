@@ -344,3 +344,18 @@ def test_compile_all_warns_when_a_source_compiles_to_empty(tmp_dir: Path, caplog
         compile_all(tmp_dir)
 
     assert any("story_bank.md compiled to empty" in record.message for record in caplog.records)
+
+
+def test_compile_all_logs_and_does_not_raise_on_malformed_config(
+    tmp_dir: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A real failure (bad YAML, bad encoding, a compactor bug) must not crash the session —
+    only the missing-file case was actually silent before; other errors raised a raw
+    traceback, contradicting SKILL.md's documented "silent on failure" contract."""
+    (tmp_dir / "config").mkdir()
+    (tmp_dir / "config" / "job_hunter.yml").write_text("profile: [unterminated\n", encoding="utf-8")
+
+    with caplog.at_level("WARNING"):
+        compile_all(tmp_dir)  # must not raise
+
+    assert any("[compile_profile] failed" in record.message for record in caplog.records)

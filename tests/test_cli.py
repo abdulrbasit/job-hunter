@@ -78,6 +78,40 @@ def test_find_jobs_workflow_runs_supported_hunt_command() -> None:
     assert "texlive.tar" not in workflow
 
 
+def test_find_jobs_workflow_lightpanda_install_is_non_fatal() -> None:
+    """A nightly Lightpanda asset hiccup must not fail the whole scrape run — the app
+    already tolerates a missing lightpanda binary (sources/search/fetchers.py)."""
+    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "find-jobs.yml").read_text(encoding="utf-8")
+    lightpanda_step = workflow.split("- name: Install Lightpanda", 1)[1].split("- name:", 1)[0]
+
+    assert "continue-on-error: true" in lightpanda_step
+
+
+def test_career_hunt_workflow_lightpanda_install_is_non_fatal() -> None:
+    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "career-hunt.yml").read_text(encoding="utf-8")
+    lightpanda_step = workflow.split("- name: Install Lightpanda", 1)[1].split("- name:", 1)[0]
+
+    assert "continue-on-error: true" in lightpanda_step
+
+
+def test_setup_doc_explains_career_hunt_feeds_the_main_jobs_db() -> None:
+    """career-hunt.yml's output was previously undocumented anywhere a user would read —
+    SETUP.md must explain it writes into the same jobs.db as the regular hunt."""
+    setup = (WORKSPACE_TEMPLATE / "SETUP.md").read_text(encoding="utf-8")
+
+    assert "career-hunt.yml" in setup
+    assert "outputs/state/jobs.db" in setup
+
+
+def test_tailor_job_workflow_push_retries_like_find_jobs() -> None:
+    """tailor-job.yml's push must retry/rebase on race, matching find-jobs.yml — a bare
+    `git push` previously failed hard if find-jobs and tailor-job ran close together."""
+    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "tailor-job.yml").read_text(encoding="utf-8")
+
+    assert "for i in 1 2 3; do" in workflow
+    assert "git rebase origin/main" in workflow
+
+
 def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "abdul/Abdul.Basit_Resume")
     assert _is_upstream_repo_context(Path("job-hunter")) is False
@@ -691,3 +725,53 @@ def test_update_command_adds_workspace_assets(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert (tmp_path / "SETUP.md").exists()
     assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "Keep Me"}]
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
+def test_update_command_prompts_and_aborts_on_dirty_system_file(tmp_path: Path) -> None:
+    """A local edit to a system-layer file (skill/workflow) the update is about to
+    overwrite must be surfaced and confirmed, not silently discarded."""
+    from typer.testing import CliRunner
+
+    from job_hunter.cli import app
+    from job_hunter.workspace.operations import run_init
+
+    run_init(tmp_path)
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "initial")
+    skill = tmp_path / ".claude" / "skills" / "job-hunter" / "SKILL.md"
+    original = skill.read_text(encoding="utf-8")
+    skill.write_text(original + "\n# local edit\n", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["update", "--workspace", str(tmp_path)], input="n\n")
+
+    assert result.exit_code == 1
+    assert "local edits" in result.output
+    assert skill.read_text(encoding="utf-8") == original + "\n# local edit\n"
+
+
+def test_update_command_yes_flag_skips_prompt_and_overwrites(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from job_hunter.cli import app
+    from job_hunter.workspace.operations import run_init
+
+    run_init(tmp_path)
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "initial")
+    skill = tmp_path / ".claude" / "skills" / "job-hunter" / "SKILL.md"
+    skill.write_text(skill.read_text(encoding="utf-8") + "\n# local edit\n", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["update", "--workspace", str(tmp_path), "--yes"])
+
+    assert result.exit_code == 0
+    assert "# local edit" not in skill.read_text(encoding="utf-8")

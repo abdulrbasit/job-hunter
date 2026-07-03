@@ -1,15 +1,21 @@
-"""Company browser hunt: runs the career-page extraction ladder per company in career_pages.yml."""
+"""Company browser hunt: runs the career-page extraction ladder per company in career_pages.yml.
+
+Writes results to outputs/state/jobs.db (status='candidate'), the same store the regular
+find-jobs hunt uses — so browser-hunt candidates get deduped, screened, scored, and tailored
+through the exact same downstream pipeline, not a separate isolated file.
+"""
 
 from __future__ import annotations
 
-import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
 from job_hunter.config.loader import ROOT
 from job_hunter.sources.career_pages import extract_career_page_jobs
+from job_hunter.tracking.repository import insert_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -34,20 +40,18 @@ def run() -> int:
         logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)
         return 0
 
-    out = root / "outputs" / "browser_hunt"
-    out.mkdir(parents=True, exist_ok=True)
-
     all_jobs: list[dict] = []
     for company in companies:
         jobs = extract_career_page_jobs(company, titles, exclusions)
         all_jobs.extend(jobs)
         logger.info("[browser-hunt] %s: %d jobs", company.get("name", "?"), len(jobs))
 
-    (out / "jobs.json").write_text(
-        json.dumps(all_jobs, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    logger.info("[browser-hunt] total=%d → %s", len(all_jobs), out / "jobs.json")
+    if all_jobs:
+        run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        inserted = insert_jobs(root, all_jobs, run_id=run_id)
+        logger.info("[browser-hunt] total=%d → jobs.db (run_id=%s)", inserted, run_id)
+    else:
+        logger.info("[browser-hunt] total=0 — nothing to write")
     return 0
 
 

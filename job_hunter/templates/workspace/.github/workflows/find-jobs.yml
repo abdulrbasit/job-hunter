@@ -59,6 +59,10 @@ jobs:
           PY
 
       - name: Install Lightpanda
+        # Non-fatal: browser-based career-page scraping degrades gracefully when the
+        # lightpanda binary is missing (see job_hunter/sources/search/fetchers.py), so a
+        # nightly-asset hiccup here must not fail the whole job.
+        continue-on-error: true
         run: |
           set -euo pipefail
           curl -fsSL -o /tmp/lightpanda https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux

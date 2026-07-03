@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from job_hunter.agent_context.batch import screen_candidate_batch
 from job_hunter.pipeline.enrichment import drop_dead_urls_before_enrichment
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.jd_fetcher import _is_posting_inactive
@@ -93,6 +94,50 @@ def test_closed_posting_is_flagged_by_fetch_jd() -> None:
 
     assert result is not None
     assert result["job_description_fetch_status"] == "position_closed"
+
+
+# ── 6b. Contract/fixed-term roles — shared between both screening modes ──────
+
+
+def test_contract_role_via_employment_type_field_is_rejected() -> None:
+    """The structured employment_type field must be honored even with no matching snippet
+    phrase — neither screening mode consulted this reliable ATS field before."""
+    policy = JobPolicy({})
+    job = _job(employment_type="Contract", snippet="Own the roadmap.")
+    assert policy.rejection_reason(job, ["Product Manager"]) == "contract_role"
+
+
+def test_contract_role_is_rejected_identically_in_both_screening_modes(tmp_path) -> None:
+    """LLM-API mode (screen_jobs_by_rules) and agent mode (screen_candidate_batch) must
+    agree on contract-role rejection — agent mode previously had no contract check at all."""
+    import yaml
+
+    job = _job(employment_type="Contract")
+
+    kept, rejected = screen_jobs_by_rules([job], {"job_titles": ["Product Manager"]})
+    assert kept == []
+    assert rejected[0]["_rejection_reason"] == "contract_role"
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"job_titles": ["Product Manager"]}), encoding="utf-8"
+    )
+    batch = {"batch_number": 1, "batch_size": 15, "jobs": [{**job, "candidate_id": "cand_1"}]}
+    result = screen_candidate_batch(batch, root=tmp_path)
+    assert result["retained"] == []
+    assert "contract_role" in result["skipped"][0]["reasons"]
+
+
+# ── 6c. Title allow-list applied in LLM-API mode too ──────────────────────────
+
+
+def test_title_allow_list_applies_in_llm_api_screening() -> None:
+    """screen_jobs_by_rules must apply the configured job_titles allow-list, not just the
+    excluded-terms deny-list — title_filters was previously hardcoded to []."""
+    job = _job(title="Warehouse Associate")
+    kept, rejected = screen_jobs_by_rules([job], {"job_titles": ["Product Manager"]})
+    assert kept == []
+    assert rejected[0]["_rejection_reason"] == "excluded_title"
 
 
 # ── 7. Dead URL ───────────────────────────────────────────────────────────────

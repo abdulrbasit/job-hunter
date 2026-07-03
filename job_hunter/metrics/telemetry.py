@@ -687,6 +687,14 @@ def telemetry_status(root: Path) -> dict[str, Any]:
             ).fetchone()
 
     hooks_but_no_events = (claude_hooks or codex_hooks) and event_count == 0 and (active_runs > 0 or latest_run)
+    heartbeat_path = root / "outputs" / "state" / ".telemetry_hook_heartbeat"
+    # The hook process writes this marker unconditionally, before any telemetry work that
+    # could fail — so "heartbeat exists but zero runs ever recorded" proves the hook fires
+    # (Claude Code/Codex IS invoking it) yet the Python process never manages to write a
+    # run row. hooks_but_no_events can't see this: it requires a run to already exist.
+    hooks_invoked_but_no_runs_ever = (
+        (claude_hooks or codex_hooks) and heartbeat_path.exists() and active_runs == 0 and latest_run is None
+    )
 
     return {
         "workspace_root": str(root),
@@ -705,4 +713,5 @@ def telemetry_status(root: Path) -> dict[str, Any]:
         "codex_hooks_wired": codex_hooks,
         "codex_otel_configured": codex_otel,
         "hooks_wired_but_no_otel_events": bool(hooks_but_no_events),
+        "hooks_invoked_but_no_runs_ever": bool(hooks_invoked_but_no_runs_ever),
     }

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -21,6 +23,8 @@ from job_hunter.metrics.telemetry import (
 )
 from job_hunter.workspace.manifest import find_workspace_root
 
+logger = logging.getLogger(__name__)
+
 
 def _root(workspace: str, payload: dict | None = None) -> Path:
     if workspace:
@@ -33,6 +37,21 @@ def _db(root: Path) -> Path:
     return root / "outputs" / "state" / "metrics.db"
 
 
+def _touch_hook_heartbeat(root: Path) -> None:
+    """Record that the hook process actually ran, independent of whether the telemetry
+    work below succeeds. doctor compares this against metrics.db run counts to detect a
+    hook that's wired in config and fires, but never manages to write a run (stale
+    interpreter, PATH issue, workspace-root resolution failure) — a failure mode the
+    existing "run exists but no OTel events" check can't see, since no run ever exists.
+    """
+    try:
+        heartbeat = root / "outputs" / "state" / ".telemetry_hook_heartbeat"
+        heartbeat.parent.mkdir(parents=True, exist_ok=True)
+        heartbeat.write_text(datetime.now(UTC).isoformat(), encoding="utf-8")
+    except OSError:
+        pass
+
+
 @internal_app.command(name="telemetry-hook")
 def telemetry_hook(
     backend: str = typer.Option(..., "--backend"),
@@ -42,7 +61,18 @@ def telemetry_hook(
     """Receive lifecycle hook JSON on stdin; never block the agent."""
     try:
         payload = json.loads(sys.stdin.read() or "{}")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[telemetry-hook] failed to parse stdin payload: %s", exc)
+        return
+
+    try:
         root = _root(workspace, payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[telemetry-hook] failed to resolve workspace root: %s", exc)
+        return
+    _touch_hook_heartbeat(root)
+
+    try:
         db_path = _db(root)
         session_id = str(payload.get("session_id") or "")
         if event == "prompt":
@@ -65,7 +95,9 @@ def telemetry_hook(
                 if event == "stop" and ("reply yes" in last_message or last_message.rstrip().endswith("?")):
                     return
                 end_run(db_path, run_id, status="completed" if event == "stop" else "interrupted")
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        # Hooks must never block the agent — but log so a total hook failure isn't invisible.
+        logger.debug("[telemetry-hook] failed for event=%s: %s", event, exc)
         return
 
 
@@ -88,7 +120,8 @@ def telemetry_mark(
             start_phase(db_path, run_id=run_id, phase=phase, job_slug=job)
         elif state == "end":
             end_active_phase(db_path, run_id, status=status)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[telemetry-mark] failed for phase=%s state=%s: %s", phase, state, exc)
         return
 
 
@@ -128,5 +161,6 @@ def telemetry_outcome(
                 tailored=tailored,
                 failed=failed,
             )
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[telemetry-outcome] failed for job=%s: %s", job, exc)
         return

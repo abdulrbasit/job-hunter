@@ -19,6 +19,8 @@ def _echo_skills_result(result, workspace: Path) -> None:
 
 
 def _echo_workflows_result(result, workspace: Path) -> None:
+    for rel in result.customized:
+        typer.echo(f"[warn] {rel} had local edits beyond the schedule — updated anyway; review with `git diff {rel}`")
     typer.echo(f"[ok] Updated {len(result.written)} workflow file(s) in {workspace.resolve() / '.github'}")
 
 
@@ -76,18 +78,36 @@ def update(
     workspace: str = typer.Option(".", "--workspace", "-w", help="Path to workspace"),
     skills_only: bool = typer.Option(False, "--skills-only", help="Update bundled agent skills only"),
     workflows_only: bool = typer.Option(False, "--workflows-only", help="Update GitHub workflows only"),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip the confirmation prompt when local edits would be overwritten"
+    ),
 ) -> None:
     """Update workspace assets after a package upgrade."""
     from job_hunter.workspace.assets import update_workspace_assets
     from job_hunter.workspace.operations import install_telemetry
     from job_hunter.workspace.operations import update_skills as run_update_skills
     from job_hunter.workspace.operations import update_workflows as run_update_workflows
+    from job_hunter.workspace.safety import dirty_system_paths
 
     if skills_only and workflows_only:
         typer.echo("[update] choose at most one targeted update", err=True)
         raise typer.Exit(2)
 
     root = Path(workspace)
+
+    if not yes:
+        try:
+            dirty = dirty_system_paths(root)
+        except RuntimeError:
+            dirty = []  # not a git repo, or git unavailable — nothing to compare against
+        if dirty:
+            typer.echo("[warn] Uncommitted local edits to files this update will overwrite:")
+            for path in dirty:
+                typer.echo(f"  - {path}")
+            if not typer.confirm("Continue and overwrite them?", default=False):
+                typer.echo("[update] aborted — commit or stash your changes first, or rerun with --yes")
+                raise typer.Exit(1)
+
     if skills_only:
         _echo_skills_result(run_update_skills(root), root)
         return

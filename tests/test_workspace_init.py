@@ -20,6 +20,7 @@ from job_hunter.workspace.operations import (
     iter_template_skill_files,
     run_init,
     update_skills,
+    update_workflows,
 )
 
 
@@ -513,3 +514,55 @@ def test_preserve_user_schedule_leaves_new_text_untouched_when_no_active_cron() 
     result = workspace_ops._preserve_user_schedule(existing_text, new_text)
 
     assert result == new_text
+
+
+def test_run_init_seeds_workflow_hashes_in_manifest(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+
+    manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
+
+    assert ".github/workflows/tailor-job.yml" in manifest["managed_files"]
+    assert ".github/workflows/career-hunt.yml" in manifest["managed_files"]
+
+
+def test_update_workflows_flags_customized_non_scheduled_workflow(tmp_path: Path) -> None:
+    """career-hunt.yml/tailor-job.yml have no schedule-merge logic — a local edit to them
+    must be reported, not silently discarded, even though the file is still updated."""
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+    tailor_job = workspace / ".github" / "workflows" / "tailor-job.yml"
+    tailor_job.write_text(tailor_job.read_text(encoding="utf-8") + "\n# local note\n", encoding="utf-8")
+
+    result = update_workflows(workspace)
+
+    assert ".github/workflows/tailor-job.yml" in result.customized
+    assert "# local note" not in tailor_job.read_text(encoding="utf-8")
+
+
+def test_update_workflows_does_not_flag_unmodified_workflow(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+
+    result = update_workflows(workspace)
+
+    assert result.customized == []
+
+
+def test_update_workflows_preserves_cron_without_flagging_find_jobs_as_customized(tmp_path: Path) -> None:
+    """Enabling the schedule is the single most common, fully-supported customization to
+    find-jobs.yml — it must not trigger the generic "you edited this" warning."""
+    workspace = tmp_path / "workspace"
+    run_init(workspace)
+    find_jobs = workspace / ".github" / "workflows" / "find-jobs.yml"
+    text = find_jobs.read_text(encoding="utf-8")
+    text = text.replace(
+        '  # schedule:\n  #   - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri\n',
+        '  schedule:\n    - cron: "0 18 * * 0-4"\n',
+    )
+    find_jobs.write_text(text, encoding="utf-8")
+
+    result = update_workflows(workspace)
+
+    assert '- cron: "0 18 * * 0-4"' in find_jobs.read_text(encoding="utf-8")
+    assert ".github/workflows/find-jobs.yml" not in result.customized

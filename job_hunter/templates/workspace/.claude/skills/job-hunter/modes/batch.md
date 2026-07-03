@@ -46,7 +46,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 
 3. Pre-load shared context once:
    - Read `config/job_hunter.yml`
-   - Read `profile/career_context.md`
+   - Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`
    - `job-hunter internal agent-context stories-final`
 
 4. Mark every skipped candidate in `batch_screen.yml` terminal with reason `screen_skip` (full) or `hard_screen_skip` (lite) using `candidate_id`.

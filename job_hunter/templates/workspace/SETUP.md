@@ -121,3 +121,16 @@ outputs/      discovered jobs, tailored files, and application state
 
 Everything else under `config/`, `profile/`, and `.env` is yours to edit
 freely — updates never overwrite it.
+
+## 11. Company Career Hunt (optional)
+
+`.github/workflows/career-hunt.yml` is an optional, on-demand alternative to the regular
+`find-jobs` hunt. Instead of searching job boards, it scrapes the company career pages you
+list in `config/career_pages.yml`. Its results are written to `outputs/state/jobs.db` —
+the same database `find-jobs` uses — so they're deduped, screened, scored, and tailored
+through the exact same pipeline as any other discovered job; there's nothing separate to
+review or copy.
+
+To use it: add companies to `config/career_pages.yml`, then run "Company Career Hunt"
+from the Actions tab whenever you want. New candidates show up in `job-hunter dashboard`
+or `/job-hunter batch` alongside jobs from the regular hunt.

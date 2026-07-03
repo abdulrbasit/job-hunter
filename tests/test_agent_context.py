@@ -186,6 +186,52 @@ def test_candidate_queue_db_limit_applies_after_screening(tmp_path: Path) -> Non
     assert queue["skipped_hard_screen"] == 1
 
 
+def test_candidate_queue_db_dedupes_canonical_url_variants(tmp_path: Path) -> None:
+    """Two raw URLs that canonicalize to the same value must collapse to one candidate,
+    even though insert_jobs already merged their DB rows — this covers the in-memory
+    seen-canonicals dedup in the queue builder itself, not just the DB layer."""
+    from job_hunter.tracking.repository import insert_jobs
+
+    insert_jobs(
+        tmp_path,
+        [{"title": "PM", "company": "Acme", "url": "https://example.com/job-1?utm_source=a"}],
+        run_id="20260630T120000Z",
+    )
+    insert_jobs(
+        tmp_path,
+        [{"title": "PM", "company": "Acme", "url": "https://example.com/job-1?utm_source=b"}],
+        run_id="20260630T120000Z",
+    )
+
+    queue = build_candidate_queue(root=tmp_path)
+
+    assert queue["count"] == 1
+
+
+def test_candidate_queue_non_default_root_still_applies_exclusions(tmp_path: Path) -> None:
+    """A workspace root other than the process-default one must still load and apply its
+    own job_hunter.yml exclusions instead of silently screening with an empty policy."""
+    from job_hunter.tracking.repository import insert_jobs
+
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {"exclusions": {"companies": ["BlockedCo"]}},
+    )
+    insert_jobs(
+        tmp_path,
+        [
+            {"title": "PM", "company": "BlockedCo", "url": "https://example.com/blocked"},
+            {"title": "PM", "company": "GoodCo", "url": "https://example.com/good"},
+        ],
+        run_id="20260630T120000Z",
+    )
+
+    queue = build_candidate_queue(root=tmp_path)
+
+    assert queue["count"] == 1
+    assert queue["jobs"][0]["company"] == "GoodCo"
+
+
 def test_candidate_queue_file_source_skips_db_processed_url(tmp_path: Path) -> None:
     from job_hunter.tracking.repository import mark_urls_processed
 

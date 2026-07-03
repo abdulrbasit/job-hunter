@@ -165,46 +165,68 @@ class LLMClient:
         user = req.prompt
 
         if self._provider == "anthropic":
-            kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=[{"role": "user", "content": user}])
-            if system:
-                if cache_system:
-                    ctrl: dict = {"type": "ephemeral"}
-                    if cache_ttl == "1h":
-                        ctrl["ttl"] = "1h"
-                    kwargs["system"] = [{"type": "text", "text": system, "cache_control": ctrl}]
-                else:
-                    kwargs["system"] = system
-            resp = self._raw.messages.create(**kwargs)
-            usage = resp.usage
-            cached = getattr(usage, "cache_read_input_tokens", 0) or 0
-            return resp.content[0].text.strip(), usage.input_tokens, usage.output_tokens, cached
-
+            return self._call_anthropic(system, user, model, max_tokens, cache_system, cache_ttl)
         if self._provider in ("openai", "ollama"):
-            msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]
-            kwargs: dict[str, Any] = dict(model=model, max_tokens=max_tokens, messages=msgs)
-            if response_format == "json":
-                # OpenAI-compatible JSON mode. Requires the word "json" somewhere in the
-                # prompt (OpenAI API constraint) — every response_format="json" caller's
-                # prompt already asks for JSON output, since Anthropic has no native mode
-                # and relies entirely on that instruction plus parse+repair fallback.
-                kwargs["response_format"] = {"type": "json_object"}
-            resp = self._raw.chat.completions.create(**kwargs)
-            usage = resp.usage
-            return resp.choices[0].message.content.strip(), usage.prompt_tokens, usage.completion_tokens, 0
-
+            return self._call_openai_compatible(system, user, model, max_tokens, response_format)
         if self._provider == "google":
-            from google.genai import types
-
-            config: dict[str, Any] = {"max_output_tokens": max_tokens}
-            if system:
-                config["system_instruction"] = system
-            if response_format == "json":
-                config["response_mime_type"] = "application/json"
-            config = types.GenerateContentConfig(**config)
-            resp = self._raw.models.generate_content(model=model, contents=user, config=config)
-            return (resp.text or "").strip(), 0, 0, 0
-
+            return self._call_google(system, user, model, max_tokens, response_format)
         raise RuntimeError(f"Unhandled provider: {self._provider}")
+
+    def _call_anthropic(
+        self, system: str, user: str, model: str, max_tokens: int, cache_system: bool, cache_ttl: str
+    ) -> tuple[str, int, int, int]:
+        kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=[{"role": "user", "content": user}])
+        if system:
+            if cache_system:
+                ctrl: dict = {"type": "ephemeral"}
+                if cache_ttl == "1h":
+                    ctrl["ttl"] = "1h"
+                kwargs["system"] = [{"type": "text", "text": system, "cache_control": ctrl}]
+            else:
+                kwargs["system"] = system
+        resp = self._raw.messages.create(**kwargs)
+        usage = resp.usage
+        cached = getattr(usage, "cache_read_input_tokens", 0) or 0
+        return resp.content[0].text.strip(), usage.input_tokens, usage.output_tokens, cached
+
+    def _call_openai_compatible(
+        self, system: str, user: str, model: str, max_tokens: int, response_format: str | None
+    ) -> tuple[str, int, int, int]:
+        msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]
+        kwargs: dict[str, Any] = dict(model=model, max_tokens=max_tokens, messages=msgs)
+        if response_format == "json":
+            # OpenAI-compatible JSON mode. Requires the word "json" somewhere in the
+            # prompt (OpenAI API constraint) — every response_format="json" caller's
+            # prompt already asks for JSON output, since Anthropic has no native mode
+            # and relies entirely on that instruction plus parse+repair fallback.
+            kwargs["response_format"] = {"type": "json_object"}
+        resp = self._raw.chat.completions.create(**kwargs)
+        usage = resp.usage
+        details = getattr(usage, "prompt_tokens_details", None)
+        cached = (getattr(details, "cached_tokens", 0) or 0) if details is not None else 0
+        return resp.choices[0].message.content.strip(), usage.prompt_tokens, usage.completion_tokens, cached
+
+    def _call_google(
+        self, system: str, user: str, model: str, max_tokens: int, response_format: str | None
+    ) -> tuple[str, int, int, int]:
+        from google.genai import types
+
+        config: dict[str, Any] = {"max_output_tokens": max_tokens}
+        if system:
+            config["system_instruction"] = system
+        if response_format == "json":
+            config["response_mime_type"] = "application/json"
+        resp = self._raw.models.generate_content(
+            model=model, contents=user, config=types.GenerateContentConfig(**config)
+        )
+        usage = getattr(resp, "usage_metadata", None)
+        if usage is None:
+            logger.debug("[llm] google response missing usage_metadata; token counts unavailable")
+            return (resp.text or "").strip(), 0, 0, 0
+        in_tok = getattr(usage, "prompt_token_count", 0) or 0
+        out_tok = getattr(usage, "candidates_token_count", 0) or 0
+        cached = getattr(usage, "cached_content_token_count", 0) or 0
+        return (resp.text or "").strip(), in_tok, out_tok, cached
 
 
 # ---------------------------------------------------------------------------
