@@ -759,11 +759,13 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
           <button class="status-tab" data-status="offer">Offer</button>
           <button class="status-tab" data-status="rejected">Rejected</button>
         </div>
+        <button class="btn btn-danger" id="app-bulk-delete-btn" style="display:none" onclick="bulkDeleteApplications()">Delete selected</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th class="td-num"><input type="checkbox" id="app-select-all" onchange="toggleSelectAllApps(this.checked)"></th>
               <th class="td-num">#</th>
               <th data-col="company" onclick="sortBy('company')">Company</th>
               <th data-col="title" onclick="sortBy('title')">Title</th>
@@ -774,7 +776,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
             </tr>
           </thead>
           <tbody id="app-tbody">
-            <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+            <tr><td colspan="8"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -1091,6 +1093,7 @@ let allApps = [];
 let filteredApps = [];
 let activeStatus = '';
 let activeSlug = null;
+let selectedAppSlugs = new Set();
 let sortCol = 'date';
 let sortDir = -1; // -1 = desc
 let insightsLoaded = false;
@@ -1221,8 +1224,15 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
 // per-row inline onclick/onchange string interpolation; identifiers travel via
 // data-* attributes read here instead).
 document.getElementById('app-tbody').addEventListener('click', (e) => {
+  if (e.target.classList.contains('app-checkbox')) return;
   const row = e.target.closest('tr[data-slug]');
   if (row) selectApp(row.dataset.slug);
+});
+
+document.getElementById('app-tbody').addEventListener('change', (e) => {
+  if (e.target.classList.contains('app-checkbox')) {
+    toggleAppSelected(e.target.dataset.slug, e.target.checked);
+  }
 });
 
 document.getElementById('unprocessed-tbody').addEventListener('click', (e) => {
@@ -1260,7 +1270,7 @@ async function loadApplications() {
     document.getElementById('total-count').textContent = allApps.length;
     applyFilters();
   } catch(e) {
-    document.getElementById('app-tbody').innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load applications: ${e}</div></td></tr>`;
+    document.getElementById('app-tbody').innerHTML = `<tr><td colspan="8"><div class="no-data">Failed to load applications: ${e}</div></td></tr>`;
   }
 }
 
@@ -1398,9 +1408,11 @@ async function discardSelected() {
   const ids = [...selectedCandidateIds];
   if (!ids.length || !confirm(`Move ${ids.length} candidate(s) to Discarded?`)) return;
   try {
-    const results = await Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(id)));
-    const failed = results.filter(r => !r.ok);
-    if (failed.length) alert(`${failed.length} of ${ids.length} discard(s) failed: ${failed[0].error}`);
+    const result = await window.pywebview.api.discard_unprocessed_batch(ids);
+    if (!result.ok) { alert('Discard failed: ' + result.error); return; }
+    if (result.skipped && result.skipped.length) {
+      alert(`${result.skipped.length} of ${ids.length} candidate(s) could not be discarded (already moved past candidate stage).`);
+    }
     selectedCandidateIds.clear();
     loadUnprocessed();
   } catch(e) {
@@ -1476,7 +1488,8 @@ function sortBy(col) {
 function renderTable() {
   const tbody = document.getElementById('app-tbody');
   if (!filteredApps.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No applications found</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="no-data">No applications found</div></td></tr>`;
+    updateAppBulkDeleteButton();
     return;
   }
   tbody.innerHTML = filteredApps.map((app, i) => {
@@ -1485,7 +1498,9 @@ function renderTable() {
     const scorePill = score !== '' ? `<span class="score-pill ${scoreClass}">${score}</span>` : '—';
     const date = (app.date || '').substring(0, 10);
     const sel = app.slug === activeSlug ? ' selected' : '';
+    const checked = selectedAppSlugs.has(app.slug) ? 'checked' : '';
     return `<tr data-slug="${esc(app.slug)}"${sel}>
+      <td class="td-num"><input type="checkbox" class="app-checkbox" data-slug="${esc(app.slug)}" ${checked}></td>
       <td class="td-num">${i + 1}</td>
       <td class="td-company">${esc(app.company || '—')}</td>
       <td class="td-title">${esc(app.title || '—')}</td>
@@ -1495,6 +1510,7 @@ function renderTable() {
       <td class="td-date">${date}</td>
     </tr>`;
   }).join('');
+  updateAppBulkDeleteButton();
 }
 
 // ── Detail panel ──
@@ -1684,10 +1700,49 @@ async function deleteApp() {
     const result = await window.pywebview.api.delete_application(activeSlug);
     if (!result.ok) { alert('Delete failed: ' + result.error); return; }
     allApps = allApps.filter(a => a.slug !== activeSlug);
+    selectedAppSlugs.delete(activeSlug);
     closeDetail();
     applyFilters();
     document.getElementById('total-count').textContent = allApps.length;
     insightsLoaded = false;
+  } catch(e) {
+    alert('Delete failed: ' + e);
+  }
+}
+
+function toggleAppSelected(slug, checked) {
+  if (checked) selectedAppSlugs.add(slug); else selectedAppSlugs.delete(slug);
+  updateAppBulkDeleteButton();
+}
+
+function toggleSelectAllApps(checked) {
+  document.querySelectorAll('.app-checkbox').forEach(box => {
+    box.checked = checked;
+    if (checked) selectedAppSlugs.add(box.dataset.slug); else selectedAppSlugs.delete(box.dataset.slug);
+  });
+  updateAppBulkDeleteButton();
+}
+
+function updateAppBulkDeleteButton() {
+  const btn = document.getElementById('app-bulk-delete-btn');
+  btn.style.display = selectedAppSlugs.size ? '' : 'none';
+  btn.textContent = `Delete selected (${selectedAppSlugs.size})`;
+}
+
+async function bulkDeleteApplications() {
+  const slugs = [...selectedAppSlugs];
+  if (!slugs.length) return;
+  if (!confirm(`Delete ${slugs.length} application(s)?\n\nThis removes them from the tracker and deletes their job folders. Cannot be undone.`)) return;
+  try {
+    const result = await window.pywebview.api.delete_applications_batch(slugs);
+    if (!result.ok) { alert('Delete failed: ' + result.error); return; }
+    allApps = allApps.filter(a => !slugs.includes(a.slug));
+    selectedAppSlugs.clear();
+    if (slugs.includes(activeSlug)) closeDetail();
+    applyFilters();
+    document.getElementById('total-count').textContent = allApps.length;
+    insightsLoaded = false;
+    if (result.warnings && result.warnings.length) alert(result.warnings.join('\n'));
   } catch(e) {
     alert('Delete failed: ' + e);
   }

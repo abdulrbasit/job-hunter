@@ -74,3 +74,70 @@ def test_existing_wal_database_migrates_without_sidecars(tmp_path: Path) -> None
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     assert not Path(f"{db}-wal").exists()
     assert not Path(f"{db}-shm").exists()
+
+
+def test_discard_job_ids_discards_all_given_ids_in_one_call(tmp_path: Path) -> None:
+    repository.insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/a", "title": "PM", "company": "A"},
+            {"url": "https://example.com/b", "title": "PM", "company": "B"},
+        ],
+    )
+    jobs = repository.get_jobs_summary(tmp_path, statuses=("candidate",))
+    ids = [job["id"] for job in jobs]
+
+    result = repository.discard_job_ids(tmp_path, ids)
+
+    assert result["discarded"] == 2
+    assert result["skipped"] == []
+    assert len(repository.get_jobs_summary(tmp_path, statuses=("discarded",))) == 2
+    assert repository.get_jobs_summary(tmp_path, statuses=("candidate",)) == []
+
+
+def test_discard_job_ids_skips_unknown_ids_without_failing_the_batch(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/a", "title": "PM", "company": "A"}])
+    real_id = repository.get_jobs_summary(tmp_path, statuses=("candidate",))[0]["id"]
+
+    result = repository.discard_job_ids(tmp_path, [real_id, 999999])
+
+    assert result["discarded"] == 1
+    assert result["skipped"] == [999999]
+
+
+def test_discard_job_ids_never_downgrades_a_job_past_candidate_stage(tmp_path: Path) -> None:
+    """A stale id for a job that has already advanced past candidate/discovered must not
+    be reverted to discarded — same downgrade guard as mark_candidates_discarded."""
+    repository.upsert_job(tmp_path, {"url": "https://example.com/c", "slug": "acme-pm", "status": "tailored"})
+    job = repository.get_job_by_slug(tmp_path, "acme-pm")
+
+    result = repository.discard_job_ids(tmp_path, [job["id"]])
+
+    assert result["discarded"] == 0
+    assert result["skipped"] == [job["id"]]
+    assert repository.get_job_by_slug(tmp_path, "acme-pm")["status"] == "tailored"
+
+
+def test_delete_jobs_by_slugs_deletes_all_matching_rows(tmp_path: Path) -> None:
+    repository.upsert_job(tmp_path, {"url": "https://example.com/a", "slug": "a-pm", "status": "tailored"})
+    repository.upsert_job(tmp_path, {"url": "https://example.com/b", "slug": "b-pm", "status": "tailored"})
+    repository.upsert_job(tmp_path, {"url": "https://example.com/c", "slug": "c-pm", "status": "tailored"})
+
+    deleted = repository.delete_jobs_by_slugs(tmp_path, ["a-pm", "b-pm"])
+
+    assert deleted == 2
+    assert repository.get_job_by_slug(tmp_path, "a-pm") is None
+    assert repository.get_job_by_slug(tmp_path, "b-pm") is None
+    assert repository.get_job_by_slug(tmp_path, "c-pm") is not None
+
+
+def test_delete_jobs_by_slugs_tolerates_unknown_slugs(tmp_path: Path) -> None:
+    repository.upsert_job(tmp_path, {"url": "https://example.com/a", "slug": "a-pm", "status": "tailored"})
+
+    deleted = repository.delete_jobs_by_slugs(tmp_path, ["a-pm", "does-not-exist"])
+
+    assert deleted == 1
+
+
+def test_delete_jobs_by_slugs_returns_zero_for_empty_list(tmp_path: Path) -> None:
+    assert repository.delete_jobs_by_slugs(tmp_path, []) == 0

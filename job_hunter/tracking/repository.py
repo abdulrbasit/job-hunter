@@ -516,6 +516,35 @@ def set_status_by_id(root: Path, job_id: int, status: str) -> None:
         )
 
 
+def discard_job_ids(root: Path, job_ids: list[int]) -> dict[str, Any]:
+    """Batch-discard candidate DB ids in one connection — the dashboard's bulk-discard
+    action must be one backend call, not N single-id RPCs each opening its own connection.
+
+    Only rows still at status in ('candidate', 'discovered') are touched — same downgrade
+    guard as mark_candidates_discarded — so a stale id for a job already advanced past the
+    candidate stage is skipped, never clobbered.
+    """
+    now = _now()
+    discarded = 0
+    skipped: list[int] = []
+    with _conn(root) as conn:
+        for job_id in job_ids:
+            row = conn.execute(
+                "SELECT processed_at FROM jobs WHERE id = ? AND status IN ('candidate', 'discovered')",
+                (job_id,),
+            ).fetchone()
+            if not row:
+                skipped.append(job_id)
+                continue
+            processed_at = now if not row["processed_at"] else row["processed_at"]
+            conn.execute(
+                "UPDATE jobs SET status='discarded', processed_at=?, updated_at=? WHERE id=?",
+                (processed_at, now, job_id),
+            )
+            discarded += 1
+    return {"discarded": discarded, "skipped": skipped}
+
+
 def get_jobs(
     root: Path,
     *,
@@ -579,6 +608,18 @@ def get_job_by_url(root: Path, url: str) -> dict[str, Any] | None:
 def delete_job(root: Path, slug: str) -> None:
     with _conn(root) as conn:
         conn.execute("DELETE FROM jobs WHERE slug = ?", (slug,))
+
+
+def delete_jobs_by_slugs(root: Path, slugs: list[str]) -> int:
+    """Delete all matching job rows in one transaction — atomic: all rows are removed
+    or (on any error) none are, since the DB write happens inside a single connection
+    context that rolls back on exception."""
+    if not slugs:
+        return 0
+    placeholders = ",".join("?" * len(slugs))
+    with _conn(root) as conn:
+        cursor = conn.execute(f"DELETE FROM jobs WHERE slug IN ({placeholders})", slugs)  # noqa: S608
+    return cursor.rowcount
 
 
 def delete_job_by_id(root: Path, job_id: int) -> None:

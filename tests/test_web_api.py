@@ -219,6 +219,68 @@ def test_delete_application_returns_error_on_failure(tmp_path: Path, monkeypatch
     assert result == {"ok": False, "error": "disk full"}
 
 
+def test_delete_applications_batch_removes_all_and_refreshes_readme_once(tmp_path: Path) -> None:
+    _write_job(tmp_path, slug="2026-06-12_acme_pm")
+    _write_job(tmp_path, slug="2026-06-13_globex_pm")
+    meta_path = tmp_path / "outputs" / "jobs" / "2026-06-13_globex_pm" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["url"] = "https://example.com/globex"
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
+    upsert_application_from_job("2026-06-13_globex_pm", root=tmp_path)
+    (tmp_path / "README.md").write_text(
+        f"{TABLE_START}\n| Date | Job | Location | Score | Files |\n|---|---|---|---|---|\n{TABLE_END}\n",
+        encoding="utf-8",
+    )
+
+    result = DashAPI(tmp_path).delete_applications_batch(["2026-06-12_acme_pm", "2026-06-13_globex_pm"])
+
+    assert result["ok"] is True
+    assert result["deleted"] == 2
+    assert DashAPI(tmp_path).get_applications() == []
+
+
+def test_delete_applications_batch_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom(_slugs, root):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("job_hunter.tracking.applications.delete_applications_batch", boom)
+
+    result = DashAPI(tmp_path).delete_applications_batch(["a", "b"])
+
+    assert result == {"ok": False, "error": "disk full", "deleted": 0, "skipped": [], "warnings": []}
+
+
+def test_discard_unprocessed_batch_discards_all_in_one_call(tmp_path: Path) -> None:
+    insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/a", "title": "PM", "company": "A"},
+            {"url": "https://example.com/b", "title": "PM", "company": "B"},
+        ],
+    )
+    api = DashAPI(tmp_path)
+    ids = [job["id"] for job in api.get_unprocessed()["active"]]
+
+    result = api.discard_unprocessed_batch(ids)
+
+    assert result == {"ok": True, "error": "", "discarded": 2, "skipped": []}
+    payload = api.get_unprocessed()
+    assert payload["active"] == []
+    assert len(payload["discarded"]) == 2
+
+
+def test_discard_unprocessed_batch_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom(_root, _ids):
+        raise OSError("db locked")
+
+    monkeypatch.setattr("job_hunter.tracking.repository.discard_job_ids", boom)
+
+    result = DashAPI(tmp_path).discard_unprocessed_batch([1, 2])
+
+    assert result == {"ok": False, "error": "db locked", "discarded": 0, "skipped": []}
+
+
 def test_get_insights_returns_json_serializable_report(tmp_path: Path) -> None:
     _write_job(tmp_path)
     upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
@@ -946,3 +1008,24 @@ def test_dashboard_companies_table_uses_delegated_listeners_not_inline_row_handl
     assert "data-delete-url=" in html
     assert 'onclick="editCompany(${' not in html
     assert 'onclick="deleteCompany(${' not in html
+
+
+def test_dashboard_applications_have_bulk_delete_checkboxes() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'id="app-select-all"' in html
+    assert 'id="app-bulk-delete-btn"' in html
+    assert 'class="app-checkbox"' in html
+    assert "function bulkDeleteApplications" in html
+    assert "function toggleSelectAllApps" in html
+    assert "delete_applications_batch" in html
+    assert 'onclick="deleteApp(${' not in html
+
+
+def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "discard_unprocessed_batch" in html
+    assert "Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(" not in html

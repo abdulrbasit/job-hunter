@@ -215,6 +215,23 @@ class DashAPI:
         self._refresh_readme()
         return {"ok": True, "error": ""}
 
+    def delete_applications_batch(self, slugs: list[str]) -> dict[str, Any]:
+        """One backend call for N application deletes — README refreshes once, not per slug."""
+        from job_hunter.tracking.applications import delete_applications_batch
+
+        try:
+            result = delete_applications_batch([str(slug) for slug in slugs], root=self._root)
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc), "deleted": 0, "skipped": [], "warnings": []}
+        self._refresh_readme()
+        return {
+            "ok": True,
+            "error": "",
+            "deleted": result["deleted"],
+            "skipped": result["skipped"],
+            "warnings": result["warnings"],
+        }
+
     def get_unprocessed(self) -> dict[str, Any]:
         from job_hunter.tracking.repository import display_status, get_jobs_summary
 
@@ -242,7 +259,7 @@ class DashAPI:
         }
 
     def discard_unprocessed(self, job_id: int) -> dict[str, Any]:
-        """Move one or more candidates to status='discarded' (never touches applications)."""
+        """Move one candidate to status='discarded' (never touches applications)."""
         from job_hunter.tracking.repository import set_status_by_id
 
         try:
@@ -250,6 +267,16 @@ class DashAPI:
         except Exception as exc:  # noqa: BLE001
             return {"ok": False, "error": str(exc)}
         return {"ok": True, "error": ""}
+
+    def discard_unprocessed_batch(self, job_ids: list[int]) -> dict[str, Any]:
+        """One backend call for N candidate discards — replaces per-id Promise.all fan-out."""
+        from job_hunter.tracking.repository import discard_job_ids
+
+        try:
+            result = discard_job_ids(self._root, [int(job_id) for job_id in job_ids])
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc), "discarded": 0, "skipped": []}
+        return {"ok": True, "error": "", "discarded": result["discarded"], "skipped": result["skipped"]}
 
     def delete_unprocessed(self, job_id: int) -> dict[str, Any]:
         from job_hunter.tracking.repository import delete_job_by_id

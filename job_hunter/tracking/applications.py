@@ -215,26 +215,87 @@ def filtered_applications(
     )
 
 
+def _resolve_job_dir_for_delete(jobs_root: Path, slug: str) -> Path | None:
+    """Return slug's job dir if it resolves to a direct child of jobs_root, else None
+    (rejects '', '..', absolute paths, and anything else that would escape jobs_root)."""
+    if not slug:
+        return None
+    job_dir = (jobs_root / slug).resolve()
+    return job_dir if job_dir.parent == jobs_root and job_dir.is_relative_to(jobs_root) else None
+
+
+def delete_applications_batch(slugs: list[str], root: Path | None = None) -> dict[str, Any]:
+    """Delete application DB records and job folders for multiple slugs in one DB batch.
+
+    Job folders are staged (renamed aside) before the DB batch delete runs; if that
+    delete raises, every staged folder is moved back so disk and DB never disagree.
+    Once the DB delete has committed, staged folders are discarded for good. Missing
+    folders are tolerated, matching the pre-batch single-delete behavior.
+    """
+    import logging
+    import shutil
+    import uuid
+    from contextlib import suppress
+
+    from job_hunter.tracking.repository import delete_jobs_by_slugs
+
+    base = root or repo_path()
+    jobs_root = (base / "outputs" / "jobs").resolve()
+    logger = logging.getLogger(__name__)
+
+    valid_slugs: list[str] = []
+    skipped: list[str] = []
+    job_dirs: dict[str, Path] = {}
+    for slug in slugs:
+        job_dir = _resolve_job_dir_for_delete(jobs_root, slug)
+        if job_dir is None:
+            skipped.append(slug)
+        else:
+            valid_slugs.append(slug)
+            job_dirs[slug] = job_dir
+
+    stage_dir = base / "outputs" / "state" / f".delete_staging_{uuid.uuid4().hex}"
+    staged: dict[str, Path] = {}
+    warnings: list[str] = []
+    for slug in valid_slugs:
+        job_dir = job_dirs[slug]
+        if not job_dir.exists():
+            continue
+        try:
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            dest = stage_dir / slug
+            shutil.move(str(job_dir), str(dest))
+            staged[slug] = dest
+        except OSError as exc:
+            warnings.append(f"{slug}: could not stage job folder for deletion ({exc})")
+
+    try:
+        deleted = delete_jobs_by_slugs(base, valid_slugs)
+    except Exception:
+        for slug, dest in staged.items():
+            with suppress(OSError):
+                shutil.move(str(dest), str(job_dirs[slug]))
+        with suppress(OSError):
+            shutil.rmtree(stage_dir)
+        raise
+
+    for slug, dest in staged.items():
+        try:
+            shutil.rmtree(dest)
+        except OSError as exc:
+            logger.warning(
+                "[delete-batch] Could not remove staged folder for %s: %s — delete %s manually.", slug, exc, dest
+            )
+    with suppress(OSError):
+        stage_dir.rmdir()
+
+    return {"deleted": deleted, "skipped": skipped, "warnings": warnings}
+
+
 def delete_application(slug: str, root: Path | None = None) -> None:
     """Delete an application's DB record and job folder. Callers that need the README
     refreshed must call pipeline.stages.readme.update_readme_from_applications() themselves after this."""
-    import logging
-    import shutil
-
-    from job_hunter.tracking.repository import delete_job
-
-    base = root or repo_path()
-    delete_job(base, slug)
-    job_dir = base / "outputs" / "jobs" / slug
-    if job_dir.exists():
-        try:
-            shutil.rmtree(job_dir)
-        except OSError as exc:
-            logging.getLogger(__name__).warning(
-                "[delete] Could not remove %s: %s — delete manually to prevent agent from re-suggesting it.",
-                job_dir,
-                exc,
-            )
+    delete_applications_batch([slug], root=root)
 
 
 def active_application_count(root: Path | None = None) -> int:
