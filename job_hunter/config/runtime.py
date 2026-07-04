@@ -11,8 +11,6 @@ from job_hunter.config.loader import get_job_hunter_config
 _TIMEOUT_DEFAULTS: dict[str, int] = {
     "ats_scraper": 10,
     "playwright": 10,
-    "lightpanda": 8,
-    "firecrawl": 20,
     "job_boards": 15,
     "search_providers": 10,
     "jd_fetcher": 10,

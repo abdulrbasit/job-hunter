@@ -3,7 +3,10 @@
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlparse
 
+import pytest
+
 from job_hunter.sources import career_pages
+from job_hunter.sources.career_pages import _rendering
 
 # ── detect_ats() ─────────────────────────────────────────────────────────────
 
@@ -265,35 +268,8 @@ def test_extract_career_page_jobs_no_search_provider_called() -> None:
     mock_search.assert_not_called()
 
 
-def test_extract_career_page_jobs_uses_lightpanda_before_playwright() -> None:
-    company = {
-        "name": "LightCo",
-        "career_url": "https://careers.lightco.example",
-        "location": "Berlin",
-    }
-
-    with (
-        patch("job_hunter.sources.career_pages.detect_ats_from_url", return_value=None),
-        patch(
-            "job_hunter.sources.career_pages._fetch_html_safe",
-            return_value=("<html></html>", 200),
-        ),
-        patch("job_hunter.sources.career_pages._try_sitemap_discovery", return_value=[]),
-        patch("job_hunter.sources.career_pages._try_static_html", return_value=[]),
-        patch(
-            "job_hunter.sources.career_pages.fetch_lightpanda_career_jobs",
-            return_value=[{"title": "Product Manager", "url": "https://example.com/jobs/1"}],
-        ),
-        patch("job_hunter.sources.career_pages._try_playwright") as mock_pw,
-    ):
-        jobs = career_pages.extract_career_page_jobs(company, ["Product Manager"])
-
-    assert len(jobs) == 1
-    assert jobs[0]["title"] == "Product Manager"
-    mock_pw.assert_not_called()
-
-
-def test_extract_career_page_jobs_uses_firecrawl_after_local_fallbacks() -> None:
+def test_extract_career_page_jobs_falls_back_to_playwright_after_cheap_rungs() -> None:
+    """Playwright is the sole browser fallback — reached once ATS/JSON-LD/sitemap/static-HTML find nothing."""
     company = {
         "name": "CloudCo",
         "career_url": "https://careers.cloudco.example",
@@ -308,14 +284,42 @@ def test_extract_career_page_jobs_uses_firecrawl_after_local_fallbacks() -> None
         ),
         patch("job_hunter.sources.career_pages._try_sitemap_discovery", return_value=[]),
         patch("job_hunter.sources.career_pages._try_static_html", return_value=[]),
-        patch("job_hunter.sources.career_pages.fetch_lightpanda_career_jobs", return_value=[]),
-        patch("job_hunter.sources.career_pages._try_playwright", return_value=[]),
         patch(
-            "job_hunter.sources.career_pages.fetch_firecrawl_career_jobs",
+            "job_hunter.sources.career_pages._try_playwright",
             return_value=[{"title": "Product Owner", "url": "https://example.com/jobs/2"}],
-        ),
+        ) as mock_pw,
     ):
         jobs = career_pages.extract_career_page_jobs(company, ["Product Owner"])
 
     assert len(jobs) == 1
     assert jobs[0]["title"] == "Product Owner"
+    mock_pw.assert_called_once()
+
+
+# ── ensure_chromium_installed() ──────────────────────────────────────────────
+
+
+def test_ensure_chromium_installed_skips_install_when_already_present(monkeypatch) -> None:
+    monkeypatch.setattr(_rendering, "is_chromium_installed", lambda: True)
+    monkeypatch.setattr(_rendering.subprocess, "run", lambda *a, **k: pytest.fail("should not install"))
+
+    assert _rendering.ensure_chromium_installed() is True
+
+
+def test_ensure_chromium_installed_installs_when_missing(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(_rendering, "is_chromium_installed", lambda: False)
+    monkeypatch.setattr(_rendering.subprocess, "run", lambda cmd, check: calls.append(cmd))
+
+    assert _rendering.ensure_chromium_installed() is True
+    assert calls == [["playwright", "install", "chromium"]]
+
+
+def test_ensure_chromium_installed_returns_false_when_install_fails(monkeypatch) -> None:
+    def boom(cmd, check):
+        raise OSError("no network")
+
+    monkeypatch.setattr(_rendering, "is_chromium_installed", lambda: False)
+    monkeypatch.setattr(_rendering.subprocess, "run", boom)
+
+    assert _rendering.ensure_chromium_installed() is False

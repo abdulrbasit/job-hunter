@@ -60,11 +60,12 @@ In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use
 
 In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover letter → PDF → tracker in one pipeline.
 
-## Optional Company Hunt
+## Company Browser Hunt
 
 For company career pages that need a real browser, add targets to
-`config/career_pages.yml`, then run the **Company Career Hunt** workflow
-from GitHub Actions. Results are committed to `outputs/browser_hunt/jobs.json`.
+`config/career_pages.yml`, then click **Run Company Browser Hunt** in
+`job-hunter dashboard`. Results land in `outputs/state/jobs.db`, the same
+store `find-jobs` uses.
 
 ## CLI Reference
 

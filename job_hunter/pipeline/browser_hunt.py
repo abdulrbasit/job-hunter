@@ -14,7 +14,9 @@ from pathlib import Path
 import yaml
 
 from job_hunter.config.loader import ROOT
+from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.career_pages import extract_career_page_jobs
+from job_hunter.sources.career_pages._rendering import ensure_chromium_installed
 from job_hunter.tracking.repository import insert_jobs
 
 logger = logging.getLogger(__name__)
@@ -40,15 +42,21 @@ def run() -> int:
         logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)
         return 0
 
+    ensure_chromium_installed()
+
     all_jobs: list[dict] = []
     for company in companies:
         jobs = extract_career_page_jobs(company, titles, exclusions)
         all_jobs.extend(jobs)
         logger.info("[browser-hunt] %s: %d jobs", company.get("name", "?"), len(jobs))
 
-    if all_jobs:
+    kept, rejected = screen_jobs_by_rules(all_jobs, config)
+    if rejected:
+        logger.info("[browser-hunt] %d jobs excluded by policy before insert", len(rejected))
+
+    if kept:
         run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        inserted = insert_jobs(root, all_jobs, run_id=run_id)
+        inserted = insert_jobs(root, kept, run_id=run_id)
         logger.info("[browser-hunt] total=%d → jobs.db (run_id=%s)", inserted, run_id)
     else:
         logger.info("[browser-hunt] total=0 — nothing to write")

@@ -30,25 +30,26 @@ def test_workspace_template_tailor_job_workflow_present() -> None:
 
 def test_bundled_workflows_install_package_in_activated_venv() -> None:
     workflows = WORKSPACE_TEMPLATE / ".github" / "workflows"
-    for name in ("find-jobs.yml", "career-hunt.yml", "tailor-job.yml"):
+    for name in ("find-jobs.yml", "tailor-job.yml"):
         text = (workflows / name).read_text(encoding="utf-8")
         assert "uv venv --python 3.12" in text
-        assert 'uv pip install "job-hunter-kit[browser]"' in text
+        assert 'uv pip install "job-hunter-kit"' in text
         assert "uv run --no-project playwright install --with-deps chromium" in text
         assert 'echo "$PWD/.venv/bin" >> "$GITHUB_PATH"' in text
         assert "uv pip install --system" not in text
         assert "job-hunter brief" not in text
 
 
-def test_company_hunt_handles_empty_results_and_tailor_preserves_state() -> None:
+def test_tailor_workflow_preserves_state() -> None:
     workflows = WORKSPACE_TEMPLATE / ".github" / "workflows"
-    company = (workflows / "career-hunt.yml").read_text(encoding="utf-8")
     tailor = (workflows / "tailor-job.yml").read_text(encoding="utf-8")
 
-    assert "git diff --staged --quiet && exit 0" in company
     assert "URL1: ${{ inputs.url1 }}" in tailor
     assert 'links="${{ inputs.url1 }}"' not in tailor
-    assert "outputs/state/jobs.db" in tailor
+
+
+def test_career_hunt_workflow_removed() -> None:
+    assert not (WORKSPACE_TEMPLATE / ".github" / "workflows" / "career-hunt.yml").exists()
 
 
 def test_workspace_template_searxng_config_supports_json() -> None:

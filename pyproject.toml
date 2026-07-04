@@ -36,13 +36,13 @@ dependencies = [
   "jsonschema>=4.0",
   "headroom-ai>=0.1.0; sys_platform != 'win32'",
   "pywebview>=4.4",
+  "playwright>=1.40.0",
 ]
 
 [project.optional-dependencies]
-browser = ["playwright>=1.40.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "pytest-cov", "ty>=0.0.1a20"]
 secrets = ["keyring>=24.0.0"]
-all = ["job-hunter-kit[browser,secrets]"]
+all = ["job-hunter-kit[secrets]"]
 
 [project.scripts]
 job-hunter = "job_hunter.cli:app"

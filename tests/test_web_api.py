@@ -292,8 +292,7 @@ def test_get_analytics_operational_summary_present(tmp_path: Path) -> None:
 
     op = payload["telemetry"]["operational"]
     assert op["sessions"] == 1
-    assert op["favorite_model"] == "gpt-5.4"
-    assert "current_streak" in op and "longest_streak" in op and "peak_hour" in op
+    assert "current_streak" in op and "longest_streak" in op and "active_days" in op
 
 
 def test_get_analytics_reports_agent_mode_from_workspace_config(tmp_path: Path) -> None:
@@ -383,6 +382,38 @@ def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch
     result = DashAPI(tmp_path).delete_unprocessed(1)
 
     assert result == {"ok": False, "error": "db locked"}
+
+
+def test_run_company_hunt_starts_worker_and_reports_done_with_inserted_count(tmp_path: Path, monkeypatch) -> None:
+    def fake_run() -> int:
+        insert_jobs(
+            tmp_path,
+            [{"url": "https://example.com/new", "title": "PM", "company": "Acme", "location": "Berlin"}],
+        )
+        return 0
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    api = DashAPI(tmp_path)
+
+    result = api.run_company_hunt()
+    assert result == {"started": True}
+    assert api.run_company_hunt() == {"already_running": True}
+    api._hunt_thread.join(timeout=5)
+
+    assert api.get_company_hunt_status() == {"state": "done", "inserted": 1}
+
+
+def test_run_company_hunt_reports_error_status_on_failure(tmp_path: Path, monkeypatch) -> None:
+    def boom() -> int:
+        raise RuntimeError("scrape failed")
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", boom)
+    api = DashAPI(tmp_path)
+
+    api.run_company_hunt()
+    api._hunt_thread.join(timeout=5)
+
+    assert api.get_company_hunt_status() == {"state": "error", "error": "scrape failed"}
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:

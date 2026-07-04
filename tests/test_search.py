@@ -9,9 +9,6 @@ from job_hunter.sources.search import (
     ats_discovery as _ats_mod,
 )
 from job_hunter.sources.search import (
-    fetchers as _fetchers_mod,
-)
-from job_hunter.sources.search import (
     providers as _prov_mod,
 )
 from job_hunter.sources.search import (
@@ -830,64 +827,3 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
     assert len(jobs) == 1
     assert jobs[0]["title"] == "Product Manager"
     assert jobs[0]["source"] == "SearXNG ATS discovery: greenhouse API"
-
-
-def test_lightpanda_career_jobs_parse_rendered_html(monkeypatch) -> None:
-    class Completed:
-        returncode = 0
-        stdout = '<a href="/jobs/product-manager-berlin">Product Manager</a>'
-
-    monkeypatch.setattr(search.shutil, "which", lambda _name: "lightpanda")
-    monkeypatch.setattr(search.subprocess, "run", lambda *a, **k: Completed())
-    monkeypatch.setattr(
-        _fetchers_mod,
-        "get_api_config",
-        lambda: {"http": {"lightpanda": {"timeout_seconds": 8}}},
-    )
-
-    jobs = search.fetch_lightpanda_career_jobs(
-        {"name": "ExampleCo", "career_url": "https://example.com/careers", "location": "Berlin"},
-        ["Product Manager"],
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0]["source"] == "Lightpanda career page"
-
-
-def test_firecrawl_career_jobs_require_key_and_budget(monkeypatch) -> None:
-    calls = {"reserved": 0, "posted": 0}
-
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self):
-            return {"data": {"markdown": "[Product Manager](https://example.com/jobs/product-manager-berlin)"}}
-
-    def reserve(provider: str) -> bool:
-        calls["reserved"] += 1
-        assert provider == "firecrawl"
-        return True
-
-    def post(*args, **kwargs):
-        calls["posted"] += 1
-        assert kwargs["json"]["formats"] == ["markdown"]
-        return Response()
-
-    monkeypatch.setattr(_fetchers_mod, "FIRECRAWL_API_KEY", "key")
-    monkeypatch.setattr(_fetchers_mod, "reserve_api_call", reserve)
-    monkeypatch.setattr(search.requests, "post", post)
-    monkeypatch.setattr(
-        _fetchers_mod,
-        "get_api_config",
-        lambda: {"http": {"firecrawl": {"timeout_seconds": 20}}},
-    )
-
-    jobs = search.fetch_firecrawl_career_jobs(
-        {"name": "ExampleCo", "career_url": "https://example.com/careers", "location": "Berlin"},
-        ["Product Manager"],
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0]["source"] == "Firecrawl career page"
-    assert calls == {"reserved": 1, "posted": 1}

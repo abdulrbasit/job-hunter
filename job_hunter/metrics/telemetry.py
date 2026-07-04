@@ -6,7 +6,6 @@ import json
 import re
 import sqlite3
 import uuid
-from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -474,20 +473,6 @@ def _streaks(active_days: list[date]) -> tuple[int, int]:
     return current_streak, longest
 
 
-def _peak_hour(events: list[sqlite3.Row]) -> int | None:
-    hours = [dt.hour for ts in [e["recorded_at"] for e in events] if (dt := _parse_ts(str(ts)))]
-    return Counter(hours).most_common(1)[0][0] if hours else None
-
-
-def _favorite_model(events: list[sqlite3.Row]) -> str:
-    model_tokens: Counter[str] = Counter()
-    for e in events:
-        model = str(e["model"] or "")
-        if model:
-            model_tokens[model] += int(e["input_tokens"] or 0) + int(e["output_tokens"] or 0)
-    return model_tokens.most_common(1)[0][0] if model_tokens else ""
-
-
 def _apply_outcome_to_bucket(entry: dict[str, int], outcome: sqlite3.Row) -> None:
     if outcome["decision"] == "APPLY":
         entry["apply"] += 1
@@ -534,36 +519,15 @@ def _operational_summary(
         "active_days": len(active_days),
         "current_streak": current_streak,
         "longest_streak": longest_streak,
-        "peak_hour": _peak_hour(events),
-        "favorite_model": _favorite_model(events),
         "daily": _daily_buckets(runs, events, outcomes or []),
     }
-
-
-def _model_breakdown(events: list[sqlite3.Row]) -> dict[str, dict[str, Any]]:
-    by_model: dict[str, list[sqlite3.Row]] = {}
-    for row in events:
-        label = str(row["model"] or "unknown")
-        by_model.setdefault(label, []).append(row)
-    total_tokens = sum(int(row["input_tokens"] or 0) + int(row["output_tokens"] or 0) for row in events) or 1
-    result: dict[str, dict[str, Any]] = {}
-    for model, rows in by_model.items():
-        totals = _token_totals(rows)
-        model_total = totals["input_tokens"] + totals["output_tokens"]
-        result[model] = {**totals, "share": round(model_total / total_tokens * 100, 1)}
-    return result
 
 
 def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
     if not db_path.exists():
         return {
-            "runs": [],
             "totals": _token_totals([]),
-            "by_backend": {},
             "by_mode": {},
-            "by_phase": {},
-            "by_job": {},
-            "by_model": {},
             "unattributed": {"count": 0, **_token_totals([])},
             "outcomes": {"processed": 0, "apply": 0, "skip": 0, "tailored": 0, "failed": 0},
             "operational": _operational_summary([], []),
@@ -582,13 +546,6 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
         ).fetchall()
         outcomes = conn.execute("SELECT decision,tailored,failed,recorded_at FROM telemetry_outcomes").fetchall()
 
-    events_by_run: dict[str, int] = Counter(str(row["run_id"]) for row in events if row["run_id"] != _UNATTRIBUTED)
-    runs = []
-    for row in runs_raw:
-        run = dict(row)
-        run["token_status"] = "observed" if events_by_run.get(str(row["id"])) else "unavailable"
-        runs.append(run)
-
     unattributed_events = [row for row in events if row["run_id"] == _UNATTRIBUTED]
 
     def grouped(key: str) -> dict[str, dict[str, int]]:
@@ -599,13 +556,8 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
         return {label: _token_totals(group) for label, group in values.items()}
 
     return {
-        "runs": runs,
         "totals": _token_totals(events),
-        "by_backend": grouped("backend"),
         "by_mode": grouped("mode"),
-        "by_phase": grouped("phase"),
-        "by_job": grouped("job_slug"),
-        "by_model": _model_breakdown(events),
         "unattributed": {"count": len(unattributed_events), **_token_totals(unattributed_events)},
         "outcomes": {
             "processed": len(outcomes),
@@ -667,7 +619,7 @@ def telemetry_status(root: Path) -> dict[str, Any]:
 
     summary = get_telemetry_summary(db_path)
     events_total = sum(summary["totals"].values())
-    latest_run = summary["runs"][0] if summary["runs"] else None
+    latest_run = None
     active_runs = event_count = 0
     by_backend: list[sqlite3.Row] = []
     latest_event = latest_phase = None
@@ -685,6 +637,8 @@ def telemetry_status(root: Path) -> dict[str, Any]:
             latest_phase = conn.execute(
                 "SELECT phase, status, job_slug FROM telemetry_phases ORDER BY started_at DESC LIMIT 1"
             ).fetchone()
+            latest_run_row = conn.execute("SELECT * FROM telemetry_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+            latest_run = dict(latest_run_row) if latest_run_row else None
 
     hooks_but_no_events = (claude_hooks or codex_hooks) and event_count == 0 and (active_runs > 0 or latest_run)
     heartbeat_path = root / "outputs" / "state" / ".telemetry_hook_heartbeat"

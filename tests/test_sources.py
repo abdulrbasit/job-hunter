@@ -24,9 +24,6 @@ from job_hunter.sources.search import (
     ats_discovery as _ats_mod,
 )
 from job_hunter.sources.search import (
-    fetchers as _fetchers_mod,
-)
-from job_hunter.sources.search import (
     providers as _prov_mod,
 )
 from job_hunter.sources.search import (
@@ -1346,7 +1343,7 @@ def test_career_pages_no_search_provider_custom_page_ingestion(
     assert jobs[0]["extraction_method"] == "jsonld"
 
 
-def test_career_pages_uses_lightpanda_before_playwright(
+def test_career_pages_falls_back_to_playwright_after_cheap_rungs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from job_hunter.sources import career_pages
@@ -1355,40 +1352,9 @@ def test_career_pages_uses_lightpanda_before_playwright(
     monkeypatch.setattr(career_pages, "_fetch_html_safe", lambda _url: ("<html></html>", 200))
     monkeypatch.setattr(career_pages, "_try_sitemap_discovery", lambda *args: [])
     monkeypatch.setattr(career_pages, "_try_static_html", lambda *args: [])
-    monkeypatch.setattr(
-        career_pages,
-        "fetch_lightpanda_career_jobs",
-        lambda *args: [{"title": "Product Manager", "url": "https://example.com/jobs/1"}],
-    )
     monkeypatch.setattr(
         career_pages,
         "_try_playwright",
-        lambda *args: pytest.fail("Playwright should not run after Lightpanda found jobs"),
-    )
-
-    jobs = career_pages.extract_career_page_jobs(
-        {"name": "LightCo", "career_url": "https://light.example.com/careers"},
-        ["Product Manager"],
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0]["extraction_method"] == "lightpanda"
-
-
-def test_career_pages_uses_firecrawl_after_local_fallbacks(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from job_hunter.sources import career_pages
-
-    monkeypatch.setattr(career_pages, "detect_ats_from_url", lambda _url: None)
-    monkeypatch.setattr(career_pages, "_fetch_html_safe", lambda _url: ("<html></html>", 200))
-    monkeypatch.setattr(career_pages, "_try_sitemap_discovery", lambda *args: [])
-    monkeypatch.setattr(career_pages, "_try_static_html", lambda *args: [])
-    monkeypatch.setattr(career_pages, "fetch_lightpanda_career_jobs", lambda *args: [])
-    monkeypatch.setattr(career_pages, "_try_playwright", lambda *args: [])
-    monkeypatch.setattr(
-        career_pages,
-        "fetch_firecrawl_career_jobs",
         lambda *args: [{"title": "Product Owner", "url": "https://example.com/jobs/2"}],
     )
 
@@ -1398,80 +1364,7 @@ def test_career_pages_uses_firecrawl_after_local_fallbacks(
     )
 
     assert len(jobs) == 1
-    assert jobs[0]["extraction_method"] == "firecrawl"
-
-
-def test_lightpanda_career_jobs_parse_rendered_html(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class Completed:
-        returncode = 0
-        stdout = '<a href="/jobs/product-manager-berlin">Product Manager</a>'
-
-    monkeypatch.setattr(search.shutil, "which", lambda _name: "lightpanda")
-    monkeypatch.setattr(search.subprocess, "run", lambda *a, **k: Completed())
-    monkeypatch.setattr(
-        _fetchers_mod,
-        "get_api_config",
-        lambda: {"http": {"lightpanda": {"timeout_seconds": 8}}},
-    )
-
-    jobs = search.fetch_lightpanda_career_jobs(
-        {
-            "name": "ExampleCo",
-            "career_url": "https://example.com/careers",
-            "location": "Berlin",
-        },
-        ["Product Manager"],
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0]["source"] == "Lightpanda career page"
-
-
-def test_firecrawl_career_jobs_require_key_and_budget(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls = {"reserved": 0, "posted": 0}
-
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {"data": {"markdown": "[Product Manager](https://example.com/jobs/product-manager-berlin)"}}
-
-    def reserve(provider: str) -> bool:
-        calls["reserved"] += 1
-        assert provider == "firecrawl"
-        return True
-
-    def post(*args, **kwargs):
-        calls["posted"] += 1
-        assert kwargs["json"]["formats"] == ["markdown"]
-        return Response()
-
-    monkeypatch.setattr(_fetchers_mod, "FIRECRAWL_API_KEY", "key")
-    monkeypatch.setattr(_fetchers_mod, "reserve_api_call", reserve)
-    monkeypatch.setattr(search.requests, "post", post)
-    monkeypatch.setattr(
-        _fetchers_mod,
-        "get_api_config",
-        lambda: {"http": {"firecrawl": {"timeout_seconds": 20}}},
-    )
-
-    jobs = search.fetch_firecrawl_career_jobs(
-        {
-            "name": "ExampleCo",
-            "career_url": "https://example.com/careers",
-            "location": "Berlin",
-        },
-        ["Product Manager"],
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0]["source"] == "Firecrawl career page"
-    assert calls == {"reserved": 1, "posted": 1}
+    assert jobs[0]["title"] == "Product Owner"
 
 
 # ---------------------------------------------------------------------------

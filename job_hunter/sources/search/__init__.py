@@ -7,8 +7,6 @@ existing import sites require no changes.
 from __future__ import annotations
 
 import logging
-import shutil  # noqa: F401 — exposed so tests can patch search.shutil.which
-import subprocess  # noqa: F401 — exposed so tests can patch search.subprocess.run
 
 import requests  # noqa: F401 — exposed so tests can patch search.requests.get/post
 
@@ -44,10 +42,7 @@ from job_hunter.sources.search.discovery import (
     search_career_urls,
 )
 from job_hunter.sources.search.fetchers import (
-    _jobs_from_markdown_links,
     extract_jobs_from_html,
-    fetch_firecrawl_career_jobs,
-    fetch_lightpanda_career_jobs,
     fetch_playwright_career_jobs,
     fetch_static_career_jobs,
 )
@@ -101,10 +96,7 @@ __all__ = [
     "discover_ats_jobs_by_search",
     "discover_company_homepage",
     "search_career_urls",
-    "_jobs_from_markdown_links",
     "extract_jobs_from_html",
-    "fetch_firecrawl_career_jobs",
-    "fetch_lightpanda_career_jobs",
     "fetch_playwright_career_jobs",
     "fetch_static_career_jobs",
     "BraveProvider",

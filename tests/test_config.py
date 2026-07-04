@@ -152,7 +152,7 @@ def test_workspace_template_find_jobs_exports_job_board_secrets() -> None:
     assert env["ADZUNA_API_KEY"] == "${{ secrets.ADZUNA_API_KEY }}"
     assert env["REED_API_KEY"] == "${{ secrets.REED_API_KEY }}"
     assert env["JOOBLE_API_KEY"] == "${{ secrets.JOOBLE_API_KEY }}"
-    assert env["FIRECRAWL_API_KEY"] == "${{ secrets.FIRECRAWL_API_KEY }}"
+    assert "FIRECRAWL_API_KEY" not in env
 
 
 def test_python_import_package_is_job_hunter() -> None:

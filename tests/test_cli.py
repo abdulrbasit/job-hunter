@@ -78,28 +78,13 @@ def test_find_jobs_workflow_runs_supported_hunt_command() -> None:
     assert "texlive.tar" not in workflow
 
 
-def test_find_jobs_workflow_lightpanda_install_is_non_fatal() -> None:
-    """A nightly Lightpanda asset hiccup must not fail the whole scrape run — the app
-    already tolerates a missing lightpanda binary (sources/search/fetchers.py)."""
-    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "find-jobs.yml").read_text(encoding="utf-8")
-    lightpanda_step = workflow.split("- name: Install Lightpanda", 1)[1].split("- name:", 1)[0]
-
-    assert "continue-on-error: true" in lightpanda_step
-
-
-def test_career_hunt_workflow_lightpanda_install_is_non_fatal() -> None:
-    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "career-hunt.yml").read_text(encoding="utf-8")
-    lightpanda_step = workflow.split("- name: Install Lightpanda", 1)[1].split("- name:", 1)[0]
-
-    assert "continue-on-error: true" in lightpanda_step
-
-
-def test_setup_doc_explains_career_hunt_feeds_the_main_jobs_db() -> None:
-    """career-hunt.yml's output was previously undocumented anywhere a user would read —
-    SETUP.md must explain it writes into the same jobs.db as the regular hunt."""
+def test_setup_doc_explains_company_hunt_feeds_the_main_jobs_db() -> None:
+    """The dashboard's browser-hunt button output was previously undocumented anywhere a
+    user would read — SETUP.md must explain it writes into the same jobs.db as the
+    regular hunt."""
     setup = (WORKSPACE_TEMPLATE / "SETUP.md").read_text(encoding="utf-8")
 
-    assert "career-hunt.yml" in setup
+    assert "Run Company Browser Hunt" in setup
     assert "outputs/state/jobs.db" in setup
 
 

@@ -51,7 +51,6 @@ _LAZY_SECRET_KEYS: dict[str, str] = {
     "ADZUNA_APP_ID": "adzuna_app_id",
     "JOOBLE_API_KEY": "jooble",
     "REED_API_KEY": "reed",
-    "FIRECRAWL_API_KEY": "firecrawl",
     "BRAVE_API_KEY": "brave",
     "EXA_API_KEY": "exa",
     "TAVILY_API_KEY": "tavily",

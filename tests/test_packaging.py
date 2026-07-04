@@ -14,8 +14,10 @@ def test_llm_sdks_ship_with_standard_install() -> None:
     assert "anthropic>=0.50.0" in dependencies
     assert "openai>=1.68.0" in dependencies
     assert "google-genai>=1.0.0" in dependencies
+    assert "playwright>=1.40.0" in dependencies
     assert "llm" not in optional
-    assert optional["all"] == ["job-hunter-kit[browser,secrets]"]
+    assert "browser" not in optional
+    assert optional["all"] == ["job-hunter-kit[secrets]"]
 
 
 def test_declared_template_package_data_globs_resolve_to_real_files() -> None:

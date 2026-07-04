@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,8 @@ def _open_path(path: Path) -> None:
 class DashAPI:
     def __init__(self, root: Path) -> None:
         self._root = root
+        self._hunt_lock = threading.Lock()
+        self._hunt_status: dict[str, Any] = {"state": "idle"}
 
     def get_applications(self) -> list[dict[str, Any]]:
         from job_hunter.tracking.applications import filtered_applications
@@ -243,6 +246,34 @@ class DashAPI:
         except Exception as exc:  # noqa: BLE001
             return {"ok": False, "error": str(exc)}
         return {"ok": True, "error": ""}
+
+    def run_company_hunt(self) -> dict[str, Any]:
+        """Kick off the company career-page browser hunt in the background."""
+        with self._hunt_lock:
+            if self._hunt_status.get("state") == "running":
+                return {"already_running": True}
+            self._hunt_status = {"state": "running"}
+        self._hunt_thread = threading.Thread(target=self._run_company_hunt_worker, daemon=True)
+        self._hunt_thread.start()
+        return {"started": True}
+
+    def _run_company_hunt_worker(self) -> None:
+        from job_hunter.pipeline import browser_hunt
+        from job_hunter.tracking.repository import get_jobs_summary
+
+        before = len(get_jobs_summary(self._root, statuses=("candidate",)))
+        try:
+            browser_hunt.run()
+            after = len(get_jobs_summary(self._root, statuses=("candidate",)))
+            with self._hunt_lock:
+                self._hunt_status = {"state": "done", "inserted": max(0, after - before)}
+        except Exception as exc:  # noqa: BLE001
+            with self._hunt_lock:
+                self._hunt_status = {"state": "error", "error": str(exc)}
+
+    def get_company_hunt_status(self) -> dict[str, Any]:
+        with self._hunt_lock:
+            return dict(self._hunt_status)
 
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict

@@ -13,6 +13,7 @@ import yaml
 
 from job_hunter.agent_context import validate_score_file
 from job_hunter.core.utils import read_yaml
+from job_hunter.sources.career_pages._rendering import is_chromium_installed
 from job_hunter.sources.search import canonicalize_url
 from job_hunter.tracking.applications import CANONICAL_STATUSES, load_applications
 
@@ -92,6 +93,14 @@ def doctor(root: Path) -> dict[str, Any]:
     except OSError:
         writable = False
     checks.append(_check("outputs_writable", writable, "outputs/", "Fix filesystem permissions."))
+    checks.append(
+        _check(
+            "playwright_chromium",
+            is_chromium_installed(),
+            "chromium launchable",
+            "Run: playwright install chromium",
+        )
+    )
     onboarding = onboarding_status(root, checks)
     return {
         "ok": all(item["ok"] for item in checks),

@@ -59,10 +59,10 @@ or on manual dispatch. It reads provider keys from GitHub Secrets, not
 output back to the repository. See
 [SETUP_LLM_API.md](../job_hunter/templates/workspace/SETUP_LLM_API.md#9-run-unattended-with-github-actions).
 
-Two other bundled workflows: **Tailor Job** (`tailor-job.yml`, manual
-dispatch — tailor up to 5 pasted job URLs without a full hunt) and
-**Company Career Hunt** (`career-hunt.yml`, manual dispatch — the
-browser-backed career-page scrape described in [sources.md](sources.md)).
+One other bundled workflow: **Tailor Job** (`tailor-job.yml`, manual
+dispatch — tailor up to 5 pasted job URLs without a full hunt). The
+browser-backed career-page scrape (described in [sources.md](sources.md))
+runs from the dashboard's "Run Company Browser Hunt" button, not a workflow.
 
 ## What agent mode skips
 

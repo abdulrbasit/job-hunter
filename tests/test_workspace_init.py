@@ -29,7 +29,6 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
 
     assert "config/job_hunter.yml" in paths
     assert "config/career_pages.yml" in paths
-    assert ".github/workflows/career-hunt.yml" in paths
     assert ".github/workflows/find-jobs.yml" in paths
     assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
@@ -128,7 +127,6 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
 
     assert (workspace / "config" / "job_hunter.yml").exists()
     assert (workspace / "config" / "career_pages.yml").exists()
-    assert (workspace / ".github" / "workflows" / "career-hunt.yml").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()
@@ -523,12 +521,11 @@ def test_run_init_seeds_workflow_hashes_in_manifest(tmp_path: Path) -> None:
     manifest = json.loads((workspace / MANIFEST_PATH).read_text(encoding="utf-8"))
 
     assert ".github/workflows/tailor-job.yml" in manifest["managed_files"]
-    assert ".github/workflows/career-hunt.yml" in manifest["managed_files"]
 
 
 def test_update_workflows_flags_customized_non_scheduled_workflow(tmp_path: Path) -> None:
-    """career-hunt.yml/tailor-job.yml have no schedule-merge logic — a local edit to them
-    must be reported, not silently discarded, even though the file is still updated."""
+    """tailor-job.yml has no schedule-merge logic — a local edit to it must be reported,
+    not silently discarded, even though the file is still updated."""
     workspace = tmp_path / "workspace"
     run_init(workspace)
     tailor_job = workspace / ".github" / "workflows" / "tailor-job.yml"

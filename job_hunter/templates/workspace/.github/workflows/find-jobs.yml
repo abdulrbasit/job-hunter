@@ -25,7 +25,6 @@ jobs:
       BRAVE_API_KEY:    ${{ secrets.BRAVE_API_KEY }}
       TAVILY_API_KEY:   ${{ secrets.TAVILY_API_KEY }}
       EXA_API_KEY:      ${{ secrets.EXA_API_KEY }}
-      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
       SEARXNG_BASE_URL: http://127.0.0.1:8080
       RAPIDAPI_KEY:     ${{ secrets.RAPIDAPI_KEY }}
       ADZUNA_APP_ID:    ${{ secrets.ADZUNA_APP_ID }}
@@ -42,10 +41,10 @@ jobs:
           python-version: "3.12"
           ignore-nothing-to-cache: true
 
-      - name: Install Python package and browser extra
+      - name: Install Python package
         run: |
           uv venv --python 3.12 --clear
-          uv pip install "job-hunter-kit[browser]"
+          uv pip install "job-hunter-kit"
           uv run --no-project playwright install --with-deps chromium
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
@@ -57,18 +56,6 @@ jobs:
           d = yaml.safe_load(open("config/job_hunter.yml", encoding="utf-8")) or {}
           print("mode=" + d.get("mode", "agent"))
           PY
-
-      - name: Install Lightpanda
-        # Non-fatal: browser-based career-page scraping degrades gracefully when the
-        # lightpanda binary is missing (see job_hunter/sources/search/fetchers.py), so a
-        # nightly-asset hiccup here must not fail the whole job.
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          curl -fsSL -o /tmp/lightpanda https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux
-          sudo install -m 0755 /tmp/lightpanda /usr/local/bin/lightpanda
-          command -v lightpanda
-          echo "Lightpanda installed; nightly builds do not expose a stable --version command."
 
       - name: Pull texlive image
         if: steps.mode.outputs.mode == 'llm-api'

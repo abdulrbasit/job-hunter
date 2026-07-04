@@ -124,13 +124,14 @@ freely — updates never overwrite it.
 
 ## 11. Company Career Hunt (optional)
 
-`.github/workflows/career-hunt.yml` is an optional, on-demand alternative to the regular
-`find-jobs` hunt. Instead of searching job boards, it scrapes the company career pages you
-list in `config/career_pages.yml`. Its results are written to `outputs/state/jobs.db` —
-the same database `find-jobs` uses — so they're deduped, screened, scored, and tailored
-through the exact same pipeline as any other discovered job; there's nothing separate to
-review or copy.
+The dashboard's **Run Company Browser Hunt** button is an optional, on-demand alternative
+to the regular `find-jobs` hunt. Instead of searching job boards, it scrapes the company
+career pages you list in `config/career_pages.yml` (falling back to a real browser,
+Playwright, only for pages that need JavaScript). Its results are written to
+`outputs/state/jobs.db` — the same database `find-jobs` uses — so they're deduped,
+screened, scored, and tailored through the exact same pipeline as any other discovered
+job; there's nothing separate to review or copy.
 
-To use it: add companies to `config/career_pages.yml`, then run "Company Career Hunt"
-from the Actions tab whenever you want. New candidates show up in `job-hunter dashboard`
-or `/job-hunter batch` alongside jobs from the regular hunt.
+To use it: add companies to `config/career_pages.yml`, then click "Run Company Browser
+Hunt" in `job-hunter dashboard` whenever you want. New candidates show up alongside jobs
+from the regular hunt.

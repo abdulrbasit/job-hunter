@@ -85,7 +85,10 @@ Workspace setup installs Claude Code and Codex lifecycle hooks plus a localhost-
 OpenTelemetry receiver. Existing `/job-hunter ...` commands do not change. For each
 run, `outputs/state/metrics.db` records input, output, cached, and reasoning tokens
 by backend, top-level mode, nested phase, and job slug. It also records APPLY/SKIP,
-tailored, failed, and interrupted outcomes.
+tailored, failed, and interrupted outcomes. The dashboard's Analytics tab surfaces
+session/message/streak counts, total tokens, and tokens-by-mode — the fuller
+per-backend/phase/job breakdown isn't shown there, but remains queryable via
+`job-hunter internal telemetry-status --json` or `metrics.db` directly.
 
 Prompt text, model responses, resume contents, and tool arguments are never stored.
 Only token counts, model/session identifiers, phase labels, slugs, and outcome
@@ -93,5 +96,11 @@ counters are retained. Telemetry errors never block job processing.
 
 `job-hunter init` configures project hooks automatically. Codex requires its OTel
 exporter in `$CODEX_HOME/config.toml` (normally `~/.codex/config.toml`); an existing
-unrelated `[otel]` section is preserved and reported instead of overwritten. Restart
-Claude Code or Codex after setup, then use the dashboard Analytics tab to compare runs.
+unrelated `[otel]` section is preserved and reported instead of overwritten.
+
+**You must fully quit and relaunch Claude Code or Codex after setup** — hooks take
+effect immediately, but the `OTEL_*` environment variables/`[otel]` config are only
+read at process startup, so a reloaded window or an already-running session will
+keep showing "not observed" token counts until you quit the app completely (not just
+close the window) and reopen it. After relaunching, run a skill once, then check the
+dashboard Analytics tab or `job-hunter internal telemetry-status --json`.

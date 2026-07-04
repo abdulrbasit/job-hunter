@@ -33,9 +33,10 @@ class names with no stable card selector — a future adapter should key off its
 `/jobs/p/` URL pattern instead of class names).
 
 No adapter uses Playwright or any browser rendering — rendering is reserved
-for the company-hunt workflow (`career_pages/`, `.github/workflows/career-hunt.yml`)
-only. A browser render in a job-board adapter is slow enough to time out the
-scheduled GitHub Actions hunt run, so job boards are static-HTTP/API/RSS only,
+for the company career-page hunt (`career_pages/`, triggered from the dashboard's
+"Run Company Browser Hunt" button) only. A browser render in a job-board adapter
+is slow enough to time out the scheduled GitHub Actions hunt run, so job boards
+are static-HTTP/API/RSS only,
 even when that means a source occasionally returns fewer results than a
 rendered fetch would.
 
@@ -66,9 +67,10 @@ the other sites) returns few or no Google results.
 
 For `config/career_pages.yml` targets, tries in order: ATS public endpoint,
 JSON-LD structured data, sitemap crawl, static HTML parsing — falling back
-to a real browser (the **Company Career Hunt** GitHub Actions workflow,
-`.github/workflows/career-hunt.yml`) only when the page needs JavaScript.
-Results are written to `outputs/browser_hunt/jobs.json`.
+to Playwright (the sole browser tool used here) only when the page needs
+JavaScript. Run from the dashboard's "Run Company Browser Hunt" button
+(`job_hunter/ux/web/`). Results are written to `outputs/state/jobs.db`, the
+same store the regular `find-jobs` hunt uses.
 
 ## ATS discovery (`job_hunter/sources/search/ats_discovery.py`)
 
@@ -107,7 +109,6 @@ regular job-board sources come up thin. Each needs its own API key:
 | Brave Search | `BRAVE_API_KEY` |
 | Tavily | `TAVILY_API_KEY` |
 | Exa | `EXA_API_KEY` |
-| Firecrawl (also used as a career-page rendering fallback) | `FIRECRAWL_API_KEY` |
 
 None of these are required — Job Hunter runs on the free job boards alone.
 Add keys incrementally as you find gaps in coverage.

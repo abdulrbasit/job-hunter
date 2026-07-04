@@ -556,12 +556,6 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
 .run-stat .run-stat-value.mode-api { color: #79c0ff; }
 .run-stat .run-stat-value.mode-agent { color: #d2a8ff; }
 
-.analytics-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .data-table th {
   text-align: left;
@@ -613,13 +607,6 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
 .heatmap-cell[data-level="2"] { background: rgba(31,111,235,0.55); }
 .heatmap-cell[data-level="3"] { background: rgba(31,111,235,0.75); }
 .heatmap-cell[data-level="4"] { background: rgba(31,111,235,0.95); }
-
-.model-bar-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-.model-bar-label { width: 160px; font-size: 12px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.model-bar-track { flex: 1; height: 8px; background: rgba(48,54,61,0.5); border-radius: 4px; overflow: hidden; display: flex; }
-.model-bar-fill.input { background: rgba(31,111,235,0.8); height: 100%; }
-.model-bar-fill.output { background: rgba(137,87,229,0.8); height: 100%; }
-.model-bar-share { width: 48px; text-align: right; font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -796,6 +783,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
         </div>
         <button class="btn btn-danger" id="discard-selected-btn" style="display:none" onclick="discardSelected()">Discard selected</button>
+        <button class="btn" id="run-company-hunt-btn" onclick="runCompanyHunt()">Run Company Browser Hunt</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
       <div class="table-wrap">
@@ -847,7 +835,6 @@ let insightsLoaded = false;
 let analyticsLoaded = false;
 let statusChart = null;
 let weekChart = null;
-let tokenChart = null;
 let activeArtifact = null;
 let artifactObjectUrl = null;
 let candidateData = { active: [], discarded: [], counts: { active: 0, discarded: 0, total: 0 } };
@@ -939,6 +926,38 @@ async function loadApplications() {
     applyFilters();
   } catch(e) {
     document.getElementById('app-tbody').innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load applications: ${e}</div></td></tr>`;
+  }
+}
+
+let companyHuntPolling = false;
+
+async function runCompanyHunt() {
+  const btn = document.getElementById('run-company-hunt-btn');
+  const result = await window.pywebview.api.run_company_hunt();
+  if (result.already_running) return;
+  pollCompanyHuntStatus();
+}
+
+async function pollCompanyHuntStatus() {
+  if (companyHuntPolling) return;
+  companyHuntPolling = true;
+  const btn = document.getElementById('run-company-hunt-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running…';
+  try {
+    while (true) {
+      const status = await window.pywebview.api.get_company_hunt_status();
+      if (status.state !== 'running') {
+        if (status.state === 'done') await loadUnprocessed();
+        if (status.state === 'error') alert(`Company browser hunt failed: ${status.error}`);
+        break;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Company Browser Hunt';
+    companyHuntPolling = false;
   }
 }
 
@@ -1411,15 +1430,6 @@ function renderFunnel(byStatus, total) {
 }
 
 // ── Analytics rendering ──
-const ROLE_LABELS = {
-  jd_extraction: 'JD Extract',
-  validation: 'Validate',
-  scoring: 'Score',
-  tailoring: 'Tailor',
-  cover_letter: 'Cover Letter',
-  research: 'Research',
-};
-
 function buildHeatmap(daily) {
   const days = [];
   const today = new Date();
@@ -1441,31 +1451,6 @@ function buildHeatmap(daily) {
     }).join('')}</div>`).join('')}</div>`;
 }
 
-function buildModelBars(byModel) {
-  const entries = Object.entries(byModel || {}).sort((a, b) => (b[1].share || 0) - (a[1].share || 0));
-  if (!entries.length) return `<div class="no-data">No model data yet.</div>`;
-  return entries.map(([model, v]) => {
-    const total = (v.input_tokens || 0) + (v.output_tokens || 0);
-    const inPct = total ? (v.input_tokens || 0) / total * 100 : 0;
-    const outPct = total ? (v.output_tokens || 0) / total * 100 : 0;
-    return `
-    <div class="model-bar-row">
-      <div class="model-bar-label" title="${esc(model)}">${esc(model)}</div>
-      <div class="model-bar-track">
-        <div class="model-bar-fill input" style="width:${inPct}%"></div>
-        <div class="model-bar-fill output" style="width:${outPct}%"></div>
-      </div>
-      <div class="model-bar-share">${(v.share ?? 0)}%</div>
-    </div>
-    <div style="font-size:11px;color:var(--text-muted);margin:-4px 0 4px 170px">
-      in ${ (v.input_tokens || 0).toLocaleString() } · out ${ (v.output_tokens || 0).toLocaleString() }
-      ${ v.cache_read_tokens ? `· cache-read ${v.cache_read_tokens.toLocaleString()}` : '' }
-      ${ v.cache_creation_tokens ? `· cache-create ${v.cache_creation_tokens.toLocaleString()}` : '' }
-      ${ v.reasoning_tokens ? `· reasoning ${v.reasoning_tokens.toLocaleString()}` : '' }
-    </div>`;
-  }).join('');
-}
-
 function renderAnalytics(data, container) {
   const configMode = data.mode || 'agent';
   const runs = data.runs || [];
@@ -1474,7 +1459,6 @@ function renderAnalytics(data, container) {
   const outcomes = telemetry.outcomes || {};
   const operational = telemetry.operational || {};
   const unattributed = telemetry.unattributed || { count: 0 };
-  const byModel = telemetry.by_model || {};
   const tokenStatus = telemetry.token_status || 'unavailable';
   const normalizedTokenCount = (normalizedTotals.input_tokens || 0) + (normalizedTotals.output_tokens || 0);
   const tokensPerTailored = outcomes.tailored ? Math.round(normalizedTokenCount / outcomes.tailored) : 0;
@@ -1504,21 +1488,13 @@ function renderAnalytics(data, container) {
     headerHtml = `<span style="color:var(--text-muted)">No pipeline runs recorded yet. Run <code>job-hunter hunt</code> first.</span>`;
   }
 
-  // token chart data
-  const tokenTotals = latest?.token_totals || {};
-  const hasTokens = Object.keys(tokenTotals).length > 0;
   let tokenNote = '';
   if (outcomes.processed > 0 && tokenStatus === 'unavailable') {
     tokenNote = `<div class="agent-note">Job Hunter outcomes are captured, but Claude/Codex token telemetry has not reached the local collector yet. Run <code>job-hunter internal telemetry-status --json</code> for diagnostics.</div>`;
-  } else if (configMode === 'agent' && !hasTokens && !normalizedTokenCount) {
+  } else if (configMode === 'agent' && !normalizedTokenCount) {
     tokenNote = `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup, then run a skill (e.g. /job-hunter batch). Diagnose with <code>job-hunter internal telemetry-status --json</code>.</div>`;
   }
 
-  const roles = Object.keys(ROLE_LABELS).filter(r => tokenTotals[r]);
-  const inputData = roles.map(r => tokenTotals[r]?.in || 0);
-  const outputData = roles.map(r => tokenTotals[r]?.out || 0);
-  const cachedData = roles.map(r => tokenTotals[r]?.cached || 0);
-  const roleLabels = roles.map(r => ROLE_LABELS[r] || r);
   const metricRows = group => Object.entries(group || {})
     .sort((a, b) => (b[1].input_tokens + b[1].output_tokens) - (a[1].input_tokens + a[1].output_tokens))
     .map(([name, value]) => `<tr>
@@ -1527,22 +1503,6 @@ function renderAnalytics(data, container) {
       <td>${(value.cached_tokens || 0).toLocaleString()}</td>
       <td>${(value.reasoning_tokens || 0).toLocaleString()}</td>
     </tr>`).join('') || `<tr><td colspan="5" class="no-data">No data</td></tr>`;
-
-  // run history table
-  const historyRows = runs.slice(0, 20).map((r, i) => {
-    const ts = (r.ts || '').replace('T', ' ').substring(0, 16);
-    const cost = r.total_cost_usd != null ? `$${Number(r.total_cost_usd).toFixed(4)}` : '—';
-    const totalIn = Object.values(r.token_totals || {}).reduce((s, v) => s + (v?.in || 0), 0);
-    return `<tr>
-      <td class="mono">${ts}</td>
-      <td><span class="badge badge-${r.exec_mode === 'llm-api' ? 'tailored' : 'interview'}">${r.exec_mode || '—'}</span></td>
-      <td>${r.region || '—'}</td>
-      <td>${r.duration_s ? r.duration_s.toFixed(1) + 's' : '—'}</td>
-      <td>${r.jobs_found ?? 0} → ${r.jobs_tailored ?? 0}</td>
-      <td>${totalIn ? totalIn.toLocaleString() : '—'}</td>
-      <td style="color:#56d364">${cost}</td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">No runs yet</td></tr>`;
 
   const tokenDisplay = v => tokenStatus === 'unavailable' && !v ? 'not observed' : v.toLocaleString();
 
@@ -1555,20 +1515,11 @@ function renderAnalytics(data, container) {
     <div class="run-header">
       <div class="run-stat"><div class="run-stat-label">Sessions</div><div class="run-stat-value">${operational.sessions ?? 0}</div></div>
       <div class="run-stat"><div class="run-stat-label">Messages</div><div class="run-stat-value">${operational.messages ?? 0}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Total Tokens</div><div class="run-stat-value">${tokenDisplay(normalizedTokenCount)}</div></div>
       <div class="run-stat"><div class="run-stat-label">Active Days</div><div class="run-stat-value">${operational.active_days ?? 0}</div></div>
       <div class="run-stat"><div class="run-stat-label">Current Streak</div><div class="run-stat-value">${operational.current_streak ?? 0}</div></div>
       <div class="run-stat"><div class="run-stat-label">Longest Streak</div><div class="run-stat-value">${operational.longest_streak ?? 0}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Peak Hour</div><div class="run-stat-value">${operational.peak_hour != null ? operational.peak_hour + ':00' : '—'}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Favorite Model</div><div class="run-stat-value" style="font-size:14px">${esc(operational.favorite_model) || '—'}</div></div>
-    </div>
-
-    <div class="run-header">
-      <div class="run-stat"><div class="run-stat-label">Processed</div><div class="run-stat-value">${outcomes.processed || 0}</div></div>
-      <div class="run-stat"><div class="run-stat-label">APPLY / SKIP</div><div class="run-stat-value">${outcomes.apply || 0} / ${outcomes.skip || 0}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Tailored</div><div class="run-stat-value">${outcomes.tailored || 0}</div></div>
+      <div class="run-stat"><div class="run-stat-label">Total Tokens</div><div class="run-stat-value">${tokenDisplay(normalizedTokenCount)}</div></div>
       <div class="run-stat"><div class="run-stat-label">Tokens / Tailored</div><div class="run-stat-value">${tokenDisplay(tokensPerTailored)}</div></div>
-      <div class="run-stat"><div class="run-stat-label">Failures</div><div class="run-stat-value">${outcomes.failed || 0}</div></div>
     </div>
 
     <div class="chart-card">
@@ -1576,80 +1527,14 @@ function renderAnalytics(data, container) {
       ${buildHeatmap(operational.daily || {})}
     </div>
 
-    ${unattributed.count ? `<div class="agent-note">${unattributed.count} token event(s) could not be linked to a specific run/session (${(unattributed.input_tokens || 0) + (unattributed.output_tokens || 0)} tokens) — shown in totals but not broken out by mode/phase/job.</div>` : ''}
-
-    <div class="analytics-grid">
-      <div class="chart-card" style="grid-column: ${hasTokens ? '1' : '1 / -1'}">
-        <h3>Token Usage — Latest Run ${hasTokens ? `(${latest.mode} / ${latest.exec_mode})` : ''}</h3>
-        ${hasTokens
-          ? `<div class="chart-wrap"><canvas id="token-chart" height="200"></canvas></div>`
-          : `<div class="no-data">No token data for latest run.</div>`
-        }
-      </div>
-      <div class="chart-card" style="grid-column: 1 / -1">
-        <h3>Models</h3>
-        ${buildModelBars(byModel)}
-      </div>
-      <div class="chart-card">
-        <h3>Tokens by Mode</h3>
-        <table class="data-table"><thead><tr><th>Mode</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
-        <tbody>${metricRows(telemetry.by_mode)}</tbody></table>
-      </div>
-      <div class="chart-card">
-        <h3>Tokens by Phase</h3>
-        <table class="data-table"><thead><tr><th>Phase</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
-        <tbody>${metricRows(telemetry.by_phase)}</tbody></table>
-      </div>
-      <div class="chart-card">
-        <h3>Tokens by Backend</h3>
-        <table class="data-table"><thead><tr><th>Backend</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
-        <tbody>${metricRows(telemetry.by_backend)}</tbody></table>
-      </div>
-      <div class="chart-card">
-        <h3>Tokens by Job</h3>
-        <table class="data-table"><thead><tr><th>Job</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
-        <tbody>${metricRows(telemetry.by_job)}</tbody></table>
-      </div>
-    </div>
+    ${unattributed.count ? `<div class="agent-note">${unattributed.count} token event(s) could not be linked to a specific run/session (${(unattributed.input_tokens || 0) + (unattributed.output_tokens || 0)} tokens) — shown in totals but not broken out by mode.</div>` : ''}
 
     <div class="chart-card">
-      <h3>Pipeline Run History</h3>
-      <table class="data-table">
-        <thead><tr><th>Timestamp</th><th>Mode</th><th>Region</th><th>Duration</th><th>Jobs</th><th>Tokens In</th><th>Cost</th></tr></thead>
-        <tbody>${historyRows}</tbody>
-      </table>
+      <h3>Tokens by Mode</h3>
+      <table class="data-table"><thead><tr><th>Mode</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+      <tbody>${metricRows(telemetry.by_mode)}</tbody></table>
     </div>
   `;
-
-  if (hasTokens) {
-    if (tokenChart) tokenChart.destroy();
-    tokenChart = new Chart(document.getElementById('token-chart'), {
-      type: 'bar',
-      data: {
-        labels: roleLabels,
-        datasets: [
-          { label: 'Input', data: inputData, backgroundColor: 'rgba(31,111,235,0.7)', borderRadius: 4, stack: 'tokens' },
-          { label: 'Output', data: outputData, backgroundColor: 'rgba(137,87,229,0.7)', borderRadius: 4, stack: 'tokens' },
-          { label: 'Cached', data: cachedData, backgroundColor: 'rgba(35,134,54,0.7)', borderRadius: 4, stack: 'tokens' },
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()}`
-            }
-          }
-        },
-        scales: {
-          x: { stacked: true, ticks: { color: '#8b949e' }, grid: { color: 'rgba(48,54,61,0.5)' } },
-          y: { stacked: true, ticks: { color: '#8b949e', callback: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v }, grid: { color: 'rgba(48,54,61,0.5)' } }
-        }
-      }
-    });
-  }
 }
 
 // ── Utils ──

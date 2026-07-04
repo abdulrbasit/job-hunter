@@ -50,8 +50,18 @@ def test_persist_metrics_normalizes_llm_api_role_tokens(tmp_path, monkeypatch) -
     ):
         metrics.persist_metrics(_ctx(), jobs_found=5, jobs_tailored=2, elapsed=3.5)
 
+    import sqlite3
+
     from job_hunter.metrics.telemetry import get_telemetry_summary
 
-    summary = get_telemetry_summary(tmp_path / "outputs" / "state" / "metrics.db")
-    assert summary["by_backend"]["llm-api"]["input_tokens"] == 100
-    assert summary["by_phase"]["scoring"]["output_tokens"] == 20
+    db = tmp_path / "outputs" / "state" / "metrics.db"
+    summary = get_telemetry_summary(db)
+    assert summary["totals"]["input_tokens"] == 100
+
+    conn = sqlite3.connect(db)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT e.output_tokens FROM telemetry_events e "
+        "JOIN telemetry_phases p ON p.id = e.phase_id WHERE e.backend='llm-api' AND p.phase='scoring'"
+    ).fetchone()
+    assert row["output_tokens"] == 20

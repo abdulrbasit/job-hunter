@@ -11,6 +11,10 @@ Extraction order (cheapest and most structured first):
 4. Static HTML extraction: parse anchor links from the raw HTML response.
 5. Playwright rendering: only when static extraction yields nothing.
 
+Playwright is the sole browser fallback (a required dependency, see
+``job_hunter.sources.career_pages._rendering.ensure_chromium_installed``) —
+no other browser tool or third-party scraping API is used.
+
 Each rung records ``extraction_method`` in the returned job dict so callers
 can tell how a candidate was found without inspecting the URL.
 
@@ -39,8 +43,6 @@ from job_hunter.sources.career_pages._ladder import (
     _try_static_html,
 )
 from job_hunter.sources.career_pages._rendering import (
-    extract_from_firecrawl,
-    extract_from_lightpanda,
     extract_from_rendered_html,
     extract_from_static_html,
 )
@@ -49,11 +51,7 @@ from job_hunter.sources.career_pages._sitemap import (
     _probe_sitemap,
     discover_via_sitemap,
 )
-from job_hunter.sources.search.fetchers import (
-    fetch_firecrawl_career_jobs,
-    fetch_lightpanda_career_jobs,
-    fetch_playwright_career_jobs,
-)
+from job_hunter.sources.search.fetchers import fetch_playwright_career_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +64,7 @@ def extract_career_page_jobs(
     """Run the full extraction ladder for a company career URL.
 
     Returns jobs with ``extraction_method`` set to the rung that produced them:
-    ``ats_api``, ``jsonld``, ``sitemap``, ``static_html``, ``lightpanda``,
-    ``playwright``, or ``firecrawl``.
+    ``ats_api``, ``jsonld``, ``sitemap``, ``static_html``, or ``playwright``.
 
     Defined here (not in _ladder) so that monkeypatching the module-level names
     in this package's namespace affects the function's lookups at call time.
@@ -125,27 +122,11 @@ def extract_career_page_jobs(
             logger.debug("[career_pages] rung=static_html company=%s jobs=%d", name, len(raw_jobs))
             return raw_jobs
 
-    # Rung 5: Lightpanda read-only rendering
-    lightpanda_jobs = _pkg.fetch_lightpanda_career_jobs(company, title_filters, excluded_title_terms)
-    for job in lightpanda_jobs:
-        job.setdefault("extraction_method", "lightpanda")
-    if lightpanda_jobs:
-        logger.debug("[career_pages] rung=lightpanda company=%s jobs=%d", name, len(lightpanda_jobs))
-        return lightpanda_jobs
-
-    # Rung 6: Playwright rendering
+    # Rung 5: Playwright rendering (sole browser fallback)
     pw_jobs = _pkg._try_playwright(career_url, name, title_filters, location, excluded_title_terms)
     if pw_jobs:
         logger.debug("[career_pages] rung=playwright company=%s jobs=%d", name, len(pw_jobs))
-        return pw_jobs
-
-    # Rung 7: Firecrawl cloud markdown
-    firecrawl_jobs = _pkg.fetch_firecrawl_career_jobs(company, title_filters, excluded_title_terms)
-    for job in firecrawl_jobs:
-        job.setdefault("extraction_method", "firecrawl")
-    if firecrawl_jobs:
-        logger.debug("[career_pages] rung=firecrawl company=%s jobs=%d", name, len(firecrawl_jobs))
-    return firecrawl_jobs
+    return pw_jobs
 
 
 __all__ = [
@@ -155,15 +136,11 @@ __all__ = [
     "discover_via_sitemap",
     "extract_from_static_html",
     "extract_from_rendered_html",
-    "extract_from_lightpanda",
-    "extract_from_firecrawl",
     "extract_career_page_jobs",
     "_fetch_html_safe",
     "_try_playwright",
     "_try_sitemap_discovery",
     "_try_static_html",
-    "fetch_firecrawl_career_jobs",
-    "fetch_lightpanda_career_jobs",
     "fetch_playwright_career_jobs",
     "_ATS_URL_PATTERNS",
     "_CAREER_PATHS",

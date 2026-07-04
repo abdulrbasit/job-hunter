@@ -127,10 +127,10 @@ def update_workflows(workspace: Path) -> WorkflowsUpdateResult:
 
     Also tracks each workflow file's hash in the manifest. find-jobs.yml's schedule is
     preserved by _preserve_user_schedule above and is always safe to update past that.
-    Other workflow files (career-hunt.yml, tailor-job.yml) have no such merge logic — if
-    the on-disk file differs from what was last installed here, the user has customized
-    it (timeout, added env var, etc.). It's still updated, so fixes keep landing, but the
-    file is reported back in `customized` instead of the edit being silently discarded.
+    Other workflow files (tailor-job.yml) have no such merge logic — if the on-disk file
+    differs from what was last installed here, the user has customized it (timeout,
+    added env var, etc.). It's still updated, so fixes keep landing, but the file is
+    reported back in `customized` instead of the edit being silently discarded.
     """
     workspace = workspace.resolve()
     result = WorkflowsUpdateResult()

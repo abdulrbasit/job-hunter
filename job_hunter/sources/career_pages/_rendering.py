@@ -1,18 +1,46 @@
-"""Rendering-based career page extraction (Playwright, Lightpanda, Firecrawl)."""
+"""Rendering-based career page extraction (Playwright)."""
 
 from __future__ import annotations
 
 import logging
+import subprocess
 
 from job_hunter.config.loader import get_timeout
-from job_hunter.sources.search import (
-    USER_AGENT,
-    extract_jobs_from_html,
-    fetch_firecrawl_career_jobs,
-    fetch_lightpanda_career_jobs,
-)
+from job_hunter.sources.search import USER_AGENT, extract_jobs_from_html
 
 logger = logging.getLogger(__name__)
+
+
+def is_chromium_installed() -> bool:
+    """Probe whether Playwright's chromium browser is downloaded and launchable."""
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            browser.close()
+        return True
+    except Exception:
+        return False
+
+
+def ensure_chromium_installed() -> bool:
+    """Make sure Playwright's chromium browser is downloaded, installing it if not.
+
+    Playwright is a core dependency, but the pip package alone doesn't ship the
+    browser binary — `playwright install chromium` is a separate, idempotent
+    download step. Runs it automatically so a first-time hunt doesn't silently
+    degrade to zero browser-rendered results.
+    """
+    if is_chromium_installed():
+        return True
+    logger.info("[career_pages] chromium not ready; installing…")
+    try:
+        subprocess.run(["playwright", "install", "chromium"], check=True)  # noqa: S603, S607
+        return True
+    except Exception as exc:
+        logger.warning("[career_pages] playwright install chromium failed: %s", exc)
+        return False
 
 
 def extract_from_rendered_html(
@@ -58,30 +86,6 @@ def extract_from_rendered_html(
     for job in raw_jobs:
         job["extraction_method"] = "playwright"
     return raw_jobs
-
-
-def extract_from_lightpanda(
-    company: dict,
-    title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
-) -> list[dict]:
-    """Render a public page with Lightpanda when the binary is available."""
-    jobs = fetch_lightpanda_career_jobs(company, title_filters, excluded_title_terms)
-    for job in jobs:
-        job["extraction_method"] = "lightpanda"
-    return jobs
-
-
-def extract_from_firecrawl(
-    company: dict,
-    title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
-) -> list[dict]:
-    """Scrape public pages through Firecrawl when key and budget are available."""
-    jobs = fetch_firecrawl_career_jobs(company, title_filters, excluded_title_terms)
-    for job in jobs:
-        job["extraction_method"] = "firecrawl"
-    return jobs
 
 
 def extract_from_static_html(
