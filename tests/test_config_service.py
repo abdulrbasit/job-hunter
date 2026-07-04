@@ -1,0 +1,485 @@
+"""Tests for config/service.py — safe read/validate/save/undo of user-editable config files."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+from job_hunter.config import service
+
+_VALID_CONFIG = {
+    "mode": "agent",
+    "profile": {
+        "resume_tex": "profile/resume_double_column.tex",
+        "story_bank": "profile/story_bank.md",
+        "career_context": "profile/career_context.md",
+    },
+    "job_titles": ["Product Manager"],
+    "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
+    "exclusions": {},
+    "scoring": {"min_fit_score": 70, "batch_size": 15},
+    "llm": {"default_provider": "anthropic"},
+}
+
+
+def _write_config(root: Path, data: dict) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "job_hunter.yml").write_text(yaml.safe_dump(data), encoding="utf-8")
+
+
+def _copy_schema(root: Path) -> None:
+    real_schema = (Path(__file__).parents[1] / "config" / "schemas" / "job_hunter.schema.json").read_text(
+        encoding="utf-8"
+    )
+    schema_dir = root / "config" / "schemas"
+    schema_dir.mkdir(parents=True, exist_ok=True)
+    (schema_dir / "job_hunter.schema.json").write_text(real_schema, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Revisions
+# ---------------------------------------------------------------------------
+
+
+def test_get_revision_is_stable_for_same_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "f.yml"
+    path.write_text("a: 1\n", encoding="utf-8")
+
+    assert service.get_revision(path) == service.get_revision(path)
+
+
+def test_get_revision_changes_when_bytes_change(tmp_path: Path) -> None:
+    path = tmp_path / "f.yml"
+    path.write_text("a: 1\n", encoding="utf-8")
+    before = service.get_revision(path)
+    path.write_text("a: 2\n", encoding="utf-8")
+
+    assert service.get_revision(path) != before
+
+
+def test_get_revision_of_missing_file_is_deterministic(tmp_path: Path) -> None:
+    missing = tmp_path / "nope.yml"
+
+    assert service.get_revision(missing) == service.get_revision(tmp_path / "also-missing.yml")
+
+
+# ---------------------------------------------------------------------------
+# job_hunter.yml validation
+# ---------------------------------------------------------------------------
+
+
+def test_validate_job_hunter_yaml_accepts_valid_config(tmp_path: Path) -> None:
+    _copy_schema(tmp_path)
+
+    assert service.validate_job_hunter_yaml(_VALID_CONFIG, tmp_path) == []
+
+
+def test_validate_job_hunter_yaml_rejects_removed_keys(tmp_path: Path) -> None:
+    _copy_schema(tmp_path)
+    data = dict(_VALID_CONFIG)
+    data["about_me"] = "stale"
+
+    errors = service.validate_job_hunter_yaml(data, tmp_path)
+
+    assert any("about_me" in e for e in errors)
+
+
+def test_validate_job_hunter_yaml_rejects_schema_violation(tmp_path: Path) -> None:
+    _copy_schema(tmp_path)
+    data = dict(_VALID_CONFIG)
+    data["mode"] = "not-a-real-mode"
+
+    errors = service.validate_job_hunter_yaml(data, tmp_path)
+
+    assert errors
+
+
+def test_validate_job_hunter_yaml_rejects_non_mapping(tmp_path: Path) -> None:
+    assert service.validate_job_hunter_yaml(["not", "a", "mapping"], tmp_path) == ["config must be a YAML mapping"]
+
+
+# ---------------------------------------------------------------------------
+# job_hunter.yml read/save/undo
+# ---------------------------------------------------------------------------
+
+
+def test_read_job_hunter_config_returns_raw_text_and_revision(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+
+    result = service.read_job_hunter_config(tmp_path)
+
+    assert result["ok"] is True
+    assert "mode: agent" in result["data"]
+    assert result["revision"] == service.get_revision(tmp_path / "config" / "job_hunter.yml")
+
+
+def test_save_job_hunter_config_writes_valid_yaml(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    before = service.read_job_hunter_config(tmp_path)
+    new_data = dict(_VALID_CONFIG)
+    new_data["job_titles"] = ["Staff Engineer"]
+    new_text = yaml.safe_dump(new_data)
+
+    result = service.save_job_hunter_config(tmp_path, new_text, before["revision"])
+
+    assert result["ok"] is True
+    on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert on_disk["job_titles"] == ["Staff Engineer"]
+
+
+def test_save_job_hunter_config_rejects_invalid_yaml_without_touching_disk(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    before_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+
+    result = service.save_job_hunter_config(tmp_path, "not: valid: yaml: [", revision)
+
+    assert result["ok"] is False
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == before_text
+
+
+def test_save_job_hunter_config_rejects_schema_violation_without_touching_disk(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    before_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+    bad = dict(_VALID_CONFIG)
+    bad["mode"] = "nonsense"
+
+    result = service.save_job_hunter_config(tmp_path, yaml.safe_dump(bad), revision)
+
+    assert result["ok"] is False
+    assert result["errors"]
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == before_text
+
+
+def test_save_job_hunter_config_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    stale_revision = "0" * 64
+    new_data = dict(_VALID_CONFIG)
+    new_data["job_titles"] = ["Staff Engineer"]
+
+    result = service.save_job_hunter_config(tmp_path, yaml.safe_dump(new_data), stale_revision)
+
+    assert result["ok"] is False
+    assert "changed on disk" in result["errors"][0]
+    on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert on_disk["job_titles"] == _VALID_CONFIG["job_titles"]
+
+
+def test_save_job_hunter_config_clears_cached_config(tmp_path: Path, monkeypatch) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    monkeypatch.setattr("job_hunter.config.paths.ROOT", tmp_path)
+    monkeypatch.setattr("job_hunter.config.loader.ROOT", tmp_path)
+    from job_hunter.config.loader import get_job_hunter_config
+
+    get_job_hunter_config.cache_clear()
+    first = get_job_hunter_config()
+    assert first["job_titles"] == ["Product Manager"]
+
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+    new_data = dict(_VALID_CONFIG)
+    new_data["job_titles"] = ["Staff Engineer"]
+    service.save_job_hunter_config(tmp_path, yaml.safe_dump(new_data), revision)
+
+    second = get_job_hunter_config()
+    assert second["job_titles"] == ["Staff Engineer"]
+    get_job_hunter_config.cache_clear()
+
+
+def test_undo_job_hunter_config_restores_exact_prior_bytes(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    original_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+    new_data = dict(_VALID_CONFIG)
+    new_data["job_titles"] = ["Staff Engineer"]
+    save_result = service.save_job_hunter_config(tmp_path, yaml.safe_dump(new_data), revision)
+    assert save_result["ok"] is True
+
+    undo_result = service.undo_last_save(tmp_path, "job_hunter_config")
+
+    assert undo_result["ok"] is True
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == original_text
+
+
+def test_undo_is_only_one_level(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+    new_data = dict(_VALID_CONFIG)
+    new_data["job_titles"] = ["Staff Engineer"]
+    service.save_job_hunter_config(tmp_path, yaml.safe_dump(new_data), revision)
+
+    first_undo = service.undo_last_save(tmp_path, "job_hunter_config")
+    second_undo = service.undo_last_save(tmp_path, "job_hunter_config")
+
+    assert first_undo["ok"] is True
+    assert second_undo["ok"] is False
+    assert "No backup" in second_undo["errors"][0]
+
+
+def test_undo_unknown_logical_name_returns_error(tmp_path: Path) -> None:
+    result = service.undo_last_save(tmp_path, "not-a-real-file")
+
+    assert result["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# career_pages.yml validation
+# ---------------------------------------------------------------------------
+
+
+def test_validate_career_pages_accepts_legacy_three_field_entries() -> None:
+    data = {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": ""}]}
+
+    assert service.validate_career_pages(data) == []
+
+
+def test_validate_career_pages_defaults_enabled_to_true_when_absent() -> None:
+    data = {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]}
+
+    assert service.validate_career_pages(data) == []
+
+
+def test_validate_career_pages_requires_name_and_url() -> None:
+    errors = service.validate_career_pages({"companies": [{"location": "Berlin"}]})
+
+    assert any("name" in e for e in errors)
+    assert any("career_url" in e for e in errors)
+
+
+def test_validate_career_pages_rejects_non_http_scheme() -> None:
+    errors = service.validate_career_pages({"companies": [{"name": "Evil", "career_url": "file:///etc/passwd"}]})
+
+    assert any("http/https" in e for e in errors)
+
+
+def test_validate_career_pages_rejects_duplicate_names_case_insensitively() -> None:
+    errors = service.validate_career_pages(
+        {
+            "companies": [
+                {"name": "Stripe", "career_url": "https://stripe.com/jobs"},
+                {"name": "STRIPE", "career_url": "https://stripe.com/careers"},
+            ]
+        }
+    )
+
+    assert any("duplicate company name" in e for e in errors)
+
+
+def test_validate_career_pages_rejects_duplicate_normalized_urls() -> None:
+    errors = service.validate_career_pages(
+        {
+            "companies": [
+                {"name": "Stripe", "career_url": "https://stripe.com/jobs/"},
+                {"name": "Stripe Careers", "career_url": "HTTPS://STRIPE.COM/jobs"},
+            ]
+        }
+    )
+
+    assert any("duplicate career_url" in e for e in errors)
+
+
+def test_validate_career_pages_rejects_non_boolean_enabled() -> None:
+    errors = service.validate_career_pages(
+        {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": "yes"}]}
+    )
+
+    assert any("boolean" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# career_pages.yml read/save/undo
+# ---------------------------------------------------------------------------
+
+
+def _write_career_pages(root: Path, text: str) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "career_pages.yml").write_text(text, encoding="utf-8")
+
+
+_REAL_CAREER_PAGES = (Path(__file__).parents[1] / "config" / "career_pages.yml").read_text(encoding="utf-8")
+
+
+def test_existing_career_pages_file_remains_valid() -> None:
+    data = yaml.safe_load(_REAL_CAREER_PAGES) or {}
+
+    assert service.validate_career_pages(data) == []
+
+
+def test_read_career_pages_returns_companies_and_revision(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+
+    result = service.read_career_pages(tmp_path)
+
+    assert result["ok"] is True
+    assert result["data"]["companies"] == []
+    assert result["revision"] == service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+
+def test_save_career_pages_preserves_leading_comment_block(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    result = service.save_career_pages(
+        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}], revision
+    )
+
+    assert result["ok"] is True
+    new_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
+    assert new_text.startswith("# Company career pages for the browser hunt workflow.")
+    reloaded = yaml.safe_load(new_text)
+    assert reloaded["companies"] == [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}]
+
+
+def test_save_career_pages_omits_enabled_when_true(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    service.save_career_pages(
+        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": True}], revision
+    )
+
+    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
+    assert "enabled" not in reloaded["companies"][0]
+
+
+def test_save_career_pages_keeps_enabled_false(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    service.save_career_pages(
+        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": False}], revision
+    )
+
+    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
+    assert reloaded["companies"][0]["enabled"] is False
+
+
+def test_save_career_pages_rejects_invalid_entries_without_touching_disk(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    before_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    result = service.save_career_pages(tmp_path, [{"name": "", "career_url": "not-a-url"}], revision)
+
+    assert result["ok"] is False
+    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == before_text
+
+
+def test_save_career_pages_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+
+    result = service.save_career_pages(
+        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], "0" * 64
+    )
+
+    assert result["ok"] is False
+
+
+def test_undo_career_pages_restores_exact_prior_bytes(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision)
+
+    result = service.undo_last_save(tmp_path, "career_pages")
+
+    assert result["ok"] is True
+    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == _REAL_CAREER_PAGES
+
+
+# ---------------------------------------------------------------------------
+# career_context.md read/save/undo
+# ---------------------------------------------------------------------------
+
+
+def test_read_career_context_returns_text_and_revision(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("## About Me\n", encoding="utf-8")
+
+    result = service.read_career_context(tmp_path)
+
+    assert result["data"] == "## About Me\n"
+    assert result["revision"] == service.get_revision(tmp_path / "profile" / "career_context.md")
+
+
+def test_save_career_context_writes_utf8_text(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("old", encoding="utf-8")
+    revision = service.get_revision(tmp_path / "profile" / "career_context.md")
+
+    result = service.save_career_context(tmp_path, "## Über mich\n- café", revision)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "## Über mich\n- café"
+
+
+def test_save_career_context_rejects_nul_bytes(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("old", encoding="utf-8")
+    revision = service.get_revision(tmp_path / "profile" / "career_context.md")
+
+    result = service.save_career_context(tmp_path, "bad\x00text", revision)
+
+    assert result["ok"] is False
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "old"
+
+
+def test_save_career_context_rejects_oversized_content(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("old", encoding="utf-8")
+    revision = service.get_revision(tmp_path / "profile" / "career_context.md")
+
+    result = service.save_career_context(tmp_path, "x" * (service.MAX_CAREER_CONTEXT_BYTES + 1), revision)
+
+    assert result["ok"] is False
+
+
+def test_save_career_context_rejects_stale_revision(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("old", encoding="utf-8")
+
+    result = service.save_career_context(tmp_path, "new", "0" * 64)
+
+    assert result["ok"] is False
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "old"
+
+
+def test_undo_career_context_restores_exact_prior_bytes(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("original", encoding="utf-8")
+    revision = service.get_revision(tmp_path / "profile" / "career_context.md")
+    service.save_career_context(tmp_path, "changed", revision)
+
+    result = service.undo_last_save(tmp_path, "career_context")
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "original"
+
+
+# ---------------------------------------------------------------------------
+# Temp-file cleanup on failure
+# ---------------------------------------------------------------------------
+
+
+def test_atomic_write_cleans_up_temp_file_on_failure(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "target.yml"
+
+    def boom(_src, _dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(service.os, "replace", boom)
+
+    with pytest.raises(OSError):
+        service._atomic_write(path, b"content")
+
+    leftover = list(tmp_path.glob(".target.yml.*.tmp"))
+    assert leftover == []
+    assert not path.exists()

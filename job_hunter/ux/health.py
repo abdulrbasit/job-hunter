@@ -73,6 +73,7 @@ def doctor(root: Path) -> dict[str, Any]:
         )
     checks.extend(_schema_checks(root))
     checks.append(_config_schema_check(root))
+    checks.append(_career_pages_check(root))
     checks.extend(_telemetry_checks(root))
     telemetry_warnings = _telemetry_warnings(root)
     schedule = _workflow_schedule_configured(root)
@@ -132,21 +133,37 @@ def _schema_checks(root: Path) -> list[dict[str, Any]]:
 
 
 def _config_schema_check(root: Path) -> dict[str, Any]:
+    from job_hunter.config.service import validate_job_hunter_yaml
+
     config_path = root / "config" / "job_hunter.yml"
-    schema_path = root / "config" / "schemas" / "job_hunter.schema.json"
     if not config_path.exists():
         return _check("config_schema", False, "config/job_hunter.yml missing", "Run job-hunter init.")
-    if not schema_path.exists():
-        return _check("config_schema", True, "schema unavailable; YAML syntax checked")
     try:
-        import jsonschema
-
         data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        jsonschema.validate(instance=data, schema=schema)
-    except Exception as exc:
+    except yaml.YAMLError as exc:
         return _check("config_schema", False, str(exc), "Fix config/job_hunter.yml, then rerun job-hunter doctor.")
+    errors = validate_job_hunter_yaml(data, root)
+    if errors:
+        return _check(
+            "config_schema", False, "; ".join(errors), "Fix config/job_hunter.yml, then rerun job-hunter doctor."
+        )
     return _check("config_schema", True, "config/job_hunter.yml matches schema")
+
+
+def _career_pages_check(root: Path) -> dict[str, Any]:
+    from job_hunter.config.service import validate_career_pages
+
+    path = root / "config" / "career_pages.yml"
+    if not path.exists():
+        return _check("career_pages_schema", True, "config/career_pages.yml not present; optional")
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        return _check("career_pages_schema", False, str(exc), "Fix config/career_pages.yml.")
+    errors = validate_career_pages(data)
+    if errors:
+        return _check("career_pages_schema", False, "; ".join(errors), "Fix config/career_pages.yml.")
+    return _check("career_pages_schema", True, "config/career_pages.yml is valid")
 
 
 def _telemetry_checks(root: Path) -> list[dict[str, Any]]:
