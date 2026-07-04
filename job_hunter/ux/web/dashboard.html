@@ -613,6 +613,11 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
 
 /* ── Settings view ── */
 #view-settings { flex-direction: column; overflow-y: auto; padding: 24px; gap: 16px; }
+
+/* ── Companies view ── */
+#view-companies { flex-direction: column; gap: 16px; padding: 16px 24px; overflow: hidden; }
+#view-companies .filter-bar { padding: 0; border-bottom: none; }
+#view-companies .table-wrap { flex: 1; }
 .settings-wrap { display: flex; flex-direction: column; gap: 16px; max-width: 900px; }
 .settings-panel { display: none; flex-direction: column; gap: 16px; }
 .settings-panel.active { display: flex; }
@@ -713,6 +718,10 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
     <button class="nav-btn" data-view="analytics">
       <span class="nav-icon">⚡</span>
       <span class="nav-label">Analytics</span>
+    </button>
+    <button class="nav-btn" data-view="companies">
+      <span class="nav-icon">🏢</span>
+      <span class="nav-label">Companies</span>
     </button>
     <button class="nav-btn" data-view="settings">
       <span class="nav-icon">⚙️</span>
@@ -904,6 +913,59 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
     </div>
   </section>
 
+  <!-- Companies view -->
+  <section id="view-companies" class="view">
+    <div class="settings-section" id="company-form-section">
+      <h3 id="company-form-title">Add Company</h3>
+      <div class="settings-grid">
+        <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
+        <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
+        <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
+        <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+      </div>
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="company-form-submit" onclick="submitCompanyForm()">Add company</button>
+        <button class="btn" id="company-form-cancel" onclick="cancelCompanyForm()" style="display:none">Cancel edit</button>
+        <span class="save-msg" id="company-form-msg"></span>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input class="search-input" type="text" id="company-search" placeholder="Search companies…" oninput="renderCompanies()">
+      <div class="status-tabs" id="company-filter-tabs">
+        <button class="status-tab active" data-company-filter="">All</button>
+        <button class="status-tab" data-company-filter="enabled">Enabled</button>
+        <button class="status-tab" data-company-filter="disabled">Disabled</button>
+      </div>
+      <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none" onclick="bulkDeleteCompanies()">Delete selected</button>
+      <button class="btn" id="company-bulk-enable-btn" style="display:none" onclick="bulkSetCompaniesEnabled(true)">Enable selected</button>
+      <button class="btn" id="company-bulk-disable-btn" style="display:none" onclick="bulkSetCompaniesEnabled(false)">Disable selected</button>
+      <button class="btn" onclick="openCareerPagesFile()">Open career_pages.yml</button>
+      <button class="btn" onclick="openConfigFolder()">Open config folder</button>
+      <button class="btn" onclick="undoCareerPages()">Undo last save</button>
+      <span class="topbar-subtitle" id="company-total-count">0 companies</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="td-num"><input type="checkbox" id="company-select-all" onchange="toggleSelectAllCompanies(this.checked)"></th>
+            <th>Name</th>
+            <th>Career URL</th>
+            <th>Location</th>
+            <th>Enabled</th>
+            <th>Latest Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="companies-tbody">
+          <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- Settings view -->
   <section id="view-settings" class="view">
     <div class="settings-wrap">
@@ -1052,6 +1114,12 @@ let loadingRaw = false;
 let loadingCareerContext = false;
 let regionRowSeq = 0;
 let overrideRowSeq = 0;
+let companiesLoaded = false;
+let companiesData = [];
+let companiesRevision = null;
+let companyEnabledFilter = '';
+let selectedCompanyUrls = new Set();
+let editingCompanyUrl = null;
 
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
@@ -1084,7 +1152,33 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (view === 'insights' && !insightsLoaded) loadInsights();
     if (view === 'analytics' && !analyticsLoaded) loadAnalytics();
     if (view === 'settings' && !settingsLoaded) loadSettings();
+    if (view === 'companies' && !companiesLoaded) loadCompanies();
   });
+});
+
+// Company enabled/disabled filter tabs
+document.querySelectorAll('#company-filter-tabs .status-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#company-filter-tabs .status-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    companyEnabledFilter = tab.dataset.companyFilter;
+    renderCompanies();
+  });
+});
+
+document.getElementById('companies-tbody').addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-edit-url]');
+  const deleteBtn = e.target.closest('[data-delete-url]');
+  const openLink = e.target.closest('[data-open-url]');
+  if (editBtn) startEditCompany(editBtn.dataset.editUrl);
+  if (deleteBtn) deleteCompanyByUrl(deleteBtn.dataset.deleteUrl);
+  if (openLink) { e.preventDefault(); openCareerPage(openLink.dataset.openUrl); }
+});
+
+document.getElementById('companies-tbody').addEventListener('change', (e) => {
+  if (e.target.classList.contains('company-checkbox')) {
+    toggleCompanySelected(e.target.dataset.url, e.target.checked);
+  }
 });
 
 // Settings sub-tabs
@@ -1150,12 +1244,14 @@ async function refreshAll() {
   insightsLoaded = false;
   analyticsLoaded = false;
   settingsLoaded = false;
+  companiesLoaded = false;
   await loadApplications();
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
   if (activeView === 'analytics') await loadAnalytics();
   if (activeView === 'insights') await loadInsights();
   if (activeView === 'unprocessed') await loadUnprocessed();
   if (activeView === 'settings') await loadSettings();
+  if (activeView === 'companies') await loadCompanies();
 }
 
 async function loadApplications() {
@@ -2144,6 +2240,225 @@ async function undoCareerContext() {
   } catch(e) {
     alert('Undo failed: ' + e);
   }
+}
+
+// ── Companies ──
+async function loadCompanies() {
+  companiesLoaded = true;
+  const tbody = document.getElementById('companies-tbody');
+  try {
+    const result = await window.pywebview.api.get_career_pages();
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    selectedCompanyUrls.clear();
+    renderCompanies();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${esc(String(e))}</div></td></tr>`;
+  }
+}
+
+function companyRowHtml(company) {
+  const url = company.career_url || '';
+  const enabled = company.enabled !== false;
+  const checked = selectedCompanyUrls.has(url) ? 'checked' : '';
+  return `<tr data-url="${esc(url)}">
+    <td class="td-num"><input type="checkbox" class="company-checkbox" data-url="${esc(url)}" ${checked}></td>
+    <td class="td-company">${esc(company.name || '—')}</td>
+    <td class="td-title"><a href="#" data-open-url="${esc(url)}">${esc(url)}</a></td>
+    <td>${esc(company.location || '—')}</td>
+    <td><span class="badge badge-${enabled ? 'candidate' : 'discarded'}">${enabled ? 'Enabled' : 'Disabled'}</span></td>
+    <td class="td-date">—</td>
+    <td>
+      <button class="btn" data-edit-url="${esc(url)}">Edit</button>
+      <button class="btn btn-danger" data-delete-url="${esc(url)}">🗑</button>
+    </td>
+  </tr>`;
+}
+
+function renderCompanies() {
+  const tbody = document.getElementById('companies-tbody');
+  const query = document.getElementById('company-search').value.toLowerCase();
+  const filtered = companiesData.filter(c => {
+    const enabled = c.enabled !== false;
+    if (companyEnabledFilter === 'enabled' && !enabled) return false;
+    if (companyEnabledFilter === 'disabled' && enabled) return false;
+    if (!query) return true;
+    return `${c.name || ''} ${c.career_url || ''} ${c.location || ''}`.toLowerCase().includes(query);
+  });
+  document.getElementById('company-total-count').textContent = `${companiesData.length} companies`;
+  document.getElementById('company-select-all').checked =
+    filtered.length > 0 && filtered.every(c => selectedCompanyUrls.has(c.career_url));
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No companies found</div></td></tr>`;
+    updateCompanyBulkButtons();
+    return;
+  }
+  tbody.innerHTML = filtered.map(companyRowHtml).join('');
+  updateCompanyBulkButtons();
+}
+
+function updateCompanyBulkButtons() {
+  const n = selectedCompanyUrls.size;
+  const deleteBtn = document.getElementById('company-bulk-delete-btn');
+  deleteBtn.style.display = n ? '' : 'none';
+  deleteBtn.textContent = `Delete selected (${n})`;
+  document.getElementById('company-bulk-enable-btn').style.display = n ? '' : 'none';
+  document.getElementById('company-bulk-disable-btn').style.display = n ? '' : 'none';
+}
+
+function toggleCompanySelected(url, checked) {
+  if (checked) selectedCompanyUrls.add(url); else selectedCompanyUrls.delete(url);
+  updateCompanyBulkButtons();
+}
+
+function toggleSelectAllCompanies(checked) {
+  document.querySelectorAll('.company-checkbox').forEach(box => {
+    box.checked = checked;
+    if (checked) selectedCompanyUrls.add(box.dataset.url); else selectedCompanyUrls.delete(box.dataset.url);
+  });
+  updateCompanyBulkButtons();
+}
+
+function startEditCompany(url) {
+  const company = companiesData.find(c => c.career_url === url);
+  if (!company) return;
+  editingCompanyUrl = url;
+  document.getElementById('company-form-title').textContent = 'Edit Company';
+  document.getElementById('company-form-name').value = company.name || '';
+  document.getElementById('company-form-url').value = company.career_url || '';
+  document.getElementById('company-form-location').value = company.location || '';
+  document.getElementById('company-form-enabled').checked = company.enabled !== false;
+  document.getElementById('company-form-submit').textContent = 'Save changes';
+  document.getElementById('company-form-cancel').style.display = '';
+  document.getElementById('company-form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelCompanyForm() {
+  editingCompanyUrl = null;
+  document.getElementById('company-form-title').textContent = 'Add Company';
+  document.getElementById('company-form-name').value = '';
+  document.getElementById('company-form-url').value = '';
+  document.getElementById('company-form-location').value = '';
+  document.getElementById('company-form-enabled').checked = true;
+  document.getElementById('company-form-submit').textContent = 'Add company';
+  document.getElementById('company-form-cancel').style.display = 'none';
+  document.getElementById('company-form-msg').textContent = '';
+}
+
+async function submitCompanyForm() {
+  const msg = document.getElementById('company-form-msg');
+  const btn = document.getElementById('company-form-submit');
+  const name = document.getElementById('company-form-name').value.trim();
+  const url = document.getElementById('company-form-url').value.trim();
+  const location = document.getElementById('company-form-location').value.trim();
+  const enabled = document.getElementById('company-form-enabled').checked;
+
+  const next = editingCompanyUrl
+    ? companiesData.map(c => c.career_url === editingCompanyUrl ? { name, career_url: url, location, enabled } : c)
+    : [...companiesData, { name, career_url: url, location, enabled }];
+
+  msg.textContent = '';
+  btn.disabled = true;
+  try {
+    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    if (!result.ok) {
+      msg.textContent = '✗ ' + ((result.errors && result.errors[0]) || 'Save failed.');
+      msg.style.color = '#f85149';
+      return;
+    }
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    cancelCompanyForm();
+    renderCompanies();
+  } catch(e) {
+    msg.textContent = '✗ ' + e;
+    msg.style.color = '#f85149';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteCompanyByUrl(url) {
+  const company = companiesData.find(c => c.career_url === url);
+  const name = company ? company.name : url;
+  if (!confirm(`Delete "${name}" from career_pages.yml?`)) return;
+  const next = companiesData.filter(c => c.career_url !== url);
+  try {
+    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Delete failed.'); return; }
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    selectedCompanyUrls.delete(url);
+    renderCompanies();
+  } catch(e) {
+    alert('Delete failed: ' + e);
+  }
+}
+
+async function bulkDeleteCompanies() {
+  const urls = [...selectedCompanyUrls];
+  if (!urls.length) return;
+  if (!confirm(`Delete ${urls.length} compan${urls.length === 1 ? 'y' : 'ies'} from career_pages.yml?`)) return;
+  const next = companiesData.filter(c => !urls.includes(c.career_url));
+  try {
+    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Delete failed.'); return; }
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    selectedCompanyUrls.clear();
+    renderCompanies();
+  } catch(e) {
+    alert('Delete failed: ' + e);
+  }
+}
+
+async function bulkSetCompaniesEnabled(enabled) {
+  const urls = [...selectedCompanyUrls];
+  if (!urls.length) return;
+  if (!confirm(`${enabled ? 'Enable' : 'Disable'} ${urls.length} compan${urls.length === 1 ? 'y' : 'ies'}?`)) return;
+  const next = companiesData.map(c => urls.includes(c.career_url) ? { ...c, enabled } : c);
+  try {
+    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update companies.'); return; }
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    renderCompanies();
+  } catch(e) {
+    alert('Could not update companies: ' + e);
+  }
+}
+
+async function undoCareerPages() {
+  if (!confirm('Undo the last career_pages.yml save? This restores the previous version.')) return;
+  try {
+    const result = await window.pywebview.api.undo_career_pages();
+    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Nothing to undo.'); return; }
+    companiesData = result.data.companies;
+    companiesRevision = result.data.revision;
+    selectedCompanyUrls.clear();
+    renderCompanies();
+  } catch(e) {
+    alert('Undo failed: ' + e);
+  }
+}
+
+async function openCareerPage(url) {
+  try {
+    const result = await window.pywebview.api.open_career_page(url);
+    if (!result.ok) alert(result.error || 'Could not open career page.');
+  } catch(e) {
+    alert('Could not open career page: ' + e);
+  }
+}
+
+async function openCareerPagesFile() {
+  const result = await window.pywebview.api.open_career_pages_file();
+  if (!result.ok) alert(result.error || 'Could not open career_pages.yml.');
+}
+
+async function openConfigFolder() {
+  const result = await window.pywebview.api.open_config_folder();
+  if (!result.ok) alert(result.error || 'Could not open config folder.');
 }
 
 // ── Utils ──

@@ -780,3 +780,169 @@ def test_dashboard_settings_warns_before_losing_unsaved_changes() -> None:
 
     assert "settingsHasUnsavedChanges()" in html
     assert "Leave without saving" in html
+
+
+# ---------------------------------------------------------------------------
+# Companies (career_pages.yml management)
+# ---------------------------------------------------------------------------
+
+_REAL_CAREER_PAGES = (Path(__file__).parents[1] / "config" / "career_pages.yml").read_text(encoding="utf-8")
+
+
+def _write_career_pages(root: Path, text: str = _REAL_CAREER_PAGES) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "career_pages.yml").write_text(text, encoding="utf-8")
+
+
+def test_get_career_pages_returns_companies_and_revision(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+
+    result = DashAPI(tmp_path).get_career_pages()
+
+    assert result["ok"] is True
+    assert result["data"]["companies"] == []
+    assert result["data"]["revision"]
+    json.dumps(result)
+
+
+def test_save_career_pages_adds_a_company(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_career_pages()
+
+    result = api.save_career_pages(
+        [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}],
+        loaded["data"]["revision"],
+    )
+
+    assert result["ok"] is True
+    assert result["data"]["companies"] == [
+        {"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}
+    ]
+
+
+def test_save_career_pages_rejects_invalid_entry_without_touching_disk(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_career_pages()
+    before_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
+
+    result = api.save_career_pages([{"name": "", "career_url": "not-a-url"}], loaded["data"]["revision"])
+
+    assert result["ok"] is False
+    assert result["data"] is None
+    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == before_text
+
+
+def test_save_career_pages_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+
+    result = api.save_career_pages([{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], "0" * 64)
+
+    assert result["ok"] is False
+
+
+def test_save_career_pages_bulk_disable_existing_companies(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_career_pages()
+    api.save_career_pages(
+        [
+            {"name": "Stripe", "career_url": "https://stripe.com/jobs"},
+            {"name": "N26", "career_url": "https://n26.com/careers"},
+        ],
+        loaded["data"]["revision"],
+    )
+    reloaded = api.get_career_pages()
+
+    disabled = [dict(c, enabled=False) for c in reloaded["data"]["companies"]]
+    result = api.save_career_pages(disabled, reloaded["data"]["revision"])
+
+    assert result["ok"] is True
+    assert all(c["enabled"] is False for c in result["data"]["companies"])
+
+
+def test_undo_career_pages_restores_previous_companies(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_career_pages()
+    api.save_career_pages([{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], loaded["data"]["revision"])
+
+    result = api.undo_career_pages()
+
+    assert result["ok"] is True
+    assert result["data"]["companies"] == []
+
+
+def test_open_career_page_allows_known_https_url(tmp_path: Path, monkeypatch) -> None:
+    _write_career_pages(
+        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
+    )
+    opened: list[str] = []
+    monkeypatch.setattr("job_hunter.ux.web.api._open_url", lambda url: opened.append(url))
+
+    result = DashAPI(tmp_path).open_career_page("https://stripe.com/jobs")
+
+    assert result == {"ok": True}
+    assert opened == ["https://stripe.com/jobs"]
+
+
+def test_open_career_page_rejects_url_not_in_config(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+
+    result = DashAPI(tmp_path).open_career_page("https://evil.example.com")
+
+    assert result["ok"] is False
+
+
+def test_open_career_page_rejects_non_http_scheme_even_if_present_in_yaml(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, "companies:\n  - name: Evil\n    career_url: 'file:///etc/passwd'\n")
+
+    result = DashAPI(tmp_path).open_career_page("file:///etc/passwd")
+
+    assert result["ok"] is False
+    assert "http" in result["error"]
+
+
+def test_open_career_pages_file_and_config_folder_use_validated_paths(tmp_path: Path, monkeypatch) -> None:
+    _write_career_pages(tmp_path)
+    opened: list[Path] = []
+    monkeypatch.setattr("job_hunter.ux.web.api._open_path", lambda path: opened.append(path))
+    api = DashAPI(tmp_path)
+
+    assert api.open_career_pages_file() == {"ok": True}
+    assert api.open_config_folder() == {"ok": True}
+    assert opened == [(tmp_path / "config" / "career_pages.yml").resolve(), (tmp_path / "config").resolve()]
+
+
+def test_dashboard_contains_companies_nav_and_table() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'data-view="companies"' in html
+    assert 'id="view-companies"' in html
+    assert 'id="companies-tbody"' in html
+    assert 'id="company-search"' in html
+    assert 'data-company-filter="enabled"' in html
+    assert 'data-company-filter="disabled"' in html
+    assert "function submitCompanyForm" in html
+    assert "function bulkDeleteCompanies" in html
+    assert "function bulkSetCompaniesEnabled" in html
+    assert "get_career_pages" in html
+    assert "save_career_pages" in html
+    assert "undo_career_pages" in html
+    assert "open_career_page" in html
+    assert "open_career_pages_file" in html
+    assert "open_config_folder" in html
+
+
+def test_dashboard_companies_table_uses_delegated_listeners_not_inline_row_handlers() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "function companyRowHtml" in html
+    assert "data-edit-url=" in html
+    assert "data-delete-url=" in html
+    assert 'onclick="editCompany(${' not in html
+    assert 'onclick="deleteCompany(${' not in html

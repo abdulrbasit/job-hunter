@@ -173,6 +173,49 @@ def test_browser_hunt_invalid_yaml_emits_fatal_event_and_returns_1(tmp_path: Pat
     assert "unterminated" not in events[0]["reason"]
 
 
+def test_browser_hunt_skips_disabled_companies(tmp_path: Path, monkeypatch) -> None:
+    companies = [
+        {"name": "Disabled Corp", "career_url": "https://disabled.example.com/jobs", "enabled": False},
+        {"name": "Kept Corp", "career_url": "https://kept.example.com/jobs", "enabled": True},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: [
+            {"title": titles[0], "company": company["name"], "url": f"https://example.com/jobs/{company['name']}"}
+        ],
+    )
+
+    events: list[dict] = []
+    assert browser_hunt.run(on_progress=events.append) == 0
+
+    jobs = get_discovered_jobs(tmp_path)
+    assert [job["company"] for job in jobs] == ["Kept Corp"]
+    assert events[0] == {"step": "started", "total": 1}
+    assert all(e.get("company") != "Disabled Corp" for e in events)
+
+
+def test_browser_hunt_defaults_missing_enabled_key_to_true(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Legacy Corp", "career_url": "https://legacy.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: [
+            {"title": titles[0], "company": company["name"], "url": "https://legacy.example.com/jobs/1"}
+        ],
+    )
+
+    assert browser_hunt.run() == 0
+    jobs = get_discovered_jobs(tmp_path)
+    assert [job["company"] for job in jobs] == ["Legacy Corp"]
+
+
 def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypatch) -> None:
     """A company listed in exclusions.companies is scraped but must never reach jobs.db —
     exclusion screening runs right after scraping, before insert_jobs()."""

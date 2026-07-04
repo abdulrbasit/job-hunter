@@ -10,6 +10,7 @@ import sys
 import threading
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 ARTIFACTS = (
     ("resume", "Resume PDF", "resume_tailored.pdf", "pdf"),
@@ -30,6 +31,18 @@ def _open_path(path: Path) -> None:
         subprocess.Popen(["open", str(path)])  # noqa: S603, S607
     elif sys.platform.startswith("linux"):
         subprocess.Popen(["xdg-open", str(path)])  # noqa: S603, S607
+    else:
+        raise OSError("Unsupported operating system.")
+
+
+def _open_url(url: str) -> None:
+    # Caller must already have checked the URL is http/https and known-configured.
+    if sys.platform == "win32":
+        os.startfile(url)  # type: ignore[attr-defined]  # noqa: S606
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", url])  # noqa: S603, S607
+    elif sys.platform.startswith("linux"):
+        subprocess.Popen(["xdg-open", url])  # noqa: S603, S607
     else:
         raise OSError("Unsupported operating system.")
 
@@ -466,6 +479,68 @@ class DashAPI:
             "errors": result["errors"],
             "warnings": result["warnings"],
         }
+
+    def get_career_pages(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.read_career_pages(self._root)
+        return {
+            "ok": True,
+            "data": {"companies": result["data"]["companies"], "revision": result["revision"]},
+            "errors": [],
+            "warnings": [],
+        }
+
+    def save_career_pages(self, companies: list[dict[str, Any]], revision: str) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.save_career_pages(self._root, companies, revision)
+        if not result["ok"]:
+            return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
+        fresh = service.read_career_pages(self._root)
+        return {
+            "ok": True,
+            "data": {"companies": fresh["data"]["companies"], "revision": fresh["revision"]},
+            "errors": [],
+            "warnings": result["warnings"],
+        }
+
+    def undo_career_pages(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.undo_last_save(self._root, "career_pages")
+        if not result["ok"]:
+            return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
+        fresh = service.read_career_pages(self._root)
+        return {
+            "ok": True,
+            "data": {"companies": fresh["data"]["companies"], "revision": fresh["revision"]},
+            "errors": [],
+            "warnings": [],
+        }
+
+    def open_career_page(self, url: str) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        pages = service.read_career_pages(self._root)
+        known_urls = {
+            str(company.get("career_url") or "") for company in pages["data"]["companies"] if isinstance(company, dict)
+        }
+        if url not in known_urls:
+            return {"ok": False, "error": "Unknown career page URL."}
+        if urlsplit(url).scheme not in ("http", "https"):
+            return {"ok": False, "error": "Only http/https URLs can be opened."}
+        try:
+            _open_url(url)
+        except OSError:
+            return {"ok": False, "error": "Could not open URL."}
+        return {"ok": True}
+
+    def open_career_pages_file(self) -> dict[str, Any]:
+        return self._launch(self._root / "config" / "career_pages.yml")
+
+    def open_config_folder(self) -> dict[str, Any]:
+        return self._launch(self._root / "config")
 
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""

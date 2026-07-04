@@ -56,7 +56,8 @@ def run(*, on_progress: Progress | None = None) -> int:
 
     titles = config.get("job_titles", [])
     exclusions = (config.get("exclusions") or {}).get("title_terms", [])
-    companies = companies_config.get("companies") or []
+    all_companies = companies_config.get("companies") or []
+    companies = [c for c in all_companies if not (isinstance(c, dict) and c.get("enabled") is False)]
 
     if not companies:
         logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)
