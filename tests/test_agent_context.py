@@ -6,10 +6,12 @@ from pathlib import Path
 import yaml
 
 from job_hunter.agent_context import (
+    apply_screen_judgment,
     build_candidate_batch,
     build_candidate_queue,
     candidate_from_queue,
     candidate_lifecycle,
+    discard_screened_candidates,
     final_stories_text,
     linkedin_weekly_context,
     score_context,
@@ -394,6 +396,66 @@ def test_screen_candidate_batch_defers_industry_judgment(tmp_path: Path) -> None
     assert result["skipped"] == []
     assert result["retained"][0]["candidate_id"] == "cand_platform"
     assert result["retained"][0]["judgment_signals"]["industry_terms"] == ["banking"]
+
+
+def test_discard_screened_candidates_marks_every_hard_screen_skip(tmp_path: Path) -> None:
+    """Regression: hard-screen skips must never depend on an agent remembering a step."""
+    from job_hunter.tracking.repository import get_processed_urls, insert_jobs
+
+    insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/keep", "title": "Product Manager", "company": "KeepCo"},
+            {"url": "https://example.com/skip", "title": "Product Manager", "company": "Delivery Hero SE"},
+        ],
+    )
+    result = {
+        "retained": [{"candidate_id": "cand_keep", "url": "https://example.com/keep"}],
+        "skipped": [
+            {
+                "candidate_id": "cand_skip",
+                "url": "https://example.com/skip",
+                "reasons": ["excluded_company"],
+            }
+        ],
+    }
+
+    discarded = discard_screened_candidates(result, root=tmp_path)
+
+    assert discarded == 1
+    assert "https://example.com/skip" in get_processed_urls(tmp_path)
+    assert "https://example.com/keep" not in get_processed_urls(tmp_path)
+
+
+def test_apply_screen_judgment_discards_skips_in_one_deterministic_pass(tmp_path: Path) -> None:
+    """Regression: semantic screen SKIPs must be applied without a per-candidate agent loop."""
+    from job_hunter.tracking.repository import get_processed_urls, insert_jobs
+
+    insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/pass", "title": "Product Manager", "company": "SaaSCo"},
+            {"url": "https://example.com/fail", "title": "Product Manager", "company": "BankCo"},
+        ],
+    )
+    screen = {
+        "retained": [
+            {"candidate_id": "cand_pass", "url": "https://example.com/pass"},
+            {"candidate_id": "cand_fail", "url": "https://example.com/fail"},
+        ]
+    }
+    judgment = {
+        "decisions": [
+            {"candidate_id": "cand_pass", "decision": "PASS", "reason": "", "rationale": "SaaS employer."},
+            {"candidate_id": "cand_fail", "decision": "SKIP", "reason": "", "rationale": "Excluded industry: banking."},
+        ]
+    }
+
+    result = apply_screen_judgment(judgment, screen, root=tmp_path)
+
+    assert result == {"discarded_count": 1, "retained_candidate_ids": ["cand_pass"]}
+    assert "https://example.com/fail" in get_processed_urls(tmp_path)
+    assert "https://example.com/pass" not in get_processed_urls(tmp_path)
 
 
 def test_candidate_lifecycle_routes_thin_candidate_to_import(tmp_path: Path) -> None:

@@ -98,8 +98,6 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 
 def classify_job_hunter_mode(prompt: str) -> str | None:
     text = " ".join(prompt.lower().replace("_", "-").split())
-    if re.search(r"(?:/|\$)?job[\s-]+hunter\s+batch\s+lite\b", text):
-        return "batch-lite"
     match = re.search(
         r"(?:/|\$)?job[\s-]+hunter\s+(batch|one|screen|finalize|tailor|score|research|interview|outreach|stories)\b",
         text,

@@ -27,7 +27,7 @@ under `.claude/skills/job-hunter/modes/`:
 
 | Mode | What it does |
 |---|---|
-| `batch` / `batch lite` | Process up to `scoring.batch_size` frozen candidates end-to-end. Lite skips semantic screening, research, and cover letters. |
+| `batch` | Process up to `scoring.batch_size` frozen candidates end-to-end. |
 | `one <url>` | Process a single job URL outside the batch flow |
 | `screen` | Pre-screen a frozen batch against config exclusion rules only |
 | `finalize` | Validate durable outputs, then ask before commit/push |

@@ -26,7 +26,7 @@ runner = CliRunner()
 
 
 def test_classify_job_hunter_modes_without_retaining_prompt() -> None:
-    assert classify_job_hunter_mode("/job-hunter batch lite") == "batch-lite"
+    assert classify_job_hunter_mode("/job-hunter batch") == "batch"
     assert classify_job_hunter_mode("$job-hunter score acme-pm") == "score"
     assert classify_job_hunter_mode("Run job hunter batch for the next candidates") == "batch"
     assert classify_job_hunter_mode("https://example.com/jobs/42") == "one"

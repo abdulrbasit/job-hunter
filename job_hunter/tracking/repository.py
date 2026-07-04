@@ -341,6 +341,49 @@ def mark_urls_processed(root: Path, urls: set[str]) -> None:
             )
 
 
+def mark_candidates_discarded(root: Path, entries: list[dict[str, Any]]) -> int:
+    """Discard candidate URLs with a reason — deterministic counterpart to mark_urls_processed.
+
+    Each entry is `{"url": ..., "reason": ...}`. Only rows still at status in
+    ('candidate', 'discovered', 'discarded') are touched, so a job that already advanced
+    past the candidate stage (imported/scored/tailored) is never clobbered. Returns the
+    number of URLs marked.
+    """
+    from job_hunter.sources.search import canonicalize_url
+
+    now = _now()
+    marked = 0
+    with _conn(root) as conn:
+        for entry in entries:
+            url = str(entry.get("url") or "")
+            if not url:
+                continue
+            reason = str(entry.get("reason") or "")
+            canonical = canonicalize_url(url) or None
+            conn.execute(
+                """INSERT OR IGNORE INTO jobs (url, canonical_url, status, processed_at, created_at, updated_at)
+                   VALUES (?, ?, 'discarded', ?, ?, ?)""",
+                (url, canonical, now, now, now),
+            )
+            row = conn.execute(
+                """SELECT id, notes FROM jobs WHERE (url = ? OR canonical_url = ?)
+                   AND status IN ('candidate', 'discovered', 'discarded')""",
+                (url, url),
+            ).fetchone()
+            if row is None:
+                continue
+            notes = json.loads(row["notes"] or "[]")
+            if reason and reason not in notes:
+                notes.append(reason)
+            conn.execute(
+                """UPDATE jobs SET status = 'discarded', notes = ?,
+                   processed_at = COALESCE(processed_at, ?), updated_at = ? WHERE id = ?""",
+                (json.dumps(notes), now, now, row["id"]),
+            )
+            marked += 1
+    return marked
+
+
 def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
     """Upsert a job (from import-job or application tracking)."""
     from job_hunter.sources.search import canonicalize_url

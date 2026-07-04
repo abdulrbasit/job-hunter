@@ -102,10 +102,32 @@ def agent_context_screen_batch(
     output_path = Path(write_screen)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(yaml.safe_dump(result, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    discarded = agent_context.discard_screened_candidates(result)
     typer.echo(
         f"Batch {result['batch_number']}: {result['loaded']} loaded, "
-        f"{result['skipped_count']} screen skips, {result['retained_count']} retained"
+        f"{result['skipped_count']} hard-screen skips ({discarded} discarded), "
+        f"{result['retained_count']} retained"
     )
+
+
+@agent_context_app.command("apply-judgment")
+def agent_context_apply_judgment(
+    judgment: str = typer.Option(..., "--judgment"),
+    screen: str = typer.Option(..., "--screen"),
+) -> None:
+    """Apply screen.md's semantic SKIP/PASS decisions in one deterministic pass."""
+    import yaml
+
+    from job_hunter import agent_context
+
+    judgment_data = yaml.safe_load(Path(judgment).read_text(encoding="utf-8")) or {}
+    screen_data = yaml.safe_load(Path(screen).read_text(encoding="utf-8")) or {}
+    result = agent_context.apply_screen_judgment(judgment_data, screen_data)
+    typer.echo(
+        f"Judgment applied: {result['discarded_count']} screen-skip discarded, "
+        f"{len(result['retained_candidate_ids'])} retained"
+    )
+    typer.echo(json.dumps(result, indent=2))
 
 
 @agent_context_app.command("score")

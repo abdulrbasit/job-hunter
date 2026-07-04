@@ -36,11 +36,13 @@ decisions:
     rationale: "SaaS employer; banking describes customers."
 ```
 
-For each `SKIP`, run:
+Apply every decision in one deterministic call — do not loop per candidate:
 
 ```bash
-job-hunter internal agent-context lifecycle --queue outputs/state/agent_candidate_queue.json \
-  --candidate-id <id> --mark-terminal screen_skip
+job-hunter internal agent-context apply-judgment \
+  --judgment outputs/state/batch_judgment.yml \
+  --screen outputs/state/batch_screen.yml
 ```
 
-Return retained candidate IDs. Print counts only.
+This discards every `SKIP` (status `discarded`, reason `screen_skip`) and returns
+`retained_candidate_ids`. Print counts only.

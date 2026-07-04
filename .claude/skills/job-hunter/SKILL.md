@@ -54,7 +54,7 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 
 **Daily workflow**
 - `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
-- `batch`, `batch lite`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
+- `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
 - `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.
 - `screen`: execute `.claude/skills/job-hunter/modes/screen.md` inline.
@@ -81,7 +81,6 @@ Job Hunter Command Center
 ── Daily Workflow ──────────────────────────────────────────────────────
 /job-hunter dashboard          Show the application tracker dashboard
 /job-hunter batch              Process the next frozen candidate batch
-/job-hunter batch lite         Lite batch: skip semantic screen, research, and cover letters
 /job-hunter one <url>          Process one job URL end-to-end
 /job-hunter finalize           Commit durable reviewed outputs
 /job-hunter screen             Pre-screen a frozen batch against config exclusion rules

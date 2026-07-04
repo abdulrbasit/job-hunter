@@ -129,3 +129,58 @@ def screen_candidate_batch(
         "retained": retained,
         "skipped": skipped,
     }
+
+
+def discard_screened_candidates(
+    result: dict[str, Any],
+    *,
+    root: Path | None = None,
+) -> int:
+    """Discard every candidate the Python hard screen skipped — deterministic, no agent step.
+
+    Called right after `screen_candidate_batch` so a hard-screen skip can never be left
+    stranded in the active queue waiting on an agent loop that might be missed.
+    """
+    from job_hunter.tracking.repository import mark_candidates_discarded
+
+    base = _root(root)
+    entries = [
+        {"url": row.get("url"), "reason": ", ".join(["hard_screen_skip", *row.get("reasons", [])])}
+        for row in result.get("skipped", [])
+    ]
+    return mark_candidates_discarded(base, entries)
+
+
+def apply_screen_judgment(
+    judgment: dict[str, Any],
+    screen: dict[str, Any],
+    *,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Apply screen.md's semantic SKIP/PASS decisions in one deterministic pass.
+
+    Replaces a per-candidate agent loop (one CLI call per SKIP) with a single call over
+    the whole decision set, so a semantic skip can't be left un-discarded by a missed step.
+    """
+    from job_hunter.tracking.repository import mark_candidates_discarded
+
+    base = _root(root)
+    retained_by_id = {row.get("candidate_id"): row for row in screen.get("retained", [])}
+    discard_entries: list[dict[str, Any]] = []
+    passed: list[str] = []
+    for decision in judgment.get("decisions", []):
+        candidate_id = decision.get("candidate_id")
+        row = retained_by_id.get(candidate_id)
+        if row is None:
+            continue
+        if str(decision.get("decision") or "").upper() == "SKIP":
+            note = str(decision.get("rationale") or decision.get("reason") or "").strip()
+            discard_entries.append({"url": row.get("url"), "reason": ", ".join(filter(None, ["screen_skip", note]))})
+        else:
+            passed.append(candidate_id)
+
+    discarded = mark_candidates_discarded(base, discard_entries)
+    return {
+        "discarded_count": discarded,
+        "retained_candidate_ids": passed,
+    }
