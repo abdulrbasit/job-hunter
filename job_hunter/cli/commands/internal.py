@@ -19,6 +19,8 @@ _cleanup_transient_state = _run_artifacts.cleanup_transient_state
 _expand_listing_candidate = _run_artifacts.expand_listing_candidate
 _sync_processed_from_job_outputs = _run_artifacts.sync_processed_from_job_outputs
 _validate_run_artifacts = _run_artifacts.validate_run_artifacts
+_discard_job_folder = _run_artifacts.discard_job_folder
+_discard_dead_job_folders = _run_artifacts.discard_dead_job_folders
 
 
 @internal_app.command(name="import-job")
@@ -148,9 +150,10 @@ def update_readme(
     """Add or update a job entry in README.md tracking table."""
     from datetime import date
 
+    from job_hunter.core.utils import read_yaml
     from job_hunter.pipeline.stages.readme import update_readme_from_applications
     from job_hunter.tracker import repo_path
-    from job_hunter.tracking.applications import load_applications, upsert_application_from_job
+    from job_hunter.tracking.applications import _require_apply_score, load_applications, upsert_application_from_job
 
     folder = repo_path("outputs", "jobs", job)
     meta_path = folder / "meta.json"
@@ -158,6 +161,10 @@ def update_readme(
         fail(f"[update-readme] meta.json not found in {job}")
     if not (folder / "resume_tailored.tex").exists():
         fail(f"[update-readme] resume_tailored.tex not found in {job}")
+    try:
+        _require_apply_score(read_yaml(folder / "score.yml"), job)
+    except ValueError as exc:
+        fail(f"[update-readme] {exc}")
 
     today = date.today().isoformat()
     root = repo_path()
@@ -287,6 +294,10 @@ def finalize_run(
     if verify_payload["errors"]:
         _fail_finalize(verify_payload["errors"], label="verify")
 
+    discarded = _discard_dead_job_folders(root)
+    if discarded:
+        typer.echo(f"[finalize-run] discarded {len(discarded)} SKIP/missing-JD job folder(s) before commit")
+
     validation_errors = _validate_run_artifacts(root)
     if validation_errors:
         _fail_finalize(validation_errors, label="validation")
@@ -316,20 +327,10 @@ def discard_job(
     job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
     """Delete a job folder and mark it processed."""
-    import shutil
-
     from job_hunter.tracker import repo_path
-    from job_hunter.tracking.processed_urls import load_processed, mark_processed
 
-    folder = repo_path("outputs", "jobs", job)
-    if not folder.exists():
-        fail(f"[discard-job] folder not found: {folder}")
-    meta_path = folder / "meta.json"
-    if meta_path.exists():
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        existing_urls = load_processed()
-        mark_processed([meta], existing_urls)
-    shutil.rmtree(folder)
+    if not _discard_job_folder(repo_path(), job):
+        fail(f"[discard-job] folder not found: {repo_path('outputs', 'jobs', job)}")
     typer.echo(f"[discard-job] deleted and marked discarded: {job}")
 
 

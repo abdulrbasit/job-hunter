@@ -90,6 +90,89 @@ def test_browser_hunt_dedupes_against_existing_jobs_db_rows(tmp_path: Path, monk
     assert len(get_discovered_jobs(tmp_path)) == 1
 
 
+def test_browser_hunt_one_company_failure_does_not_abort_remaining_companies(tmp_path: Path, monkeypatch) -> None:
+    """One company raising must not abort the whole hunt for every remaining company."""
+    companies = [
+        {"name": "Broken Corp", "career_url": "https://broken.example.com/jobs", "location": "Berlin"},
+        {"name": "Kept Corp", "career_url": "https://kept.example.com/jobs", "location": "Berlin"},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    def fake_extract(company, titles, exclusions):
+        if company["name"] == "Broken Corp":
+            raise RuntimeError("boom")
+        return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", fake_extract)
+
+    assert browser_hunt.run() == 0
+    jobs = get_discovered_jobs(tmp_path)
+    assert [job["company"] for job in jobs] == ["Kept Corp"]
+
+
+def test_browser_hunt_malformed_company_entry_does_not_abort_run(tmp_path: Path, monkeypatch) -> None:
+    companies = ["not-a-dict", {"name": "Kept Corp", "career_url": "https://kept.example.com/jobs", "location": ""}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    def fake_extract(company, titles, exclusions):
+        if not isinstance(company, dict):
+            raise AttributeError("'str' object has no attribute 'get'")
+        return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", fake_extract)
+
+    assert browser_hunt.run() == 0
+    jobs = get_discovered_jobs(tmp_path)
+    assert [job["company"] for job in jobs] == ["Kept Corp"]
+
+
+def test_browser_hunt_emits_progress_events_for_each_company(tmp_path: Path, monkeypatch) -> None:
+    companies = [
+        {"name": "Broken Corp", "career_url": "https://broken.example.com/jobs", "location": ""},
+        {"name": "Kept Corp", "career_url": "https://kept.example.com/jobs", "location": ""},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    def fake_extract(company, titles, exclusions):
+        if company["name"] == "Broken Corp":
+            raise TimeoutError("connection timed out after 30s")
+        return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", fake_extract)
+
+    events: list[dict] = []
+    browser_hunt.run(on_progress=events.append)
+
+    steps = [e["step"] for e in events]
+    assert steps == ["started", "company-checking", "company-failed", "company-checking", "company-done", "finished"]
+    failed_event = events[2]
+    assert failed_event["reason"] == "took too long to respond"
+    assert "connection timed out after 30s" not in str(events)
+    finished = events[-1]
+    assert finished["succeeded"] == 1
+    assert finished["failed"] == 1
+    assert finished["total"] == 2
+
+
+def test_browser_hunt_invalid_yaml_emits_fatal_event_and_returns_1(tmp_path: Path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "job_hunter.yml").write_text("job_titles: [Product Manager]", encoding="utf-8")
+    (config_dir / "career_pages.yml").write_text("companies: [unterminated", encoding="utf-8")
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+
+    events: list[dict] = []
+    assert browser_hunt.run(on_progress=events.append) == 1
+    assert events == [{"step": "fatal", "reason": events[0]["reason"]}]
+    assert "unterminated" not in events[0]["reason"]
+
+
 def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypatch) -> None:
     """A company listed in exclusions.companies is scraped but must never reach jobs.db —
     exclusion screening runs right after scraping, before insert_jobs()."""

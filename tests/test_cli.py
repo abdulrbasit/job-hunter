@@ -84,7 +84,7 @@ def test_setup_doc_explains_company_hunt_feeds_the_main_jobs_db() -> None:
     regular hunt."""
     setup = (WORKSPACE_TEMPLATE / "SETUP.md").read_text(encoding="utf-8")
 
-    assert "Run Company Browser Hunt" in setup
+    assert "Company Hunt" in setup
     assert "outputs/state/jobs.db" in setup
 
 
@@ -531,6 +531,53 @@ def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch:
     assert "resume_tailored.tex not found" in result.output
 
 
+def test_update_readme_rejects_skip_decisioned_job(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: a SKIP or unscored job must never produce a 'tailored' application row."""
+    import yaml
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"company": "Acme", "title": "Product Manager", "url": "https://example.com/acme"}),
+        encoding="utf-8",
+    )
+    (job_dir / "score.yml").write_text(yaml.safe_dump({"score": 40, "decision": "SKIP"}), encoding="utf-8")
+    (job_dir / "resume_tailored.tex").write_text("\\documentclass{altacv}", encoding="utf-8")
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", job])
+
+    assert result.exit_code == 1
+    assert "decision is not APPLY" in result.output
+
+
+def test_update_readme_rejects_missing_score_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    import job_hunter.tracker as tracker
+
+    job = "2026-06-12_acme_pm"
+    job_dir = tmp_path / "outputs" / "jobs" / job
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"company": "Acme", "title": "Product Manager", "url": "https://example.com/acme"}),
+        encoding="utf-8",
+    )
+    (job_dir / "resume_tailored.tex").write_text("\\documentclass{altacv}", encoding="utf-8")
+    monkeypatch.setattr(tracker, "repo_path", lambda *parts: tmp_path.joinpath(*parts))
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", job])
+
+    assert result.exit_code == 1
+    assert "score.yml is missing" in result.output
+
+
 def test_write_research_writes_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 
@@ -643,6 +690,63 @@ def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> No
 
     assert _run_artifacts.cleanup_transient_state(tmp_path, label="test") == 1
     assert not transient.exists()
+
+
+def test_discard_dead_job_folders_removes_skip_and_missing_jd_but_not_apply(tmp_path: Path) -> None:
+    from job_hunter.cli._run_artifacts import discard_dead_job_folders
+
+    jobs_dir = tmp_path / "outputs" / "jobs"
+
+    skip_job = jobs_dir / "skip-co"
+    skip_job.mkdir(parents=True)
+    (skip_job / "score.yml").write_text("decision: SKIP\nscore: 40\n", encoding="utf-8")
+    (skip_job / "meta.json").write_text(json.dumps({"url": "https://example.com/skip"}), encoding="utf-8")
+
+    missing_jd_job = jobs_dir / "missing-jd-co"
+    missing_jd_job.mkdir(parents=True)
+    (missing_jd_job / "meta.json").write_text(
+        json.dumps({"url": "https://example.com/missing-jd", "job_description_fetch_status": "fetch_failed"}),
+        encoding="utf-8",
+    )
+
+    apply_job = jobs_dir / "apply-co"
+    apply_job.mkdir(parents=True)
+    (apply_job / "score.yml").write_text("decision: APPLY\nscore: 85\n", encoding="utf-8")
+    (apply_job / "resume_tailored.tex").write_text("tex", encoding="utf-8")
+
+    discarded = discard_dead_job_folders(tmp_path)
+
+    assert sorted(discarded) == ["missing-jd-co", "skip-co"]
+    assert not skip_job.exists()
+    assert not missing_jd_job.exists()
+    assert apply_job.exists()
+
+
+def test_finalize_run_discards_dead_job_folders_before_commit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: SKIP/missing-JD job folders left behind by a missed agent discard
+    step must never reach a finalize commit."""
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    from job_hunter.cli.commands import internal
+
+    jobs_dir = tmp_path / "outputs" / "jobs"
+    skip_job = jobs_dir / "skip-co"
+    skip_job.mkdir(parents=True)
+    (skip_job / "score.yml").write_text("decision: SKIP\nscore: 40\n", encoding="utf-8")
+    (skip_job / "meta.json").write_text(json.dumps({"url": "https://example.com/skip"}), encoding="utf-8")
+
+    monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
+    monkeypatch.setattr("job_hunter.ux.health.verify_repository", lambda _root: {"errors": []})
+    monkeypatch.setattr(internal, "_validate_run_artifacts", lambda _root: [])
+    monkeypatch.setattr(internal, "_sync_processed_from_job_outputs", lambda _root: 0)
+    monkeypatch.setattr(internal, "_commit_finalizable_changes", lambda *_args: False)
+
+    result = CliRunner().invoke(cli_module.app, ["internal", "finalize-run"])
+
+    assert result.exit_code == 0
+    assert not skip_job.exists()
+    assert "discarded 1 SKIP/missing-JD job folder" in result.stdout
 
 
 def test_finalize_run_cleans_transient_state_when_nothing_is_committed(

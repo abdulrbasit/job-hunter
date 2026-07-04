@@ -8,6 +8,20 @@ from pathlib import Path
 
 _ENDPOINT = "http://127.0.0.1:4318"
 
+_OTEL_ENV = {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": _ENDPOINT,
+    "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": f"{_ENDPOINT}/v1/metrics",
+    "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": f"{_ENDPOINT}/v1/logs",
+    "OTEL_METRIC_EXPORT_INTERVAL": "10000",
+    "OTEL_LOGS_EXPORT_INTERVAL": "5000",
+    "OTEL_LOG_USER_PROMPTS": "0",
+    "OTEL_LOG_TOOL_DETAILS": "0",
+}
+
 
 def _hook(backend: str, event: str) -> dict[str, object]:
     return {
@@ -35,28 +49,14 @@ def _merge_hooks(existing: dict, additions: dict[str, list[dict]]) -> dict:
     return existing
 
 
-def install_workspace_telemetry(workspace: Path) -> None:
+def install_workspace_telemetry(workspace: Path, *, home: Path | None = None) -> None:
     claude_path = workspace / ".claude" / "settings.json"
     codex_path = workspace / ".codex" / "hooks.json"
     claude_path.parent.mkdir(parents=True, exist_ok=True)
     codex_path.parent.mkdir(parents=True, exist_ok=True)
 
     claude = json.loads(claude_path.read_text(encoding="utf-8")) if claude_path.exists() else {}
-    claude.setdefault("env", {}).update(
-        {
-            "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-            "OTEL_METRICS_EXPORTER": "otlp",
-            "OTEL_LOGS_EXPORTER": "otlp",
-            "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
-            "OTEL_EXPORTER_OTLP_ENDPOINT": _ENDPOINT,
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": f"{_ENDPOINT}/v1/metrics",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": f"{_ENDPOINT}/v1/logs",
-            "OTEL_METRIC_EXPORT_INTERVAL": "10000",
-            "OTEL_LOGS_EXPORT_INTERVAL": "5000",
-            "OTEL_LOG_USER_PROMPTS": "0",
-            "OTEL_LOG_TOOL_DETAILS": "0",
-        }
-    )
+    claude.setdefault("env", {}).update(_OTEL_ENV)
     _merge_hooks(
         claude,
         {
@@ -76,6 +76,24 @@ def install_workspace_telemetry(workspace: Path) -> None:
         },
     )
     codex_path.write_text(json.dumps(codex, indent=2) + "\n", encoding="utf-8")
+
+    install_global_telemetry_env(home)
+
+
+def install_global_telemetry_env(home: Path | None = None) -> None:
+    """Merge the OTel env block into the user's global ~/.claude/settings.json.
+
+    Project-scoped .claude/settings.json already carries this (and hooks), but it's
+    undocumented whether Claude Code Desktop app applies a project-scoped `env` block to
+    its own OTel exporter the way the VS Code extension does. Global settings are
+    documented as shared across CLI/VS Code/Desktop, so this closes that gap. Additive
+    only — never touches unrelated keys the user may already have.
+    """
+    global_path = (home or Path.home()) / ".claude" / "settings.json"
+    global_path.parent.mkdir(parents=True, exist_ok=True)
+    settings = json.loads(global_path.read_text(encoding="utf-8")) if global_path.exists() else {}
+    settings.setdefault("env", {}).update(_OTEL_ENV)
+    global_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
 def configure_codex_telemetry(config_path: Path) -> str:

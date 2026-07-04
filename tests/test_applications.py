@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from job_hunter.tracking.applications import (
+    application_from_job,
     filtered_applications,
     load_applications,
     normalize_status,
@@ -95,6 +97,44 @@ def test_filtered_applications_skips_non_canonical_status(tmp_path: Path) -> Non
     _write_job(tmp_path, slug="2026-06-12_low_score")
     # Not upserted → no record in DB → filtered_applications returns empty
     assert filtered_applications(root=tmp_path) == []
+
+
+def test_application_from_job_rejects_missing_score_file(tmp_path: Path) -> None:
+    job_dir = tmp_path / "outputs" / "jobs" / "no-score-co"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(json.dumps({"company": "NoScoreCo", "title": "PM"}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no-score-co"):
+        application_from_job("no-score-co", root=tmp_path)
+
+
+def test_application_from_job_rejects_skip_decision(tmp_path: Path) -> None:
+    job_dir = tmp_path / "outputs" / "jobs" / "skip-co"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(json.dumps({"company": "SkipCo", "title": "PM"}), encoding="utf-8")
+    (job_dir / "score.yml").write_text(yaml.safe_dump({"score": 40, "decision": "SKIP"}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="skip-co"):
+        application_from_job("skip-co", root=tmp_path)
+
+
+def test_application_from_job_rejects_missing_numeric_score(tmp_path: Path) -> None:
+    job_dir = tmp_path / "outputs" / "jobs" / "no-number-co"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(json.dumps({"company": "NoNumberCo", "title": "PM"}), encoding="utf-8")
+    (job_dir / "score.yml").write_text(yaml.safe_dump({"decision": "APPLY"}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no-number-co"):
+        application_from_job("no-number-co", root=tmp_path)
+
+
+def test_application_from_job_succeeds_for_valid_apply_score(tmp_path: Path) -> None:
+    _write_job(tmp_path)
+
+    app = application_from_job("2026-06-12_acme_pm", root=tmp_path)
+
+    assert app["status"] == "tailored"
+    assert app["score"] == 82
 
 
 def test_internal_status_aliases_normalize_to_discarded() -> None:

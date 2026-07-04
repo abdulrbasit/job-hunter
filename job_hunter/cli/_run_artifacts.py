@@ -50,6 +50,61 @@ def sync_processed_from_job_outputs(root: Path) -> int:
     return sync_from_job_folders(root)
 
 
+def discard_job_folder(root: Path, job: str) -> bool:
+    """Delete a job folder and mark its URL discarded. Returns False if the folder is missing."""
+    import shutil
+
+    from job_hunter.tracking.processed_urls import load_processed, mark_processed
+
+    folder = root / "outputs" / "jobs" / job
+    if not folder.exists():
+        return False
+    meta_path = folder / "meta.json"
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        mark_processed([meta], load_processed())
+    shutil.rmtree(folder)
+    return True
+
+
+def discard_dead_job_folders(root: Path) -> list[str]:
+    """Discard every SKIP-decisioned or missing-JD job folder before a finalize commit.
+
+    Safety net for the same failure mode fixed earlier for candidate screening: an agent
+    step that was supposed to discard a job can be skipped, leaving a dead folder that
+    `finalize-run` would otherwise force-add into the commit.
+    """
+    import yaml
+
+    jobs_dir = root / "outputs" / "jobs"
+    if not jobs_dir.exists():
+        return []
+
+    discarded: list[str] = []
+    for job_dir in sorted(jobs_dir.iterdir()):
+        if not job_dir.is_dir():
+            continue
+        score_path = job_dir / "score.yml"
+        meta_path = job_dir / "meta.json"
+        is_skip = False
+        is_missing_jd = False
+        if score_path.exists():
+            try:
+                score = yaml.safe_load(score_path.read_text(encoding="utf-8")) or {}
+            except (yaml.YAMLError, UnicodeDecodeError):
+                score = {}
+            is_skip = str(score.get("decision") or "").upper() == "SKIP"
+        elif meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                meta = {}
+            is_missing_jd = str(meta.get("job_description_fetch_status") or "") == "fetch_failed"
+        if (is_skip or is_missing_jd) and discard_job_folder(root, job_dir.name):
+            discarded.append(job_dir.name)
+    return discarded
+
+
 def _score_file_error(score_path: Path, meta: dict, job_dir: Path, policy: Any) -> str:
     import yaml
 

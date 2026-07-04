@@ -100,6 +100,7 @@ def application_from_job(
     job_dir = base / "outputs" / "jobs" / slug
     meta = _read_json(job_dir / "meta.json")
     score = read_yaml(job_dir / "score.yml")
+    _require_apply_score(score, slug)
     jd_path = job_dir / "jd.md"
     jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
     now = utc_now()
@@ -124,23 +125,18 @@ def application_from_job(
     }
 
 
-def _status_from_score(score: dict[str, Any]) -> str:
-    decision = str(score.get("decision") or score.get("status") or "").strip().lower()
-    skip_decisions = {
-        "decline",
-        "declined",
-        "discard",
-        "discarded",
-        "do not apply",
-        "do_not_apply",
-        "no",
-        "no_apply",
-        "reject",
-        "rejected",
-        "skip",
-        "skipped",
-    }
-    return "" if decision in skip_decisions else "tailored"
+def _require_apply_score(score: dict[str, Any], slug: str) -> None:
+    """Refuse to build an application entry unless score.yml has a numeric score and
+    decision APPLY. A SKIP decision, a missing score.yml, or a missing score value must
+    never produce a 'tailored' application row (there is nothing to apply with)."""
+    decision = str(score.get("decision") or score.get("status") or "").strip().upper()
+    score_value = score.get("score")
+    valid_score = isinstance(score_value, int) and not isinstance(score_value, bool)
+    if decision != "APPLY" or not valid_score:
+        raise ValueError(
+            f"refusing to create an application for {slug!r}: score.yml is missing, has no valid "
+            "numeric score, or decision is not APPLY"
+        )
 
 
 def backfill_applications_from_jobs(root: Path | None = None) -> list[dict[str, Any]]:

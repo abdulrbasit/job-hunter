@@ -1,5 +1,5 @@
 # Company career pages for the browser hunt workflow.
-# Add companies here, then run "Company Career Hunt" from GitHub Actions.
+# Add companies here, then run it from the dashboard's Job Candidates → Company Hunt tab.
 #
 # Fields:
 #   name        Company name

@@ -620,6 +620,7 @@ def telemetry_status(root: Path) -> dict[str, Any]:
     latest_run = None
     active_runs = event_count = 0
     by_backend: list[sqlite3.Row] = []
+    by_entrypoint: list[sqlite3.Row] = []
     latest_event = latest_phase = None
     if db_path.exists():
         with _connect(db_path) as conn:
@@ -628,6 +629,9 @@ def telemetry_status(root: Path) -> dict[str, Any]:
             ]
             event_count = conn.execute("SELECT COUNT(*) AS n FROM telemetry_events").fetchone()["n"]
             by_backend = conn.execute("SELECT backend, COUNT(*) AS n FROM telemetry_events GROUP BY backend").fetchall()
+            by_entrypoint = conn.execute(
+                "SELECT app_entrypoint, COUNT(*) AS n FROM telemetry_events GROUP BY app_entrypoint"
+            ).fetchall()
             latest_event = conn.execute(
                 "SELECT backend, session_id, model, recorded_at, token_source, run_id FROM telemetry_events "
                 "ORDER BY id DESC LIMIT 1"
@@ -659,6 +663,7 @@ def telemetry_status(root: Path) -> dict[str, Any]:
         "latest_phase": dict(latest_phase) if latest_phase else None,
         "event_count": event_count,
         "event_count_by_backend": {row["backend"]: row["n"] for row in by_backend},
+        "event_count_by_app_entrypoint": {(row["app_entrypoint"] or "unknown"): row["n"] for row in by_entrypoint},
         "token_total_observed": events_total,
         "latest_event": dict(latest_event) if latest_event else None,
         "claude_hooks_wired": claude_hooks,

@@ -54,7 +54,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 4. For each retained candidate, one at a time:
    - `job-hunter internal agent-context lifecycle --queue ... --candidate-id <id>`
    - `job-hunter internal import-job --queue ... --candidate-id <id>`
-   - Lifecycle for the created job. If `webfetch_required`: WebFetch once → temp file → rerun with `--fallback-text-file`. Reimport only on `reimport_with_fallback`; else mark terminal `missing_full_jd`.
+   - Lifecycle for the created job. If `webfetch_required`: WebFetch once → temp file → rerun with `--fallback-text-file`. Reimport only on `reimport_with_fallback`; else `job-hunter internal discard-job --job <slug>` (missing full JD).
    - `job-hunter internal agent-context score --mode full --job <slug>`
    - Execute `score.md` inline — writes `score.yml` and `evaluation.md`.
    - `job-hunter internal agent-context validate-score --path outputs/jobs/<slug>/score.yml`

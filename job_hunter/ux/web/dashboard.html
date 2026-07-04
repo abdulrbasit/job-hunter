@@ -229,6 +229,9 @@ main {
 .status-tab:hover { color: var(--text); border-color: #555; }
 .status-tab.active { background: var(--surface2); color: var(--text); border-color: var(--blue); }
 
+.company-hunt-panel { flex: 1; flex-direction: column; gap: 16px; padding: 16px 24px; overflow-y: auto; }
+.company-hunt-panel .run-header { flex-wrap: wrap; }
+
 .table-wrap { flex: 1; overflow-y: auto; }
 table { width: 100%; border-collapse: collapse; }
 thead th {
@@ -781,12 +784,12 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
+          <button class="status-tab" data-candidate-scope="company-hunt">Company Hunt</button>
         </div>
         <button class="btn btn-danger" id="discard-selected-btn" style="display:none" onclick="discardSelected()">Discard selected</button>
-        <button class="btn" id="run-company-hunt-btn" onclick="runCompanyHunt()">Run Company Browser Hunt</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap" id="candidate-table-wrap">
         <table>
           <thead>
             <tr>
@@ -803,6 +806,23 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
             <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
           </tbody>
         </table>
+      </div>
+      <div class="company-hunt-panel" id="company-hunt-panel" style="display:none">
+        <div class="run-header">
+          <button class="btn btn-primary" id="run-company-hunt-btn" onclick="runCompanyHunt()">Run Company Hunt</button>
+          <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
+          <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
+          <div class="run-stat"><div class="run-stat-label">Issues</div><div class="run-stat-value" id="ch-issues">—</div></div>
+        </div>
+        <div class="no-data" id="company-hunt-message" style="display:none"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Company</th><th>Status</th><th>Jobs found</th></tr></thead>
+            <tbody id="company-hunt-tbody">
+              <tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -885,7 +905,12 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     tab.classList.add('active');
     candidateScope = tab.dataset.candidateScope;
     selectedCandidateIds.clear();
-    renderCandidates();
+    const isHunt = candidateScope === 'company-hunt';
+    document.getElementById('candidate-table-wrap').style.display = isHunt ? 'none' : '';
+    document.getElementById('company-hunt-panel').style.display = isHunt ? 'flex' : 'none';
+    document.getElementById('candidate-search').style.display = isHunt ? 'none' : '';
+    document.getElementById('candidate-total-count').style.display = isHunt ? 'none' : '';
+    if (isHunt) { refreshCompanyHuntPanel(); } else { renderCandidates(); }
   });
 });
 
@@ -931,8 +956,54 @@ async function loadApplications() {
 
 let companyHuntPolling = false;
 
-async function runCompanyHunt() {
+function companyHuntRowHtml(row) {
+  const statusLabel = row.status === 'ok' ? 'Found' : "Couldn't check";
+  const detail = row.status === 'ok' ? String(row.jobs_found ?? 0) : esc(row.reason || '');
+  return `<tr><td>${esc(row.company || '')}</td><td>${statusLabel}</td><td>${detail}</td></tr>`;
+}
+
+function renderCompanyHuntStatus(status) {
   const btn = document.getElementById('run-company-hunt-btn');
+  const messageEl = document.getElementById('company-hunt-message');
+  const tbody = document.getElementById('company-hunt-tbody');
+  const companies = status.companies || [];
+
+  document.getElementById('ch-checked').textContent = status.total ? `${status.checked ?? companies.length} / ${status.total}` : '—';
+  document.getElementById('ch-found').textContent = companies.reduce((n, c) => n + (c.jobs_found || 0), 0);
+  document.getElementById('ch-issues').textContent = companies.filter(c => c.status === 'failed').length;
+
+  if (status.state === 'running') {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Checking ${status.checked ?? 0} of ${status.total ?? '?'} — ${esc(status.current_company || '…')}`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Run Company Hunt';
+  }
+
+  if (status.state === 'error') {
+    messageEl.textContent = status.error || 'Something went wrong.';
+    messageEl.style.display = '';
+  } else if (status.state === 'done' && status.message) {
+    messageEl.textContent = status.message;
+    messageEl.style.display = '';
+  } else {
+    messageEl.style.display = 'none';
+  }
+
+  tbody.innerHTML = companies.length
+    ? companies.map(companyHuntRowHtml).join('')
+    : '<tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>';
+}
+
+async function refreshCompanyHuntPanel() {
+  try {
+    renderCompanyHuntStatus(await window.pywebview.api.get_company_hunt_status());
+  } catch(e) {
+    document.getElementById('company-hunt-tbody').innerHTML = `<tr><td colspan="3"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
+  }
+}
+
+async function runCompanyHunt() {
   const result = await window.pywebview.api.run_company_hunt();
   if (result.already_running) return;
   pollCompanyHuntStatus();
@@ -941,22 +1012,17 @@ async function runCompanyHunt() {
 async function pollCompanyHuntStatus() {
   if (companyHuntPolling) return;
   companyHuntPolling = true;
-  const btn = document.getElementById('run-company-hunt-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Running…';
   try {
     while (true) {
       const status = await window.pywebview.api.get_company_hunt_status();
+      renderCompanyHuntStatus(status);
       if (status.state !== 'running') {
         if (status.state === 'done') await loadUnprocessed();
-        if (status.state === 'error') alert(`Company browser hunt failed: ${status.error}`);
         break;
       }
       await new Promise(r => setTimeout(r, 2000));
     }
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Run Company Browser Hunt';
     companyHuntPolling = false;
   }
 }

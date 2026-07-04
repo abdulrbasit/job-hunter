@@ -257,23 +257,76 @@ class DashAPI:
         self._hunt_thread.start()
         return {"started": True}
 
+    def _update_hunt_progress(self, event: dict[str, Any]) -> None:
+        step = event.get("step")
+        with self._hunt_lock:
+            status = self._hunt_status
+            if step == "started":
+                self._hunt_status = {
+                    "state": "running",
+                    "total": event.get("total", 0),
+                    "checked": 0,
+                    "current_company": "",
+                    "companies": [],
+                }
+            elif step == "company-checking":
+                status["current_company"] = event.get("company", "")
+            elif step == "company-done":
+                status["companies"].append(
+                    {"company": event.get("company", ""), "status": "ok", "jobs_found": event.get("jobs_found", 0)}
+                )
+                status["checked"] = len(status["companies"])
+            elif step == "company-failed":
+                status["companies"].append(
+                    {"company": event.get("company", ""), "status": "failed", "reason": event.get("reason", "")}
+                )
+                status["checked"] = len(status["companies"])
+            elif step == "finished":
+                status["succeeded"] = event.get("succeeded", 0)
+                status["failed"] = event.get("failed", 0)
+            elif step == "fatal":
+                self._hunt_status = {"state": "error", "error": event.get("reason") or "Something went wrong."}
+
+    @staticmethod
+    def _hunt_message(status: dict[str, Any], inserted: int) -> str:
+        total = status.get("total", 0)
+        failed = status.get("failed", 0)
+        candidates = "candidate" if inserted == 1 else "candidates"
+        if not failed:
+            return f"{total} companies checked, {inserted} new {candidates} found."
+        ok = total - failed
+        return f"{ok} of {total} companies checked ({failed} couldn't be reached). {inserted} new {candidates} found."
+
     def _run_company_hunt_worker(self) -> None:
         from job_hunter.pipeline import browser_hunt
         from job_hunter.tracking.repository import get_jobs_summary
 
         before = len(get_jobs_summary(self._root, statuses=("candidate",)))
         try:
-            browser_hunt.run()
+            browser_hunt.run(on_progress=self._update_hunt_progress)
+        except Exception:  # noqa: BLE001
+            with self._hunt_lock:
+                self._hunt_status = {
+                    "state": "error",
+                    "error": "Something went wrong while checking company career pages. Try again in a moment.",
+                }
+            return
+
+        with self._hunt_lock:
+            if self._hunt_status.get("state") == "error":
+                return  # a "fatal" progress event already set this — don't clobber it with "done"
             after = len(get_jobs_summary(self._root, statuses=("candidate",)))
-            with self._hunt_lock:
-                self._hunt_status = {"state": "done", "inserted": max(0, after - before)}
-        except Exception as exc:  # noqa: BLE001
-            with self._hunt_lock:
-                self._hunt_status = {"state": "error", "error": str(exc)}
+            inserted = max(0, after - before)
+            self._hunt_status["state"] = "done"
+            self._hunt_status["inserted"] = inserted
+            self._hunt_status["message"] = self._hunt_message(self._hunt_status, inserted)
 
     def get_company_hunt_status(self) -> dict[str, Any]:
         with self._hunt_lock:
-            return dict(self._hunt_status)
+            status = dict(self._hunt_status)
+            if "companies" in status:
+                status["companies"] = list(status["companies"])
+            return status
 
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict

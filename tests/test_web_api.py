@@ -385,7 +385,12 @@ def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch
 
 
 def test_run_company_hunt_starts_worker_and_reports_done_with_inserted_count(tmp_path: Path, monkeypatch) -> None:
-    def fake_run() -> int:
+    def fake_run(*, on_progress=None) -> int:
+        if on_progress:
+            on_progress({"step": "started", "total": 1})
+            on_progress({"step": "company-checking", "index": 1, "total": 1, "company": "Acme"})
+            on_progress({"step": "company-done", "index": 1, "total": 1, "company": "Acme", "jobs_found": 1})
+            on_progress({"step": "finished", "total": 1, "succeeded": 1, "failed": 0, "jobs_found": 1})
         insert_jobs(
             tmp_path,
             [{"url": "https://example.com/new", "title": "PM", "company": "Acme", "location": "Berlin"}],
@@ -400,11 +405,18 @@ def test_run_company_hunt_starts_worker_and_reports_done_with_inserted_count(tmp
     assert api.run_company_hunt() == {"already_running": True}
     api._hunt_thread.join(timeout=5)
 
-    assert api.get_company_hunt_status() == {"state": "done", "inserted": 1}
+    status = api.get_company_hunt_status()
+    assert status["state"] == "done"
+    assert status["inserted"] == 1
+    assert status["total"] == 1
+    assert status["succeeded"] == 1
+    assert status["failed"] == 0
+    assert status["companies"] == [{"company": "Acme", "status": "ok", "jobs_found": 1}]
+    assert "1 new candidate found" in status["message"]
 
 
 def test_run_company_hunt_reports_error_status_on_failure(tmp_path: Path, monkeypatch) -> None:
-    def boom() -> int:
+    def boom(*, on_progress=None) -> int:
         raise RuntimeError("scrape failed")
 
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", boom)
@@ -413,7 +425,106 @@ def test_run_company_hunt_reports_error_status_on_failure(tmp_path: Path, monkey
     api.run_company_hunt()
     api._hunt_thread.join(timeout=5)
 
-    assert api.get_company_hunt_status() == {"state": "error", "error": "scrape failed"}
+    status = api.get_company_hunt_status()
+    assert status["state"] == "error"
+    assert "scrape failed" not in status["error"]
+    assert "went wrong" in status["error"]
+
+
+def test_run_company_hunt_reports_fatal_reason_from_progress_event(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*, on_progress) -> int:
+        on_progress({"step": "fatal", "reason": "Company list is missing."})
+        return 1
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    api = DashAPI(tmp_path)
+
+    api.run_company_hunt()
+    api._hunt_thread.join(timeout=5)
+
+    assert api.get_company_hunt_status() == {"state": "error", "error": "Company list is missing."}
+
+
+def test_run_company_hunt_summarizes_partial_failures_in_message(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*, on_progress) -> int:
+        on_progress({"step": "started", "total": 3})
+        on_progress({"step": "company-done", "company": "A", "jobs_found": 1})
+        on_progress({"step": "company-done", "company": "B", "jobs_found": 1})
+        on_progress({"step": "company-failed", "company": "C", "reason": "couldn't be reached"})
+        on_progress({"step": "finished", "total": 3, "succeeded": 2, "failed": 1, "jobs_found": 2})
+        insert_jobs(
+            tmp_path,
+            [
+                {"url": "https://example.com/a", "title": "PM", "company": "A"},
+                {"url": "https://example.com/b", "title": "PM", "company": "B"},
+            ],
+        )
+        return 0
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    api = DashAPI(tmp_path)
+
+    api.run_company_hunt()
+    api._hunt_thread.join(timeout=5)
+
+    status = api.get_company_hunt_status()
+    assert status["message"] == "2 of 3 companies checked (1 couldn't be reached). 2 new candidates found."
+    assert status["failed"] == 1
+
+
+def test_get_company_hunt_status_companies_list_is_a_snapshot_copy(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*, on_progress) -> int:
+        on_progress({"step": "started", "total": 1})
+        on_progress({"step": "company-done", "company": "Acme", "jobs_found": 0})
+        on_progress({"step": "finished", "total": 1, "succeeded": 1, "failed": 0, "jobs_found": 0})
+        return 0
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    api = DashAPI(tmp_path)
+
+    api.run_company_hunt()
+    api._hunt_thread.join(timeout=5)
+
+    first = api.get_company_hunt_status()
+    first["companies"].append({"company": "injected", "status": "ok", "jobs_found": 0})
+
+    second = api.get_company_hunt_status()
+    assert second["companies"] == [{"company": "Acme", "status": "ok", "jobs_found": 0}]
+
+
+def test_run_company_hunt_status_reflects_live_progress_while_running(tmp_path: Path, monkeypatch) -> None:
+    import threading
+
+    release = threading.Event()
+
+    def fake_run(*, on_progress) -> int:
+        on_progress({"step": "started", "total": 2})
+        on_progress({"step": "company-checking", "index": 1, "total": 2, "company": "Acme"})
+        release.wait(timeout=5)
+        on_progress({"step": "company-done", "company": "Acme", "jobs_found": 0})
+        on_progress({"step": "finished", "total": 2, "succeeded": 1, "failed": 0, "jobs_found": 0})
+        return 0
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    api = DashAPI(tmp_path)
+
+    api.run_company_hunt()
+    try:
+        for _ in range(50):
+            mid_status = api.get_company_hunt_status()
+            if mid_status.get("current_company") == "Acme":
+                break
+            import time
+
+            time.sleep(0.05)
+        else:
+            raise AssertionError("worker never reported live progress")
+        assert mid_status["state"] == "running"
+        assert mid_status["total"] == 2
+        assert mid_status["checked"] == 0
+    finally:
+        release.set()
+        api._hunt_thread.join(timeout=5)
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
@@ -443,6 +554,9 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     assert "@media (max-width: 900px)" in html
     assert 'data-candidate-scope="active"' in html
     assert 'data-candidate-scope="discarded"' in html
+    assert 'data-candidate-scope="company-hunt"' in html
+    assert 'id="company-hunt-panel"' in html
+    assert 'id="run-company-hunt-btn"' in html
     assert 'id="candidate-search"' in html
     assert ".badge-rejected  { background: rgba(248,81,73" in html
 
@@ -460,6 +574,8 @@ def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None
     assert 'onchange="toggleCandidateSelected(${' not in html
     assert "data-delete-id=" in html
     assert "data-slug=" in html
+    assert "function companyHuntRowHtml" in html
+    assert "esc(row.company" in html
 
 
 def test_dashboard_uses_safe_url_for_scraped_job_links() -> None:

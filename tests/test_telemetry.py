@@ -574,6 +574,50 @@ def test_telemetry_status_reports_privacy_safe_diagnostics(tmp_path: Path) -> No
     assert "prompt" not in json.dumps(status)
 
 
+def test_telemetry_status_reports_app_entrypoint_breakdown(tmp_path: Path) -> None:
+    """Distinguishes cli/sdk-vscode/desktop sessions in the metrics so a Desktop-app
+    telemetry gap can be confirmed from data instead of guessed at."""
+    db_path = tmp_path / "outputs" / "state" / "metrics.db"
+    run_id = begin_run(db_path, backend="claude-code", session_id="s", mode="batch")
+    ingest_otlp(
+        db_path,
+        {
+            "resourceMetrics": [
+                {
+                    "resource": {"attributes": [{"key": "app.entrypoint", "value": {"stringValue": "cli"}}]},
+                    "scopeMetrics": [
+                        {
+                            "metrics": [
+                                {
+                                    "name": "claude_code.token.usage",
+                                    "sum": {
+                                        "dataPoints": [
+                                            {
+                                                "asInt": "10",
+                                                "attributes": [
+                                                    {"key": "type", "value": {"stringValue": "input"}},
+                                                    {"key": "session.id", "value": {"stringValue": "s"}},
+                                                    {"key": "model", "value": {"stringValue": "claude-x"}},
+                                                ],
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    with patch("job_hunter.metrics.collector.collector_health", return_value=None):
+        status = telemetry_status(tmp_path)
+
+    assert status["event_count_by_app_entrypoint"] == {"cli": 1}
+    assert run_id
+
+
 def _write_claude_hook(root: Path) -> None:
     (root / ".claude").mkdir(parents=True, exist_ok=True)
     (root / ".claude" / "settings.json").write_text(

@@ -26,6 +26,12 @@ def _block_live_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """No test may write to the real ~/.claude — redirect Path.home() to a throwaway dir."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+
 # Must be set before any module is imported; config/loader.py reads API key constants at module level.
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
 os.environ.setdefault("BRAVE_API_KEY", "test-brave-key")
