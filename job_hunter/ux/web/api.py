@@ -372,6 +372,101 @@ class DashAPI:
         # broken out by LLM role (jd_extraction/scoring/tailoring/...).
         return {"mode": self._config_mode(), "runs": runs, "telemetry": get_telemetry_summary(db_path)}
 
+    def _doctor_warnings(self) -> list[str]:
+        from job_hunter.ux.health import doctor
+
+        try:
+            result = doctor(self._root)
+        except Exception:  # noqa: BLE001 — a successful save must never be reported as failed
+            return []
+        return [f"{check['name']}: {check['detail']}" for check in result["checks"] if not check["ok"]]
+
+    def _config_result(self, result: dict[str, Any], extra_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        data = {"revision": result["revision"], **(extra_data or {})}
+        warnings = list(result.get("warnings", []))
+        if result["ok"]:
+            warnings.extend(self._doctor_warnings())
+        return {
+            "ok": result["ok"],
+            "data": data if result["ok"] else None,
+            "errors": result["errors"],
+            "warnings": warnings,
+        }
+
+    def get_job_hunter_config_form(self) -> dict[str, Any]:
+        import yaml
+
+        from job_hunter.config import service
+
+        raw = service.read_job_hunter_config(self._root)
+        try:
+            parsed = yaml.safe_load(raw["data"]) or {}
+        except yaml.YAMLError as exc:
+            return {"ok": False, "data": None, "errors": [f"Invalid YAML on disk: {exc}"], "warnings": []}
+        form = service.config_to_form(parsed) if isinstance(parsed, dict) else service.config_to_form({})
+        return {"ok": True, "data": {"form": form, "revision": raw["revision"]}, "errors": [], "warnings": []}
+
+    def save_job_hunter_config_form(self, form: dict[str, Any], revision: str) -> dict[str, Any]:
+        import yaml
+
+        from job_hunter.config import service
+
+        raw = service.read_job_hunter_config(self._root)
+        try:
+            parsed = yaml.safe_load(raw["data"]) or {}
+        except yaml.YAMLError as exc:
+            return {"ok": False, "data": None, "errors": [f"Invalid YAML on disk: {exc}"], "warnings": []}
+        merged = service.apply_form_to_config(parsed if isinstance(parsed, dict) else {}, form)
+        new_text = yaml.safe_dump(merged, sort_keys=False, allow_unicode=True)
+        result = service.save_job_hunter_config(self._root, new_text, revision)
+        return self._config_result(result)
+
+    def get_job_hunter_config_raw(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        raw = service.read_job_hunter_config(self._root)
+        return {"ok": True, "data": {"text": raw["data"], "revision": raw["revision"]}, "errors": [], "warnings": []}
+
+    def save_job_hunter_config_raw(self, text: str, revision: str) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.save_job_hunter_config(self._root, text, revision)
+        return self._config_result(result)
+
+    def undo_job_hunter_config(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.undo_last_save(self._root, "job_hunter_config")
+        return self._config_result(result)
+
+    def get_career_context(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        raw = service.read_career_context(self._root)
+        return {"ok": True, "data": {"text": raw["data"], "revision": raw["revision"]}, "errors": [], "warnings": []}
+
+    def save_career_context(self, text: str, revision: str) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.save_career_context(self._root, text, revision)
+        return {
+            "ok": result["ok"],
+            "data": {"revision": result["revision"]} if result["ok"] else None,
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+        }
+
+    def undo_career_context(self) -> dict[str, Any]:
+        from job_hunter.config import service
+
+        result = service.undo_last_save(self._root, "career_context")
+        return {
+            "ok": result["ok"],
+            "data": {"revision": result["revision"]} if result["ok"] else None,
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+        }
+
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""
         import re

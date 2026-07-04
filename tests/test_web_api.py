@@ -585,3 +585,198 @@ def test_dashboard_uses_safe_url_for_scraped_job_links() -> None:
     assert "function safeUrl(" in html
     assert 'href="${esc(job.url)}"' not in html
     assert "linkEl.href = meta.url" not in html
+
+
+# ---------------------------------------------------------------------------
+# Settings: job_hunter.yml (guided form + advanced raw) and career_context.md
+# ---------------------------------------------------------------------------
+
+_SETTINGS_CONFIG = {
+    "mode": "agent",
+    "profile": {
+        "resume_tex": "profile/resume_double_column.tex",
+        "story_bank": "profile/story_bank.md",
+        "career_context": "profile/career_context.md",
+    },
+    "job_titles": ["Product Manager"],
+    "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
+    "exclusions": {},
+    "scoring": {"min_fit_score": 70, "batch_size": 15},
+    "llm": {"default_provider": "anthropic", "providers": {"scoring": "anthropic"}},
+}
+
+
+def _write_settings_config(root: Path) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "job_hunter.yml").write_text(yaml.safe_dump(_SETTINGS_CONFIG), encoding="utf-8")
+
+
+def test_get_job_hunter_config_form_returns_guided_fields_and_revision(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+
+    result = DashAPI(tmp_path).get_job_hunter_config_form()
+
+    assert result["ok"] is True
+    assert result["data"]["form"]["mode"] == "agent"
+    assert result["data"]["form"]["job_titles"] == ["Product Manager"]
+    assert "providers" not in result["data"]["form"]
+    assert result["data"]["revision"]
+    json.dumps(result)
+
+
+def test_save_job_hunter_config_form_updates_job_titles_and_preserves_advanced_llm(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_job_hunter_config_form()
+    form = loaded["data"]["form"]
+    form["job_titles"] = ["Staff Engineer"]
+
+    result = api.save_job_hunter_config_form(form, loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert on_disk["job_titles"] == ["Staff Engineer"]
+    assert on_disk["llm"]["providers"] == {"scoring": "anthropic"}
+
+
+def test_save_job_hunter_config_form_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_job_hunter_config_form()
+
+    result = api.save_job_hunter_config_form(loaded["data"]["form"], "0" * 64)
+
+    assert result["ok"] is False
+    assert result["data"] is None
+    assert result["errors"]
+
+
+def test_get_job_hunter_config_raw_and_save_round_trip(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+
+    loaded = api.get_job_hunter_config_raw()
+    new_text = loaded["data"]["text"].replace("mode: agent", "mode: llm-api")
+    result = api.save_job_hunter_config_raw(new_text, loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert on_disk["mode"] == "llm-api"
+
+
+def test_save_job_hunter_config_raw_rejects_invalid_yaml_and_reports_errors(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_job_hunter_config_raw()
+
+    result = api.save_job_hunter_config_raw("not: valid: yaml: [", loaded["data"]["revision"])
+
+    assert result["ok"] is False
+    assert result["errors"]
+
+
+def test_undo_job_hunter_config_restores_previous_save(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+    original = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    loaded = api.get_job_hunter_config_raw()
+    api.save_job_hunter_config_raw(original.replace("mode: agent", "mode: llm-api"), loaded["data"]["revision"])
+
+    result = api.undo_job_hunter_config()
+
+    assert result["ok"] is True
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == original
+
+
+def test_save_job_hunter_config_surfaces_doctor_warnings_without_failing(tmp_path: Path) -> None:
+    _write_settings_config(tmp_path)
+    api = DashAPI(tmp_path)
+    loaded = api.get_job_hunter_config_raw()
+
+    result = api.save_job_hunter_config_raw(loaded["data"]["text"], loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    # this bare tmp_path workspace is missing the resume/story bank doctor checks for —
+    # they must show up as warnings, never as errors that would roll back a good save.
+    assert any("resume_double_column.tex" in w for w in result["warnings"])
+    assert result["errors"] == []
+
+
+def test_get_and_save_career_context_round_trip(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("## About Me\n", encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    loaded = api.get_career_context()
+    result = api.save_career_context("## About Me\n\n- Updated", loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "## About Me\n\n- Updated"
+
+
+def test_save_career_context_rejects_stale_revision(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("original", encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    result = api.save_career_context("changed", "0" * 64)
+
+    assert result["ok"] is False
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "original"
+
+
+def test_undo_career_context_restores_previous_save(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "career_context.md").write_text("original", encoding="utf-8")
+    api = DashAPI(tmp_path)
+    loaded = api.get_career_context()
+    api.save_career_context("changed", loaded["data"]["revision"])
+
+    result = api.undo_career_context()
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "original"
+
+
+def test_dashboard_contains_settings_nav_and_panels() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'data-view="settings"' in html
+    assert 'id="view-settings"' in html
+    assert 'data-settings-tab="guided"' in html
+    assert 'data-settings-tab="advanced"' in html
+    assert 'data-settings-tab="career-context"' in html
+    assert 'id="settings-panel-guided"' in html
+    assert 'id="settings-panel-advanced"' in html
+    assert 'id="settings-panel-career-context"' in html
+    assert 'id="settings-raw-yaml"' in html
+    assert 'id="settings-career-context"' in html
+    assert "function saveGuidedConfig" in html
+    assert "function saveRawConfig" in html
+    assert "function saveCareerContext" in html
+    assert "function undoJobHunterConfig" in html
+    assert "function undoCareerContext" in html
+    assert "function settingsHasUnsavedChanges" in html
+    assert "get_job_hunter_config_form" in html
+    assert "save_job_hunter_config_form" in html
+    assert "get_job_hunter_config_raw" in html
+    assert "save_job_hunter_config_raw" in html
+    assert "get_career_context" in html
+    assert "save_career_context" in html
+
+
+def test_dashboard_settings_disables_save_buttons_during_save() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "btn.disabled = true;" in html
+    assert "btn.disabled = false;" in html
+
+
+def test_dashboard_settings_warns_before_losing_unsaved_changes() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "settingsHasUnsavedChanges()" in html
+    assert "Leave without saving" in html

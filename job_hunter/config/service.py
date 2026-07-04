@@ -16,6 +16,7 @@ import json
 import os
 import tempfile
 from contextlib import suppress
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -219,6 +220,109 @@ def save_job_hunter_config(root: Path, raw_yaml_text: str, expected_revision: st
     if result["ok"]:
         get_job_hunter_config.cache_clear()
     return result
+
+
+_FORM_OPTIONAL_PROFILE_KEYS = ("latex_class", "profile_image")
+
+
+def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
+    """Project the guided-editable subset of job_hunter.yml into a plain JSON-safe dict.
+
+    Covers every top-level key the schema allows (mode/profile/job_titles/regions/
+    exclusions/scoring) except llm, where only default_provider is guided-editable —
+    providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
+    """
+    profile = data.get("profile") or {}
+    exclusions = data.get("exclusions") or {}
+    scoring = data.get("scoring") or {}
+    llm = data.get("llm") or {}
+    return {
+        "mode": data.get("mode", "agent"),
+        "profile": {
+            "resume_tex": profile.get("resume_tex", ""),
+            "story_bank": profile.get("story_bank", ""),
+            "career_context": profile.get("career_context", ""),
+            "latex_class": profile.get("latex_class", ""),
+            "profile_image": profile.get("profile_image", ""),
+        },
+        "job_titles": list(data.get("job_titles") or []),
+        "regions": deepcopy(data.get("regions") or {}),
+        "exclusions": {
+            "companies": list(exclusions.get("companies") or []),
+            "title_terms": list(exclusions.get("title_terms") or []),
+            "languages": list(exclusions.get("languages") or []),
+            "industries": list(exclusions.get("industries") or []),
+        },
+        "scoring": {
+            "min_fit_score": scoring.get("min_fit_score", 70),
+            "max_years_experience_required": scoring.get("max_years_experience_required"),
+            "batch_size": scoring.get("batch_size", 15),
+            "strategic_overrides": deepcopy(scoring.get("strategic_overrides") or []),
+        },
+        "llm_default_provider": llm.get("default_provider", "anthropic"),
+    }
+
+
+def _apply_form_profile(profile: dict[str, Any], form_profile: dict[str, Any]) -> dict[str, Any]:
+    profile = dict(profile)
+    for key in ("resume_tex", "story_bank", "career_context"):
+        if form_profile.get(key):
+            profile[key] = form_profile[key]
+    for key in _FORM_OPTIONAL_PROFILE_KEYS:
+        if form_profile.get(key):
+            profile[key] = form_profile[key]
+        else:
+            profile.pop(key, None)
+    return profile
+
+
+def _apply_form_scoring(scoring: dict[str, Any], form_scoring: dict[str, Any]) -> dict[str, Any]:
+    scoring = dict(scoring)
+    if form_scoring.get("min_fit_score") is not None:
+        scoring["min_fit_score"] = form_scoring["min_fit_score"]
+    if form_scoring.get("batch_size") is not None:
+        scoring["batch_size"] = form_scoring["batch_size"]
+    max_years = form_scoring.get("max_years_experience_required")
+    if max_years in (None, ""):
+        scoring.pop("max_years_experience_required", None)
+    else:
+        scoring["max_years_experience_required"] = max_years
+    overrides = [o for o in (form_scoring.get("strategic_overrides") or []) if o.get("company")]
+    if overrides:
+        scoring["strategic_overrides"] = overrides
+    else:
+        scoring.pop("strategic_overrides", None)
+    return scoring
+
+
+def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
+    """Return data with guided-editable fields replaced by form's values.
+
+    Anything outside the guided form's coverage (llm.providers/models/max_tokens/
+    max_workers/rate_limits/ollama, and any future schema keys) passes through
+    untouched, so the Advanced YAML tab remains the only way to edit them.
+    """
+    merged = deepcopy(data)
+    merged["mode"] = form.get("mode") or merged.get("mode", "agent")
+    merged["profile"] = _apply_form_profile(merged.get("profile") or {}, form.get("profile") or {})
+    merged["job_titles"] = [str(t).strip() for t in (form.get("job_titles") or []) if str(t).strip()]
+    merged["regions"] = form.get("regions") or {}
+
+    form_exclusions = form.get("exclusions") or {}
+    exclusions: dict[str, Any] = {}
+    for key in ("companies", "title_terms", "languages", "industries"):
+        values = [str(v).strip() for v in (form_exclusions.get(key) or []) if str(v).strip()]
+        if values:
+            exclusions[key] = values
+    merged["exclusions"] = exclusions
+    merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
+
+    llm = dict(merged.get("llm") or {})
+    if form.get("llm_default_provider"):
+        llm["default_provider"] = form["llm_default_provider"]
+    merged["llm"] = llm
+
+    return merged
 
 
 # ---------------------------------------------------------------------------

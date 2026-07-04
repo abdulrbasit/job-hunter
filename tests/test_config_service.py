@@ -483,3 +483,121 @@ def test_atomic_write_cleans_up_temp_file_on_failure(tmp_path: Path, monkeypatch
     leftover = list(tmp_path.glob(".target.yml.*.tmp"))
     assert leftover == []
     assert not path.exists()
+
+
+# ---------------------------------------------------------------------------
+# Guided form projection / merge
+# ---------------------------------------------------------------------------
+
+_FULL_CONFIG = {
+    "mode": "agent",
+    "profile": {
+        "resume_tex": "profile/resume_double_column.tex",
+        "story_bank": "profile/story_bank.md",
+        "career_context": "profile/career_context.md",
+        "latex_class": "altacv",
+        "profile_image": "profile/photo.png",
+    },
+    "job_titles": ["Product Manager", "Staff PM"],
+    "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin", "primary": True}},
+    "exclusions": {"companies": ["Acme"], "title_terms": ["intern"]},
+    "scoring": {
+        "min_fit_score": 70,
+        "max_years_experience_required": 10,
+        "batch_size": 15,
+        "strategic_overrides": [{"company": "Stripe", "min_score_override": 50}],
+    },
+    "llm": {
+        "default_provider": "anthropic",
+        "providers": {"scoring": "anthropic"},
+        "models": {"scoring": "claude-haiku-4-5-20251001"},
+        "max_tokens": {"scoring": 1000},
+        "max_workers": 5,
+        "rate_limits": {"anthropic": {"requests_per_minute": 50}},
+        "ollama": {"base_url": "http://localhost:11434"},
+    },
+}
+
+
+def test_config_to_form_projects_guided_fields() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+
+    assert form["mode"] == "agent"
+    assert form["profile"]["resume_tex"] == "profile/resume_double_column.tex"
+    assert form["profile"]["latex_class"] == "altacv"
+    assert form["job_titles"] == ["Product Manager", "Staff PM"]
+    assert form["regions"] == _FULL_CONFIG["regions"]
+    assert form["exclusions"]["companies"] == ["Acme"]
+    assert form["scoring"]["min_fit_score"] == 70
+    assert form["scoring"]["strategic_overrides"] == [{"company": "Stripe", "min_score_override": 50}]
+    assert form["llm_default_provider"] == "anthropic"
+    assert "providers" not in form  # advanced-only llm fields are not in the guided form
+
+
+def test_config_to_form_fills_blanks_for_missing_optional_fields() -> None:
+    minimal = {"mode": "agent", "profile": {}, "job_titles": [], "regions": {}, "exclusions": {}, "scoring": {}}
+
+    form = service.config_to_form(minimal)
+
+    assert form["profile"]["latex_class"] == ""
+    assert form["scoring"]["min_fit_score"] == 70
+    assert form["scoring"]["max_years_experience_required"] is None
+    assert form["scoring"]["strategic_overrides"] == []
+
+
+def test_apply_form_to_config_preserves_advanced_llm_fields_untouched() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+    form["llm_default_provider"] = "openai"
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    assert merged["llm"]["default_provider"] == "openai"
+    assert merged["llm"]["providers"] == {"scoring": "anthropic"}
+    assert merged["llm"]["models"] == {"scoring": "claude-haiku-4-5-20251001"}
+    assert merged["llm"]["max_tokens"] == {"scoring": 1000}
+    assert merged["llm"]["max_workers"] == 5
+    assert merged["llm"]["rate_limits"] == {"anthropic": {"requests_per_minute": 50}}
+    assert merged["llm"]["ollama"] == {"base_url": "http://localhost:11434"}
+
+
+def test_apply_form_to_config_round_trips_unchanged_form() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    assert merged == _FULL_CONFIG
+
+
+def test_apply_form_to_config_updates_job_titles_and_strips_blanks() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+    form["job_titles"] = ["  Engineering Manager  ", "", "  "]
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    assert merged["job_titles"] == ["Engineering Manager"]
+
+
+def test_apply_form_to_config_clears_optional_profile_field_when_blank() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+    form["profile"]["latex_class"] = ""
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    assert "latex_class" not in merged["profile"]
+
+
+def test_apply_form_to_config_drops_strategic_overrides_missing_company() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+    form["scoring"]["strategic_overrides"] = [{"min_score_override": 50}]
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    assert "strategic_overrides" not in merged["scoring"]
+
+
+def test_apply_form_to_config_produces_yaml_dumpable_result() -> None:
+    form = service.config_to_form(_FULL_CONFIG)
+
+    merged = service.apply_form_to_config(_FULL_CONFIG, form)
+
+    yaml.safe_dump(merged)  # must not raise
