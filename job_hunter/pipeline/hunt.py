@@ -396,6 +396,7 @@ def run(inp: HuntInput) -> HuntOutput:
         depth=inp.depth,
         scrape_only=inp.scrape_only,
         from_snapshot=str(inp.from_snapshot) if inp.from_snapshot else None,
+        from_db_candidates=inp.from_db_candidates,
         skip_score=inp.skip_score,
         skip_validate=inp.skip_validate,
         force=inp.force,

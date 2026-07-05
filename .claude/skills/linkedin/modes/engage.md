@@ -4,6 +4,9 @@ Single responsibility: write comment drafts for pasted posts. Nothing is posted.
 
 Paste posts or content here: `$ARGUMENTS`
 
+Run `job-hunter internal telemetry-mark --phase linkedin_engage --skill linkedin_engage --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
@@ -26,6 +29,8 @@ Paste posts or content here: `$ARGUMENTS`
   conflicting `career_context.md` preference.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase linkedin_engage --state end` before printing.
 
 ```
 Engagement drafts appended -> outputs/linkedin/engagement_queue.md

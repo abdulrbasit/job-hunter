@@ -17,6 +17,15 @@ job-hunter dashboard --no-interactive  # terminal dashboard
 job-hunter update                      # refresh skills/workflows after an upgrade
 ```
 
+`job-hunter dash` includes Settings and Companies editors with validation,
+revision-safe saves, and one-level Undo. Company Hunt supports new/changed,
+failed-only, force-all, and resume modes. In `llm-api` mode, process its
+pending DB candidates without scraping again:
+
+```bash
+job-hunter hunt --from-db-candidates
+```
+
 In agent mode, from the Claude Code or Codex chat panel:
 
 ```text

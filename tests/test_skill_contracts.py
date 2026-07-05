@@ -197,16 +197,32 @@ def test_job_hunter_modes_emit_telemetry_phase_markers() -> None:
     modes = ROOT / ".claude" / "skills" / "job-hunter" / "modes"
     expected = {
         "batch.md": "screening",
+        "screen.md": "screening",
         "score.md": "scoring",
         "research.md": "research",
         "tailor.md": "tailoring",
-        "finalize.md": "finalization",
+        "interview.md": "interview",
+        "outreach.md": "outreach",
+        "stories.md": "stories",
+        "one.md": "one",
+        "finalize.md": "finalize",
     }
     for filename, phase in expected.items():
         text = (modes / filename).read_text(encoding="utf-8")
         assert f"telemetry-mark --phase {phase}" in text
         assert "--state start" in text
         assert "--state end" in text
+
+
+def test_linkedin_modes_emit_non_blocking_telemetry_markers() -> None:
+    modes = ROOT / ".claude" / "skills" / "linkedin" / "modes"
+    for name in ("ideas", "draft", "engage", "network"):
+        text = (modes / f"{name}.md").read_text(encoding="utf-8")
+        phase = f"linkedin_{name}"
+        assert f"telemetry-mark --phase {phase}" in text
+        assert "--state start" in text
+        assert "--state end" in text
+        assert "Telemetry failure is non-blocking" in text
 
 
 def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template() -> None:

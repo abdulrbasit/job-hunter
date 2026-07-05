@@ -13,10 +13,12 @@ from job_hunter.metrics.telemetry import (
     active_run,
     begin_run,
     classify_job_hunter_mode,
+    classify_job_hunter_skill_prompt,
     end_phase,
     end_run,
     get_telemetry_summary,
     ingest_otlp,
+    prune_unattributed,
     record_outcome,
     start_phase,
     telemetry_status,
@@ -27,10 +29,24 @@ runner = CliRunner()
 
 def test_classify_job_hunter_modes_without_retaining_prompt() -> None:
     assert classify_job_hunter_mode("/job-hunter batch") == "batch"
-    assert classify_job_hunter_mode("$job-hunter score acme-pm") == "score"
-    assert classify_job_hunter_mode("Run job hunter batch for the next candidates") == "batch"
-    assert classify_job_hunter_mode("https://example.com/jobs/42") == "one"
+    assert classify_job_hunter_mode("/job-hunter score acme-pm") == "scoring"
+    assert classify_job_hunter_mode("/job-hunter interview acme-pm") == "interview"
+    assert classify_job_hunter_mode("/job-hunter outreach acme-pm") == "outreach"
+    assert classify_job_hunter_mode("/job-hunter linkedin draft") == "linkedin_draft"
+    assert classify_job_hunter_mode("/linkedin ideas") == "linkedin_ideas"
+    assert classify_job_hunter_mode("/job-hunter one https://example.com/jobs/42") == "one"
+    assert classify_job_hunter_mode("Run job hunter batch for the next candidates") is None
+    assert classify_job_hunter_mode("https://example.com/jobs/42") is None
+    assert classify_job_hunter_mode("https://github.com/abdulrbasit/job-hunter") is None
+    assert classify_job_hunter_mode("Refactor the job-hunter repository") is None
+    assert classify_job_hunter_mode("Review job-hunter code in Codex") is None
+    assert classify_job_hunter_mode("/job-hunter dashboard") is None
+    assert classify_job_hunter_mode("/job-hunter doctor") is None
+    assert classify_job_hunter_mode("/job-hunter setup") is None
     assert classify_job_hunter_mode("explain this traceback") is None
+    invocation = classify_job_hunter_skill_prompt("/job-hunter tailor acme")
+    assert invocation and invocation.root_skill == "job-hunter"
+    assert invocation.skill == "tailoring"
 
 
 def test_phase_and_job_usage_rolls_up_once(tmp_path: Path) -> None:
@@ -56,14 +72,12 @@ def test_phase_and_job_usage_rolls_up_once(tmp_path: Path) -> None:
     end_run(db, run_id, status="completed")
 
     summary = get_telemetry_summary(db)
-    assert summary["totals"] == {
-        "input_tokens": 120,
-        "output_tokens": 30,
-        "cached_tokens": 80,
-        "reasoning_tokens": 12,
-        "cache_read_tokens": 0,
-        "cache_creation_tokens": 0,
-    }
+    assert summary["totals"]["input_tokens"] == 120
+    assert summary["totals"]["output_tokens"] == 30
+    assert summary["totals"]["cached_tokens"] == 80
+    assert summary["totals"]["reasoning_tokens"] == 12
+    assert summary["by_skill"]["batch"]["total_tokens"] == 150
+    assert summary["by_phase"]["scoring"]["input_tokens"] == 120
     assert "secret_prompt" not in json.dumps(summary)
 
     import sqlite3
@@ -341,13 +355,15 @@ def test_stop_hook_keeps_run_open_while_waiting_for_confirmation(tmp_path: Path)
     assert active_run(db, "s") is not None
 
 
-def test_late_otlp_event_attaches_to_just_completed_run(tmp_path: Path) -> None:
+def test_late_otlp_event_does_not_attach_to_completed_run(tmp_path: Path) -> None:
     db = tmp_path / "metrics.db"
     run_id = begin_run(db, backend="codex", session_id="late", mode="batch")
     end_run(db, run_id, status="completed")
 
-    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="late", input_tokens=7)]) == 1
-    assert get_telemetry_summary(db)["totals"]["input_tokens"] == 7
+    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="late", input_tokens=7)]) == 0
+    summary = get_telemetry_summary(db)
+    assert summary["totals"]["input_tokens"] == 0
+    assert summary["ignored"]["events"] == 1
 
 
 def test_claude_metric_cumulative_counters_emit_only_the_delta(tmp_path: Path) -> None:
@@ -509,16 +525,99 @@ def test_event_with_nonmatching_session_links_to_latest_same_backend_run(tmp_pat
     assert get_telemetry_summary(db)["totals"]["input_tokens"] == 42
 
 
-def test_unattributed_events_are_preserved_not_dropped(tmp_path: Path) -> None:
+def test_fallback_rejects_multiple_active_owned_runs(tmp_path: Path) -> None:
+    db = tmp_path / "metrics.db"
+    begin_run(db, backend="codex", session_id="one", mode="batch")
+    begin_run(db, backend="codex", session_id="two", mode="batch")
+
+    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="different", input_tokens=42)]) == 0
+    assert get_telemetry_summary(db)["ignored"]["events"] == 1
+
+
+def test_stale_running_run_is_interrupted_and_not_used(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "metrics.db"
+    run_id = begin_run(db, backend="codex", session_id="stale", mode="batch")
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "UPDATE telemetry_runs SET started_at='2025-01-01T00:00:00+00:00' WHERE id=?",
+            (run_id,),
+        )
+
+    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="stale", input_tokens=9)]) == 0
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT status FROM telemetry_runs WHERE id=?", (run_id,)).fetchone()[0] == "interrupted"
+
+
+def test_events_without_active_job_hunter_run_are_ignored(tmp_path: Path) -> None:
     db = tmp_path / "metrics.db"
     # No run exists at all yet for this backend.
-    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="orphan", input_tokens=15)]) == 1
+    assert ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="orphan", input_tokens=15)]) == 0
 
     summary = get_telemetry_summary(db)
-    assert summary["unattributed"]["count"] == 1
-    assert summary["unattributed"]["input_tokens"] == 15
-    # Still shows up in overall totals — nothing is silently discarded.
-    assert summary["totals"]["input_tokens"] == 15
+    assert summary["ignored"]["events"] == 1
+    assert summary["ignored"]["input_tokens"] == 15
+    assert summary["totals"]["input_tokens"] == 0
+
+    import sqlite3
+
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM telemetry_events WHERE run_id='unattributed'").fetchone()[0] == 0
+
+
+def test_summary_splits_skill_tokens_by_backend(tmp_path: Path) -> None:
+    db = tmp_path / "metrics.db"
+    begin_run(db, backend="claude-code", session_id="claude", mode="tailoring")
+    begin_run(db, backend="codex", session_id="codex", mode="tailoring")
+    ingest_otlp(db, [TelemetryEvent(backend="claude-code", session_id="claude", input_tokens=10)])
+    ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="codex", output_tokens=5)])
+
+    summary = get_telemetry_summary(db)
+
+    assert summary["by_backend"]["claude-code"]["input_tokens"] == 10
+    assert summary["by_backend"]["codex"]["output_tokens"] == 5
+    assert summary["by_skill_backend"]["tailoring"]["claude-code"]["total_tokens"] == 10
+    assert summary["by_skill_backend"]["tailoring"]["codex"]["total_tokens"] == 5
+    assert summary["by_skill_backend"]["tailoring"]["total"]["total_tokens"] == 15
+    assert "by_mode" not in summary
+
+
+def test_prune_unattributed_deletes_only_legacy_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "metrics.db"
+    run_id = begin_run(db, backend="codex", session_id="owned", mode="batch")
+    ingest_otlp(db, [TelemetryEvent(backend="codex", session_id="owned", input_tokens=3)])
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """INSERT INTO telemetry_events(run_id,backend,session_id,recorded_at,input_tokens)
+               VALUES('unattributed','codex','old','2026-01-01T00:00:00+00:00',99)"""
+        )
+
+    assert prune_unattributed(db) == 1
+    assert get_telemetry_summary(db)["totals"]["input_tokens"] == 3
+    assert run_id
+
+
+def test_telemetry_prune_cli_reports_deleted_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "outputs" / "state" / "metrics.db"
+    begin_run(db, backend="codex", session_id="owned", mode="batch")
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """INSERT INTO telemetry_events(run_id,backend,session_id,recorded_at,input_tokens)
+               VALUES('unattributed','codex','old','2026-01-01T00:00:00+00:00',99)"""
+        )
+
+    result = runner.invoke(
+        app,
+        ["internal", "telemetry-prune", "--unattributed", "--workspace", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "Deleted 1 unattributed telemetry event(s)." in result.stdout
 
 
 def test_operational_summary_computes_sessions_messages_and_tokens(tmp_path: Path) -> None:

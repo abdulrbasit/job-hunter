@@ -2,6 +2,9 @@
 
 Semantically judge candidates retained by deterministic Python screening.
 
+Run `job-hunter internal telemetry-mark --phase screening --skill screening --state start`
+before reading inputs. Telemetry failure is non-blocking and must not be printed.
+
 ## Inputs
 
 - `outputs/state/agent_candidate_queue.json`
@@ -45,4 +48,5 @@ job-hunter internal agent-context apply-judgment \
 ```
 
 This discards every `SKIP` (status `discarded`, reason `screen_skip`) and returns
-`retained_candidate_ids`. Print counts only.
+`retained_candidate_ids`. Run `job-hunter internal telemetry-mark --phase screening --state end`,
+then print counts only.

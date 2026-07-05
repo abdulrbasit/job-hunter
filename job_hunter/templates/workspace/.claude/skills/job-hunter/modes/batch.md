@@ -31,7 +31,7 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 
 2. Build queue and freeze batch:
    ```bash
-   job-hunter internal telemetry-mark --phase screening --state start
+   job-hunter internal telemetry-mark --phase screening --skill screening --state start
    job-hunter internal agent-context batch --scope briefing-backlog --batch-size 15 \
      --write-queue outputs/state/agent_candidate_queue.json \
      --write-batch outputs/state/agent_candidate_batch.json

@@ -2,6 +2,9 @@
 
 Single responsibility: find relevant public contacts and draft connection requests.
 
+Run `job-hunter internal telemetry-mark --phase linkedin_network --skill linkedin_network --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context outreach-context` → `writing_rules.outreach`.
@@ -23,6 +26,8 @@ Single responsibility: find relevant public contacts and draft connection reques
   conflicting `career_context.md` preference.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase linkedin_network --state end` before printing.
 
 ```
 Networking queue updated -> outputs/linkedin/networking.md

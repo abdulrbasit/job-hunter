@@ -12,7 +12,7 @@ from job_hunter.cli.options import JSON_OPTION, WORKSPACE_OPTION
 
 @app.command()
 def dash() -> None:
-    """Open interactive dashboard (Applications · Insights · Analytics)."""
+    """Open the native web dashboard."""
     from job_hunter.config.loader import ROOT
     from job_hunter.ux.web import launch
 
@@ -26,7 +26,7 @@ def dashboard(
     since: str | None = typer.Option(None, "--since"),
     no_interactive: bool = typer.Option(False, "--no-interactive"),
 ) -> None:
-    """Show application dashboard."""
+    """Open the terminal application dashboard."""
     from job_hunter.tracker import repo_path
     from job_hunter.tracking.applications import filtered_applications
     from job_hunter.ux.terminal.dashboard import render_dashboard, run_interactive_dashboard

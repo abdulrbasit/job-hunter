@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from collections.abc import Callable
 
 from job_hunter.config.loader import get_timeout
 from job_hunter.sources.search import USER_AGENT, extract_jobs_from_html
@@ -86,6 +87,78 @@ def extract_from_rendered_html(
     for job in raw_jobs:
         job["extraction_method"] = "playwright"
     return raw_jobs
+
+
+def extract_playwright_jobs_batch(  # noqa: C901
+    companies: list[dict],
+    title_filters: list[str],
+    excluded_title_terms: list[str] | None = None,
+    *,
+    on_result: Callable[[dict, list[dict]], None] | None = None,
+) -> list[tuple[dict, list[dict]]]:
+    """Render several companies with one browser launch.
+
+    A fresh context/page isolates each company. ``domcontentloaded`` plus a short,
+    bounded settle replaces ``networkidle``, which commonly stalls on analytics
+    and other long-lived requests.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return [(company, []) for company in companies]
+
+    timeout_ms = int(get_timeout("playwright") * 1000)
+    results: list[tuple[dict, list[dict]]] = []
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            try:
+                for company in companies:
+                    context = browser.new_context(user_agent=USER_AGENT)
+                    try:
+                        page = context.new_page()
+                        url = str(company.get("career_url") or "")
+                        if "://" not in url:
+                            url = f"https://{url}"
+                        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                        page.wait_for_timeout(750)
+                        jobs = extract_jobs_from_html(
+                            page.content(),
+                            page.url or url,
+                            str(company.get("name") or ""),
+                            title_filters,
+                            str(company.get("location") or ""),
+                            "career_page:playwright",
+                            excluded_title_terms,
+                        )
+                        for job in jobs:
+                            job["extraction_method"] = "playwright"
+                        results.append((company, jobs))
+                        if on_result:
+                            on_result(company, jobs)
+                    except Exception as exc:
+                        logger.debug(
+                            "[career_pages] Playwright render failed for %s: %s",
+                            company.get("career_url"),
+                            exc,
+                        )
+                        results.append((company, []))
+                        if on_result:
+                            on_result(company, [])
+                    finally:
+                        context.close()
+            finally:
+                browser.close()
+    except Exception as exc:
+        logger.debug("[career_pages] Playwright worker failed: %s", exc)
+        known = {id(company) for company, _jobs in results}
+        for company in companies:
+            if id(company) in known:
+                continue
+            results.append((company, []))
+            if on_result:
+                on_result(company, [])
+    return results
 
 
 def extract_from_static_html(

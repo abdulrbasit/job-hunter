@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -40,13 +41,48 @@ def test_get_applications_returns_json_serializable_dicts(tmp_path: Path) -> Non
     _write_job(tmp_path)
     upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
 
-    apps = DashAPI(tmp_path).get_applications()
+    payload = DashAPI(tmp_path).get_applications()
+    apps = payload["items"]
 
     assert isinstance(apps, list)
+    assert payload["total"] == 1
     assert apps[0]["slug"] == "2026-06-12_acme_pm"
     assert apps[0]["date"] == "2026-06-12"
     assert apps[0]["location"] == "Berlin"
     json.dumps(apps)  # must round-trip through JSON for the JS bridge
+
+
+def test_get_applications_pages_large_result_set_without_heavy_text(tmp_path: Path) -> None:
+    insert_jobs(
+        tmp_path,
+        [
+            {
+                "url": f"https://example.com/{index}",
+                "title": f"Product Manager {index}",
+                "company": "Acme",
+                "snippet": "x" * 10_000,
+            }
+            for index in range(5000)
+        ],
+    )
+    with sqlite3.connect(tmp_path / "outputs" / "state" / "jobs.db") as conn:
+        conn.execute("UPDATE jobs SET status='tailored', slug='job-' || id")
+
+    payload = DashAPI(tmp_path).get_applications(page=2, page_size=50)
+
+    assert payload["total"] == 5000
+    assert payload["page"] == 2
+    assert payload["pages"] == 100
+    assert len(payload["items"]) == 50
+    assert "jd_text" not in payload["items"][0]
+    assert "snippet" not in payload["items"][0]
+
+
+def test_list_page_size_is_capped_and_sort_column_is_whitelisted(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_applications(page_size=999, sort="score; DROP TABLE jobs")
+
+    assert payload["page_size"] == 200
+    assert payload["items"] == []
 
 
 def test_dashboard_table_renders_application_location_and_date() -> None:
@@ -56,6 +92,30 @@ def test_dashboard_table_renders_application_location_and_date() -> None:
     assert 'data-col="location"' in html
     assert "app.location" in html
     assert "app.date" in html
+    assert "debounce(() => { appPage = 1; loadApplications(); })" in html
+    assert "get_applications(appPage, 50" in html
+    assert "get_unprocessed(" in html
+
+
+def test_dashboard_has_safe_shared_states_onboarding_and_keyboard_focus() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'id="onboarding-banner"' in html
+    assert "function loadingHtml(" in html
+    assert "function emptyHtml(" in html
+    assert "function errorHtml(" in html
+    assert ":focus-visible" in html
+    assert "${e}" not in html
+
+
+def test_get_onboarding_returns_count_without_local_paths(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_onboarding()
+
+    assert payload["ok"] is True
+    assert payload["onboardingNeeded"] is True
+    assert payload["missing_count"] > 0
+    assert str(tmp_path) not in str(payload)
 
 
 def test_get_job_detail_reads_from_db(tmp_path: Path) -> None:
@@ -205,7 +265,7 @@ def test_delete_application_removes_record_and_returns_ok(tmp_path: Path) -> Non
     result = DashAPI(tmp_path).delete_application("2026-06-12_acme_pm")
 
     assert result == {"ok": True, "error": ""}
-    assert DashAPI(tmp_path).get_applications() == []
+    assert DashAPI(tmp_path).get_applications()["items"] == []
 
 
 def test_delete_application_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
@@ -216,7 +276,12 @@ def test_delete_application_returns_error_on_failure(tmp_path: Path, monkeypatch
 
     result = DashAPI(tmp_path).delete_application("2026-06-12_acme_pm")
 
-    assert result == {"ok": False, "error": "disk full"}
+    assert result == {
+        "ok": False,
+        "error": "Application could not be deleted.",
+        "next_action": "Reload Applications and retry.",
+    }
+    assert "disk full" not in str(result)
 
 
 def test_delete_applications_batch_removes_all_and_refreshes_readme_once(tmp_path: Path) -> None:
@@ -237,7 +302,7 @@ def test_delete_applications_batch_removes_all_and_refreshes_readme_once(tmp_pat
 
     assert result["ok"] is True
     assert result["deleted"] == 2
-    assert DashAPI(tmp_path).get_applications() == []
+    assert DashAPI(tmp_path).get_applications()["items"] == []
 
 
 def test_delete_applications_batch_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
@@ -248,7 +313,10 @@ def test_delete_applications_batch_returns_error_on_failure(tmp_path: Path, monk
 
     result = DashAPI(tmp_path).delete_applications_batch(["a", "b"])
 
-    assert result == {"ok": False, "error": "disk full", "deleted": 0, "skipped": [], "warnings": []}
+    assert result["ok"] is False
+    assert result["error"] == "Applications could not be deleted."
+    assert result["next_action"]
+    assert "disk full" not in str(result)
 
 
 def test_discard_unprocessed_batch_discards_all_in_one_call(tmp_path: Path) -> None:
@@ -260,14 +328,13 @@ def test_discard_unprocessed_batch_discards_all_in_one_call(tmp_path: Path) -> N
         ],
     )
     api = DashAPI(tmp_path)
-    ids = [job["id"] for job in api.get_unprocessed()["active"]]
+    ids = [job["id"] for job in api.get_unprocessed()["items"]]
 
     result = api.discard_unprocessed_batch(ids)
 
     assert result == {"ok": True, "error": "", "discarded": 2, "skipped": []}
-    payload = api.get_unprocessed()
-    assert payload["active"] == []
-    assert len(payload["discarded"]) == 2
+    assert api.get_unprocessed()["items"] == []
+    assert len(api.get_unprocessed("discarded")["items"]) == 2
 
 
 def test_discard_unprocessed_batch_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
@@ -278,7 +345,9 @@ def test_discard_unprocessed_batch_returns_error_on_failure(tmp_path: Path, monk
 
     result = DashAPI(tmp_path).discard_unprocessed_batch([1, 2])
 
-    assert result == {"ok": False, "error": "db locked", "discarded": 0, "skipped": []}
+    assert result["ok"] is False
+    assert result["error"] == "Candidates could not be discarded."
+    assert result["next_action"]
 
 
 def test_get_insights_returns_json_serializable_report(tmp_path: Path) -> None:
@@ -325,7 +394,8 @@ def test_get_analytics_includes_normalized_telemetry(tmp_path: Path) -> None:
     payload = DashAPI(tmp_path).get_analytics()
 
     assert payload["telemetry"]["totals"]["input_tokens"] == 50
-    assert payload["telemetry"]["by_mode"]["batch"]["output_tokens"] == 10
+    assert payload["telemetry"]["by_skill"]["batch"]["output_tokens"] == 10
+    assert payload["telemetry"]["by_skill_backend"]["batch"]["codex"]["total_tokens"] == 60
 
 
 def test_get_analytics_distinguishes_observed_from_unavailable_tokens(tmp_path: Path) -> None:
@@ -355,6 +425,17 @@ def test_get_analytics_operational_summary_present(tmp_path: Path) -> None:
     op = payload["telemetry"]["operational"]
     assert op["sessions"] == 1
     assert "current_streak" in op and "longest_streak" in op and "active_days" in op
+
+
+def test_dashboard_renders_tokens_by_skill_with_backend_split() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "Tokens by Skill" in html
+    assert "Tokens by Mode" not in html
+    assert "Claude Code Tokens" in html
+    assert "Codex Tokens" in html
+    assert "telemetry.by_skill_backend" in html
 
 
 def test_get_analytics_reports_agent_mode_from_workspace_config(tmp_path: Path) -> None:
@@ -404,8 +485,8 @@ def test_get_unprocessed_separates_real_candidates_from_history_and_hides_url_ca
 
     payload = DashAPI(tmp_path).get_unprocessed()
 
-    assert [job["company"] for job in payload["active"]] == ["Active Co"]
-    assert [job["company"] for job in payload["discarded"]] == ["Past Co"]
+    assert [job["company"] for job in payload["items"]] == ["Active Co"]
+    assert [job["company"] for job in DashAPI(tmp_path).get_unprocessed("discarded")["items"]] == ["Past Co"]
     assert payload["counts"] == {"active": 1, "discarded": 1, "total": 2}
 
 
@@ -415,13 +496,12 @@ def test_discard_unprocessed_moves_a_candidate_to_discarded(tmp_path: Path) -> N
         [{"url": "https://example.com/discard-me", "title": "PM", "company": "Discard Co", "location": "Berlin"}],
     )
     api = DashAPI(tmp_path)
-    job_id = api.get_unprocessed()["active"][0]["id"]
+    job_id = api.get_unprocessed()["items"][0]["id"]
 
     assert api.discard_unprocessed(job_id) == {"ok": True, "error": ""}
 
-    payload = api.get_unprocessed()
-    assert payload["active"] == []
-    assert [job["url"] for job in payload["discarded"]] == ["https://example.com/discard-me"]
+    assert api.get_unprocessed()["items"] == []
+    assert [job["url"] for job in api.get_unprocessed("discarded")["items"]] == ["https://example.com/discard-me"]
 
 
 def test_discard_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
@@ -432,7 +512,9 @@ def test_discard_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatc
 
     result = DashAPI(tmp_path).discard_unprocessed(1)
 
-    assert result == {"ok": False, "error": "db locked"}
+    assert result["ok"] is False
+    assert result["error"] == "Candidate could not be discarded."
+    assert result["next_action"]
 
 
 def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch) -> None:
@@ -443,23 +525,29 @@ def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch
 
     result = DashAPI(tmp_path).delete_unprocessed(1)
 
-    assert result == {"ok": False, "error": "db locked"}
+    assert result["ok"] is False
+    assert result["error"] == "Candidate could not be deleted."
+    assert result["next_action"]
 
 
-def test_run_company_hunt_starts_worker_and_reports_done_with_inserted_count(tmp_path: Path, monkeypatch) -> None:
-    def fake_run(*, on_progress=None) -> int:
-        if on_progress:
-            on_progress({"step": "started", "total": 1})
-            on_progress({"step": "company-checking", "index": 1, "total": 1, "company": "Acme"})
-            on_progress({"step": "company-done", "index": 1, "total": 1, "company": "Acme", "jobs_found": 1})
-            on_progress({"step": "finished", "total": 1, "succeeded": 1, "failed": 0, "jobs_found": 1})
-        insert_jobs(
-            tmp_path,
-            [{"url": "https://example.com/new", "title": "PM", "company": "Acme", "location": "Berlin"}],
-        )
-        return 0
+def _write_career_hunt_config(root: Path, companies: list[dict]) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"job_titles": ["Product Manager"], "exclusions": {}}), encoding="utf-8"
+    )
+    (root / "config" / "career_pages.yml").write_text(yaml.safe_dump({"companies": companies}), encoding="utf-8")
 
-    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+
+def test_run_company_hunt_starts_worker_and_persists_summary(tmp_path: Path, monkeypatch) -> None:
+    _write_career_hunt_config(tmp_path, [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}])
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        "job_hunter.pipeline.browser_hunt.extract_career_page_jobs",
+        lambda company, titles, exclusions: [
+            {"title": titles[0], "company": company["name"], "url": "https://acme.example.com/jobs/1"}
+        ],
+    )
     api = DashAPI(tmp_path)
 
     result = api.run_company_hunt()
@@ -467,18 +555,25 @@ def test_run_company_hunt_starts_worker_and_reports_done_with_inserted_count(tmp
     assert api.run_company_hunt() == {"already_running": True}
     api._hunt_thread.join(timeout=5)
 
-    status = api.get_company_hunt_status()
-    assert status["state"] == "done"
-    assert status["inserted"] == 1
-    assert status["total"] == 1
-    assert status["succeeded"] == 1
-    assert status["failed"] == 0
-    assert status["companies"] == [{"company": "Acme", "status": "ok", "jobs_found": 1}]
-    assert "1 new candidate found" in status["message"]
+    summary = api.get_company_hunt_summary()
+    assert summary["ok"] is True
+    assert summary["running"] is False
+    run = summary["run"]
+    assert run["status"] == "done"
+    assert run["total"] == 1
+    assert run["succeeded"] == 1
+    assert run["failed"] == 0
+    assert run["jobs_inserted"] == 1
+    assert "1 new candidate found" in summary["message"]
+    json.dumps(summary)
+
+    # a second call can start a fresh run now that the worker has finished
+    assert api.run_company_hunt() == {"started": True}
+    api._hunt_thread.join(timeout=5)
 
 
-def test_run_company_hunt_reports_error_status_on_failure(tmp_path: Path, monkeypatch) -> None:
-    def boom(*, on_progress=None) -> int:
+def test_run_company_hunt_worker_crash_resets_running_flag(tmp_path: Path, monkeypatch) -> None:
+    def boom(*, mode="new_changed", cooldown_hours=24, on_progress=None) -> int:
         raise RuntimeError("scrape failed")
 
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", boom)
@@ -487,106 +582,90 @@ def test_run_company_hunt_reports_error_status_on_failure(tmp_path: Path, monkey
     api.run_company_hunt()
     api._hunt_thread.join(timeout=5)
 
-    status = api.get_company_hunt_status()
-    assert status["state"] == "error"
-    assert "scrape failed" not in status["error"]
-    assert "went wrong" in status["error"]
+    assert api.run_company_hunt() == {"started": True}
+    api._hunt_thread.join(timeout=5)
 
 
-def test_run_company_hunt_reports_fatal_reason_from_progress_event(tmp_path: Path, monkeypatch) -> None:
-    def fake_run(*, on_progress) -> int:
-        on_progress({"step": "fatal", "reason": "Company list is missing."})
-        return 1
+def test_get_company_hunt_summary_message_reports_partial_failures(tmp_path: Path, monkeypatch) -> None:
+    _write_career_hunt_config(
+        tmp_path,
+        [
+            {"name": "A", "career_url": "https://a.example.com/jobs"},
+            {"name": "B", "career_url": "https://b.example.com/jobs"},
+            {"name": "C", "career_url": "https://c.example.com/jobs"},
+        ],
+    )
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
 
-    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    def fake_extract(company, titles, exclusions):
+        if company["name"] == "C":
+            raise ConnectionError("couldn't connect")
+        return [{"title": titles[0], "company": company["name"], "url": f"https://example.com/{company['name']}"}]
+
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.extract_career_page_jobs", fake_extract)
     api = DashAPI(tmp_path)
 
     api.run_company_hunt()
     api._hunt_thread.join(timeout=5)
 
-    assert api.get_company_hunt_status() == {"state": "error", "error": "Company list is missing."}
+    summary = api.get_company_hunt_summary()
+    assert summary["message"] == "2 of 3 companies checked (1 couldn't be reached). 2 new candidates found."
+    assert summary["run"]["failed"] == 1
 
 
-def test_run_company_hunt_summarizes_partial_failures_in_message(tmp_path: Path, monkeypatch) -> None:
-    def fake_run(*, on_progress) -> int:
-        on_progress({"step": "started", "total": 3})
-        on_progress({"step": "company-done", "company": "A", "jobs_found": 1})
-        on_progress({"step": "company-done", "company": "B", "jobs_found": 1})
-        on_progress({"step": "company-failed", "company": "C", "reason": "couldn't be reached"})
-        on_progress({"step": "finished", "total": 3, "succeeded": 2, "failed": 1, "jobs_found": 2})
-        insert_jobs(
-            tmp_path,
-            [
-                {"url": "https://example.com/a", "title": "PM", "company": "A"},
-                {"url": "https://example.com/b", "title": "PM", "company": "B"},
-            ],
-        )
-        return 0
-
-    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+def test_get_company_hunt_updates_returns_tasks_incrementally_since_cursor(tmp_path: Path, monkeypatch) -> None:
+    _write_career_hunt_config(
+        tmp_path,
+        [
+            {"name": "A", "career_url": "https://a.example.com/jobs"},
+            {"name": "B", "career_url": "https://b.example.com/jobs"},
+        ],
+    )
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        "job_hunter.pipeline.browser_hunt.extract_career_page_jobs",
+        lambda company, titles, exclusions: [],
+    )
     api = DashAPI(tmp_path)
 
     api.run_company_hunt()
     api._hunt_thread.join(timeout=5)
+    run_id = api.get_company_hunt_summary()["run"]["id"]
 
-    status = api.get_company_hunt_status()
-    assert status["message"] == "2 of 3 companies checked (1 couldn't be reached). 2 new candidates found."
-    assert status["failed"] == 1
+    all_updates = api.get_company_hunt_updates(run_id, after_id=0)
+    assert [t["company_name"] for t in all_updates["tasks"]] == ["A", "B"]
+    cursor = all_updates["cursor"]
 
-
-def test_get_company_hunt_status_companies_list_is_a_snapshot_copy(tmp_path: Path, monkeypatch) -> None:
-    def fake_run(*, on_progress) -> int:
-        on_progress({"step": "started", "total": 1})
-        on_progress({"step": "company-done", "company": "Acme", "jobs_found": 0})
-        on_progress({"step": "finished", "total": 1, "succeeded": 1, "failed": 0, "jobs_found": 0})
-        return 0
-
-    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
-    api = DashAPI(tmp_path)
-
-    api.run_company_hunt()
-    api._hunt_thread.join(timeout=5)
-
-    first = api.get_company_hunt_status()
-    first["companies"].append({"company": "injected", "status": "ok", "jobs_found": 0})
-
-    second = api.get_company_hunt_status()
-    assert second["companies"] == [{"company": "Acme", "status": "ok", "jobs_found": 0}]
+    further = api.get_company_hunt_updates(run_id, after_id=cursor)
+    assert further["tasks"] == []
+    assert further["cursor"] == cursor
 
 
-def test_run_company_hunt_status_reflects_live_progress_while_running(tmp_path: Path, monkeypatch) -> None:
+def test_run_company_hunt_reflects_running_state_while_in_progress(tmp_path: Path, monkeypatch) -> None:
     import threading
 
     release = threading.Event()
+    _write_career_hunt_config(tmp_path, [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}])
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
 
-    def fake_run(*, on_progress) -> int:
-        on_progress({"step": "started", "total": 2})
-        on_progress({"step": "company-checking", "index": 1, "total": 2, "company": "Acme"})
+    def blocking_extract(company, titles, exclusions):
         release.wait(timeout=5)
-        on_progress({"step": "company-done", "company": "Acme", "jobs_found": 0})
-        on_progress({"step": "finished", "total": 2, "succeeded": 1, "failed": 0, "jobs_found": 0})
-        return 0
+        return []
 
-    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.run", fake_run)
+    monkeypatch.setattr("job_hunter.pipeline.browser_hunt.extract_career_page_jobs", blocking_extract)
     api = DashAPI(tmp_path)
 
     api.run_company_hunt()
     try:
-        for _ in range(50):
-            mid_status = api.get_company_hunt_status()
-            if mid_status.get("current_company") == "Acme":
-                break
-            import time
-
-            time.sleep(0.05)
-        else:
-            raise AssertionError("worker never reported live progress")
-        assert mid_status["state"] == "running"
-        assert mid_status["total"] == 2
-        assert mid_status["checked"] == 0
+        assert api.get_company_hunt_summary()["running"] is True
     finally:
         release.set()
         api._hunt_thread.join(timeout=5)
+
+    assert api.get_company_hunt_summary()["running"] is False
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:
@@ -623,6 +702,19 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     assert ".badge-rejected  { background: rgba(248,81,73" in html
 
 
+def test_dashboard_company_hunt_uses_persisted_summary_polling_with_run_modes() -> None:
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert 'id="company-hunt-mode"' in html
+    for mode in ("new_changed", "failed_only", "force_all", "resume"):
+        assert f'value="{mode}"' in html
+    assert "get_company_hunt_summary" in html
+    assert "get_company_hunt_updates" in html
+    assert "get_company_hunt_status" not in html
+    assert "function appendCompanyHuntUpdates" in html
+
+
 def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None:
     """Untrusted scrape data (slugs, ids) must travel via data-* attributes and
     delegated listeners, not string-interpolated into inline onclick/onchange —
@@ -637,7 +729,7 @@ def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None
     assert "data-delete-id=" in html
     assert "data-slug=" in html
     assert "function companyHuntRowHtml" in html
-    assert "esc(row.company" in html
+    assert "esc(task.company_name" in html
 
 
 def test_dashboard_uses_safe_url_for_scraped_job_links() -> None:
@@ -867,6 +959,37 @@ def test_get_career_pages_returns_companies_and_revision(tmp_path: Path) -> None
     json.dumps(result)
 
 
+def test_get_career_pages_decorates_with_latest_hunt_result(tmp_path: Path) -> None:
+    from job_hunter.tracking import company_hunts
+
+    _write_career_pages(
+        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
+    )
+    run_id = company_hunts.begin_run(tmp_path, company_hunts.MODE_NEW_CHANGED)
+    company_hunts.create_tasks(
+        tmp_path, run_id, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], status=company_hunts.PENDING
+    )
+    task_id = company_hunts.get_pending_tasks(tmp_path, run_id)[0]["id"]
+    company_hunts.finish_task(tmp_path, task_id, run_id, status=company_hunts.OK, jobs_observed=2, jobs_inserted=1)
+
+    result = DashAPI(tmp_path).get_career_pages()
+
+    latest = result["data"]["companies"][0]["latest_result"]
+    assert latest["status"] == "ok"
+    assert latest["jobs_inserted"] == 1
+    json.dumps(result)
+
+
+def test_get_career_pages_reports_none_for_never_checked_company(tmp_path: Path) -> None:
+    _write_career_pages(
+        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
+    )
+
+    result = DashAPI(tmp_path).get_career_pages()
+
+    assert result["data"]["companies"][0]["latest_result"] is None
+
+
 def test_save_career_pages_adds_a_company(tmp_path: Path) -> None:
     _write_career_pages(tmp_path)
     api = DashAPI(tmp_path)
@@ -879,7 +1002,7 @@ def test_save_career_pages_adds_a_company(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     assert result["data"]["companies"] == [
-        {"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}
+        {"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin", "latest_result": None}
     ]
 
 
@@ -997,6 +1120,19 @@ def test_dashboard_contains_companies_nav_and_table() -> None:
     assert "open_career_page" in html
     assert "open_career_pages_file" in html
     assert "open_config_folder" in html
+    assert "function companyLatestResultHtml" in html
+    assert "company.latest_result" in html
+
+
+def test_dashboard_companies_table_windows_large_lists_instead_of_rendering_everything() -> None:
+    """A 2,000-company career_pages.yml must not build one giant innerHTML string up
+    front — the initial render is capped, with a "Show more" affordance to grow it."""
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    assert "companyRenderLimit" in html
+    assert "function showMoreCompanies" in html
+    assert "filtered.slice(0, companyRenderLimit)" in html
 
 
 def test_dashboard_companies_table_uses_delegated_listeners_not_inline_row_handlers() -> None:
@@ -1021,6 +1157,24 @@ def test_dashboard_applications_have_bulk_delete_checkboxes() -> None:
     assert "function toggleSelectAllApps" in html
     assert "delete_applications_batch" in html
     assert 'onclick="deleteApp(${' not in html
+
+
+def test_dashboard_status_save_and_deletes_reload_current_page_not_page_one() -> None:
+    """saveStatus/deleteApp/bulkDeleteApplications must not bump the user back to
+    page 1 of the applications list — they should reload in place via
+    loadApplications(), not applyFilters() (which resets appPage to 1)."""
+    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
+    html = dashboard.read_text(encoding="utf-8")
+
+    def function_body(name: str) -> str:
+        start = html.index(f"async function {name}(")
+        end = html.index("\n}\n", start)
+        return html[start:end]
+
+    for name in ("saveStatus", "deleteApp", "bulkDeleteApplications"):
+        body = function_body(name)
+        assert "loadApplications();" in body, f"{name} must reload via loadApplications()"
+        assert "applyFilters();" not in body, f"{name} must not reset pagination via applyFilters()"
 
 
 def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() -> None:

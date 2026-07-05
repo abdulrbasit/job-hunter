@@ -17,7 +17,7 @@ Slug: `$ARGUMENTS`
 
 ## Steps
 
-1. Run `job-hunter internal telemetry-mark --phase tailoring --job <slug> --state start`, then
+1. Run `job-hunter internal telemetry-mark --phase tailoring --skill tailoring --job <slug> --state start`, then
    `job-hunter internal agent-context tailor-context --job <slug>`.
    Apply every field exactly as delivered — these are the same constraints that llm-api mode uses.
    `writing_rules` are universal (code-owned): apply them plus any `career_context.md` style
@@ -50,7 +50,7 @@ Slug: `$ARGUMENTS`
      skill appears that was not in the base resume or matched Final stories, revert that line
      to the original base resume text. Do not substitute an alternative — revert.
 6. Run `job-hunter internal telemetry-mark --phase tailoring --state end`, then
-   `job-hunter internal telemetry-mark --phase cover-letter --job <slug> --state start`.
+   `job-hunter internal telemetry-mark --phase cover_letter --skill cover_letter --job <slug> --state start`.
    Write `outputs/jobs/<slug>/cover_letter.md`:
    - Apply `writing_rules.cover_letter` and `writing_rules.evidence` — universal, win over any conflicting style preference.
    - Tone: `cover_constraints.tone`.
@@ -62,8 +62,8 @@ Slug: `$ARGUMENTS`
    - Follow every rule in `cover_constraints.style_rules`.
    - No story IDs, no markdown headers, no bullet points — plain text only.
    - Start directly with the first sentence of the letter body.
-7. Run `job-hunter internal telemetry-mark --phase cover-letter --state end`, then
-   `job-hunter internal telemetry-mark --phase pdf --job <slug> --state start`, then:
+7. Run `job-hunter internal telemetry-mark --phase cover_letter --state end`, then
+   `job-hunter internal telemetry-mark --phase pdf --skill pdf --job <slug> --state start`, then:
    ```bash
    job-hunter internal compile-pdf --job <slug>
    ```

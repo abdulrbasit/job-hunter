@@ -200,6 +200,11 @@ main {
 }
 .search-input:focus { outline: none; border-color: var(--blue); }
 .search-input::placeholder { color: var(--text-muted); }
+.pager { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:10px 14px; color:var(--text-muted); font-size:12px; }
+.onboarding-banner { margin:12px 20px 0; padding:10px 14px; border:1px solid var(--amber); border-radius:8px; background:rgba(245,158,11,.08); font-size:13px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
 .filter-select {
   padding: 6px 10px;
   background: var(--surface2);
@@ -744,12 +749,13 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
     <span class="topbar-spacer"></span>
     <button class="btn" onclick="refreshAll()">↺ Refresh</button>
   </div>
+  <div class="onboarding-banner" id="onboarding-banner" style="display:none"></div>
 
   <!-- Applications view -->
   <section id="view-applications" class="view active">
     <div class="app-panel">
       <div class="filter-bar">
-        <input class="search-input" type="text" id="search-input" placeholder="Search company or title…" oninput="applyFilters()">
+        <input class="search-input" type="text" id="search-input" placeholder="Search company or title…" oninput="debouncedLoadApplications()">
         <div class="status-tabs" id="status-tabs">
           <button class="status-tab active" data-status="">All</button>
           <button class="status-tab" data-status="tailored">Tailored</button>
@@ -780,6 +786,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
           </tbody>
         </table>
       </div>
+      <div class="pager" id="app-pager"></div>
     </div>
 
     <!-- Detail panel -->
@@ -854,7 +861,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
   <section id="view-unprocessed" class="view">
     <div class="app-panel">
       <div class="filter-bar">
-        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…" oninput="renderCandidates()">
+        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…" oninput="debouncedLoadCandidates()">
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
@@ -881,8 +888,15 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
           </tbody>
         </table>
       </div>
+      <div class="pager" id="candidate-pager"></div>
       <div class="company-hunt-panel" id="company-hunt-panel" style="display:none">
         <div class="run-header">
+          <select class="filter-select" id="company-hunt-mode">
+            <option value="new_changed">New / changed</option>
+            <option value="failed_only">Failed only</option>
+            <option value="force_all">Force all</option>
+            <option value="resume">Resume</option>
+          </select>
           <button class="btn btn-primary" id="run-company-hunt-btn" onclick="runCompanyHunt()">Run Company Hunt</button>
           <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
           <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
@@ -1091,6 +1105,8 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
 // ── State ──
 let allApps = [];
 let filteredApps = [];
+let appPage = 1;
+let appPageData = { total: 0, page: 1, page_size: 50, pages: 1 };
 let activeStatus = '';
 let activeSlug = null;
 let selectedAppSlugs = new Set();
@@ -1102,7 +1118,8 @@ let statusChart = null;
 let weekChart = null;
 let activeArtifact = null;
 let artifactObjectUrl = null;
-let candidateData = { active: [], discarded: [], counts: { active: 0, discarded: 0, total: 0 } };
+let candidateData = { items: [], counts: { active: 0, discarded: 0, total: 0 }, page: 1, page_size: 50, pages: 1 };
+let candidatePage = 1;
 let candidateScope = 'active';
 let selectedCandidateIds = new Set();
 let settingsLoaded = false;
@@ -1123,6 +1140,31 @@ let companiesRevision = null;
 let companyEnabledFilter = '';
 let selectedCompanyUrls = new Set();
 let editingCompanyUrl = null;
+const COMPANY_RENDER_STEP = 500;
+let companyRenderLimit = COMPANY_RENDER_STEP;
+
+function debounce(fn, delay=250) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+const debouncedLoadApplications = debounce(() => { appPage = 1; loadApplications(); });
+const debouncedLoadCandidates = debounce(() => { candidatePage = 1; loadUnprocessed(); });
+
+function loadingHtml(label='Loading…') {
+  return `<div class="loading-wrap"><span class="spinner"></span> ${esc(label)}</div>`;
+}
+function emptyHtml(message) {
+  return `<div class="no-data">${esc(message)}</div>`;
+}
+function errorHtml(message, nextAction='Retry, then run job-hunter doctor if the problem continues.') {
+  return `<div class="no-data">${esc(message)} ${esc(nextAction)}</div>`;
+}
+function reportFailure(message, nextAction='Reload this view and retry.') {
+  alert(`${message} ${nextAction}`);
+}
 
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
@@ -1134,7 +1176,27 @@ async function initAll() {
     const name = await window.pywebview.api.get_user_name();
     if (name) document.getElementById('sidebar-name').textContent = name;
   } catch(_) {}
+  await loadOnboarding();
   await refreshAll();
+}
+
+async function loadOnboarding() {
+  const banner = document.getElementById('onboarding-banner');
+  try {
+    const result = await window.pywebview.api.get_onboarding();
+    if (result.ok && result.onboardingNeeded) {
+      banner.textContent = `Setup incomplete: ${result.missing_count} required item(s) remain. Run job-hunter doctor for exact next steps.`;
+      banner.style.display = '';
+    } else if (!result.ok) {
+      banner.textContent = `${result.error} ${result.next_action}`;
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch(_) {
+    banner.textContent = 'Setup status is unavailable. Run job-hunter doctor in the workspace.';
+    banner.style.display = '';
+  }
 }
 
 // ── Navigation ──
@@ -1216,7 +1278,9 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     document.getElementById('company-hunt-panel').style.display = isHunt ? 'flex' : 'none';
     document.getElementById('candidate-search').style.display = isHunt ? 'none' : '';
     document.getElementById('candidate-total-count').style.display = isHunt ? 'none' : '';
-    if (isHunt) { refreshCompanyHuntPanel(); } else { renderCandidates(); }
+    document.getElementById('candidate-pager').style.display = isHunt ? 'none' : '';
+    candidatePage = 1;
+    if (isHunt) { refreshCompanyHuntPanel(); } else { loadUnprocessed(); }
   });
 });
 
@@ -1266,66 +1330,100 @@ async function refreshAll() {
 
 async function loadApplications() {
   try {
-    allApps = await window.pywebview.api.get_applications();
-    document.getElementById('total-count').textContent = allApps.length;
-    applyFilters();
+    const query = document.getElementById('search-input').value;
+    const direction = sortDir === -1 ? 'desc' : 'asc';
+    appPageData = await window.pywebview.api.get_applications(appPage, 50, query, activeStatus, sortCol, direction);
+    // A delete can leave appPage past the new last page — step back once rather
+    // than rendering an empty page while later pages still have rows.
+    if (appPageData.total > 0 && appPage > appPageData.pages) {
+      appPage = appPageData.pages;
+      return loadApplications();
+    }
+    allApps = appPageData.items || [];
+    filteredApps = allApps;
+    appPage = appPageData.page;
+    document.getElementById('total-count').textContent = appPageData.total;
+    renderTable();
+    renderAppPager();
   } catch(e) {
-    document.getElementById('app-tbody').innerHTML = `<tr><td colspan="8"><div class="no-data">Failed to load applications: ${e}</div></td></tr>`;
+    document.getElementById('app-tbody').innerHTML = `<tr><td colspan="8">${errorHtml('Applications could not be loaded.')}</td></tr>`;
   }
 }
 
 let companyHuntPolling = false;
+let companyHuntRunId = null;
+let companyHuntCursor = 0;
 
-function companyHuntRowHtml(row) {
-  const statusLabel = row.status === 'ok' ? 'Found' : "Couldn't check";
-  const detail = row.status === 'ok' ? String(row.jobs_found ?? 0) : esc(row.reason || '');
-  return `<tr><td>${esc(row.company || '')}</td><td>${statusLabel}</td><td>${detail}</td></tr>`;
+function companyHuntRowHtml(task) {
+  const statusLabel = { ok: 'Found', failed: "Couldn't check", skipped: 'Skipped', running: 'Checking…' }[task.status] || task.status;
+  const detail = task.status === 'ok' ? String(task.jobs_inserted ?? 0)
+    : task.status === 'skipped' ? 'recently checked'
+    : esc(task.failure_reason || '');
+  return `<tr><td>${esc(task.company_name || '')}</td><td>${statusLabel}</td><td>${detail}</td></tr>`;
 }
 
-function renderCompanyHuntStatus(status) {
+function renderCompanyHuntSummary(summary) {
   const btn = document.getElementById('run-company-hunt-btn');
   const messageEl = document.getElementById('company-hunt-message');
-  const tbody = document.getElementById('company-hunt-tbody');
-  const companies = status.companies || [];
+  const run = summary.run;
 
-  document.getElementById('ch-checked').textContent = status.total ? `${status.checked ?? companies.length} / ${status.total}` : '—';
-  document.getElementById('ch-found').textContent = companies.reduce((n, c) => n + (c.jobs_found || 0), 0);
-  document.getElementById('ch-issues').textContent = companies.filter(c => c.status === 'failed').length;
+  document.getElementById('ch-checked').textContent = run ? `${(run.succeeded || 0) + (run.failed || 0)} / ${run.total || 0}` : '—';
+  document.getElementById('ch-found').textContent = run ? (run.jobs_inserted ?? 0) : '—';
+  document.getElementById('ch-issues').textContent = run ? (run.failed ?? 0) : '—';
 
-  if (status.state === 'running') {
+  if (summary.running) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span> Checking ${status.checked ?? 0} of ${status.total ?? '?'} — ${esc(status.current_company || '…')}`;
+    btn.innerHTML = `<span class="spinner"></span> Checking…`;
   } else {
     btn.disabled = false;
     btn.textContent = 'Run Company Hunt';
   }
 
-  if (status.state === 'error') {
-    messageEl.textContent = status.error || 'Something went wrong.';
-    messageEl.style.display = '';
-  } else if (status.state === 'done' && status.message) {
-    messageEl.textContent = status.message;
+  if (run && (run.status === 'error' || (run.status === 'done' && summary.message))) {
+    messageEl.textContent = summary.message || 'Something went wrong.';
     messageEl.style.display = '';
   } else {
     messageEl.style.display = 'none';
   }
+}
 
-  tbody.innerHTML = companies.length
-    ? companies.map(companyHuntRowHtml).join('')
-    : '<tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>';
+// Appends only tasks finished since companyHuntCursor — never re-renders the whole
+// table, so a 2,000-company run doesn't repaint 2,000 rows on every 2s poll.
+async function appendCompanyHuntUpdates() {
+  if (!companyHuntRunId) return;
+  const result = await window.pywebview.api.get_company_hunt_updates(companyHuntRunId, companyHuntCursor);
+  if (!result.tasks.length) return;
+  companyHuntCursor = result.cursor;
+  const tbody = document.getElementById('company-hunt-tbody');
+  if (tbody.querySelector('.no-data')) tbody.innerHTML = '';
+  tbody.insertAdjacentHTML('beforeend', result.tasks.map(companyHuntRowHtml).join(''));
 }
 
 async function refreshCompanyHuntPanel() {
   try {
-    renderCompanyHuntStatus(await window.pywebview.api.get_company_hunt_status());
+    const summary = await window.pywebview.api.get_company_hunt_summary();
+    renderCompanyHuntSummary(summary);
+    companyHuntRunId = summary.run ? summary.run.id : null;
+    companyHuntCursor = 0;
+    if (summary.run) {
+      document.getElementById('company-hunt-tbody').innerHTML = '';
+      await appendCompanyHuntUpdates();
+    } else {
+      document.getElementById('company-hunt-tbody').innerHTML = '<tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>';
+    }
+    if (summary.running) pollCompanyHuntStatus();
   } catch(e) {
-    document.getElementById('company-hunt-tbody').innerHTML = `<tr><td colspan="3"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
+    document.getElementById('company-hunt-tbody').innerHTML = `<tr><td colspan="3">${errorHtml('Company Hunt could not be loaded.')}</td></tr>`;
   }
 }
 
 async function runCompanyHunt() {
-  const result = await window.pywebview.api.run_company_hunt();
+  const mode = document.getElementById('company-hunt-mode').value;
+  const result = await window.pywebview.api.run_company_hunt(mode);
   if (result.already_running) return;
+  document.getElementById('company-hunt-tbody').innerHTML = '';
+  companyHuntRunId = null;
+  companyHuntCursor = 0;
   pollCompanyHuntStatus();
 }
 
@@ -1334,10 +1432,14 @@ async function pollCompanyHuntStatus() {
   companyHuntPolling = true;
   try {
     while (true) {
-      const status = await window.pywebview.api.get_company_hunt_status();
-      renderCompanyHuntStatus(status);
-      if (status.state !== 'running') {
-        if (status.state === 'done') await loadUnprocessed();
+      const summary = await window.pywebview.api.get_company_hunt_summary();
+      renderCompanyHuntSummary(summary);
+      if (summary.run) {
+        companyHuntRunId = summary.run.id;
+        await appendCompanyHuntUpdates();
+      }
+      if (!summary.running) {
+        if (summary.run && summary.run.status === 'done') await loadUnprocessed();
         break;
       }
       await new Promise(r => setTimeout(r, 2000));
@@ -1350,26 +1452,30 @@ async function pollCompanyHuntStatus() {
 async function loadUnprocessed() {
   const tbody = document.getElementById('unprocessed-tbody');
   try {
-    candidateData = await window.pywebview.api.get_unprocessed();
+    candidateData = await window.pywebview.api.get_unprocessed(
+      candidateScope,
+      candidatePage,
+      50,
+      document.getElementById('candidate-search').value
+    );
+    candidatePage = candidateData.page;
     document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
     document.getElementById('candidate-discarded-count').textContent = candidateData.counts.discarded;
     document.getElementById('candidate-total-count').textContent = `${candidateData.counts.total} candidates`;
     renderCandidates();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${e}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">${errorHtml('Candidates could not be loaded.')}</td></tr>`;
   }
 }
 
 function renderCandidates() {
   const tbody = document.getElementById('unprocessed-tbody');
-  const query = document.getElementById('candidate-search').value.toLowerCase();
-  const jobs = (candidateData[candidateScope] || []).filter(job =>
-    !query || `${job.company || ''} ${job.title || ''} ${job.location || ''}`.toLowerCase().includes(query)
-  );
+  const jobs = candidateData.items || [];
   document.getElementById('candidate-select-all').style.visibility = candidateScope === 'active' ? 'visible' : 'hidden';
   if (!jobs.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
     updateDiscardButton();
+    renderCandidatePager();
     return;
   }
   tbody.innerHTML = jobs.map((job, i) => `<tr>
@@ -1382,6 +1488,21 @@ function renderCandidates() {
       <td>${candidateScope === 'active' ? `<button class="btn btn-danger" data-delete-id="${job.id}">🗑</button>` : ''}</td>
     </tr>`).join('');
   updateDiscardButton();
+  renderCandidatePager();
+}
+
+function renderCandidatePager() {
+  const el = document.getElementById('candidate-pager');
+  el.innerHTML = `<button class="btn" ${candidatePage <= 1 ? 'disabled' : ''} onclick="changeCandidatePage(-1)">Previous</button>
+    <span>Page ${candidateData.page || 1} of ${candidateData.pages || 1} · ${candidateData.total || 0} results</span>
+    <button class="btn" ${candidatePage >= (candidateData.pages || 1) ? 'disabled' : ''} onclick="changeCandidatePage(1)">Next</button>`;
+}
+
+function changeCandidatePage(delta) {
+  const next = candidatePage + delta;
+  if (next < 1 || next > (candidateData.pages || 1)) return;
+  candidatePage = next;
+  loadUnprocessed();
 }
 
 function toggleCandidateSelected(id, checked) {
@@ -1416,18 +1537,18 @@ async function discardSelected() {
     selectedCandidateIds.clear();
     loadUnprocessed();
   } catch(e) {
-    alert('Discard failed: ' + e);
+    reportFailure('Candidates could not be discarded.');
   }
 }
 
 async function deleteUnprocessed(id) {
-  if (!confirm('Delete this job from the database? Cannot be undone.')) return;
+  if (!confirm('Delete 1 candidate from the database? This cannot be undone.')) return;
   try {
     const result = await window.pywebview.api.delete_unprocessed(id);
     if (!result.ok) { alert('Delete failed: ' + result.error); return; }
     loadUnprocessed();
   } catch(e) {
-    alert('Delete failed: ' + e);
+    reportFailure('Candidate could not be deleted.');
   }
 }
 
@@ -1439,7 +1560,7 @@ async function loadInsights() {
     const data = await window.pywebview.api.get_insights();
     renderInsights(data, section);
   } catch(e) {
-    section.innerHTML = `<div class="no-data">Failed: ${e}</div>`;
+    section.innerHTML = errorHtml('Insights could not be loaded.');
   }
 }
 
@@ -1451,27 +1572,14 @@ async function loadAnalytics() {
     const data = await window.pywebview.api.get_analytics();
     renderAnalytics(data, section);
   } catch(e) {
-    section.innerHTML = `<div class="no-data">Failed: ${e}</div>`;
+    section.innerHTML = errorHtml('Analytics could not be loaded.');
   }
 }
 
 // ── Filters & sort ──
 function applyFilters() {
-  const q = document.getElementById('search-input').value.toLowerCase();
-  filteredApps = allApps.filter(app => {
-    const matchStatus = !activeStatus || app.status === activeStatus;
-    const matchSearch = !q || (app.company || '').toLowerCase().includes(q) || (app.title || '').toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  });
-  filteredApps.sort((a, b) => {
-    let va = a[sortCol] ?? '';
-    let vb = b[sortCol] ?? '';
-    if (sortCol === 'score') { va = Number(va) || 0; vb = Number(vb) || 0; }
-    if (va < vb) return sortDir;
-    if (va > vb) return -sortDir;
-    return 0;
-  });
-  renderTable();
+  appPage = 1;
+  loadApplications();
 }
 
 function sortBy(col) {
@@ -1481,7 +1589,8 @@ function sortBy(col) {
     th.classList.remove('sort-asc', 'sort-desc');
     if (th.dataset.col === col) th.classList.add(sortDir === -1 ? 'sort-desc' : 'sort-asc');
   });
-  applyFilters();
+  appPage = 1;
+  loadApplications();
 }
 
 // ── Render table ──
@@ -1501,7 +1610,7 @@ function renderTable() {
     const checked = selectedAppSlugs.has(app.slug) ? 'checked' : '';
     return `<tr data-slug="${esc(app.slug)}"${sel}>
       <td class="td-num"><input type="checkbox" class="app-checkbox" data-slug="${esc(app.slug)}" ${checked}></td>
-      <td class="td-num">${i + 1}</td>
+      <td class="td-num">${(appPage - 1) * (appPageData.page_size || 50) + i + 1}</td>
       <td class="td-company">${esc(app.company || '—')}</td>
       <td class="td-title">${esc(app.title || '—')}</td>
       <td>${esc(app.location || app.region || '—')}</td>
@@ -1513,6 +1622,20 @@ function renderTable() {
   updateAppBulkDeleteButton();
 }
 
+function renderAppPager() {
+  const el = document.getElementById('app-pager');
+  el.innerHTML = `<button class="btn" ${appPage <= 1 ? 'disabled' : ''} onclick="changeAppPage(-1)">Previous</button>
+    <span>Page ${appPageData.page || 1} of ${appPageData.pages || 1} · ${appPageData.total || 0} results</span>
+    <button class="btn" ${appPage >= (appPageData.pages || 1) ? 'disabled' : ''} onclick="changeAppPage(1)">Next</button>`;
+}
+
+function changeAppPage(delta) {
+  const next = appPage + delta;
+  if (next < 1 || next > (appPageData.pages || 1)) return;
+  appPage = next;
+  loadApplications();
+}
+
 // ── Detail panel ──
 async function selectApp(slug) {
   activeSlug = slug;
@@ -1522,7 +1645,7 @@ async function selectApp(slug) {
     const detail = await window.pywebview.api.get_job_detail(slug);
     populateDetail(slug, detail);
   } catch(e) {
-    document.getElementById('dp-jd').textContent = 'Failed to load: ' + e;
+    document.getElementById('dp-jd').textContent = 'Job details could not be loaded. Retry, then run job-hunter doctor if the problem continues.';
   }
 }
 
@@ -1582,8 +1705,7 @@ function populateDetail(slug, detail) {
   if (firstAvailable) selectArtifact(firstAvailable.key);
 
   // notes from app
-  const app = allApps.find(a => a.slug === slug);
-  const notes = (app && app.notes) || [];
+  const notes = detail.notes || [];
   const notesEl = document.getElementById('dp-notes');
   if (notes.length) {
     notesEl.innerHTML = notes.map(n => `<div class="note-item">${esc(String(n))}</div>`).join('');
@@ -1682,12 +1804,13 @@ async function saveStatus() {
     const idx = allApps.findIndex(a => a.slug === activeSlug);
     if (idx >= 0) { allApps[idx] = { ...allApps[idx], ...result }; }
     msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
-    applyFilters();
+    loadApplications(); // reload the current page in place — a status edit must not bump the user back to page 1
     setTimeout(() => { msg.textContent = ''; }, 2000);
     document.getElementById('dp-note').value = '';
     insightsLoaded = false; // invalidate insights cache
   } catch(e) {
-    msg.textContent = '✗ ' + e; msg.style.color = '#f85149';
+    msg.textContent = '✗ Status could not be saved. Retry, then run job-hunter doctor if the problem continues.';
+    msg.style.color = '#f85149';
   }
 }
 
@@ -1702,11 +1825,10 @@ async function deleteApp() {
     allApps = allApps.filter(a => a.slug !== activeSlug);
     selectedAppSlugs.delete(activeSlug);
     closeDetail();
-    applyFilters();
-    document.getElementById('total-count').textContent = allApps.length;
+    loadApplications(); // reload the current page in place — a delete must not bump the user back to page 1
     insightsLoaded = false;
   } catch(e) {
-    alert('Delete failed: ' + e);
+    reportFailure('Application could not be deleted.');
   }
 }
 
@@ -1739,12 +1861,11 @@ async function bulkDeleteApplications() {
     allApps = allApps.filter(a => !slugs.includes(a.slug));
     selectedAppSlugs.clear();
     if (slugs.includes(activeSlug)) closeDetail();
-    applyFilters();
-    document.getElementById('total-count').textContent = allApps.length;
+    loadApplications(); // reload the current page in place — a delete must not bump the user back to page 1
     insightsLoaded = false;
     if (result.warnings && result.warnings.length) alert(result.warnings.join('\n'));
   } catch(e) {
-    alert('Delete failed: ' + e);
+    reportFailure('Applications could not be deleted.');
   }
 }
 
@@ -1889,7 +2010,7 @@ function renderAnalytics(data, container) {
   const normalizedTotals = telemetry.totals || {};
   const outcomes = telemetry.outcomes || {};
   const operational = telemetry.operational || {};
-  const unattributed = telemetry.unattributed || { count: 0 };
+  const ignored = telemetry.ignored || { events: 0 };
   const tokenStatus = telemetry.token_status || 'unavailable';
   const normalizedTokenCount = (normalizedTotals.input_tokens || 0) + (normalizedTotals.output_tokens || 0);
   const tokensPerTailored = outcomes.tailored ? Math.round(normalizedTokenCount / outcomes.tailored) : 0;
@@ -1926,14 +2047,37 @@ function renderAnalytics(data, container) {
     tokenNote = `<div class="agent-note">No agent token telemetry captured yet. Restart Claude Code or Codex after workspace telemetry setup, then run a skill (e.g. /job-hunter batch). Diagnose with <code>job-hunter internal telemetry-status --json</code>.</div>`;
   }
 
-  const metricRows = group => Object.entries(group || {})
-    .sort((a, b) => (b[1].input_tokens + b[1].output_tokens) - (a[1].input_tokens + a[1].output_tokens))
-    .map(([name, value]) => `<tr>
-      <td>${name}</td><td>${(value.input_tokens || 0).toLocaleString()}</td>
-      <td>${(value.output_tokens || 0).toLocaleString()}</td>
-      <td>${(value.cached_tokens || 0).toLocaleString()}</td>
-      <td>${(value.reasoning_tokens || 0).toLocaleString()}</td>
-    </tr>`).join('') || `<tr><td colspan="5" class="no-data">No data</td></tr>`;
+  const skillRows = Object.entries(telemetry.by_skill_backend || {})
+    .sort((a, b) => (b[1].total?.total_tokens || 0) - (a[1].total?.total_tokens || 0))
+    .map(([name, values]) => {
+      const claude = values['claude-code'] || {};
+      const codex = values.codex || {};
+      const total = values.total || {};
+      const cached = (total.cached_tokens || 0) + (total.cache_read_tokens || 0) + (total.cache_creation_tokens || 0);
+      return `<tr>
+        <td>${esc(name.replaceAll('_', ' '))}</td>
+        <td>${(claude.total_tokens || 0).toLocaleString()}</td>
+        <td>${(codex.total_tokens || 0).toLocaleString()}</td>
+        <td>${(total.total_tokens || 0).toLocaleString()}</td>
+        <td>${(total.sessions || 0).toLocaleString()}</td>
+        <td>${(total.messages || 0).toLocaleString()}</td>
+        <td>${(total.input_tokens || 0).toLocaleString()}</td>
+        <td>${(total.output_tokens || 0).toLocaleString()}</td>
+        <td>${cached.toLocaleString()}</td>
+        <td>${(total.reasoning_tokens || 0).toLocaleString()}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="10" class="no-data">No skill data</td></tr>`;
+
+  const batchPhases = ['screening', 'scoring', 'research', 'tailoring', 'cover_letter', 'pdf'];
+  const phaseRows = batchPhases
+    .filter(name => telemetry.by_phase && telemetry.by_phase[name])
+    .map(name => {
+      const value = telemetry.by_phase[name];
+      return `<tr><td>${esc(name.replaceAll('_', ' '))}</td>
+        <td>${(value.total_tokens || 0).toLocaleString()}</td>
+        <td>${(value.input_tokens || 0).toLocaleString()}</td>
+        <td>${(value.output_tokens || 0).toLocaleString()}</td></tr>`;
+    }).join('');
 
   const tokenDisplay = v => tokenStatus === 'unavailable' && !v ? 'not observed' : v.toLocaleString();
 
@@ -1958,13 +2102,16 @@ function renderAnalytics(data, container) {
       ${buildHeatmap(operational.daily || {})}
     </div>
 
-    ${unattributed.count ? `<div class="agent-note">${unattributed.count} token event(s) could not be linked to a specific run/session (${(unattributed.input_tokens || 0) + (unattributed.output_tokens || 0)} tokens) — shown in totals but not broken out by mode.</div>` : ''}
+    ${ignored.events ? `<div class="agent-note">Warning: Ignored ${ignored.events} non-Job-Hunter telemetry event(s).</div>` : ''}
 
     <div class="chart-card">
-      <h3>Tokens by Mode</h3>
-      <table class="data-table"><thead><tr><th>Mode</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
-      <tbody>${metricRows(telemetry.by_mode)}</tbody></table>
+      <h3>Tokens by Skill</h3>
+      <table class="data-table"><thead><tr><th>Skill</th><th>Claude Code Tokens</th><th>Codex Tokens</th><th>Total Tokens</th><th>Sessions</th><th>Messages</th><th>Input</th><th>Output</th><th>Cached</th><th>Reasoning</th></tr></thead>
+      <tbody>${skillRows}</tbody></table>
     </div>
+    ${phaseRows ? `<div class="chart-card"><h3>Batch breakdown</h3>
+      <table class="data-table"><thead><tr><th>Phase</th><th>Total Tokens</th><th>Input</th><th>Output</th></tr></thead>
+      <tbody>${phaseRows}</tbody></table></div>` : ''}
   `;
 }
 
@@ -2164,7 +2311,7 @@ async function loadGuidedConfig() {
     cfgDirty = false;
     updateDirtyFlag('guided');
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['job_hunter.yml could not be loaded. Retry, then run job-hunter doctor if the problem continues.']);
   }
 }
 
@@ -2185,7 +2332,7 @@ async function saveGuidedConfig() {
     setTimeout(() => { msg.textContent = ''; }, 2000);
     await loadRawConfig();
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['job_hunter.yml could not be saved. Retry, then run job-hunter doctor if the problem continues.']);
   } finally {
     btn.disabled = false;
   }
@@ -2201,7 +2348,7 @@ async function loadRawConfig() {
     cfgRawDirty = false;
     updateDirtyFlag('raw');
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['job_hunter.yml could not be loaded. Retry, then run job-hunter doctor if the problem continues.']);
   }
 }
 
@@ -2228,7 +2375,7 @@ async function saveRawConfig() {
     setTimeout(() => { msg.textContent = ''; }, 2000);
     await loadGuidedConfig();
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['job_hunter.yml could not be saved. Retry, then run job-hunter doctor if the problem continues.']);
   } finally {
     btn.disabled = false;
   }
@@ -2241,7 +2388,7 @@ async function undoJobHunterConfig() {
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Nothing to undo.'); return; }
     await Promise.all([loadGuidedConfig(), loadRawConfig()]);
   } catch(e) {
-    alert('Undo failed: ' + e);
+    reportFailure('Undo could not be completed.');
   }
 }
 
@@ -2255,7 +2402,7 @@ async function loadCareerContextSettings() {
     careerContextDirty = false;
     updateDirtyFlag('career-context');
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['career_context.md could not be loaded. Retry, then run job-hunter doctor if the problem continues.']);
   }
 }
 
@@ -2280,7 +2427,7 @@ async function saveCareerContext() {
     msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
     setTimeout(() => { msg.textContent = ''; }, 2000);
   } catch(e) {
-    showSettingsErrors([String(e)]);
+    showSettingsErrors(['career_context.md could not be saved. Retry, then run job-hunter doctor if the problem continues.']);
   } finally {
     btn.disabled = false;
   }
@@ -2293,7 +2440,7 @@ async function undoCareerContext() {
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Nothing to undo.'); return; }
     await loadCareerContextSettings();
   } catch(e) {
-    alert('Undo failed: ' + e);
+    reportFailure('Undo could not be completed.');
   }
 }
 
@@ -2306,10 +2453,20 @@ async function loadCompanies() {
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
     selectedCompanyUrls.clear();
+    companyRenderLimit = COMPANY_RENDER_STEP;
     renderCompanies();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">Failed to load: ${esc(String(e))}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">${errorHtml('Companies could not be loaded.')}</td></tr>`;
   }
+}
+
+function companyLatestResultHtml(latest) {
+  if (!latest) return '<span style="color:var(--text-muted)">never checked</span>';
+  if (latest.status === 'ok') {
+    const n = latest.jobs_inserted || 0;
+    return `<span class="badge badge-candidate">${n} new</span>`;
+  }
+  return `<span class="badge badge-rejected" title="${esc(latest.failure_reason || '')}">failed</span>`;
 }
 
 function companyRowHtml(company) {
@@ -2322,7 +2479,7 @@ function companyRowHtml(company) {
     <td class="td-title"><a href="#" data-open-url="${esc(url)}">${esc(url)}</a></td>
     <td>${esc(company.location || '—')}</td>
     <td><span class="badge badge-${enabled ? 'candidate' : 'discarded'}">${enabled ? 'Enabled' : 'Disabled'}</span></td>
-    <td class="td-date">—</td>
+    <td>${companyLatestResultHtml(company.latest_result)}</td>
     <td>
       <button class="btn" data-edit-url="${esc(url)}">Edit</button>
       <button class="btn btn-danger" data-delete-url="${esc(url)}">🗑</button>
@@ -2341,15 +2498,31 @@ function renderCompanies() {
     return `${c.name || ''} ${c.career_url || ''} ${c.location || ''}`.toLowerCase().includes(query);
   });
   document.getElementById('company-total-count').textContent = `${companiesData.length} companies`;
-  document.getElementById('company-select-all').checked =
-    filtered.length > 0 && filtered.every(c => selectedCompanyUrls.has(c.career_url));
   if (!filtered.length) {
+    document.getElementById('company-select-all').checked = false;
     tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No companies found</div></td></tr>`;
     updateCompanyBulkButtons();
     return;
   }
-  tbody.innerHTML = filtered.map(companyRowHtml).join('');
+  // Cap the initial DOM render so a 2,000-company career_pages.yml doesn't build one
+  // giant innerHTML string up front; "Show more" grows the cap on demand. Rows already
+  // carry content-visibility:auto (shared table styling) for off-screen paint/layout cost.
+  const visible = filtered.slice(0, companyRenderLimit);
+  document.getElementById('company-select-all').checked = visible.every(c => selectedCompanyUrls.has(c.career_url));
+  let rowsHtml = visible.map(companyRowHtml).join('');
+  const remaining = filtered.length - visible.length;
+  if (remaining > 0) {
+    rowsHtml += `<tr><td colspan="7" style="text-align:center">
+      <button class="btn" onclick="showMoreCompanies()">Show ${Math.min(COMPANY_RENDER_STEP, remaining)} more (${remaining} not shown)</button>
+    </td></tr>`;
+  }
+  tbody.innerHTML = rowsHtml;
   updateCompanyBulkButtons();
+}
+
+function showMoreCompanies() {
+  companyRenderLimit += COMPANY_RENDER_STEP;
+  renderCompanies();
 }
 
 function updateCompanyBulkButtons() {
@@ -2426,7 +2599,7 @@ async function submitCompanyForm() {
     cancelCompanyForm();
     renderCompanies();
   } catch(e) {
-    msg.textContent = '✗ ' + e;
+    msg.textContent = '✗ Company could not be saved. Retry, then run job-hunter doctor if the problem continues.';
     msg.style.color = '#f85149';
   } finally {
     btn.disabled = false;
@@ -2436,7 +2609,7 @@ async function submitCompanyForm() {
 async function deleteCompanyByUrl(url) {
   const company = companiesData.find(c => c.career_url === url);
   const name = company ? company.name : url;
-  if (!confirm(`Delete "${name}" from career_pages.yml?`)) return;
+  if (!confirm(`Delete 1 company ("${name}") from career_pages.yml? This cannot be undone.`)) return;
   const next = companiesData.filter(c => c.career_url !== url);
   try {
     const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
@@ -2446,7 +2619,7 @@ async function deleteCompanyByUrl(url) {
     selectedCompanyUrls.delete(url);
     renderCompanies();
   } catch(e) {
-    alert('Delete failed: ' + e);
+    reportFailure('Company could not be deleted.');
   }
 }
 
@@ -2463,7 +2636,7 @@ async function bulkDeleteCompanies() {
     selectedCompanyUrls.clear();
     renderCompanies();
   } catch(e) {
-    alert('Delete failed: ' + e);
+    reportFailure('Companies could not be deleted.');
   }
 }
 
@@ -2479,7 +2652,7 @@ async function bulkSetCompaniesEnabled(enabled) {
     companiesRevision = result.data.revision;
     renderCompanies();
   } catch(e) {
-    alert('Could not update companies: ' + e);
+    reportFailure('Companies could not be updated.');
   }
 }
 
@@ -2493,7 +2666,7 @@ async function undoCareerPages() {
     selectedCompanyUrls.clear();
     renderCompanies();
   } catch(e) {
-    alert('Undo failed: ' + e);
+    reportFailure('Undo could not be completed.');
   }
 }
 
@@ -2502,7 +2675,7 @@ async function openCareerPage(url) {
     const result = await window.pywebview.api.open_career_page(url);
     if (!result.ok) alert(result.error || 'Could not open career page.');
   } catch(e) {
-    alert('Could not open career page: ' + e);
+    reportFailure('Career page could not be opened.', 'Check the configured http/https URL and retry.');
   }
 }
 

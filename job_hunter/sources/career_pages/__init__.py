@@ -60,6 +60,8 @@ def extract_career_page_jobs(
     company: dict,
     title_filters: list[str],
     excluded_title_terms: list[str] | None = None,
+    *,
+    use_playwright: bool = True,
 ) -> list[dict]:
     """Run the full extraction ladder for a company career URL.
 
@@ -121,6 +123,9 @@ def extract_career_page_jobs(
         if raw_jobs:
             logger.debug("[career_pages] rung=static_html company=%s jobs=%d", name, len(raw_jobs))
             return raw_jobs
+
+    if not use_playwright:
+        return []
 
     # Rung 5: Playwright rendering (sole browser fallback)
     pw_jobs = _pkg._try_playwright(career_url, name, title_filters, location, excluded_title_terms)

@@ -20,7 +20,7 @@ _TOKEN_FIELDS = (
     "cache_creation_tokens",
 )
 _UNATTRIBUTED = "unattributed"
-_CORRELATION_WINDOW = timedelta(hours=2)
+_ACTIVE_WINDOW = timedelta(hours=12)
 _DDL = """
 CREATE TABLE IF NOT EXISTS telemetry_runs (
     id TEXT PRIMARY KEY, backend TEXT NOT NULL, session_id TEXT NOT NULL,
@@ -56,6 +56,9 @@ _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("telemetry_events", "model_family", "TEXT NOT NULL DEFAULT ''"),
     ("telemetry_runs", "message_count", "INTEGER NOT NULL DEFAULT 1"),
     ("telemetry_runs", "app_entrypoint", "TEXT NOT NULL DEFAULT ''"),
+    ("telemetry_runs", "root_skill", "TEXT NOT NULL DEFAULT ''"),
+    ("telemetry_runs", "skill", "TEXT NOT NULL DEFAULT ''"),
+    ("telemetry_runs", "skill_display", "TEXT NOT NULL DEFAULT ''"),
     ("telemetry_outcomes", "recorded_at", "TEXT NOT NULL DEFAULT ''"),
 )
 
@@ -74,6 +77,14 @@ class TelemetryEvent:
     raw_usage: dict[str, Any] | None = None
     recorded_at: str = ""
     app_entrypoint: str = ""
+
+
+@dataclass(frozen=True)
+class SkillInvocation:
+    root_skill: str
+    skill: str
+    skill_display: str
+    source: str = "prompt"
 
 
 def _now() -> str:
@@ -96,19 +107,51 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def classify_job_hunter_mode(prompt: str) -> str | None:
-    text = " ".join(prompt.lower().replace("_", "-").split())
-    match = re.search(
-        r"(?:/|\$)?job[\s-]+hunter\s+(batch|one|screen|finalize|tailor|score|research|interview|outreach|stories)\b",
+_SKILLS = {
+    "batch": ("batch", "Batch"),
+    "one": ("one", "One Job"),
+    "screen": ("screening", "Screening"),
+    "score": ("scoring", "Scoring"),
+    "tailor": ("tailoring", "Tailoring"),
+    "research": ("research", "Research"),
+    "interview": ("interview", "Interview"),
+    "outreach": ("outreach", "Outreach"),
+    "stories": ("stories", "Stories"),
+    "finalize": ("finalize", "Finalize"),
+}
+_LINKEDIN_SKILLS = {
+    "ideas": ("linkedin_ideas", "LinkedIn Ideas"),
+    "draft": ("linkedin_draft", "LinkedIn Draft"),
+    "engage": ("linkedin_engage", "LinkedIn Engage"),
+    "network": ("linkedin_network", "LinkedIn Network"),
+}
+
+
+def classify_job_hunter_skill_prompt(prompt: str) -> SkillInvocation | None:
+    """Classify only explicit Job Hunter-owned slash commands."""
+    text = " ".join(prompt.strip().split())
+    linkedin = re.match(r"^/(?:job-hunter\s+)?linkedin\s+(ideas|draft|engage|network)\b", text, re.IGNORECASE)
+    if linkedin:
+        skill, display = _LINKEDIN_SKILLS[linkedin.group(1).lower()]
+        return SkillInvocation("job-hunter", skill, display)
+    match = re.match(
+        r"^/job-hunter\s+(batch|one|screen|score|tailor|research|interview|outreach|stories|finalize)\b",
         text,
+        re.IGNORECASE,
     )
-    if match:
-        return match.group(1)
-    if re.search(r"\b(?:run|start|process)\s+(?:the\s+)?(?:job[\s-]+hunter\s+)?batch\b", text):
-        return "batch"
-    if re.fullmatch(r"https?://\S+", text):
-        return "one"
-    return None
+    if not match:
+        return None
+    command = match.group(1).lower()
+    if command == "one" and not re.match(r"^/job-hunter\s+one\s+https?://\S+", text, re.IGNORECASE):
+        return None
+    skill, display = _SKILLS[command]
+    return SkillInvocation("job-hunter", skill, display)
+
+
+def classify_job_hunter_mode(prompt: str) -> str | None:
+    """Backward-compatible wrapper; new callers should use the strict skill classifier."""
+    invocation = classify_job_hunter_skill_prompt(prompt)
+    return invocation.skill if invocation else None
 
 
 def model_family(model: str) -> str:
@@ -118,28 +161,72 @@ def model_family(model: str) -> str:
     return re.sub(r"(?:[-_]v?\d[\d.]*)+$", "", model) or model
 
 
-def begin_run(db_path: Path, *, backend: str, session_id: str, mode: str, app_entrypoint: str = "") -> str:
+def _interrupt_stale_runs(conn: sqlite3.Connection, now: datetime | None = None) -> int:
+    current = now or datetime.now(UTC)
+    cutoff = (current - _ACTIVE_WINDOW).isoformat()
+    ended = current.isoformat()
+    cursor = conn.execute(
+        """UPDATE telemetry_runs SET status='interrupted', ended_at=?
+           WHERE status='running' AND started_at < ?""",
+        (ended, cutoff),
+    )
+    conn.execute(
+        """UPDATE telemetry_phases SET status='interrupted', ended_at=?
+           WHERE status='running' AND run_id IN (
+               SELECT id FROM telemetry_runs WHERE status='interrupted' AND ended_at=?
+           )""",
+        (ended, ended),
+    )
+    return cursor.rowcount
+
+
+def begin_run(
+    db_path: Path,
+    *,
+    backend: str,
+    session_id: str,
+    mode: str,
+    app_entrypoint: str = "",
+    root_skill: str = "job-hunter",
+    skill: str = "",
+    skill_display: str = "",
+) -> str:
+    skill = skill or mode
+    skill_display = skill_display or skill.replace("_", " ").title()
     with _connect(db_path) as conn:
+        _interrupt_stale_runs(conn)
         existing = conn.execute(
-            "SELECT id FROM telemetry_runs WHERE session_id=? AND status='running' ORDER BY started_at DESC LIMIT 1",
-            (session_id,),
+            """SELECT id, skill FROM telemetry_runs
+               WHERE session_id=? AND backend=? AND status='running'
+               AND root_skill!='' AND skill!=''
+               ORDER BY started_at DESC LIMIT 1""",
+            (session_id, backend),
         ).fetchone()
-        if existing:
+        if existing and existing["skill"] == skill:
             conn.execute(
-                "UPDATE telemetry_runs SET mode=?, backend=?, message_count=message_count+1 WHERE id=?",
-                (mode, backend, existing["id"]),
+                """UPDATE telemetry_runs SET mode=?, root_skill=?, skill=?, skill_display=?,
+                   app_entrypoint=?, message_count=message_count+1 WHERE id=?""",
+                (mode, root_skill, skill, skill_display, app_entrypoint, existing["id"]),
             )
             return str(existing["id"])
+        if existing:
+            end_run_id = str(existing["id"])
+            conn.execute(
+                "UPDATE telemetry_runs SET status='interrupted', ended_at=? WHERE id=?",
+                (_now(), end_run_id),
+            )
         run_id = uuid.uuid4().hex
         conn.execute(
-            "INSERT INTO telemetry_runs(id,backend,session_id,mode,started_at,app_entrypoint) VALUES(?,?,?,?,?,?)",
-            (run_id, backend, session_id, mode, _now(), app_entrypoint),
+            """INSERT INTO telemetry_runs(
+               id,backend,session_id,mode,started_at,app_entrypoint,root_skill,skill,skill_display)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
+            (run_id, backend, session_id, mode, _now(), app_entrypoint, root_skill, skill, skill_display),
         )
         return run_id
 
 
 def active_run(db_path: Path, session_id: str | None = None) -> str | None:
-    query = "SELECT id FROM telemetry_runs WHERE status='running'"
+    query = "SELECT id FROM telemetry_runs WHERE status='running' AND root_skill!='' AND skill!=''"
     params: tuple[str, ...] = ()
     if session_id:
         query += " AND session_id=?"
@@ -227,38 +314,54 @@ def _parse_ts(value: str) -> datetime | None:
 
 
 def _find_run_for_event(conn: sqlite3.Connection, event: TelemetryEvent) -> str | None:
-    """Correlate an incoming event to a run: exact session id, then safe fallbacks.
-
-    Claude/Codex hook session ids and OTLP resource session ids are not guaranteed
-    to be byte-identical (different fields, different processes exporting late), so
-    an exact-match-only lookup silently drops legitimate token events. Fall back
-    conservatively rather than attributing to an unrelated run.
-    """
+    """Correlate only to an active, backend-matched Job Hunter-owned run."""
+    event_time = _parse_ts(event.recorded_at) or datetime.now(UTC)
+    _interrupt_stale_runs(conn, event_time)
     row = conn.execute(
-        "SELECT id FROM telemetry_runs WHERE session_id=? ORDER BY started_at DESC LIMIT 1",
-        (event.session_id,),
+        """SELECT id, started_at FROM telemetry_runs
+           WHERE session_id=? AND backend=? AND status='running'
+           AND root_skill!='' AND skill!=''
+           ORDER BY started_at DESC LIMIT 1""",
+        (event.session_id, event.backend),
     ).fetchone()
-    if row:
+    if row and (started := _parse_ts(row["started_at"])) and started <= event_time <= started + _ACTIVE_WINDOW:
         return str(row["id"])
 
-    now = _parse_ts(event.recorded_at) or datetime.now(UTC)
     candidates = conn.execute(
-        "SELECT id, started_at FROM telemetry_runs WHERE backend=? ORDER BY started_at DESC LIMIT 1",
+        """SELECT id, started_at FROM telemetry_runs
+           WHERE backend=? AND status='running' AND root_skill!='' AND skill!=''""",
         (event.backend,),
     ).fetchall()
-    for candidate in candidates:
-        started = _parse_ts(candidate["started_at"])
-        if started and abs(now - started) <= _CORRELATION_WINDOW:
-            return str(candidate["id"])
-
-    running = conn.execute("SELECT id FROM telemetry_runs WHERE status='running'").fetchall()
-    if len(running) == 1:
-        return str(running[0]["id"])
+    eligible = [
+        candidate
+        for candidate in candidates
+        if (started := _parse_ts(candidate["started_at"])) and started <= event_time <= started + _ACTIVE_WINDOW
+    ]
+    if len(eligible) == 1:
+        return str(eligible[0]["id"])
     return None
 
 
+def _increment_ignored(conn: sqlite3.Connection, event: TelemetryEvent) -> None:
+    counters = {
+        "telemetry_ignored_events": 1,
+        "telemetry_ignored_input_tokens": event.input_tokens,
+        "telemetry_ignored_output_tokens": event.output_tokens,
+        "telemetry_ignored_reason_not_job_hunter_skill": 1,
+    }
+    for key, value in counters.items():
+        conn.execute(
+            """INSERT INTO telemetry_counters(counter_key,value) VALUES(?,?)
+               ON CONFLICT(counter_key) DO UPDATE SET value=value+excluded.value""",
+            (key, int(value or 0)),
+        )
+
+
 def _record_event(conn: sqlite3.Connection, event: TelemetryEvent, *, source: str = "unknown") -> bool:
-    run_id = _find_run_for_event(conn, event) or _UNATTRIBUTED
+    run_id = _find_run_for_event(conn, event)
+    if not run_id:
+        _increment_ignored(conn, event)
+        return False
     phase = conn.execute(
         """SELECT id FROM telemetry_phases WHERE run_id=?
            ORDER BY CASE WHEN status='running' THEN 0 ELSE 1 END, started_at DESC LIMIT 1""",
@@ -521,42 +624,96 @@ def _operational_summary(
     }
 
 
+def _event_stats(rows: list[sqlite3.Row]) -> dict[str, int]:
+    totals = _token_totals(rows)
+    run_rows: dict[str, sqlite3.Row] = {}
+    for row in rows:
+        run_rows[str(row["run_id"])] = row
+    return {
+        **totals,
+        "total_tokens": totals["input_tokens"] + totals["output_tokens"],
+        "sessions": len({str(row["session_id"]) for row in run_rows.values()}),
+        "messages": sum(int(row["message_count"] or 1) for row in run_rows.values()),
+    }
+
+
+def _ignored_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    rows = conn.execute(
+        "SELECT counter_key,value FROM telemetry_counters WHERE counter_key LIKE 'telemetry_ignored_%'"
+    ).fetchall()
+    values = {str(row["counter_key"]): int(row["value"]) for row in rows}
+    return {
+        "events": values.get("telemetry_ignored_events", 0),
+        "input_tokens": values.get("telemetry_ignored_input_tokens", 0),
+        "output_tokens": values.get("telemetry_ignored_output_tokens", 0),
+        "reason": "not_job_hunter_skill",
+    }
+
+
 def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
+    empty = {
+        "totals": _event_stats([]),
+        "by_skill": {},
+        "by_backend": {},
+        "by_skill_backend": {},
+        "by_phase": {},
+        "ignored": {"events": 0, "input_tokens": 0, "output_tokens": 0, "reason": "not_job_hunter_skill"},
+        "outcomes": {"processed": 0, "apply": 0, "skip": 0, "tailored": 0, "failed": 0},
+        "operational": _operational_summary([], []),
+        "token_status": "unavailable",
+    }
     if not db_path.exists():
-        return {
-            "totals": _token_totals([]),
-            "by_mode": {},
-            "unattributed": {"count": 0, **_token_totals([])},
-            "outcomes": {"processed": 0, "apply": 0, "skip": 0, "tailored": 0, "failed": 0},
-            "operational": _operational_summary([], []),
-            "token_status": "unavailable",
-        }
+        return empty
     with _connect(db_path) as conn:
         events = conn.execute(
-            """SELECT e.*, r.mode, r.backend AS run_backend, p.phase, p.job_slug
-               FROM telemetry_events e LEFT JOIN telemetry_runs r ON r.id=e.run_id
-               LEFT JOIN telemetry_phases p ON p.id=e.phase_id"""
+            """SELECT e.*, r.root_skill, r.skill, r.skill_display, r.message_count,
+                      r.backend AS run_backend, p.phase, p.job_slug
+               FROM telemetry_events e
+               JOIN telemetry_runs r ON r.id=e.run_id
+               LEFT JOIN telemetry_phases p ON p.id=e.phase_id
+               WHERE e.run_id!='unattributed' AND r.root_skill!='' AND r.skill!=''"""
         ).fetchall()
         runs_raw = conn.execute(
             """SELECT r.*, COUNT(CASE WHEN p.status='interrupted' THEN 1 END) AS incomplete_phases
                FROM telemetry_runs r LEFT JOIN telemetry_phases p ON p.run_id=r.id
+               WHERE r.root_skill!='' AND r.skill!=''
                GROUP BY r.id ORDER BY r.started_at DESC"""
         ).fetchall()
-        outcomes = conn.execute("SELECT decision,tailored,failed,recorded_at FROM telemetry_outcomes").fetchall()
+        outcomes = conn.execute(
+            """SELECT o.decision,o.tailored,o.failed,o.recorded_at
+               FROM telemetry_outcomes o JOIN telemetry_runs r ON r.id=o.run_id
+               WHERE r.root_skill!='' AND r.skill!=''"""
+        ).fetchall()
+        ignored = _ignored_summary(conn)
 
-    unattributed_events = [row for row in events if row["run_id"] == _UNATTRIBUTED]
-
-    def grouped(key: str) -> dict[str, dict[str, int]]:
+    def grouped(key: str, *, skip_empty: bool = False) -> dict[str, dict[str, int]]:
         values: dict[str, list[sqlite3.Row]] = {}
         for row in events:
-            label = str(row[key] or "unattributed")
+            label = str(row[key] or "")
+            if skip_empty and not label:
+                continue
             values.setdefault(label, []).append(row)
-        return {label: _token_totals(group) for label, group in values.items()}
+        return {label: _event_stats(group) for label, group in values.items()}
+
+    by_skill = grouped("skill")
+    by_backend = grouped("run_backend")
+    by_phase = grouped("phase", skip_empty=True)
+    by_skill_backend: dict[str, dict[str, dict[str, int]]] = {}
+    for skill in by_skill:
+        skill_rows = [row for row in events if row["skill"] == skill]
+        backends = {
+            backend: _event_stats([row for row in skill_rows if row["run_backend"] == backend])
+            for backend in ("claude-code", "codex")
+        }
+        by_skill_backend[skill] = {**backends, "total": _event_stats(skill_rows)}
 
     return {
-        "totals": _token_totals(events),
-        "by_mode": grouped("mode"),
-        "unattributed": {"count": len(unattributed_events), **_token_totals(unattributed_events)},
+        "totals": _event_stats(events),
+        "by_skill": by_skill,
+        "by_backend": by_backend,
+        "by_skill_backend": by_skill_backend,
+        "by_phase": by_phase,
+        "ignored": ignored,
         "outcomes": {
             "processed": len(outcomes),
             "apply": sum(row["decision"] == "APPLY" for row in outcomes),
@@ -567,6 +724,14 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
         "operational": _operational_summary(runs_raw, events, outcomes),
         "token_status": "observed" if events else "unavailable",
     }
+
+
+def prune_unattributed(db_path: Path) -> int:
+    if not db_path.exists():
+        return 0
+    with _connect(db_path) as conn:
+        cursor = conn.execute("DELETE FROM telemetry_events WHERE run_id=?", (_UNATTRIBUTED,))
+        return cursor.rowcount
 
 
 def _hooks_present(path: Path, backend: str) -> bool:
@@ -616,30 +781,59 @@ def telemetry_status(root: Path) -> dict[str, Any]:
     codex_otel = _codex_otel_configured(codex_home) if codex_home.exists() else None
 
     summary = get_telemetry_summary(db_path)
-    events_total = sum(summary["totals"].values())
+    events_total = summary["totals"]["total_tokens"]
     latest_run = None
-    active_runs = event_count = 0
+    active_runs = event_count = unattributed_rows = 0
     by_backend: list[sqlite3.Row] = []
+    backend_tokens: list[sqlite3.Row] = []
     by_entrypoint: list[sqlite3.Row] = []
     latest_event = latest_phase = None
     if db_path.exists():
         with _connect(db_path) as conn:
-            active_runs = conn.execute("SELECT COUNT(*) AS n FROM telemetry_runs WHERE status='running'").fetchone()[
-                "n"
-            ]
-            event_count = conn.execute("SELECT COUNT(*) AS n FROM telemetry_events").fetchone()["n"]
-            by_backend = conn.execute("SELECT backend, COUNT(*) AS n FROM telemetry_events GROUP BY backend").fetchall()
+            active_runs = conn.execute(
+                """SELECT COUNT(*) AS n FROM telemetry_runs
+                   WHERE status='running' AND root_skill!='' AND skill!=''"""
+            ).fetchone()["n"]
+            event_count = conn.execute(
+                """SELECT COUNT(*) AS n FROM telemetry_events e JOIN telemetry_runs r ON r.id=e.run_id
+                   WHERE r.root_skill!='' AND r.skill!='' AND e.run_id!='unattributed'"""
+            ).fetchone()["n"]
+            unattributed_rows = conn.execute(
+                "SELECT COUNT(*) AS n FROM telemetry_events WHERE run_id='unattributed'"
+            ).fetchone()["n"]
+            by_backend = conn.execute(
+                """SELECT e.backend, COUNT(*) AS n FROM telemetry_events e
+                   JOIN telemetry_runs r ON r.id=e.run_id
+                   WHERE r.root_skill!='' AND r.skill!='' AND e.run_id!='unattributed'
+                   GROUP BY e.backend"""
+            ).fetchall()
+            backend_tokens = conn.execute(
+                """SELECT e.backend,
+                          SUM(e.input_tokens) AS input_tokens,
+                          SUM(e.output_tokens) AS output_tokens
+                   FROM telemetry_events e JOIN telemetry_runs r ON r.id=e.run_id
+                   WHERE r.root_skill!='' AND r.skill!='' AND e.run_id!='unattributed'
+                   GROUP BY e.backend"""
+            ).fetchall()
             by_entrypoint = conn.execute(
-                "SELECT app_entrypoint, COUNT(*) AS n FROM telemetry_events GROUP BY app_entrypoint"
+                """SELECT e.app_entrypoint, COUNT(*) AS n FROM telemetry_events e
+                   JOIN telemetry_runs r ON r.id=e.run_id
+                   WHERE r.root_skill!='' AND r.skill!='' AND e.run_id!='unattributed'
+                   GROUP BY e.app_entrypoint"""
             ).fetchall()
             latest_event = conn.execute(
-                "SELECT backend, session_id, model, recorded_at, token_source, run_id FROM telemetry_events "
-                "ORDER BY id DESC LIMIT 1"
+                """SELECT e.backend, e.session_id, e.model, e.recorded_at, e.token_source, e.run_id
+                   FROM telemetry_events e JOIN telemetry_runs r ON r.id=e.run_id
+                   WHERE r.root_skill!='' AND r.skill!='' AND e.run_id!='unattributed'
+                   ORDER BY e.id DESC LIMIT 1"""
             ).fetchone()
             latest_phase = conn.execute(
                 "SELECT phase, status, job_slug FROM telemetry_phases ORDER BY started_at DESC LIMIT 1"
             ).fetchone()
-            latest_run_row = conn.execute("SELECT * FROM telemetry_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+            latest_run_row = conn.execute(
+                """SELECT * FROM telemetry_runs WHERE root_skill!='' AND skill!=''
+                   ORDER BY started_at DESC LIMIT 1"""
+            ).fetchone()
             latest_run = dict(latest_run_row) if latest_run_row else None
 
     hooks_but_no_events = (claude_hooks or codex_hooks) and event_count == 0 and (active_runs > 0 or latest_run)
@@ -663,8 +857,18 @@ def telemetry_status(root: Path) -> dict[str, Any]:
         "latest_phase": dict(latest_phase) if latest_phase else None,
         "event_count": event_count,
         "event_count_by_backend": {row["backend"]: row["n"] for row in by_backend},
+        "tokens_by_backend": {
+            row["backend"]: {
+                "input_tokens": int(row["input_tokens"] or 0),
+                "output_tokens": int(row["output_tokens"] or 0),
+            }
+            for row in backend_tokens
+        },
         "event_count_by_app_entrypoint": {(row["app_entrypoint"] or "unknown"): row["n"] for row in by_entrypoint},
         "token_total_observed": events_total,
+        "ignored_event_count": summary["ignored"]["events"],
+        "old_unattributed_row_count": unattributed_rows,
+        "pruning_recommended": unattributed_rows > 0,
         "latest_event": dict(latest_event) if latest_event else None,
         "claude_hooks_wired": claude_hooks,
         "codex_hooks_wired": codex_hooks,

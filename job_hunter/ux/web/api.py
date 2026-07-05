@@ -51,12 +51,56 @@ class DashAPI:
     def __init__(self, root: Path) -> None:
         self._root = root
         self._hunt_lock = threading.Lock()
-        self._hunt_status: dict[str, Any] = {"state": "idle"}
+        self._hunt_running = False
 
-    def get_applications(self) -> list[dict[str, Any]]:
-        from job_hunter.tracking.applications import filtered_applications
+    @staticmethod
+    def _mutation_error(message: str, next_action: str) -> dict[str, Any]:
+        return {"ok": False, "error": message, "next_action": next_action}
 
-        applications = [dict(app) for app in filtered_applications(root=self._root)]
+    def get_onboarding(self) -> dict[str, Any]:
+        from job_hunter.ux.health import doctor
+
+        try:
+            payload = doctor(self._root)
+        except Exception:  # noqa: BLE001
+            return {
+                "ok": False,
+                "onboardingNeeded": False,
+                "missing_count": 0,
+                "error": "Setup status is unavailable.",
+                "next_action": "Run `job-hunter doctor` in the workspace.",
+            }
+        onboarding = payload["onboarding"]
+        return {
+            "ok": True,
+            "onboardingNeeded": onboarding["onboardingNeeded"],
+            "missing_count": len(onboarding["missing"]),
+            "warning_count": len(onboarding["warnings"]),
+        }
+
+    def get_applications(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        search: str = "",
+        status: str = "",
+        sort: str = "date",
+        direction: str = "desc",
+    ) -> dict[str, Any]:
+        from job_hunter.tracking.applications import CANONICAL_STATUSES, normalize_status
+        from job_hunter.tracking.repository import get_jobs_page
+
+        statuses = (normalize_status(status),) if status else CANONICAL_STATUSES
+        applications, total = get_jobs_page(
+            self._root,
+            statuses=statuses,
+            page=page,
+            page_size=page_size,
+            search=search,
+            sort=sort,
+            direction=direction,
+            require_identity=True,
+        )
         for app in applications:
             slug_date = str(app.get("slug") or "")[:10]
             app["date"] = (
@@ -64,7 +108,14 @@ class DashAPI:
                 or (slug_date if len(slug_date) == 10 and slug_date[4:5] == "-" and slug_date[7:8] == "-" else "")
                 or str(app.get("discovered_at") or app.get("created_at") or "")[:10]
             )
-        return applications
+        size = min(200, max(1, int(page_size)))
+        return {
+            "items": applications,
+            "total": total,
+            "page": max(1, int(page)),
+            "page_size": size,
+            "pages": max(1, (total + size - 1) // size),
+        }
 
     def _job_dir(self, slug: str) -> Path | None:
         jobs_root = (self._root / "outputs" / "jobs").resolve()
@@ -110,6 +161,7 @@ class DashAPI:
                     "recommendation": record.get("recommendation"),
                 },
                 "jd": (record.get("jd_text") or "")[:4000],
+                "notes": record.get("notes") or [],
                 "artifacts": self._artifacts(slug),
             }
 
@@ -200,8 +252,11 @@ class DashAPI:
 
         try:
             result = dict(update_application_status(slug, status, root=self._root, note=note))
-        except (ValueError, KeyError) as exc:
-            return {"error": str(exc)}
+        except (ValueError, KeyError):
+            return self._mutation_error(
+                "Status could not be updated.",
+                "Reload Applications and retry with a listed status.",
+            )
         self._refresh_readme()
         return result
 
@@ -210,8 +265,11 @@ class DashAPI:
 
         try:
             delete_application(slug, self._root)
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": str(exc)}
+        except Exception:  # noqa: BLE001
+            return self._mutation_error(
+                "Application could not be deleted.",
+                "Reload Applications and retry.",
+            )
         self._refresh_readme()
         return {"ok": True, "error": ""}
 
@@ -221,8 +279,16 @@ class DashAPI:
 
         try:
             result = delete_applications_batch([str(slug) for slug in slugs], root=self._root)
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": str(exc), "deleted": 0, "skipped": [], "warnings": []}
+        except Exception:  # noqa: BLE001
+            return {
+                **self._mutation_error(
+                    "Applications could not be deleted.",
+                    "Reload Applications and retry the selected batch.",
+                ),
+                "deleted": 0,
+                "skipped": [],
+                "warnings": [],
+            }
         self._refresh_readme()
         return {
             "ok": True,
@@ -232,30 +298,64 @@ class DashAPI:
             "warnings": result["warnings"],
         }
 
-    def get_unprocessed(self) -> dict[str, Any]:
-        from job_hunter.tracking.repository import display_status, get_jobs_summary
+    def get_unprocessed(
+        self,
+        scope: str = "active",
+        page: int = 1,
+        page_size: int = 50,
+        search: str = "",
+        sort: str = "date",
+        direction: str = "desc",
+    ) -> dict[str, Any]:
+        from job_hunter.tracking.repository import display_status, get_jobs_page
 
-        def visible(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
-            return [
-                {
-                    "id": job.get("id"),
-                    "company": job.get("company"),
-                    "title": job.get("title"),
-                    "location": job.get("location"),
-                    "status": display_status(str(job.get("status") or "")),
-                    "url": job.get("url"),
-                    "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
-                }
-                for job in get_jobs_summary(self._root, statuses=statuses)
-                if str(job.get("title") or "").strip() and str(job.get("company") or "").strip()
-            ]
-
-        active = visible(("candidate", "discovered"))
-        discarded = visible(("discarded", "processed"))
+        status_groups = {
+            "active": ("candidate", "discovered"),
+            "discarded": ("discarded", "processed"),
+        }
+        selected_statuses = status_groups.get(scope, status_groups["active"])
+        rows, total = get_jobs_page(
+            self._root,
+            statuses=selected_statuses,
+            page=page,
+            page_size=page_size,
+            search=search,
+            sort=sort,
+            direction=direction,
+            require_identity=True,
+        )
+        items = [
+            {
+                "id": job.get("id"),
+                "company": job.get("company"),
+                "title": job.get("title"),
+                "location": job.get("location"),
+                "status": display_status(str(job.get("status") or "")),
+                "url": job.get("url"),
+                "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
+            }
+            for job in rows
+        ]
+        counts = {
+            name: get_jobs_page(
+                self._root,
+                statuses=statuses,
+                page=1,
+                page_size=1,
+                require_identity=True,
+            )[1]
+            for name, statuses in status_groups.items()
+        }
+        counts["total"] = counts["active"] + counts["discarded"]
+        size = min(200, max(1, int(page_size)))
         return {
-            "active": active,
-            "discarded": discarded,
-            "counts": {"active": len(active), "discarded": len(discarded), "total": len(active) + len(discarded)},
+            "items": items,
+            "total": total,
+            "page": max(1, int(page)),
+            "page_size": size,
+            "pages": max(1, (total + size - 1) // size),
+            "scope": scope if scope in status_groups else "active",
+            "counts": counts,
         }
 
     def discard_unprocessed(self, job_id: int) -> dict[str, Any]:
@@ -264,8 +364,11 @@ class DashAPI:
 
         try:
             set_status_by_id(self._root, int(job_id), "discarded")
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": str(exc)}
+        except Exception:  # noqa: BLE001
+            return self._mutation_error(
+                "Candidate could not be discarded.",
+                "Reload Candidates and retry.",
+            )
         return {"ok": True, "error": ""}
 
     def discard_unprocessed_batch(self, job_ids: list[int]) -> dict[str, Any]:
@@ -274,8 +377,15 @@ class DashAPI:
 
         try:
             result = discard_job_ids(self._root, [int(job_id) for job_id in job_ids])
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": str(exc), "discarded": 0, "skipped": []}
+        except Exception:  # noqa: BLE001
+            return {
+                **self._mutation_error(
+                    "Candidates could not be discarded.",
+                    "Reload Candidates and retry the selected batch.",
+                ),
+                "discarded": 0,
+                "skipped": [],
+            }
         return {"ok": True, "error": "", "discarded": result["discarded"], "skipped": result["skipped"]}
 
     def delete_unprocessed(self, job_id: int) -> dict[str, Any]:
@@ -283,90 +393,85 @@ class DashAPI:
 
         try:
             delete_job_by_id(self._root, int(job_id))
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": str(exc)}
+        except Exception:  # noqa: BLE001
+            return self._mutation_error(
+                "Candidate could not be deleted.",
+                "Reload Candidates and retry.",
+            )
         return {"ok": True, "error": ""}
 
-    def run_company_hunt(self) -> dict[str, Any]:
-        """Kick off the company career-page browser hunt in the background."""
+    def run_company_hunt(self, mode: str = "new_changed") -> dict[str, Any]:
+        """Kick off the company career-page browser hunt in the background.
+
+        Progress is read back from the persisted company_hunt_runs/tasks tables (see
+        get_company_hunt_summary / get_company_hunt_updates) instead of an in-memory
+        dict — polling no longer means snapshotting a per-company list that grows to
+        thousands of entries over a long run.
+        """
+        allowed = {"new_changed", "failed_only", "force_all", "resume"}
+        if mode not in allowed:
+            return self._mutation_error(
+                "Unknown company-hunt mode.",
+                "Choose a mode from the Company Hunt menu.",
+            )
         with self._hunt_lock:
-            if self._hunt_status.get("state") == "running":
+            if self._hunt_running:
                 return {"already_running": True}
-            self._hunt_status = {"state": "running"}
-        self._hunt_thread = threading.Thread(target=self._run_company_hunt_worker, daemon=True)
+            self._hunt_running = True
+        self._hunt_thread = threading.Thread(target=self._run_company_hunt_worker, args=(mode,), daemon=True)
         self._hunt_thread.start()
         return {"started": True}
 
-    def _update_hunt_progress(self, event: dict[str, Any]) -> None:
-        step = event.get("step")
-        with self._hunt_lock:
-            status = self._hunt_status
-            if step == "started":
-                self._hunt_status = {
-                    "state": "running",
-                    "total": event.get("total", 0),
-                    "checked": 0,
-                    "current_company": "",
-                    "companies": [],
-                }
-            elif step == "company-checking":
-                status["current_company"] = event.get("company", "")
-            elif step == "company-done":
-                status["companies"].append(
-                    {"company": event.get("company", ""), "status": "ok", "jobs_found": event.get("jobs_found", 0)}
-                )
-                status["checked"] = len(status["companies"])
-            elif step == "company-failed":
-                status["companies"].append(
-                    {"company": event.get("company", ""), "status": "failed", "reason": event.get("reason", "")}
-                )
-                status["checked"] = len(status["companies"])
-            elif step == "finished":
-                status["succeeded"] = event.get("succeeded", 0)
-                status["failed"] = event.get("failed", 0)
-            elif step == "fatal":
-                self._hunt_status = {"state": "error", "error": event.get("reason") or "Something went wrong."}
+    def _run_company_hunt_worker(self, mode: str) -> None:
+        import logging
+
+        from job_hunter.pipeline import browser_hunt
+
+        try:
+            browser_hunt.run(mode=mode)
+        except Exception:  # noqa: BLE001 — a crashed worker must not wedge _hunt_running
+            logging.getLogger(__name__).exception("[company-hunt] worker crashed")
+        finally:
+            with self._hunt_lock:
+                self._hunt_running = False
 
     @staticmethod
-    def _hunt_message(status: dict[str, Any], inserted: int) -> str:
-        total = status.get("total", 0)
-        failed = status.get("failed", 0)
+    def _hunt_message(run: dict[str, Any]) -> str:
+        if run["status"] == "error":
+            return str(run.get("error") or "Something went wrong while checking company career pages.")
+        total = int(run.get("total") or 0)
+        skipped = int(run.get("skipped") or 0)
+        failed = int(run.get("failed") or 0)
+        inserted = int(run.get("jobs_inserted") or 0)
+        checked = total - skipped
         candidates = "candidate" if inserted == 1 else "candidates"
+        skip_note = f", {skipped} skipped (recently checked)" if skipped else ""
         if not failed:
-            return f"{total} companies checked, {inserted} new {candidates} found."
-        ok = total - failed
-        return f"{ok} of {total} companies checked ({failed} couldn't be reached). {inserted} new {candidates} found."
+            return f"{checked} of {total} companies checked{skip_note}. {inserted} new {candidates} found."
+        ok = checked - failed
+        return f"{ok} of {checked} companies checked ({failed} couldn't be reached){skip_note}. {inserted} new {candidates} found."
 
-    def _run_company_hunt_worker(self) -> None:
-        from job_hunter.pipeline import browser_hunt
-        from job_hunter.tracking.repository import get_jobs_summary
+    def get_company_hunt_summary(self) -> dict[str, Any]:
+        """Persisted run summary — one row, cheap to poll every few seconds even with
+        2,000 companies (replaces the old in-memory per-company list snapshot)."""
+        from job_hunter.tracking import company_hunts
 
-        before = len(get_jobs_summary(self._root, statuses=("candidate",)))
-        try:
-            browser_hunt.run(on_progress=self._update_hunt_progress)
-        except Exception:  # noqa: BLE001
-            with self._hunt_lock:
-                self._hunt_status = {
-                    "state": "error",
-                    "error": "Something went wrong while checking company career pages. Try again in a moment.",
-                }
-            return
-
+        run = company_hunts.get_latest_run(self._root)
         with self._hunt_lock:
-            if self._hunt_status.get("state") == "error":
-                return  # a "fatal" progress event already set this — don't clobber it with "done"
-            after = len(get_jobs_summary(self._root, statuses=("candidate",)))
-            inserted = max(0, after - before)
-            self._hunt_status["state"] = "done"
-            self._hunt_status["inserted"] = inserted
-            self._hunt_status["message"] = self._hunt_message(self._hunt_status, inserted)
+            running = self._hunt_running
+        if run is None:
+            return {"ok": True, "run": None, "running": running, "message": ""}
+        message = "" if run["status"] == "running" else self._hunt_message(run)
+        return {"ok": True, "run": run, "running": running, "message": message}
 
-    def get_company_hunt_status(self) -> dict[str, Any]:
-        with self._hunt_lock:
-            status = dict(self._hunt_status)
-            if "companies" in status:
-                status["companies"] = list(status["companies"])
-            return status
+    def get_company_hunt_updates(self, run_id: int, after_id: int = 0) -> dict[str, Any]:
+        """Incremental task rows for run_id since after_id — the UI appends these
+        instead of re-fetching and re-rendering the whole task list every poll."""
+        from job_hunter.tracking import company_hunts
+
+        tasks = company_hunts.get_updates_since(self._root, int(run_id), int(after_id))
+        cursor = tasks[-1]["update_id"] if tasks else int(after_id)
+        return {"ok": True, "tasks": tasks, "cursor": cursor}
 
     def get_insights(self) -> dict[str, Any]:
         from collections import defaultdict
@@ -507,13 +612,35 @@ class DashAPI:
             "warnings": result["warnings"],
         }
 
+    def _companies_with_latest_result(self, companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        from job_hunter.tracking import company_hunts
+
+        latest_by_url = company_hunts.get_latest_task_by_url(self._root)
+        decorated = []
+        for company in companies:
+            entry = dict(company)
+            latest = latest_by_url.get(str(company.get("career_url") or ""))
+            entry["latest_result"] = (
+                {
+                    "status": latest["status"],
+                    "finished_at": latest["finished_at"],
+                    "jobs_inserted": latest["jobs_inserted"],
+                    "failure_reason": latest["failure_reason"],
+                }
+                if latest
+                else None
+            )
+            decorated.append(entry)
+        return decorated
+
     def get_career_pages(self) -> dict[str, Any]:
         from job_hunter.config import service
 
         result = service.read_career_pages(self._root)
+        companies = self._companies_with_latest_result(result["data"]["companies"])
         return {
             "ok": True,
-            "data": {"companies": result["data"]["companies"], "revision": result["revision"]},
+            "data": {"companies": companies, "revision": result["revision"]},
             "errors": [],
             "warnings": [],
         }
@@ -527,7 +654,10 @@ class DashAPI:
         fresh = service.read_career_pages(self._root)
         return {
             "ok": True,
-            "data": {"companies": fresh["data"]["companies"], "revision": fresh["revision"]},
+            "data": {
+                "companies": self._companies_with_latest_result(fresh["data"]["companies"]),
+                "revision": fresh["revision"],
+            },
             "errors": [],
             "warnings": result["warnings"],
         }
@@ -541,7 +671,10 @@ class DashAPI:
         fresh = service.read_career_pages(self._root)
         return {
             "ok": True,
-            "data": {"companies": fresh["data"]["companies"], "revision": fresh["revision"]},
+            "data": {
+                "companies": self._companies_with_latest_result(fresh["data"]["companies"]),
+                "revision": fresh["revision"],
+            },
             "errors": [],
             "warnings": [],
         }

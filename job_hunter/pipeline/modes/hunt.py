@@ -7,6 +7,7 @@ import logging
 
 from job_hunter.pipeline.context import ModeOutcome, PipelineResult, PipelineRunContext
 from job_hunter.pipeline.hunt import load_hunt_snapshot, run_hunt, run_hunt_scrape_only
+from job_hunter.tracking.repository import get_company_hunt_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,13 @@ def execute(ctx: PipelineRunContext) -> ModeOutcome:
         logger.info("[pipeline] Cleaned up %s discarded job(s) older than 90 days", deleted)
 
     options = ctx.options
+
+    if options.from_db_candidates:
+        jobs = get_company_hunt_candidates(REPO_ROOT)
+        if not jobs:
+            logger.warning("[pipeline] No pending company-hunt candidates. Exiting.")
+            return ModeOutcome(early_result=PipelineResult(exit_code=0))
+        return ModeOutcome(jobs=jobs)
 
     if options.scrape_only:
         snapshot_path, count, _stats = run_hunt_scrape_only(

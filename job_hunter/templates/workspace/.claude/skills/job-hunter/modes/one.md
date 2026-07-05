@@ -4,6 +4,9 @@ Single-URL orchestrator. Use compact scoring context and selected story reads on
 
 URL: `$ARGUMENTS` (ask the user if empty)
 
+Run `job-hunter internal telemetry-mark --phase one --skill one --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 Parse `$ARGUMENTS` for optional `--region <r>` and `--location <l>`. If missing, ask for region and location before importing.
 
 ## Orchestration Rules
@@ -28,6 +31,8 @@ Parse `$ARGUMENTS` for optional `--region <r>` and `--location <l>`. If missing,
    - Ask before final commit; if confirmed, run `job-hunter internal finalize-run --mode interactive --message "chore(jobs): tailor <slug>"` and add `--push` only when the user explicitly asks to push.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase one --state end` before printing.
 
 Print a compact status only:
 

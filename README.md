@@ -64,8 +64,14 @@ In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover 
 
 For company career pages that need a real browser, add targets to
 `config/career_pages.yml`, then click **Run Company Browser Hunt** in
-`job-hunter dashboard`. Results land in `outputs/state/jobs.db`, the same
-store `find-jobs` uses.
+`job-hunter dash`. Results land in `outputs/state/jobs.db`, the same store
+the normal hunt uses.
+
+The native web dashboard includes Settings, Companies, paginated Applications
+and Candidates, company-hunt progress, Insights, and Analytics. Settings and
+Companies use revision-guarded saves with one-level Undo. Company Hunt offers
+new/changed, failed-only, force-all, and resume modes; recent successful pages
+are skipped by default and every company result is persisted immediately.
 
 ## CLI Reference
 
@@ -75,6 +81,7 @@ store `find-jobs` uses.
 - `job-hunter tailor` — tailor resume for one or more job postings
 - `job-hunter dash` — open web dashboard in a native window (Applications, Insights, Analytics)
 - `job-hunter dashboard`, `applications` — terminal dashboard and application list
+- `job-hunter hunt --from-db-candidates` — process pending company-hunt candidates in `llm-api` mode
 - `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
 - `job-hunter update --skills-only` or `--workflows-only` — targeted refresh
 - `job-hunter version` — version and upgrade guidance

@@ -2,6 +2,9 @@
 
 Single responsibility: generate a weekly batch of grounded post ideas. Nothing is posted.
 
+Run `job-hunter internal telemetry-mark --phase linkedin_ideas --skill linkedin_ideas --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
@@ -24,6 +27,8 @@ Single responsibility: generate a weekly batch of grounded post ideas. Nothing i
 - Do not draft or post.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase linkedin_ideas --state end` before printing.
 
 ```
 LinkedIn ideas appended -> outputs/linkedin/ideas.md

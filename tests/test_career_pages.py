@@ -296,6 +296,22 @@ def test_extract_career_page_jobs_falls_back_to_playwright_after_cheap_rungs() -
     mock_pw.assert_called_once()
 
 
+def test_extract_career_page_jobs_can_stop_before_playwright() -> None:
+    company = {"name": "CloudCo", "career_url": "https://careers.cloudco.example"}
+
+    with (
+        patch("job_hunter.sources.career_pages.detect_ats_from_url", return_value=None),
+        patch("job_hunter.sources.career_pages._fetch_html_safe", return_value=("<html></html>", 200)),
+        patch("job_hunter.sources.career_pages._try_sitemap_discovery", return_value=[]),
+        patch("job_hunter.sources.career_pages._try_static_html", return_value=[]),
+        patch("job_hunter.sources.career_pages._try_playwright") as mock_pw,
+    ):
+        jobs = career_pages.extract_career_page_jobs(company, ["Product Owner"], use_playwright=False)
+
+    assert jobs == []
+    mock_pw.assert_not_called()
+
+
 # ── ensure_chromium_installed() ──────────────────────────────────────────────
 
 

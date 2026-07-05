@@ -14,9 +14,10 @@ from job_hunter.cli.app import internal_app
 from job_hunter.metrics.telemetry import (
     active_run,
     begin_run,
-    classify_job_hunter_mode,
+    classify_job_hunter_skill_prompt,
     end_active_phase,
     end_run,
+    prune_unattributed,
     record_outcome,
     start_phase,
     telemetry_status,
@@ -53,7 +54,7 @@ def _touch_hook_heartbeat(root: Path) -> None:
 
 
 @internal_app.command(name="telemetry-hook")
-def telemetry_hook(
+def telemetry_hook(  # noqa: C901
     backend: str = typer.Option(..., "--backend"),
     event: str = typer.Option(..., "--event"),
     workspace: str = typer.Option("", "--workspace"),
@@ -79,15 +80,22 @@ def telemetry_hook(
             from job_hunter.metrics.collector import ensure_collector
 
             ensure_collector(root)
-            mode = classify_job_hunter_mode(str(payload.get("prompt") or ""))
-            if mode and session_id:
+            invocation = classify_job_hunter_skill_prompt(str(payload.get("prompt") or ""))
+            if invocation and session_id:
                 begin_run(
                     db_path,
                     backend=backend,
                     session_id=session_id,
-                    mode=mode,
+                    mode=invocation.skill,
                     app_entrypoint=str(payload.get("app_entrypoint") or ""),
+                    root_skill=invocation.root_skill,
+                    skill=invocation.skill,
+                    skill_display=invocation.skill_display,
                 )
+            elif session_id:
+                run_id = active_run(db_path, session_id)
+                if run_id:
+                    end_run(db_path, run_id, status="interrupted")
         elif session_id:
             run_id = active_run(db_path, session_id)
             if run_id:
@@ -104,6 +112,7 @@ def telemetry_hook(
 @internal_app.command(name="telemetry-mark")
 def telemetry_mark(
     phase: str = typer.Option(..., "--phase"),
+    skill: str = typer.Option("", "--skill"),
     state: str = typer.Option(..., "--state"),
     job: str = typer.Option("", "--job"),
     status: str = typer.Option("completed", "--status"),
@@ -117,7 +126,7 @@ def telemetry_mark(
         if not run_id:
             return
         if state == "start":
-            start_phase(db_path, run_id=run_id, phase=phase, job_slug=job)
+            start_phase(db_path, run_id=run_id, phase=skill or phase, job_slug=job)
         elif state == "end":
             end_active_phase(db_path, run_id, status=status)
     except Exception as exc:  # noqa: BLE001
@@ -138,6 +147,19 @@ def telemetry_status_command(
     else:
         for key, value in status.items():
             typer.echo(f"{key}: {value}")
+
+
+@internal_app.command(name="telemetry-prune")
+def telemetry_prune(
+    unattributed: bool = typer.Option(False, "--unattributed"),
+    workspace: str = typer.Option("", "--workspace"),
+) -> None:
+    """Delete legacy unattributed token rows without touching owned telemetry."""
+    if not unattributed:
+        typer.echo("Nothing selected. Pass --unattributed.")
+        return
+    deleted = prune_unattributed(_db(_root(workspace)))
+    typer.echo(f"Deleted {deleted} unattributed telemetry event(s).")
 
 
 @internal_app.command(name="telemetry-outcome")

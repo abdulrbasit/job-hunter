@@ -70,3 +70,17 @@ Agent mode's Python side does discovery only and stops. Everything from
 scoring onward in this document is `llm-api`-only, or — for the narrow
 company-research step — an optional call agent-mode batch makes through
 the same `llm.` config (see [agent-mode.md](agent-mode.md)).
+
+## Process Company Hunt candidates
+
+To process pending candidates already found by Company Hunt without a fresh
+scrape:
+
+```bash
+job-hunter hunt --from-db-candidates
+```
+
+This flag is `llm-api`-only and cannot be combined with `--from-snapshot` or
+`--scrape-only`. It selects only pending `career_page:*` rows, runs normal
+deterministic and LLM stages, and advances only successful rows to `tailored`.
+Agent mode continues to consume the same rows through `/job-hunter batch`.

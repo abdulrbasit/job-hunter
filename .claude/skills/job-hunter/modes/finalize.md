@@ -14,7 +14,7 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
 
 ## Steps
 
-1. Run `job-hunter internal telemetry-mark --phase finalization --state start`.
+1. Run `job-hunter internal telemetry-mark --phase finalize --skill finalize --state start`.
    Show current changes:
    ```bash
    git status --short
@@ -56,6 +56,6 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
    ```
    Append `--push` only if the user explicitly requested a push.
 
-7. Run `job-hunter internal telemetry-mark --phase finalization --state end`.
+7. Run `job-hunter internal telemetry-mark --phase finalize --state end`.
    Print: `Finalized.` or `Finalized and pushed to origin/main.`
    Telemetry marker failures are non-blocking.

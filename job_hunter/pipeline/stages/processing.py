@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.config.loader import get_config, profile_path
@@ -22,10 +23,7 @@ from job_hunter.pipeline.stages.scoring import score_and_filter_jobs, strategic_
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.pipeline.stages.validation import validate
 from job_hunter.pipeline.tailorer import tailor
-from job_hunter.tracking.processed_urls import mark_processed
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from job_hunter.tracking.applications import upsert_application_from_job
 
 logger = logging.getLogger(__name__)
 
@@ -201,9 +199,19 @@ def process_jobs(
 
 
 def finalize_processed_batch(processed: list[dict[str, Any]], existing_urls: set[str]) -> None:
-    """Update README and mark tracked jobs processed. No-op when nothing was processed."""
+    """Persist successful artifacts as tailored applications and refresh README.
+
+    One bad match (e.g. a race on score.yml) must not abort the upsert for the
+    rest of the batch — each upsert is isolated, matching the "one bad item
+    doesn't abort the batch" pattern used elsewhere in this pipeline."""
     if not processed:
         return
     logger.info("[pipeline] Updating README and tracker...")
+    for match in processed:
+        job = match["job"]
+        slug = f"{_today()}_{slugify(job['company'])}_{slugify(job['title'])}"
+        try:
+            upsert_application_from_job(slug, root=Path(ROOT), status="tailored")
+        except Exception:
+            logger.exception("[pipeline] Could not record application for %s", slug)
     update_readme(processed)
-    mark_processed([match["job"] for match in processed], existing_urls)

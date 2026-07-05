@@ -73,6 +73,9 @@ CREATE INDEX IF NOT EXISTS idx_jobs_canonical_url ON jobs(canonical_url);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_processed_at ON jobs(status, processed_at);
 """
 
+# (table, column, declaration) — additive, backward-compatible with existing jobs.db files.
+_MIGRATIONS: tuple[tuple[str, str, str], ...] = (("jobs", "extraction_method", "TEXT NOT NULL DEFAULT ''"),)
+
 PIPELINE_STATUSES = ("candidate", "discarded", "tailored", "applied", "responded", "interview", "offer", "rejected")
 CANONICAL_STATUSES = ("tailored", "applied", "responded", "interview", "offer", "rejected")
 ACTIVE_STATUSES = {"tailored", "applied", "responded", "interview", "offer"}
@@ -95,10 +98,18 @@ def db_path(root: Path) -> Path:
     return p
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, column, decl in _MIGRATIONS:
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def _conn(root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(root), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
+    _migrate(conn)
     return conn
 
 
@@ -216,6 +227,8 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
             snippet = str(job.get("snippet") or "")
             fetch_status = str(job.get("job_description_fetch_status") or "")
 
+            extraction_method = str(job.get("extraction_method") or "")
+
             try:
                 conn.execute(
                     """INSERT INTO jobs (
@@ -225,7 +238,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         employment_type, job_description_fetch_status,
                         location_restrictions, ats_platform, enrichment_source,
                         score, matched_keywords, gaps,
-                        jd_text, llm_posting_status_check,
+                        jd_text, llm_posting_status_check, extraction_method,
                         discovered_at, created_at, updated_at
                     ) VALUES (
                         ?, ?, 'candidate', ?,
@@ -234,7 +247,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         ?, ?,
                         ?, ?, ?,
                         ?, ?, ?,
-                        ?, ?,
+                        ?, ?, ?,
                         ?, ?, ?
                     ) ON CONFLICT(url) DO UPDATE SET
                         run_id          = COALESCE(excluded.run_id, jobs.run_id),
@@ -243,6 +256,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         snippet         = COALESCE(excluded.snippet, jobs.snippet),
                         job_description_fetch_status    = COALESCE(excluded.job_description_fetch_status, jobs.job_description_fetch_status),
                         jd_text         = COALESCE(excluded.jd_text, jobs.jd_text),
+                        extraction_method = COALESCE(NULLIF(excluded.extraction_method, ''), jobs.extraction_method),
                         updated_at      = excluded.updated_at""",
                     (
                         url,
@@ -268,6 +282,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         json.dumps(gaps) if gaps is not None else None,
                         snippet,  # jd_text seeded from snippet
                         str(job.get("llm_posting_status_check") or ""),
+                        extraction_method,
                         now,
                         now,
                         now,
@@ -287,12 +302,45 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         snippet         = COALESCE(NULLIF(?, ''), snippet),
                         job_description_fetch_status = COALESCE(NULLIF(?, ''), job_description_fetch_status),
                         jd_text         = COALESCE(NULLIF(?, ''), jd_text),
+                        extraction_method = COALESCE(NULLIF(?, ''), extraction_method),
                         updated_at      = ?
                        WHERE canonical_url = ?""",
-                    (run_id or None, employment_type, country_code, snippet, fetch_status, snippet, now, canonical),
+                    (
+                        run_id or None,
+                        employment_type,
+                        country_code,
+                        snippet,
+                        fetch_status,
+                        snippet,
+                        extraction_method,
+                        now,
+                        canonical,
+                    ),
                 )
             inserted += 1
     return inserted
+
+
+def insert_jobs_with_new_count(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> dict[str, int]:
+    """Same write as insert_jobs, plus a count of how many were brand-new URLs.
+
+    insert_jobs()'s return value counts every job processed (including updates to
+    existing rows), not new rows — company-hunt persistence needs the genuinely-new
+    count to report "jobs inserted" separately from "jobs observed" per company.
+    """
+    from job_hunter.sources.search import canonicalize_url
+
+    known = get_all_known_urls(root)
+    new_count = 0
+    for job in jobs:
+        url = str(job.get("url") or "")
+        if not url:
+            continue
+        canonical = canonicalize_url(url) or url
+        if url not in known and canonical not in known:
+            new_count += 1
+    processed = insert_jobs(root, jobs, run_id=run_id)
+    return {"processed": processed, "new": new_count}
 
 
 def get_discovered_jobs(root: Path, run_id: str | None = None, limit: int = 0) -> list[dict[str, Any]]:
@@ -308,6 +356,22 @@ def get_discovered_jobs(root: Path, run_id: str | None = None, limit: int = 0) -
             if limit:
                 q += f" LIMIT {limit}"
             rows = conn.execute(q).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def get_company_hunt_candidates(root: Path, limit: int = 0) -> list[dict[str, Any]]:
+    """Pending candidates created by company career-page extraction only."""
+    query = (
+        "SELECT * FROM jobs "
+        "WHERE status IN ('candidate', 'discovered') AND source LIKE 'career_page:%' "
+        "ORDER BY created_at"
+    )
+    params: tuple[Any, ...] = ()
+    if limit:
+        query += " LIMIT ?"
+        params = (limit,)
+    with _conn(root) as conn:
+        rows = conn.execute(query, params).fetchall()
     return [_row_to_dict(row) for row in rows]
 
 
@@ -577,7 +641,54 @@ def get_jobs(
     return [_row_to_dict(row) for row in rows]
 
 
-_JOB_LIST_COLUMNS = "id, company, title, location, status, url, discovered_at, created_at"
+_JOB_LIST_COLUMNS = "id, slug, company, title, location, region, status, url, score, discovered_at, created_at"
+_JOB_LIST_SORTS = {
+    "company": "company",
+    "title": "title",
+    "location": "location",
+    "status": "status",
+    "score": "score",
+    "date": "COALESCE(discovered_at, created_at)",
+}
+
+
+def get_jobs_page(
+    root: Path,
+    *,
+    statuses: tuple[str, ...],
+    page: int = 1,
+    page_size: int = 50,
+    search: str = "",
+    sort: str = "date",
+    direction: str = "desc",
+    require_identity: bool = False,
+) -> tuple[list[dict[str, Any]], int]:
+    """Lightweight paged listing. Heavy artifact/JD text never enters this query."""
+    page = max(1, int(page))
+    page_size = min(200, max(1, int(page_size)))
+    placeholders = ",".join("?" * len(statuses))
+    clauses = [f"status IN ({placeholders})"]
+    params: list[Any] = list(statuses)
+    if require_identity:
+        clauses.extend(("TRIM(COALESCE(title, '')) != ''", "TRIM(COALESCE(company, '')) != ''"))
+    if search.strip():
+        needle = f"%{search.strip().lower()}%"
+        clauses.append(
+            "(LOWER(COALESCE(company, '')) LIKE ? OR LOWER(COALESCE(title, '')) LIKE ? "
+            "OR LOWER(COALESCE(location, '')) LIKE ?)"
+        )
+        params.extend((needle, needle, needle))
+    where = " AND ".join(clauses)
+    order_column = _JOB_LIST_SORTS.get(sort, _JOB_LIST_SORTS["date"])
+    order_direction = "ASC" if direction.lower() == "asc" else "DESC"
+    with _conn(root) as conn:
+        total = int(conn.execute(f"SELECT COUNT(*) FROM jobs WHERE {where}", params).fetchone()[0])  # noqa: S608
+        rows = conn.execute(
+            f"SELECT {_JOB_LIST_COLUMNS} FROM jobs WHERE {where} "  # noqa: S608
+            f"ORDER BY {order_column} {order_direction}, id DESC LIMIT ? OFFSET ?",
+            (*params, page_size, (page - 1) * page_size),
+        ).fetchall()
+    return [dict(row) for row in rows], total
 
 
 def get_jobs_summary(root: Path, *, statuses: tuple[str, ...]) -> list[dict[str, Any]]:

@@ -4,6 +4,9 @@ Single responsibility: draft outreach for one job. Nothing is submitted or sent.
 
 Slug: `$ARGUMENTS`
 
+Run `job-hunter internal telemetry-mark --phase outreach --skill outreach --job <slug> --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context outreach-context` → `writing_rules.outreach`.
@@ -25,6 +28,8 @@ Slug: `$ARGUMENTS`
 - No external action beyond writing drafts.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase outreach --state end` before printing.
 
 ```
 Outreach drafts written -> outputs/jobs/{slug}/outreach_drafts.md

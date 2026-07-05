@@ -141,3 +141,85 @@ def test_delete_jobs_by_slugs_tolerates_unknown_slugs(tmp_path: Path) -> None:
 
 def test_delete_jobs_by_slugs_returns_zero_for_empty_list(tmp_path: Path) -> None:
     assert repository.delete_jobs_by_slugs(tmp_path, []) == 0
+
+
+def test_insert_jobs_persists_extraction_method(tmp_path: Path) -> None:
+    repository.insert_jobs(
+        tmp_path,
+        [{"url": "https://example.com/a", "title": "PM", "company": "A", "extraction_method": "jsonld"}],
+    )
+
+    job = repository.get_job_by_url(tmp_path, "https://example.com/a")
+
+    assert job["extraction_method"] == "jsonld"
+
+
+def test_insert_jobs_extraction_method_defaults_to_empty_string(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/a", "title": "PM", "company": "A"}])
+
+    job = repository.get_job_by_url(tmp_path, "https://example.com/a")
+
+    assert job["extraction_method"] == ""
+
+
+def test_existing_jobs_db_without_extraction_method_column_upgrades_safely(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "outputs" / "state" / "jobs.db"
+    db.parent.mkdir(parents=True)
+    conn = sqlite3.connect(db)
+    try:
+        # repository._DDL predates the extraction_method column — it's added only via
+        # the additive _migrate() ALTER TABLE, so executing _DDL alone reproduces a
+        # pre-migration jobs.db exactly.
+        conn.executescript(repository._DDL)
+        conn.commit()
+    finally:
+        conn.close()
+
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/a", "title": "PM", "company": "A"}])
+
+    job = repository.get_job_by_url(tmp_path, "https://example.com/a")
+    assert job is not None
+    assert job["extraction_method"] == ""
+
+
+def test_insert_jobs_with_new_count_distinguishes_new_from_reprocessed(tmp_path: Path) -> None:
+    first = repository.insert_jobs_with_new_count(
+        tmp_path, [{"url": "https://example.com/a", "title": "PM", "company": "A"}]
+    )
+    assert first == {"processed": 1, "new": 1}
+
+    second = repository.insert_jobs_with_new_count(
+        tmp_path,
+        [
+            {"url": "https://example.com/a", "title": "PM", "company": "A"},
+            {"url": "https://example.com/b", "title": "PM", "company": "B"},
+        ],
+    )
+
+    assert second == {"processed": 2, "new": 1}
+
+
+def test_get_company_hunt_candidates_selects_only_pending_career_page_rows(tmp_path: Path) -> None:
+    repository.insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/company", "title": "PM", "source": "career_page:jsonld"},
+            {"url": "https://example.com/board", "title": "PM", "source": "linkedin"},
+        ],
+    )
+    repository.upsert_job(
+        tmp_path,
+        {
+            "url": "https://example.com/already-tailored",
+            "title": "PM",
+            "source": "career_page:static_html",
+            "slug": "already-tailored",
+            "status": "tailored",
+        },
+    )
+
+    candidates = repository.get_company_hunt_candidates(tmp_path)
+
+    assert [job["url"] for job in candidates] == ["https://example.com/company"]

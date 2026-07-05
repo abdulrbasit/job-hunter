@@ -5,7 +5,7 @@ Score one imported job against bounded JD context, configured base resume, and v
 Run:
 
 ```bash
-job-hunter internal telemetry-mark --phase scoring --job <slug> --state start
+job-hunter internal telemetry-mark --phase scoring --skill scoring --job <slug> --state start
 job-hunter internal agent-context score --mode full --job <slug>
 ```
 

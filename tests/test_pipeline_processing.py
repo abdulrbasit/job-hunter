@@ -331,28 +331,49 @@ def test_hard_screen_rejects_excluded_industry() -> None:
     assert rejected[0]["_rejection_reason"] == "excluded_industry"
 
 
-def test_finalize_processed_batch_updates_readme_and_marks_processed(tmp_path) -> None:
+def test_finalize_processed_batch_updates_readme_and_upserts_successful_application(tmp_path) -> None:
     match = {"score": 90, "job": {"title": "PM", "company": "Acme", "url": "https://example.com/pm"}}
 
     with (
         patch("job_hunter.pipeline.stages.processing.update_readme") as update_readme,
-        patch("job_hunter.pipeline.stages.processing.mark_processed") as mark_processed,
+        patch("job_hunter.pipeline.stages.processing.upsert_application_from_job") as upsert,
     ):
         processing.finalize_processed_batch([match], {"https://example.com/old"})
 
     update_readme.assert_called_once_with([match])
-    mark_processed.assert_called_once_with([match["job"]], {"https://example.com/old"})
+    upsert.assert_called_once()
+    assert upsert.call_args.args[0].endswith("_acme_pm")
 
 
 def test_finalize_processed_batch_is_a_noop_when_nothing_processed() -> None:
     with (
         patch("job_hunter.pipeline.stages.processing.update_readme") as update_readme,
-        patch("job_hunter.pipeline.stages.processing.mark_processed") as mark_processed,
+        patch("job_hunter.pipeline.stages.processing.upsert_application_from_job") as upsert,
     ):
         processing.finalize_processed_batch([], set())
 
     update_readme.assert_not_called()
-    mark_processed.assert_not_called()
+    upsert.assert_not_called()
+
+
+def test_finalize_processed_batch_one_bad_upsert_does_not_abort_the_rest() -> None:
+    """One match's upsert raising (e.g. a race on score.yml) must not skip the
+    remaining matches' upserts or the README update."""
+    broken = {"score": 90, "job": {"title": "Broken", "company": "BadCo", "url": "https://example.com/bad"}}
+    ok = {"score": 80, "job": {"title": "PM", "company": "Acme", "url": "https://example.com/pm"}}
+
+    def side_effect(slug, **_kwargs):
+        if "badco" in slug:
+            raise ValueError("refusing to create an application: score.yml is missing")
+
+    with (
+        patch("job_hunter.pipeline.stages.processing.update_readme") as update_readme,
+        patch("job_hunter.pipeline.stages.processing.upsert_application_from_job", side_effect=side_effect) as upsert,
+    ):
+        processing.finalize_processed_batch([broken, ok], set())
+
+    assert upsert.call_count == 2
+    update_readme.assert_called_once_with([broken, ok])
 
 
 def test_excluded_title_jobs_never_reach_llm_scoring() -> None:

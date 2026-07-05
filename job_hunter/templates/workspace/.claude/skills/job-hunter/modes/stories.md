@@ -2,6 +2,9 @@
 
 Convert raw work notes into rated STAR drafts in `profile/story_bank.md`.
 
+Run `job-hunter internal telemetry-mark --phase stories --skill stories --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 Canonical structure:
 
 ```markdown
@@ -17,3 +20,4 @@ Canonical structure:
 5. Never write to Final; user promotes verified stories manually.
 
 Never fabricate metrics, titles, employers, dates, or outcomes.
+Run `job-hunter internal telemetry-mark --phase stories --state end` after writing.

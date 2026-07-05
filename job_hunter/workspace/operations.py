@@ -239,9 +239,12 @@ def install_telemetry(workspace: Path) -> list[str]:
     """Install telemetry hooks; returns human-readable warnings for any preserved conflicts."""
     from job_hunter.metrics.setup import configure_codex_telemetry, install_workspace_telemetry
 
-    install_workspace_telemetry(workspace)
-    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
-    result = configure_codex_telemetry(codex_home / "config.toml")
+    try:
+        install_workspace_telemetry(workspace)
+        codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        result = configure_codex_telemetry(codex_home / "config.toml")
+    except (OSError, ValueError):
+        return ["Telemetry setup could not be completed; run `job-hunter update` to retry."]
     if result == "conflict":
         return ["Existing Codex OTel config preserved; Job Hunter token telemetry is not enabled for Codex."]
     if result == "invalid":

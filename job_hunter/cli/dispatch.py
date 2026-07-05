@@ -29,11 +29,15 @@ def dispatch_hunt(
     depth: str = "standard",
     scrape_only: bool = False,
     from_snapshot: str | None = None,
+    from_db_candidates: bool = False,
     skip_score: bool = False,
     skip_validate: bool = False,
     force: bool = False,
 ) -> None:
     """Entry point for `job-hunter hunt`. Reads mode from config and routes."""
+    from pydantic import ValidationError
+
+    from job_hunter.cli.output import fail
     from job_hunter.config import get_mode
     from job_hunter.config.loader import setup_logging
     from job_hunter.models import HuntInput
@@ -44,16 +48,22 @@ def dispatch_hunt(
     resolved_key = region_key or "all"
     logger.info("[dispatch] hunt — mode=%s region=%s", mode, resolved_key)
 
-    inp = HuntInput(
-        region_key=resolved_key,
-        mode=mode,
-        depth=depth,
-        from_snapshot=Path(from_snapshot) if from_snapshot else None,
-        scrape_only=scrape_only,
-        skip_score=skip_score,
-        skip_validate=skip_validate,
-        force=force,
-    )
+    try:
+        inp = HuntInput(
+            region_key=resolved_key,
+            mode=mode,
+            depth=depth,
+            from_snapshot=Path(from_snapshot) if from_snapshot else None,
+            from_db_candidates=from_db_candidates,
+            scrape_only=scrape_only,
+            skip_score=skip_score,
+            skip_validate=skip_validate,
+            force=force,
+        )
+    except ValidationError as exc:
+        messages = "; ".join(err["msg"].removeprefix("Value error, ") for err in exc.errors())
+        fail(f"[hunt] {messages}")
+
     result = run(inp)
 
     print(

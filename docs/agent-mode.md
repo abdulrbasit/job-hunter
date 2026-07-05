@@ -84,15 +84,18 @@ after each run, so it's transient, not a second source of truth.
 Workspace setup installs Claude Code and Codex lifecycle hooks plus a localhost-only
 OpenTelemetry receiver. Existing `/job-hunter ...` commands do not change. For each
 run, `outputs/state/metrics.db` records input, output, cached, and reasoning tokens
-by backend, top-level mode, nested phase, and job slug. It also records APPLY/SKIP,
+by backend, explicit Job Hunter skill, nested phase, and job slug. It also records APPLY/SKIP,
 tailored, failed, and interrupted outcomes. The dashboard's Analytics tab surfaces
-session/message/streak counts, total tokens, and tokens-by-mode — the fuller
-per-backend/phase/job breakdown isn't shown there, but remains queryable via
+session/message/streak counts and Tokens by Skill with Claude Code/Codex columns,
+plus a batch phase breakdown. The fuller per-job breakdown remains queryable via
 `job-hunter internal telemetry-status --json` or `metrics.db` directly.
 
 Prompt text, model responses, resume contents, and tool arguments are never stored.
 Only token counts, model/session identifiers, phase labels, slugs, and outcome
-counters are retained. Telemetry errors never block job processing.
+counters are retained. Only explicit `/job-hunter ...` and `/linkedin ...` commands
+start owned runs; coding/review prompts, repository mentions, and raw URLs are ignored.
+Telemetry errors never block job processing. Remove legacy polluted rows once with
+`job-hunter internal telemetry-prune --unattributed`.
 
 `job-hunter init` configures project hooks automatically. Codex requires its OTel
 exporter in `$CODEX_HOME/config.toml` (normally `~/.codex/config.toml`); an existing

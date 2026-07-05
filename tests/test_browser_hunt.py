@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import threading
+import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 import yaml
 
 from job_hunter.pipeline import browser_hunt
+from job_hunter.tracking import company_hunts
 from job_hunter.tracking.repository import get_discovered_jobs
 
 
@@ -150,8 +155,12 @@ def test_browser_hunt_emits_progress_events_for_each_company(tmp_path: Path, mon
     browser_hunt.run(on_progress=events.append)
 
     steps = [e["step"] for e in events]
-    assert steps == ["started", "company-checking", "company-failed", "company-checking", "company-done", "finished"]
-    failed_event = events[2]
+    assert steps[0] == "started"
+    assert steps[-1] == "finished"
+    assert steps.count("company-checking") == 2
+    assert steps.count("company-failed") == 1
+    assert steps.count("company-done") == 1
+    failed_event = next(event for event in events if event["step"] == "company-failed")
     assert failed_event["reason"] == "took too long to respond"
     assert "connection timed out after 30s" not in str(events)
     finished = events[-1]
@@ -241,3 +250,291 @@ def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypat
     assert browser_hunt.run() == 0
     jobs = get_discovered_jobs(tmp_path)
     assert [job["company"] for job in jobs] == ["Kept Corp"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: persistence, run modes, cooldown, resume
+# ---------------------------------------------------------------------------
+
+
+def test_browser_hunt_persists_a_run_and_task_row_on_success(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Acme", "career_url": "https://acme.example.com/jobs", "location": "Berlin"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: [
+            {
+                "title": titles[0],
+                "company": company["name"],
+                "url": "https://acme.example.com/jobs/1",
+                "extraction_method": "jsonld",
+            }
+        ],
+    )
+
+    assert browser_hunt.run() == 0
+
+    run = company_hunts.get_latest_run(tmp_path)
+    assert run["mode"] == company_hunts.MODE_NEW_CHANGED
+    assert run["status"] == "done"
+    assert run["total"] == 1
+    assert run["succeeded"] == 1
+    assert run["failed"] == 0
+    assert run["jobs_inserted"] == 1
+
+    task = company_hunts.get_tasks_for_run(tmp_path, run["id"])[0]
+    assert task["company_name"] == "Acme"
+    assert task["career_url"] == "https://acme.example.com/jobs"
+    assert task["status"] == company_hunts.OK
+    assert task["extraction_method"] == "jsonld"
+    assert task["jobs_observed"] == 1
+    assert task["jobs_inserted"] == 1
+    assert task["duration_s"] is not None
+
+
+def test_browser_hunt_persists_a_failed_task_with_reason(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Broken", "career_url": "https://broken.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    def boom(company, titles, exclusions):
+        raise TimeoutError("connection timed out after 30s")
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", boom)
+
+    assert browser_hunt.run() == 0
+
+    run = company_hunts.get_latest_run(tmp_path)
+    assert run["failed"] == 1
+    task = company_hunts.get_tasks_for_run(tmp_path, run["id"])[0]
+    assert task["status"] == company_hunts.FAILED
+    assert task["failure_reason"] == "took too long to respond"
+
+
+def test_new_changed_mode_skips_a_recently_succeeded_company(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run() == 0
+    assert calls == ["Acme"]
+
+    assert browser_hunt.run() == 0
+
+    assert calls == ["Acme"]  # second run skipped it — no second extract call
+    second_run = company_hunts.get_latest_run(tmp_path)
+    assert second_run["skipped"] == 1
+    assert second_run["total"] == 1
+
+
+def test_new_changed_mode_reprocesses_after_cooldown_expires(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run() == 0
+    first_run = company_hunts.get_latest_run(tmp_path)
+    task_id = company_hunts.get_tasks_for_run(tmp_path, first_run["id"])[0]["id"]
+    stale = (datetime.now(UTC) - timedelta(hours=100)).replace(microsecond=0).isoformat()
+    with company_hunts._conn(tmp_path) as conn:
+        conn.execute("UPDATE company_hunt_tasks SET finished_at = ? WHERE id = ?", (stale, task_id))
+
+    assert browser_hunt.run(cooldown_hours=24) == 0
+
+    assert calls == ["Acme", "Acme"]
+
+
+def test_failed_only_mode_reprocesses_failures_and_skips_successes(tmp_path: Path, monkeypatch) -> None:
+    companies = [
+        {"name": "Broken", "career_url": "https://broken.example.com/jobs"},
+        {"name": "Working", "career_url": "https://working.example.com/jobs"},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    def fake_extract(company, titles, exclusions):
+        if company["name"] == "Broken":
+            raise RuntimeError("boom")
+        return []
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", fake_extract)
+    assert browser_hunt.run() == 0
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run(mode=company_hunts.MODE_FAILED_ONLY) == 0
+
+    assert calls == ["Broken"]
+
+
+def test_force_all_mode_reprocesses_everyone_regardless_of_recent_success(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run() == 0
+    assert browser_hunt.run(mode=company_hunts.MODE_FORCE_ALL) == 0
+
+    assert calls == ["Acme", "Acme"]
+    second_run = company_hunts.get_latest_run(tmp_path)
+    assert second_run["mode"] == company_hunts.MODE_FORCE_ALL
+    assert second_run["skipped"] == 0
+
+
+def test_resume_mode_continues_an_interrupted_run_without_recreating_it(tmp_path: Path, monkeypatch) -> None:
+    companies = [
+        {"name": "First", "career_url": "https://first.example.com/jobs"},
+        {"name": "Second", "career_url": "https://second.example.com/jobs"},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+
+    # Simulate a crash: a run exists with one task already 'ok' and one still 'pending'.
+    interrupted_run_id = company_hunts.begin_run(tmp_path, company_hunts.MODE_NEW_CHANGED)
+    company_hunts.create_tasks(tmp_path, interrupted_run_id, [companies[0]], status=company_hunts.PENDING)
+    company_hunts.create_tasks(tmp_path, interrupted_run_id, [companies[1]], status=company_hunts.PENDING)
+    tasks = company_hunts.get_pending_tasks(tmp_path, interrupted_run_id)
+    company_hunts.finish_task(tmp_path, tasks[0]["id"], interrupted_run_id, status=company_hunts.OK, jobs_observed=0)
+    # run row deliberately left with status='running' — no finish_run() call, as if the process died here
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
+
+    assert calls == ["Second"]  # only the still-pending task was (re)processed
+    run = company_hunts.get_run(tmp_path, interrupted_run_id)
+    assert run["id"] == interrupted_run_id  # same run continued, not a new one
+    assert run["status"] == "done"
+    assert run["succeeded"] == 2  # 1 from before the crash + 1 from resuming
+    assert company_hunts.get_latest_run(tmp_path)["id"] == interrupted_run_id
+
+
+def test_resume_mode_retries_task_interrupted_while_running(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Interrupted", "career_url": "https://interrupted.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    run_id = company_hunts.begin_run(tmp_path, company_hunts.MODE_NEW_CHANGED)
+    company_hunts.create_tasks(tmp_path, run_id, companies, status=company_hunts.PENDING)
+    task_id = company_hunts.get_pending_tasks(tmp_path, run_id)[0]["id"]
+    company_hunts.start_task(tmp_path, task_id)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+    )
+
+    assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
+
+    assert calls == ["Interrupted"]
+    assert company_hunts.get_run(tmp_path, run_id)["succeeded"] == 1
+
+
+def test_resume_mode_falls_back_to_new_changed_when_nothing_is_interrupted(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Acme", "career_url": "https://acme.example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", lambda company, titles, exclusions: [])
+
+    assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
+
+    run = company_hunts.get_latest_run(tmp_path)
+    assert run["mode"] == company_hunts.MODE_NEW_CHANGED
+    assert run["status"] == "done"
+
+
+def test_browser_hunt_overlaps_cheap_company_checks(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": f"Company {index}", "career_url": f"https://example.com/{index}"} for index in range(50)]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    active = 0
+    peak = 0
+    lock = threading.Lock()
+
+    def extract(company, titles, exclusions, *, use_playwright=True):
+        nonlocal active, peak
+        assert use_playwright is False
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.01)
+        with lock:
+            active -= 1
+        return [{"title": titles[0], "company": company["name"], "url": company["career_url"] + "/job"}]
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", extract)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: pytest.fail("cheap success used Chromium"))
+
+    assert browser_hunt.run() == 0
+
+    assert 1 < peak <= browser_hunt.CHEAP_WORKERS
+
+
+def test_browser_hunt_only_probes_chromium_when_fallback_queue_exists(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Needs JS", "career_url": "https://example.com/jobs"}]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    probes: list[bool] = []
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda company, titles, exclusions, *, use_playwright=True: [],
+    )
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: probes.append(True) or True)
+
+    def fake_batch(companies, titles, exclusions, *, on_result=None):
+        # Real extract_playwright_jobs_batch's signature includes on_result — a mock
+        # missing it previously masked a TypeError into a silently-"failed" task.
+        results = [(company, []) for company in companies]
+        if on_result:
+            for company, jobs in results:
+                on_result(company, jobs)
+        return results
+
+    monkeypatch.setattr(browser_hunt, "extract_playwright_jobs_batch", fake_batch)
+
+    assert browser_hunt.run() == 0
+
+    assert probes == [True]
+    run = company_hunts.get_latest_run(tmp_path)
+    task = company_hunts.get_tasks_for_run(tmp_path, run["id"])[0]
+    assert task["status"] == company_hunts.OK  # proves the fallback path actually succeeded, not just that it ran

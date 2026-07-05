@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 @dataclass(frozen=True)
@@ -119,11 +119,21 @@ class HuntInput(BaseModel):
     region_key: str
     mode: Literal["agent", "llm-api"]
     from_snapshot: Path | None = None
+    from_db_candidates: bool = False
     scrape_only: bool = False
     skip_score: bool = False
     skip_validate: bool = False
     force: bool = False
     depth: str = "standard"
+
+    @model_validator(mode="after")
+    def validate_candidate_source(self) -> HuntInput:
+        selected = sum((self.from_snapshot is not None, self.from_db_candidates, self.scrape_only))
+        if selected > 1:
+            raise ValueError("--from-db-candidates, --from-snapshot, and --scrape-only are mutually exclusive")
+        if self.from_db_candidates and self.mode != "llm-api":
+            raise ValueError("--from-db-candidates requires llm-api mode; agent mode uses /job-hunter batch")
+        return self
 
 
 class HuntOutput(BaseModel):

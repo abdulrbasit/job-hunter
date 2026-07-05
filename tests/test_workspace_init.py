@@ -237,6 +237,17 @@ def test_install_telemetry_returns_presentation_warnings(
     assert workspace_ops.install_telemetry(tmp_path) == expected
 
 
+def test_install_telemetry_failure_never_blocks_workspace_init(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "job_hunter.metrics.setup.install_workspace_telemetry",
+        lambda _workspace: (_ for _ in ()).throw(PermissionError("private path")),
+    )
+
+    warnings = workspace_ops.install_telemetry(tmp_path)
+
+    assert warnings == ["Telemetry setup could not be completed; run `job-hunter update` to retry."]
+
+
 def test_update_skills_writes_only_skill_files_and_preserves_user_data(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     run_init(workspace)

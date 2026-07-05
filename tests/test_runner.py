@@ -62,12 +62,35 @@ def test_hunt_from_snapshot_preserves_tracker_context() -> None:
         ),
         patch("job_hunter.pipeline.runner.process_jobs", return_value=processed),
         patch("job_hunter.pipeline.stages.processing.update_readme"),
-        patch("job_hunter.pipeline.stages.processing.mark_processed") as mark_processed,
+        patch("job_hunter.pipeline.stages.processing.upsert_application_from_job") as upsert,
     ):
         result = runner.run(options)
 
     assert result.exit_code == 0
-    mark_processed.assert_called_once_with([job], existing_urls)
+    upsert.assert_called_once()
+
+
+def test_hunt_from_db_candidates_skips_fresh_scrape() -> None:
+    options = PipelineCommandOptions(mode="hunt", from_db_candidates=True, skip_validate=True, skip_score=True)
+    job = {
+        "title": "Product Manager",
+        "company": "Acme",
+        "url": "https://example.com/new",
+        "source": "career_page:jsonld",
+        "snippet": "Role.",
+    }
+
+    with (
+        patch("job_hunter.pipeline.runner.get_api_config", return_value={}),
+        patch("job_hunter.pipeline.runner.get_config", return_value={"scoring": {}}),
+        patch("job_hunter.pipeline.modes.hunt.get_company_hunt_candidates", return_value=[job]),
+        patch("job_hunter.pipeline.modes.hunt.run_hunt") as fresh_hunt,
+        patch("job_hunter.pipeline.runner.process_jobs", return_value=[]),
+    ):
+        result = runner.run(options)
+
+    assert result.jobs_found == 1
+    fresh_hunt.assert_not_called()
 
 
 def test_tailor_links_mode_routes_through_run_tailor() -> None:

@@ -18,6 +18,7 @@ class PipelineCommandOptions:
     depth: str = "standard"
     scrape_only: bool = False
     from_snapshot: str | None = None
+    from_db_candidates: bool = False
     skip_score: bool = False
     skip_validate: bool = False
     force: bool = False

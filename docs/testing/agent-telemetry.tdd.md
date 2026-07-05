@@ -2,7 +2,7 @@
 
 ## Journeys
 
-- A Claude Code or Codex user runs `/job-hunter` normally and can compare token use by mode, phase, and job.
+- A Claude Code or Codex user runs an explicit `/job-hunter` or `/linkedin` command and can compare token use by skill, backend, phase, and job.
 - An LLM API user gets the same normalized role totals without changing provider execution.
 - Workspace setup enables telemetry without replacing unrelated user OTel configuration.
 

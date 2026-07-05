@@ -151,6 +151,50 @@ def test_hunt_input_requires_valid_mode() -> None:
     assert valid.scrape_only is False
 
 
+def test_hunt_input_rejects_from_db_candidates_in_agent_mode() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from job_hunter.models import HuntInput
+
+    with pytest.raises(ValidationError, match="/job-hunter batch"):
+        HuntInput(region_key="primary", mode="agent", from_db_candidates=True)
+
+
+def test_hunt_input_allows_from_db_candidates_in_llm_api_mode() -> None:
+    from job_hunter.models import HuntInput
+
+    inp = HuntInput(region_key="primary", mode="llm-api", from_db_candidates=True)
+    assert inp.from_db_candidates is True
+
+
+def test_hunt_input_rejects_from_db_candidates_with_scrape_only() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from job_hunter.models import HuntInput
+
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        HuntInput(region_key="primary", mode="llm-api", from_db_candidates=True, scrape_only=True)
+
+
+def test_hunt_input_rejects_from_db_candidates_with_from_snapshot() -> None:
+    from pathlib import Path
+
+    import pytest
+    from pydantic import ValidationError
+
+    from job_hunter.models import HuntInput
+
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        HuntInput(
+            region_key="primary",
+            mode="llm-api",
+            from_db_candidates=True,
+            from_snapshot=Path("snap.json"),
+        )
+
+
 def test_models_module_has_no_dependency_on_config_cli_ux_or_sources() -> None:
     """Domain models are the lowest layer (docs/architecture.md) — importing config/cli/ux/sources
     into models.py would make a data contract depend on the code that produces or renders it."""

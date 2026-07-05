@@ -4,6 +4,9 @@ Single responsibility: produce a question bank and story mapping for ONE job int
 
 Slug: `$ARGUMENTS`
 
+Run `job-hunter internal telemetry-mark --phase interview --skill interview --job <slug> --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context score --mode full --job <slug>`.
@@ -24,6 +27,8 @@ Slug: `$ARGUMENTS`
 - Do not commit; leave the artifact for review.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase interview --state end` before printing.
 
 ```
 Interview prep written -> outputs/jobs/{slug}/interview_prep.md

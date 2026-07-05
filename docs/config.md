@@ -116,3 +116,16 @@ migration guidance, instead of silently ignoring it:
 Product defaults, the job-board/ATS source list, stale-listing filters,
 prompt internals, and fixed secret env-var names live in code, not config
 — see [sources.md](sources.md) and `AGENTS.md`'s "Config And State" section.
+
+## Dashboard editing and Undo
+
+`job-hunter dash` opens the native web dashboard. Settings provides a guided
+form, Advanced YAML, and the career-context editor. Saves validate the raw
+user file, use a revision token to reject stale edits, and never write merged
+runtime defaults back into YAML. Undo restores the exact previous bytes for
+the most recent save. Validation errors do not replace the current file.
+
+Companies manages `config/career_pages.yml`, including enabled state, bulk
+enable/disable, and bulk delete. Existing entries without `enabled` remain
+enabled. URLs must use HTTP(S), and duplicate names or normalized URLs are
+rejected before disk writes.

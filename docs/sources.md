@@ -72,6 +72,18 @@ JavaScript. Run from the dashboard's "Run Company Browser Hunt" button
 (`job_hunter/ux/web/`). Results are written to `outputs/state/jobs.db`, the
 same store the regular `find-jobs` hunt uses.
 
+Company Hunt persists pending tasks before work starts and each terminal
+result as it finishes. Modes are:
+
+- **New / changed**: default; skips recent successful checks during cooldown.
+- **Failed only**: retries failed or never-run companies.
+- **Force all**: checks every enabled company.
+- **Resume**: continues pending or interrupted work from the latest run.
+
+Cheap extraction stages use bounded concurrency. Playwright starts only when
+the fallback queue is non-empty and reuses one browser per browser worker.
+Disabled companies are never submitted.
+
 ## ATS discovery (`job_hunter/sources/search/ats_discovery.py`)
 
 Search-based discovery of company job pages hosted on common ATS

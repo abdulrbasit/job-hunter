@@ -4,6 +4,9 @@ Single responsibility: write one post from one approved idea.
 
 Idea reference: `$ARGUMENTS`
 
+Run `job-hunter internal telemetry-mark --phase linkedin_draft --skill linkedin_draft --state start`.
+Telemetry failure is non-blocking and must not be printed.
+
 ## Token Rules
 
 - Start with `job-hunter internal agent-context evidence-context` → `writing_rules.evidence`.
@@ -26,6 +29,8 @@ Idea reference: `$ARGUMENTS`
 - Do not post or call external services.
 
 ## Output
+
+Run `job-hunter internal telemetry-mark --phase linkedin_draft --state end` before printing.
 
 ```
 LinkedIn draft appended -> outputs/linkedin/drafts.md
