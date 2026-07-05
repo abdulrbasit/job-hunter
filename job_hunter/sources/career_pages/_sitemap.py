@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlparse
 
+import defusedxml.ElementTree as ET
 import requests
-from bs4 import BeautifulSoup
 
 from job_hunter.config.loader import get_timeout
 from job_hunter.core.utils import title_matches
@@ -14,6 +14,33 @@ from job_hunter.sources.career_pages._ats_patterns import _CAREER_PATHS
 from job_hunter.sources.search import USER_AGENT, canonicalize_url
 
 logger = logging.getLogger(__name__)
+
+
+def _local_tag(tag: str) -> str:
+    """Strip the XML namespace off an ElementTree tag, e.g. '{...}loc' -> 'loc'."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def _parse_sitemap_locs(xml_bytes: bytes) -> list[str]:
+    """Extract <loc> URLs from sitemap XML using defusedxml — never BeautifulSoup,
+    which needs lxml (not a dependency here) for a real XML parser and otherwise
+    either fails or warns under html.parser; and never bare xml.etree, which is
+    vulnerable to entity-expansion attacks on a remote, user-configured URL. A
+    sitemap index's nested <sitemap><loc> entries point at other sitemaps, not
+    jobs, so they're skipped rather than recursed into (no unbounded crawling)."""
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as exc:
+        logger.debug("[sitemap] malformed XML: %s", exc)
+        return []
+    if _local_tag(root.tag) == "sitemapindex":
+        return []
+    return [
+        loc.text.strip()
+        for entry in root
+        for loc in entry
+        if _local_tag(loc.tag) == "loc" and loc.text and loc.text.strip()
+    ]
 
 
 def _probe_sitemap(base_url: str, timeout: int) -> list[str]:
@@ -27,11 +54,10 @@ def _probe_sitemap(base_url: str, timeout: int) -> list[str]:
             allow_redirects=True,
         )
         resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "xml")
-        return [loc.get_text(strip=True) for loc in soup.find_all("loc")]
     except Exception as e:
         logger.debug("[sitemap] failed to fetch %s: %s", sitemap_url, e)
         return []
+    return _parse_sitemap_locs(resp.content)
 
 
 def _probe_career_paths(base_url: str, timeout: int) -> list[str]:

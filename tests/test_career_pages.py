@@ -250,6 +250,7 @@ def test_extract_career_page_jobs_no_search_provider_called() -> None:
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()
     mock_resp.text = html_with_link
+    mock_resp.content = html_with_link.encode("utf-8")
     mock_resp.url = "https://careers.customco.com"
 
     mock_head = MagicMock()
@@ -339,3 +340,117 @@ def test_ensure_chromium_installed_returns_false_when_install_fails(monkeypatch)
     monkeypatch.setattr(_rendering.subprocess, "run", boom)
 
     assert _rendering.ensure_chromium_installed() is False
+
+
+# ── sitemap XML parsing (stdlib, never BeautifulSoup html.parser) ───────────
+
+
+def _xml_response(body: str):
+    resp = MagicMock()
+    resp.raise_for_status = MagicMock()
+    resp.content = body.encode("utf-8")
+    return resp
+
+
+def test_probe_sitemap_parses_urlset_locs_with_stdlib_xml() -> None:
+    from job_hunter.sources.career_pages import _sitemap
+
+    body = """<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://example.com/careers/job-1</loc></url>
+      <url><loc>https://example.com/careers/job-2</loc></url>
+    </urlset>"""
+
+    with patch("job_hunter.sources.career_pages._sitemap.requests.get", return_value=_xml_response(body)):
+        locs = _sitemap._probe_sitemap("https://example.com", timeout=5)
+
+    assert locs == ["https://example.com/careers/job-1", "https://example.com/careers/job-2"]
+
+
+def test_probe_sitemap_does_not_use_beautifulsoup_xml_parser(recwarn) -> None:
+    """Regression guard: BeautifulSoup(text, "xml") requires lxml, which isn't a
+    dependency here — it silently raised FeatureNotFound (swallowed by the broad
+    except) so sitemap discovery always returned [] regardless of real content."""
+    from job_hunter.sources.career_pages import _sitemap
+
+    body = """<?xml version="1.0"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://example.com/careers/job-1</loc></url>
+    </urlset>"""
+
+    with patch("job_hunter.sources.career_pages._sitemap.requests.get", return_value=_xml_response(body)):
+        locs = _sitemap._probe_sitemap("https://example.com", timeout=5)
+
+    assert locs == ["https://example.com/careers/job-1"]
+    assert not any("XML" in str(w.message) for w in recwarn.list)
+
+
+def test_probe_sitemap_skips_sitemap_index_instead_of_recursing() -> None:
+    """A sitemap index's nested <sitemap><loc> entries point at other sitemaps, not
+    jobs — treat them as out of scope rather than misreading them as job URLs, and
+    never fetch them (no unbounded recursive sitemap crawling)."""
+    from job_hunter.sources.career_pages import _sitemap
+
+    body = """<?xml version="1.0" encoding="UTF-8"?>
+    <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <sitemap><loc>https://example.com/sitemap-jobs.xml</loc></sitemap>
+    </sitemapindex>"""
+
+    with patch("job_hunter.sources.career_pages._sitemap.requests.get", return_value=_xml_response(body)):
+        locs = _sitemap._probe_sitemap("https://example.com", timeout=5)
+
+    assert locs == []
+
+
+def test_probe_sitemap_returns_empty_on_malformed_xml_without_crashing() -> None:
+    from job_hunter.sources.career_pages import _sitemap
+
+    with patch(
+        "job_hunter.sources.career_pages._sitemap.requests.get",
+        return_value=_xml_response("<urlset><url><loc>unterminated"),
+    ):
+        locs = _sitemap._probe_sitemap("https://example.com", timeout=5)
+
+    assert locs == []
+
+
+def test_discover_via_sitemap_end_to_end_still_works_after_parser_fix() -> None:
+    from job_hunter.sources.career_pages import _sitemap
+
+    body = """<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://example.com/careers/product-manager-berlin</loc></url>
+      <url><loc>https://example.com/about</loc></url>
+    </urlset>"""
+
+    with patch("job_hunter.sources.career_pages._sitemap.requests.get", return_value=_xml_response(body)):
+        jobs = _sitemap.discover_via_sitemap("https://example.com", "TestCo", ["Product Manager"])
+
+    assert len(jobs) == 1
+    assert jobs[0]["url"] == "https://example.com/careers/product-manager-berlin"
+    assert jobs[0]["extraction_method"] == "sitemap"
+
+
+# ── extract_jobs_from_html() must never feed XML into html.parser ──────────
+
+
+def test_extract_jobs_from_html_skips_xml_content_without_warning(recwarn) -> None:
+    from job_hunter.sources.search.fetchers import extract_jobs_from_html
+
+    xml_feed = """<?xml version="1.0"?><rss><channel><item><title>Job</title></item></channel></rss>"""
+
+    jobs = extract_jobs_from_html(xml_feed, "https://example.com", "TestCo", ["Product Manager"], "", "test")
+
+    assert jobs == []
+    assert not any("XML" in str(w.message) for w in recwarn.list)
+
+
+def test_extract_jobs_from_html_still_extracts_real_html_links() -> None:
+    from job_hunter.sources.search.fetchers import extract_jobs_from_html
+
+    html = '<html><body><a href="/jobs/product-manager">Product Manager</a></body></html>'
+
+    jobs = extract_jobs_from_html(html, "https://example.com", "TestCo", ["Product Manager"], "", "test")
+
+    assert len(jobs) == 1
+    assert jobs[0]["url"] == "https://example.com/jobs/product-manager"

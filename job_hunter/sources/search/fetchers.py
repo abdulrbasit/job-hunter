@@ -21,6 +21,17 @@ from job_hunter.sources.search._url_utils import (
 logger = logging.getLogger(__name__)
 
 
+def _looks_like_xml(content: str) -> bool:
+    """Sniff whether content is XML so callers can skip HTML link extraction and
+    avoid BeautifulSoup's XMLParsedAsHTMLWarning. This function is for career-page
+    HTML; an XML feed/sitemap reaching it (e.g. a misconfigured career_url) has no
+    <a href> job links to extract anyway, so skipping is both safe and correct."""
+    head = content.lstrip()[:256].lower()
+    if head.startswith("<?xml"):
+        return True
+    return any(head.startswith(f"<{tag}") for tag in ("rss", "feed", "urlset", "sitemapindex"))
+
+
 def extract_jobs_from_html(
     html: str,
     base_url: str,
@@ -30,6 +41,9 @@ def extract_jobs_from_html(
     source: str,
     excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
+    if _looks_like_xml(html):
+        logger.debug("[search] %s looks like XML, not HTML — skipping link extraction", base_url)
+        return []
     soup = BeautifulSoup(html, "html.parser")
     jobs: list[dict] = []
     seen: set[str] = set()

@@ -37,6 +37,7 @@ dependencies = [
   "headroom-ai>=0.1.0; sys_platform != 'win32'",
   "pywebview>=4.4",
   "playwright>=1.40.0",
+  "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
