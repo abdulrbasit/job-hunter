@@ -15,7 +15,11 @@ Single responsibility: safely add or remove one region from `config/job_hunter.y
 2. Read `config/job_hunter.yml` to confirm the region key does not already exist.
 
 3. Determine region metadata:
-   - Country code (ISO 3166-1 alpha-2): most major cities map deterministically — Munich/Frankfurt/Berlin/Hamburg/Stuttgart/Cologne→DE, London/Manchester/Edinburgh→GB, Paris/Lyon/Marseille→FR, Amsterdam/Rotterdam→NL, Zurich/Geneva/Bern→CH, Vienna/Graz→AT, Stockholm/Gothenburg→SE, Oslo→NO, Copenhagen→DK, Helsinki→FI, Warsaw/Krakow→PL, Prague→CZ, Budapest→HU, Lisbon/Porto→PT, Dublin→IE, Brussels→BE, Madrid/Barcelona→ES, Milan/Rome→IT, Toronto/Montreal/Vancouver→CA, Sydney/Melbourne→AU, New York/San Francisco/Seattle/Boston/Chicago/Austin→US, Dubai→AE, Bangalore/Mumbai/Delhi→IN, Tel Aviv→IL, Singapore→SG, Tokyo/Osaka→JP, Seoul→KR, São Paulo/Rio→BR. Use web search only for cities not in this list.
+   - Country code (ISO 3166-1 alpha-2): run
+     ```bash
+     job-hunter internal region-lookup --city "<city>"
+     ```
+     Use its `country` value when non-null. Only fall back to web search when it returns `null`.
    - Primary language (use `search_lang: en` unless the market is non-English)
 
 4. Build the new region block following the exact structure of an existing region in the file

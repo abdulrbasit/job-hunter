@@ -14,6 +14,7 @@ from job_hunter.agent_context import (
     discard_screened_candidates,
     final_stories_text,
     linkedin_weekly_context,
+    match_stories,
     score_context,
     screen_candidate_batch,
     story_by_id,
@@ -636,12 +637,55 @@ Situation: shipped a verified product outcome.
     assert "Draft -- raw notes" not in final_text
 
 
+def test_match_stories_ranks_by_jd_keyword_overlap(tmp_path: Path) -> None:
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {"profile": {"story_bank": "profile/story_bank.md"}},
+    )
+    story_bank = tmp_path / "profile" / "story_bank.md"
+    story_bank.parent.mkdir(parents=True)
+    story_bank.write_text(
+        """# Role One
+
+## Final -- refined STAR stories
+
+### FN-01 - Kubernetes migration
+**Rating: 9/10**
+Situation: led a kubernetes and terraform infrastructure migration.
+- **Tags:** kubernetes, terraform, infrastructure
+
+### FN-02 - Unrelated story
+**Rating: 8/10**
+Situation: organized a company offsite event.
+- **Tags:** events
+""",
+        encoding="utf-8",
+    )
+    job_dir = tmp_path / "outputs" / "jobs" / "job-slug"
+    job_dir.mkdir(parents=True)
+    (job_dir / "jd.md").write_text("We need kubernetes and terraform infrastructure expertise.", encoding="utf-8")
+
+    ranked = match_stories(job="job-slug", root=tmp_path)
+
+    assert ranked[0]["id"] == "FN-01"
+    assert ranked[0]["score"] > 0
+    assert "kubernetes" in ranked[0]["matched_terms"]
+    assert all(r["id"] != "FN-02" for r in ranked)
+
+
+def test_match_stories_returns_empty_without_story_bank_or_jd(tmp_path: Path) -> None:
+    _write_yaml(tmp_path / "config" / "job_hunter.yml", {"profile": {}})
+
+    assert match_stories(job="no-such-job", root=tmp_path) == []
+
+
 def test_score_context_full_is_bounded_and_includes_story_index(tmp_path: Path) -> None:
     _write_yaml(
         tmp_path / "config" / "job_hunter.yml",
         {
             "scoring": {"min_fit_score": 70, "max_years_experience_required": 5},
             "job_titles": ["Product Manager"],
+            "exclusions": {"industries": ["defense"]},
             "profile": {
                 "resume_tex": "profile/resume_double_column.tex",
                 "story_bank": "profile/story_bank.md",
@@ -683,7 +727,12 @@ Situation: relevant verified work.
     assert payload["profile"]["career_context"] == "Prefers concise cover letters."
     assert "Verified resume evidence." in payload["profile"]["resume_tex"]
     assert payload["profile"]["target_titles"] == ["Product Manager"]
+    assert payload["profile"]["excluded_industries"] == ["defense"]
     assert payload["story_index"][0]["id"] == "ST-01"
+    assert payload["matched_stories"] == []
+    assert "APPLY" in " ".join(payload["decision_rules"])
+    assert any(o["path"] == "outputs/jobs/job-slug/score.yml" for o in payload["required_outputs"])
+    assert any(o["path"] == "outputs/jobs/job-slug/evaluation.md" for o in payload["required_outputs"])
 
 
 def test_score_context_snippet_uses_no_story_bank(tmp_path: Path) -> None:

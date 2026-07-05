@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,30 @@ TRANSIENT_STATE_PATHS = (
     "outputs/state/batch_judgment.yml",
     "outputs/state/compiled",
 )
+
+
+def derive_finalize_message(changed_paths: list[str]) -> str:
+    """Derive a finalize commit message from durable changed paths, applying the same
+    precedence the finalize skill used to apply by reading a markdown table by hand."""
+    today = datetime.date.today().isoformat()
+    job_slugs = {p.split("/")[2] for p in changed_paths if p.startswith("outputs/jobs/") and len(p.split("/")) > 2}
+    other_paths = [p for p in changed_paths if not p.startswith("outputs/jobs/")]
+
+    if job_slugs:
+        if len(job_slugs) == 1:
+            return f"feat(jobs): tailor {next(iter(job_slugs))}"
+        return f"feat(jobs): tailor batch {today}"
+    if other_paths == ["profile/story_bank.md"]:
+        return "feat(stories): update story bank"
+    if other_paths and all(p.startswith("outputs/linkedin/") for p in other_paths):
+        return f"feat(linkedin): add drafts {today}"
+    if other_paths and all(p.startswith("config/") for p in other_paths):
+        return "chore(config): update search config"
+    if other_paths and all(p.startswith("profile/") for p in other_paths):
+        return "chore(setup): update profile"
+    if other_paths == ["README.md"]:
+        return "chore(docs): update README"
+    return f"chore: update {today}"
 
 
 def cleanup_transient_state(root: Path, *, label: str) -> int:

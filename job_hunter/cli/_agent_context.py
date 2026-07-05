@@ -209,6 +209,17 @@ def agent_context_story(
     print(story.text)
 
 
+@agent_context_app.command("match-stories")
+def agent_context_match_stories(
+    job: str = typer.Option(..., "--job"),
+    limit: int = typer.Option(5, "--limit"),
+) -> None:
+    """Print Final stories ranked by keyword overlap with a job's JD."""
+    from job_hunter import agent_context
+
+    typer.echo(json.dumps(agent_context.match_stories(job=job, limit=limit), indent=2))
+
+
 @agent_context_app.command("stories-final")
 def agent_context_stories_final() -> None:
     """Print final (approved) stories text."""

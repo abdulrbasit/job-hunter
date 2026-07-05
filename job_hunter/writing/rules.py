@@ -54,6 +54,13 @@ OUTREACH_RULES: tuple[str, ...] = (
     "If no real person is found, write a generic recruiter/team outreach draft and say no verified profile was found.",
 )
 
+SCORE_DECISION_RULES: tuple[str, ...] = (
+    "APPLY only when score meets the live min_fit_score threshold, or a matching strategic override applies.",
+    "strategic_overrides[].bypass_max_years_experience == true skips the years-of-experience filter for that company.",
+    "A job in an excluded industry is always SKIP, regardless of score.",
+    "Credit only skills or experience present in the base resume or selected Final stories.",
+)
+
 
 def universal_resume_rules() -> tuple[str, ...]:
     return RESUME_RULES + ATS_RULES
@@ -73,6 +80,10 @@ def universal_evidence_rules() -> tuple[str, ...]:
 
 def universal_ats_rules() -> tuple[str, ...]:
     return ATS_RULES
+
+
+def universal_score_decision_rules() -> tuple[str, ...]:
+    return SCORE_DECISION_RULES
 
 
 def as_prompt_block(title: str, rules: tuple[str, ...]) -> str:

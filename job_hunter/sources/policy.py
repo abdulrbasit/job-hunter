@@ -10,12 +10,14 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from job_hunter.config.defaults import (
-    _COUNTRY_NAME_TO_CODE,
-    _RESTRICTION_PHRASES,
-    _US_ONLY_PHRASES,
     EXCLUDED_LISTING_URL_PATTERNS,
     LANGUAGE_INDICATORS,
     STALE_INDICATORS,
+)
+from job_hunter.config.locations import (
+    COUNTRY_NAME_TO_CODE,
+    RESTRICTION_PHRASES,
+    US_ONLY_PHRASES,
 )
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting
@@ -145,11 +147,16 @@ _LANG_CODE_TO_NAME: dict[str, str] = {
 }
 
 _COUNTRY_ALIAS_TO_CODE: dict[str, str] = {
-    **_COUNTRY_NAME_TO_CODE,
+    **COUNTRY_NAME_TO_CODE,
     "uk": "GB",
     "u k": "GB",
 }
-_SHORT_COUNTRY_CODES: frozenset[str] = frozenset(_COUNTRY_NAME_TO_CODE.values())
+_SHORT_COUNTRY_CODES: frozenset[str] = frozenset(COUNTRY_NAME_TO_CODE.values())
+# Precompiled once — is_location_restricted() runs this per job screened, so compiling
+# a bare-country-name pattern per country per call (~230 countries) would be wasteful.
+_COUNTRY_NAME_PATTERNS: dict[str, re.Pattern[str]] = {
+    name: re.compile(r"\b" + re.escape(name) + r"\b") for name in COUNTRY_NAME_TO_CODE
+}
 
 _BROAD_LOCATION_RESTRICTIONS: frozenset[str] = frozenset(
     {
@@ -304,7 +311,7 @@ def _restricted_codes_from_slug_text(value: object) -> set[str]:
         )
         if any(re.search(r"\b" + re.escape(pattern) + r"\b", text) for pattern in patterns):
             codes.add(code)
-    for name, code in sorted(_COUNTRY_NAME_TO_CODE.items(), key=lambda item: len(item[0]), reverse=True):
+    for name, code in sorted(COUNTRY_NAME_TO_CODE.items(), key=lambda item: len(item[0]), reverse=True):
         normalized = _norm_location_text(name)
         patterns = (
             f"remote {normalized}",
@@ -575,17 +582,17 @@ class JobPolicy:
             return False
         text = (title + " " + snippet).lower()
         title_lower = title.lower()
-        for country_name, iso_code in _COUNTRY_NAME_TO_CODE.items():
+        for country_name, iso_code in COUNTRY_NAME_TO_CODE.items():
             if iso_code in allowed:
                 continue
-            for phrase in _RESTRICTION_PHRASES:
+            for phrase in RESTRICTION_PHRASES:
                 if phrase.format(country_name) in text:
                     return True
             # standalone country name in title catches "PM - Colombia", "PM (Remote/Egypt)"
-            if re.search(r"\b" + re.escape(country_name) + r"\b", title_lower):
+            if _COUNTRY_NAME_PATTERNS[country_name].search(title_lower):
                 return True
         # US/Canada shorthand phrases — "us" is too noisy for the country loop
-        if "US" not in allowed and any(phrase in text for phrase in _US_ONLY_PHRASES):
+        if "US" not in allowed and any(phrase in text for phrase in US_ONLY_PHRASES):
             return True
         return False
 

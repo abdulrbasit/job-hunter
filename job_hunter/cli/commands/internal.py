@@ -16,6 +16,7 @@ from job_hunter.cli.output import fail
 FINALIZE_PATHS = _run_artifacts.FINALIZE_PATHS
 TRANSIENT_STATE_PATHS = _run_artifacts.TRANSIENT_STATE_PATHS
 _cleanup_transient_state = _run_artifacts.cleanup_transient_state
+_derive_finalize_message = _run_artifacts.derive_finalize_message
 _expand_listing_candidate = _run_artifacts.expand_listing_candidate
 _sync_processed_from_job_outputs = _run_artifacts.sync_processed_from_job_outputs
 _validate_run_artifacts = _run_artifacts.validate_run_artifacts
@@ -240,11 +241,11 @@ def _fail_finalize(errors: list[str], *, label: str) -> None:
     raise typer.Exit(1)
 
 
-def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], message: str) -> bool:
+def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], message: str | None) -> bool:
     import subprocess
 
     status = subprocess.run(
-        ["git", "status", "--porcelain", "--", *finalize_paths],
+        ["git", "status", "--porcelain", "--untracked-files=all", "--", *finalize_paths],
         cwd=root,
         text=True,
         capture_output=True,
@@ -256,6 +257,10 @@ def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], mes
     if not status.stdout.strip():
         typer.echo("[finalize-run] no finalizable changes to commit")
         return False
+
+    if message is None:
+        changed_paths = [line[3:] for line in status.stdout.splitlines() if line]
+        message = _derive_finalize_message(changed_paths)
 
     existing_paths = [path for path in finalize_paths if (root / path).exists()]
     subprocess.run(["git", "add", "--force", "--", *existing_paths], check=True, cwd=root)
@@ -281,7 +286,9 @@ def _push_finalized_run(root: Path, *, push: bool, mode: str) -> None:
 
 @internal_app.command(name="finalize-run")
 def finalize_run(
-    message: str = typer.Option("chore: finalize hunt run", "--message", "-m"),
+    message: str | None = typer.Option(
+        None, "--message", "-m", help="Commit message; derived from changed paths when omitted"
+    ),
     push: bool = typer.Option(False, "--push"),
     mode: str = typer.Option("manual", "--mode", help="manual|auto"),
 ) -> None:
@@ -332,6 +339,16 @@ def discard_job(
     if not _discard_job_folder(repo_path(), job):
         fail(f"[discard-job] folder not found: {repo_path('outputs', 'jobs', job)}")
     typer.echo(f"[discard-job] deleted and marked discarded: {job}")
+
+
+@internal_app.command(name="region-lookup")
+def region_lookup(
+    city: str = typer.Option(..., "--city"),
+) -> None:
+    """Look up the ISO 3166-1 alpha-2 country code for a city or country name."""
+    from job_hunter.config.locations import country_code_for_city
+
+    typer.echo(json.dumps({"city": city, "country": country_code_for_city(city)}))
 
 
 @internal_app.command(name="compile-profile")

@@ -10,6 +10,18 @@ from job_hunter.agent_context._types import RATING_RE, STORY_HEADING_RE, StoryBl
 from job_hunter.agent_context._utils import _clip, _prefer_compiled, _root
 from job_hunter.core.utils import read_yaml
 
+_STOPWORDS = frozenset(
+    """
+    the and for with this that from into your our their its will are was were has have had
+    you they them then than not but out over under about who what when where how why
+    role team work working across ability strong experience years including etc job jobs
+    """.split()
+)
+
+
+def _tokenize(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9+#]+", text.lower()) if len(w) > 2 and w not in _STOPWORDS}
+
 
 def _plain_summary(block: str) -> str:
     for raw in block.splitlines()[1:]:
@@ -114,6 +126,35 @@ def story_by_id(story_id: str, *, root: Path | None = None) -> StoryBlock | None
         if story.story_id.lower() == normalized:
             return story
     return None
+
+
+def match_stories(*, job: str, root: Path | None = None, limit: int = 5) -> list[dict[str, Any]]:
+    """Rank Final stories by deterministic keyword overlap with a job's JD text and matched
+    score keywords, so the agent starts from a short pre-filtered candidate list instead of
+    scanning the full story index. Final selection is still the agent's judgment call."""
+    base = _root(root)
+    stories = _story_blocks(base)
+    if not stories:
+        return []
+
+    folder = base / "outputs" / "jobs" / job
+    jd_text = (folder / "jd.md").read_text(encoding="utf-8") if (folder / "jd.md").exists() else ""
+    score = read_yaml(folder / "score.yml") if (folder / "score.yml").exists() else {}
+    keywords = list(score.get("matched", score.get("matched_keywords", [])))
+    jd_tokens = _tokenize(jd_text) | _tokenize(" ".join(keywords))
+    if not jd_tokens:
+        return []
+
+    ranked: list[dict[str, Any]] = []
+    for story in stories:
+        story_tokens = _tokenize(" ".join(story.tags)) | _tokenize(story.title) | _tokenize(story.summary)
+        overlap = sorted(jd_tokens & story_tokens)
+        if not overlap:
+            continue
+        ranked.append({"id": story.story_id, "title": story.title, "score": len(overlap), "matched_terms": overlap})
+
+    ranked.sort(key=lambda r: r["score"], reverse=True)
+    return ranked[:limit]
 
 
 def final_stories_text(*, root: Path | None = None) -> str:

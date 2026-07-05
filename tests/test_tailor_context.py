@@ -36,6 +36,7 @@ def test_tailor_context_returns_all_required_keys(tmp_path: Path) -> None:
         "project_rules",
         "cover_constraints",
         "writing_rules",
+        "required_outputs",
     }
 
 
@@ -108,3 +109,13 @@ def test_tailor_context_includes_universal_writing_rules(tmp_path: Path) -> None
     assert rules["cover_letter"] == list(universal_cover_letter_rules())
     assert rules["evidence"] == list(universal_evidence_rules())
     assert rules["ats"] == list(universal_ats_rules())
+
+
+def test_tailor_context_required_outputs_reference_job_slug(tmp_path: Path) -> None:
+    _write_score(tmp_path, "slug-7", {"matched": [], "gaps": []})
+
+    outputs = tailor_context(job="slug-7", root=tmp_path)["required_outputs"]
+    paths = {o["path"] for o in outputs}
+
+    assert "outputs/jobs/slug-7/resume_tailored.tex" in paths
+    assert "outputs/jobs/slug-7/cover_letter.md" in paths

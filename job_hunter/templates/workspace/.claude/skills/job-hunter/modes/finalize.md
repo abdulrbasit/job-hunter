@@ -31,30 +31,18 @@ Push: include `--push` in `$ARGUMENTS` or the user replies "yes and push" to sen
    - transient queue, screen, and batch-score scratch files are cleaned up, not pushed
    It ignores files outside the finalization allowlist.
 
-4. Draft commit message:
-   - If provided in `$ARGUMENTS`, use it verbatim.
-   - Otherwise inspect `git status --short` and apply the first matching rule:
+4. Commit message: if provided in `$ARGUMENTS`, use it verbatim. Otherwise omit `--message` —
+   `finalize-run` derives it deterministically from the changed durable paths.
 
-   | Dominant pending paths | Commit message |
-   |---|---|
-   | `outputs/jobs/<slug>/` — exactly one job folder | `feat(jobs): tailor <slug>` |
-   | `outputs/jobs/` — multiple job folders | `feat(jobs): tailor batch YYYY-MM-DD` |
-   | `profile/story_bank.md` (no jobs) | `feat(stories): update story bank` |
-   | `outputs/linkedin/` (no jobs) | `feat(linkedin): add drafts YYYY-MM-DD` |
-   | `config/` only | `chore(config): update search config` |
-   | `profile/` only (non-story) | `chore(setup): update profile` |
-   | `README.md` only | `chore(docs): update README` |
-   | jobs + other paths | use the `feat(jobs)` message |
-   | anything else | `chore: update YYYY-MM-DD` |
-
-5. Present the durable path set and commit message. Ask:
+5. Present the durable path set and, if `$ARGUMENTS` provided one, the commit message. Ask:
    "Finalize durable changes? Reply yes, or yes and push."
 
 6. On confirmation:
    ```bash
-   job-hunter internal finalize-run --mode interactive --message "<message>"
+   job-hunter internal finalize-run --mode interactive [--message "<message>"]
    ```
-   Append `--push` only if the user explicitly requested a push.
+   Include `--message` only when `$ARGUMENTS` provided one. Append `--push` only if the user
+   explicitly requested a push.
 
 7. Run `job-hunter internal telemetry-mark --phase finalize --state end`.
    Print: `Finalized.` or `Finalized and pushed to origin/main.`

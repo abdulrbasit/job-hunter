@@ -7,6 +7,7 @@ from job_hunter.writing.rules import (
     universal_evidence_rules,
     universal_outreach_rules,
     universal_resume_rules,
+    universal_score_decision_rules,
 )
 
 
@@ -25,6 +26,7 @@ def test_all_universal_rule_sets_are_nonempty_tuples_of_str() -> None:
         universal_outreach_rules(),
         universal_evidence_rules(),
         universal_ats_rules(),
+        universal_score_decision_rules(),
     ):
         assert isinstance(rules, tuple)
         assert rules

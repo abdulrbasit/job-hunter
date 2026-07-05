@@ -92,6 +92,38 @@ def test_phase_and_job_usage_rolls_up_once(tmp_path: Path) -> None:
     assert row["output_tokens"] == 30
 
 
+def test_phase_durations_aggregate_from_recorded_start_end_timestamps(tmp_path: Path) -> None:
+    """phase_durations is a pure aggregation over already-recorded started_at/ended_at —
+    no new instrumentation, so this pins the aggregation math against direct DB rows."""
+    import sqlite3
+
+    db = tmp_path / "metrics.db"
+    run_id = begin_run(db, backend="codex", session_id="session-1", mode="batch")
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "INSERT INTO telemetry_phases (id, run_id, phase, started_at, ended_at, status) VALUES "
+        "('p1', ?, 'scoring', '2026-01-01T00:00:00', '2026-01-01T00:00:10', 'completed')",
+        (run_id,),
+    )
+    conn.execute(
+        "INSERT INTO telemetry_phases (id, run_id, phase, started_at, ended_at, status) VALUES "
+        "('p2', ?, 'scoring', '2026-01-01T00:00:00', '2026-01-01T00:00:20', 'completed')",
+        (run_id,),
+    )
+    conn.execute(
+        "INSERT INTO telemetry_phases (id, run_id, phase, started_at, ended_at, status) VALUES "
+        "('p3', ?, 'tailoring', '2026-01-01T00:00:00', NULL, 'running')",
+        (run_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    durations = get_telemetry_summary(db)["phase_durations"]
+
+    assert durations["scoring"] == {"count": 2, "total_seconds": 30.0, "avg_seconds": 15.0}
+    assert "tailoring" not in durations
+
+
 def test_claude_and_codex_otlp_json_normalize_identically(tmp_path: Path) -> None:
     db = tmp_path / "metrics.db"
     begin_run(db, backend="claude-code", session_id="claude-1", mode="tailor")

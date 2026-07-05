@@ -8,8 +8,9 @@ from typing import Any
 from job_hunter.agent_context._types import MAX_JD_CHARS
 from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_json_or_yaml, _root
 from job_hunter.agent_context.candidates import candidate_from_queue
-from job_hunter.agent_context.stories import story_index
+from job_hunter.agent_context.stories import match_stories, story_index
 from job_hunter.core.utils import read_yaml
+from job_hunter.writing.rules import universal_score_decision_rules
 
 
 def _profile_context(root: Path) -> dict[str, Any]:
@@ -41,6 +42,7 @@ def _profile_context(root: Path) -> dict[str, Any]:
             "max_years_experience_required": scoring.get("max_years_experience_required"),
             "strategic_overrides": scoring.get("strategic_overrides", []),
         },
+        "excluded_industries": list(config.get("exclusions", {}).get("industries", []) or []),
         "target_titles": config.get("job_titles", []),
         "career_context": _clip(career_context, 2000),
         "resume_tex": _clip(resume_tex, 6000),
@@ -76,8 +78,9 @@ def score_context(
         "mode": mode,
         "profile": _profile_context(base),
         "story_policy": (
-            "snippet mode uses no story bank; full mode starts with story-index, "
-            "may use stories-final for broad verified-evidence comparison, then records selected story IDs."
+            "snippet mode uses no story bank; full mode starts with matched_stories as a "
+            "keyword-ranked shortlist, may use story-index or stories-final for broader "
+            "verified-evidence comparison, then records selected story IDs."
         ),
     }
     if mode == "snippet":
@@ -91,5 +94,15 @@ def score_context(
             raise ValueError("full mode requires --job")
         payload["job"] = _read_job_folder(base, job, max_jd_chars)
         payload["story_index"] = story_index(root=base)
+        payload["matched_stories"] = match_stories(job=job, root=base)
+        payload["decision_rules"] = list(universal_score_decision_rules())
+        payload["required_outputs"] = [
+            {
+                "path": f"outputs/jobs/{job}/score.yml",
+                "format": "yaml",
+                "validate_with": "job-hunter internal agent-context validate-score",
+            },
+            {"path": f"outputs/jobs/{job}/evaluation.md", "format": "markdown"},
+        ]
         return payload
     raise ValueError("mode must be snippet or full")

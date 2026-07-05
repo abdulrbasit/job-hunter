@@ -608,6 +608,32 @@ def _daily_buckets(
     return daily
 
 
+def _phase_durations(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
+    """Aggregate wall-clock duration per phase name from already-recorded start/end
+    timestamps — no new instrumentation, just a summary over telemetry_phases."""
+    rows = conn.execute(
+        "SELECT phase, started_at, ended_at FROM telemetry_phases WHERE ended_at IS NOT NULL"
+    ).fetchall()
+    buckets: dict[str, list[float]] = {}
+    for row in rows:
+        started = _parse_ts(str(row["started_at"]))
+        ended = _parse_ts(str(row["ended_at"]))
+        if not started or not ended:
+            continue
+        seconds = (ended - started).total_seconds()
+        if seconds < 0:
+            continue
+        buckets.setdefault(str(row["phase"]), []).append(seconds)
+    return {
+        phase: {
+            "count": len(seconds_list),
+            "total_seconds": round(sum(seconds_list), 2),
+            "avg_seconds": round(sum(seconds_list) / len(seconds_list), 2),
+        }
+        for phase, seconds_list in buckets.items()
+    }
+
+
 def _operational_summary(
     runs: list[sqlite3.Row], events: list[sqlite3.Row], outcomes: list[sqlite3.Row] | None = None
 ) -> dict[str, Any]:
@@ -657,6 +683,7 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
         "by_backend": {},
         "by_skill_backend": {},
         "by_phase": {},
+        "phase_durations": {},
         "ignored": {"events": 0, "input_tokens": 0, "output_tokens": 0, "reason": "not_job_hunter_skill"},
         "outcomes": {"processed": 0, "apply": 0, "skip": 0, "tailored": 0, "failed": 0},
         "operational": _operational_summary([], []),
@@ -685,6 +712,7 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
                WHERE r.root_skill!='' AND r.skill!=''"""
         ).fetchall()
         ignored = _ignored_summary(conn)
+        phase_durations = _phase_durations(conn)
 
     def grouped(key: str, *, skip_empty: bool = False) -> dict[str, dict[str, int]]:
         values: dict[str, list[sqlite3.Row]] = {}
@@ -713,6 +741,7 @@ def get_telemetry_summary(db_path: Path) -> dict[str, Any]:
         "by_backend": by_backend,
         "by_skill_backend": by_skill_backend,
         "by_phase": by_phase,
+        "phase_durations": phase_durations,
         "ignored": ignored,
         "outcomes": {
             "processed": len(outcomes),

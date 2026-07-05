@@ -82,4 +82,12 @@ def tailor_context(job: str, root: Path | None = None) -> dict[str, Any]:
             "evidence": list(universal_evidence_rules()),
             "ats": list(universal_ats_rules()),
         },
+        "required_outputs": [
+            {
+                "path": f"outputs/jobs/{job}/resume_tailored.tex",
+                "format": "latex",
+                "edit_mode": "surgical_edits_only",
+            },
+            {"path": f"outputs/jobs/{job}/cover_letter.md", "format": "plain_text"},
+        ],
     }

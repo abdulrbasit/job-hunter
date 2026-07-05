@@ -73,21 +73,15 @@ Slug: `$ARGUMENTS`
    If compilation fails, keep `.tex` and cover letter, report PDF failure, and return.
    Telemetry marker failures are non-blocking.
 
-## Hard Rules
-
-- Never add a metric (number, %, count) not in the base resume.
-- Never change an employer name, job title, or employment date.
-- Never add a certification, degree, or skill not in the base resume.
-- Never regenerate the full file. Surgical edits only.
-- If post-edit verification detects fabrication: revert the line to the original base resume text, not substitute.
-
 ## Rules
 
+Universal fabrication, evidence, and character-limit rules apply (`_rules.md`, inherited
+automatically, plus `writing_rules` from the tailor-context payload) — they win over any
+conflicting style preference. Tailor-specific procedure on top of those:
+
+- Never regenerate the full file. Surgical edits only.
+- If post-edit verification detects fabrication: revert the line to the original base resume text, not substitute.
 - Never write `resume_tailored.md`.
-- Never fabricate metrics, skills, titles, employers, dates, or outcomes.
-- All claims in the tailored resume must exist verbatim or be directly derivable from the base resume, matched Final stories, or company_research.md. Introduce no new facts, scope, or proof points.
-- Bullet char limit: every `\item` line must not exceed the max chars stated in `career_context.md` Bullet guidance. Count characters before writing each bullet.
-- Summary char limit: the tailored summary must not exceed the max chars stated in `career_context.md` Summary guidance. Count before writing.
 - Profile image is copied only when configured and present.
 - Do not update README or processed state. Caller owns workflow state.
 

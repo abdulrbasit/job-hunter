@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 
 import requests
 
-from job_hunter.config.defaults import _COUNTRY_NAME_TO_CODE
 from job_hunter.config.loader import get_api_config
+from job_hunter.config.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import title_matches
 from job_hunter.sources._jd_ats_parsers import (
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # code->display-name lookup built once from the name->code map (first/primary name wins).
 _CODE_TO_COUNTRY_NAME: dict[str, str] = {}
-for _name, _code in _COUNTRY_NAME_TO_CODE.items():
+for _name, _code in COUNTRY_NAME_TO_CODE.items():
     _CODE_TO_COUNTRY_NAME.setdefault(_code, _name.title())
 
 _GULF_CODES: frozenset[str] = frozenset({"AE", "SA", "QA", "KW", "BH", "OM"})

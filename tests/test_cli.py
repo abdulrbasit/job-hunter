@@ -154,6 +154,7 @@ def test_agent_context_help_loads() -> None:
     assert result.returncode == 0
     assert "story-index" in result.stdout
     assert "stories-final" in result.stdout
+    assert "match-stories" in result.stdout
     assert "lifecycle" in result.stdout
 
 
@@ -199,6 +200,7 @@ KNOWN_INTERNAL_COMMANDS = {
     "cleanup-transient",
     "discard-job",
     "compile-profile",
+    "region-lookup",
     "analytics",
     "verify",
 }
@@ -692,6 +694,37 @@ def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> No
     assert not transient.exists()
 
 
+def test_country_code_for_city_is_case_insensitive_and_unknown_returns_none() -> None:
+    from job_hunter.config.locations import country_code_for_city
+
+    assert country_code_for_city("Munich") == "DE"
+    assert country_code_for_city("  frankfurt  ".strip()) == "DE"
+    assert country_code_for_city("Nowhereville") is None
+
+
+def test_region_lookup_command_prints_country_code() -> None:
+    result = run_cli("internal", "region-lookup", "--city", "Munich")
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == {"city": "Munich", "country": "DE"}
+
+
+def test_derive_finalize_message_matches_finalize_skill_precedence() -> None:
+    from job_hunter.cli._run_artifacts import derive_finalize_message
+
+    assert derive_finalize_message(["outputs/jobs/acme-co/score.yml"]) == "feat(jobs): tailor acme-co"
+    assert derive_finalize_message(["outputs/jobs/acme-co/score.yml", "outputs/jobs/other-co/score.yml"]).startswith(
+        "feat(jobs): tailor batch "
+    )
+    assert derive_finalize_message(["profile/story_bank.md"]) == "feat(stories): update story bank"
+    assert derive_finalize_message(["outputs/linkedin/ideas.md"]).startswith("feat(linkedin): add drafts ")
+    assert derive_finalize_message(["config/job_hunter.yml"]) == "chore(config): update search config"
+    assert derive_finalize_message(["profile/career_context.md"]) == "chore(setup): update profile"
+    assert derive_finalize_message(["README.md"]) == "chore(docs): update README"
+    assert derive_finalize_message(["outputs/jobs/acme-co/score.yml", "README.md"]) == "feat(jobs): tailor acme-co"
+    assert derive_finalize_message(["outputs/state/jobs.db"]).startswith("chore: update ")
+
+
 def test_discard_dead_job_folders_removes_skip_and_missing_jd_but_not_apply(tmp_path: Path) -> None:
     from job_hunter.cli._run_artifacts import discard_dead_job_folders
 
@@ -747,6 +780,26 @@ def test_finalize_run_discards_dead_job_folders_before_commit(tmp_path: Path, mo
     assert result.exit_code == 0
     assert not skip_job.exists()
     assert "discarded 1 SKIP/missing-JD job folder" in result.stdout
+
+
+def test_commit_finalizable_changes_derives_message_when_none_given(tmp_path: Path) -> None:
+    import subprocess
+
+    from job_hunter.cli.commands.internal import _commit_finalizable_changes
+
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+
+    story_bank = tmp_path / "profile" / "story_bank.md"
+    story_bank.parent.mkdir(parents=True)
+    story_bank.write_text("# Role\n", encoding="utf-8")
+
+    committed = _commit_finalizable_changes(tmp_path, ("profile",), None)
+
+    assert committed is True
+    log = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=tmp_path, text=True, capture_output=True, check=True)
+    assert log.stdout.strip() == "feat(stories): update story bank"
 
 
 def test_finalize_run_cleans_transient_state_when_nothing_is_committed(

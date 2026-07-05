@@ -319,3 +319,41 @@ def test_emea_still_accepted_for_europe_only_region() -> None:
     """EMEA must keep matching pure-Europe regions too, not just Gulf ones."""
     policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE
     assert not policy.has_incompatible_location_for_global_feed({"location_restrictions": ["EMEA"]})
+
+
+# --- is_location_restricted ---
+
+
+def test_is_location_restricted_false_with_no_configured_regions() -> None:
+    policy = JobPolicy({"regions": {}, "exclusions": {}})
+    assert not policy.is_location_restricted("PM (Remote/Egypt)", "must be based in Egypt")
+
+
+def test_is_location_restricted_true_for_restriction_phrase_naming_non_allowed_country() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE
+    assert policy.is_location_restricted("Product Manager", "Applicants from Spain only will be considered.")
+
+
+def test_is_location_restricted_false_when_restriction_names_allowed_country() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE
+    assert not policy.is_location_restricted("Product Manager", "Must be based in Germany.")
+
+
+def test_is_location_restricted_true_for_bare_country_name_in_title() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE
+    assert policy.is_location_restricted("PM - Colombia", "")
+
+
+def test_is_location_restricted_true_for_us_shorthand_phrase() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)  # berlin=DE, dublin=IE — no US region
+    assert policy.is_location_restricted("Product Manager (US Remote)", "")
+
+
+def test_is_location_restricted_false_for_us_shorthand_when_us_is_allowed() -> None:
+    policy = JobPolicy({"regions": {"nyc": {"enabled": True, "country": "US"}}, "exclusions": {}})
+    assert not policy.is_location_restricted("Product Manager (US Remote)", "")
+
+
+def test_is_location_restricted_false_with_no_restriction_language() -> None:
+    policy = JobPolicy(_MULTI_REGION_CONFIG)
+    assert not policy.is_location_restricted("Product Manager", "Join our growing team and own the roadmap.")
