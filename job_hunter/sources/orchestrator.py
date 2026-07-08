@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
+from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
@@ -78,7 +79,7 @@ def scrape_with_stats(
     ATS-discovery-only — without duplicating this function's policy filtering."""
     config = load_search_config()
     job_titles: list[str] = config.get("job_titles", []) or []
-    excluded_title_terms: list[str] = (config.get("exclusions", {}) or {}).get("title_terms", []) or []
+    excluded_title_terms: list[str] = resolve_title_exclusions(config)
     regions = resolve_regions(config, region)
     max_results = _max_results_for_depth(depth)
 

@@ -19,6 +19,7 @@ from job_hunter.config.locations import (
     RESTRICTION_PHRASES,
     US_ONLY_PHRASES,
 )
+from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting
 from job_hunter.sources.search import canonicalize_url
@@ -356,7 +357,7 @@ class JobPolicy:
 
     @property
     def excluded_title_terms(self) -> list[str]:
-        return [str(term) for term in self.exclusions.get("title_terms", []) or []]
+        return resolve_title_exclusions(self.config)
 
     @property
     def excluded_companies(self) -> list[str]:

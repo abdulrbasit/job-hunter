@@ -1,0 +1,594 @@
+{
+  "version": 1,
+  "career_stages": {
+    "student": {
+      "prefer": [
+        "intern",
+        "internship",
+        "working student",
+        "werkstudent",
+        "apprentice",
+        "apprenticeship",
+        "trainee",
+        "graduate",
+        "junior"
+      ],
+      "exclude": [
+        "senior",
+        "staff",
+        "principal",
+        "lead",
+        "director",
+        "head of",
+        "vp",
+        "vice president",
+        "chief"
+      ],
+      "max_years_experience": 1
+    },
+    "early_career": {
+      "prefer": [
+        "junior",
+        "associate",
+        "graduate",
+        "trainee",
+        "entry level",
+        "entry-level"
+      ],
+      "exclude": [
+        "intern",
+        "internship",
+        "apprentice",
+        "apprenticeship",
+        "senior",
+        "staff",
+        "principal",
+        "lead",
+        "director",
+        "head of",
+        "vp",
+        "vice president",
+        "chief"
+      ],
+      "max_years_experience": 3
+    },
+    "experienced": {
+      "prefer": [],
+      "exclude": [
+        "student",
+        "intern",
+        "internship",
+        "apprentice",
+        "apprenticeship",
+        "trainee",
+        "graduate",
+        "entry level",
+        "entry-level",
+        "junior"
+      ],
+      "max_years_experience": 8
+    },
+    "leadership": {
+      "prefer": [
+        "lead",
+        "head of",
+        "director",
+        "vp",
+        "vice president",
+        "chief"
+      ],
+      "exclude": [
+        "student",
+        "intern",
+        "internship",
+        "apprentice",
+        "apprenticeship",
+        "trainee",
+        "graduate",
+        "entry level",
+        "entry-level",
+        "junior",
+        "associate"
+      ],
+      "max_years_experience": null
+    },
+    "custom": {
+      "prefer": [],
+      "exclude": [],
+      "max_years_experience": null
+    }
+  },
+  "employment_types": [
+    "full_time",
+    "part_time",
+    "contract",
+    "internship",
+    "working_student",
+    "apprentice",
+    "temporary",
+    "freelance"
+  ],
+  "industries": [
+    {
+      "id": "software_it",
+      "label": "Software & IT",
+      "aliases": [
+        "technology",
+        "tech",
+        "information technology",
+        "saas"
+      ]
+    },
+    {
+      "id": "finance",
+      "label": "Finance & Banking",
+      "aliases": [
+        "fintech",
+        "banking",
+        "financial services"
+      ]
+    },
+    {
+      "id": "healthcare",
+      "label": "Healthcare",
+      "aliases": [
+        "health care",
+        "medical",
+        "hospital"
+      ]
+    },
+    {
+      "id": "biotech_pharma",
+      "label": "Biotech & Pharma",
+      "aliases": [
+        "pharmaceutical",
+        "life sciences",
+        "biotechnology"
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "label": "Manufacturing",
+      "aliases": [
+        "industrial",
+        "factory"
+      ]
+    },
+    {
+      "id": "retail_ecommerce",
+      "label": "Retail & E-commerce",
+      "aliases": [
+        "retail",
+        "e-commerce",
+        "ecommerce"
+      ]
+    },
+    {
+      "id": "telecommunications",
+      "label": "Telecommunications",
+      "aliases": [
+        "telecom"
+      ]
+    },
+    {
+      "id": "energy",
+      "label": "Energy & Utilities",
+      "aliases": [
+        "oil and gas",
+        "renewables",
+        "utilities"
+      ]
+    },
+    {
+      "id": "automotive",
+      "label": "Automotive",
+      "aliases": [
+        "auto",
+        "mobility"
+      ]
+    },
+    {
+      "id": "consulting",
+      "label": "Consulting",
+      "aliases": [
+        "professional services",
+        "advisory"
+      ]
+    },
+    {
+      "id": "media_entertainment",
+      "label": "Media & Entertainment",
+      "aliases": [
+        "gaming",
+        "streaming",
+        "publishing"
+      ]
+    },
+    {
+      "id": "education",
+      "label": "Education",
+      "aliases": [
+        "edtech",
+        "e-learning"
+      ]
+    },
+    {
+      "id": "government_public_sector",
+      "label": "Government & Public Sector",
+      "aliases": [
+        "public sector",
+        "civil service"
+      ]
+    },
+    {
+      "id": "nonprofit",
+      "label": "Nonprofit",
+      "aliases": [
+        "ngo",
+        "charity"
+      ]
+    },
+    {
+      "id": "real_estate",
+      "label": "Real Estate",
+      "aliases": [
+        "proptech"
+      ]
+    },
+    {
+      "id": "transportation_logistics",
+      "label": "Transportation & Logistics",
+      "aliases": [
+        "logistics",
+        "supply chain",
+        "shipping"
+      ]
+    },
+    {
+      "id": "hospitality_travel",
+      "label": "Hospitality & Travel",
+      "aliases": [
+        "hotels",
+        "tourism"
+      ]
+    },
+    {
+      "id": "aerospace_defense",
+      "label": "Aerospace & Defense",
+      "aliases": [
+        "aviation",
+        "defense"
+      ]
+    },
+    {
+      "id": "legal",
+      "label": "Legal",
+      "aliases": [
+        "law",
+        "legaltech"
+      ]
+    },
+    {
+      "id": "agriculture",
+      "label": "Agriculture",
+      "aliases": [
+        "agtech",
+        "farming"
+      ]
+    }
+  ],
+  "languages": {
+    "english": {
+      "indicators": [],
+      "review_status": "reviewed"
+    },
+    "german": {
+      "indicators": [
+        "wir suchen",
+        "wir freuen uns",
+        "jetzt bewerben",
+        "ihre aufgaben",
+        "ihr profil",
+        "deine aufgaben",
+        "dein profil",
+        "was wir bieten",
+        "was du mitbringst",
+        "das bieten wir",
+        "stellenangebot",
+        "berufserfahrung",
+        "deutschkenntnisse"
+      ],
+      "review_status": "reviewed"
+    },
+    "italian": {
+      "indicators": [
+        "siamo alla ricerca",
+        "la tua candidatura",
+        "invia candidatura",
+        "le tue responsabilita",
+        "cosa offriamo",
+        "requisiti richiesti"
+      ],
+      "review_status": "reviewed"
+    },
+    "spanish": {
+      "indicators": [
+        "buscamos",
+        "envia tu solicitud",
+        "tus responsabilidades",
+        "tu perfil",
+        "que ofrecemos",
+        "nuestra compañia",
+        "nuestra empresa",
+        "nuestro equipo",
+        "somos una empresa",
+        "fue fundada"
+      ],
+      "review_status": "reviewed"
+    },
+    "french": {
+      "indicators": [
+        "nous recherchons",
+        "votre candidature",
+        "vos missions",
+        "votre profil",
+        "ce que nous offrons"
+      ],
+      "review_status": "reviewed"
+    },
+    "dutch": {
+      "indicators": [
+        "wij zoeken",
+        "jouw profiel",
+        "je verantwoordelijkheden",
+        "solliciteer nu",
+        "wat wij bieden"
+      ],
+      "review_status": "reviewed"
+    },
+    "portuguese": {
+      "indicators": [
+        "candidatar",
+        "requisitos",
+        "experiência",
+        "vaga",
+        "cargo",
+        "habilidades",
+        "obrigatório",
+        "sua candidatura",
+        "venha trabalhar",
+        "nos estamos procurando",
+        "nossa empresa",
+        "nossa equipe",
+        "somos uma empresa",
+        "foi fundada"
+      ],
+      "review_status": "reviewed"
+    },
+    "russian": {
+      "indicators": [
+        "мы ищем",
+        "требования",
+        "обязанности",
+        "опыт работы",
+        "заработная плата",
+        "условия работы",
+        "отправить резюме"
+      ],
+      "review_status": "reviewed"
+    },
+    "polish": {
+      "indicators": [
+        "szukamy",
+        "wymagania",
+        "obowiązki",
+        "aplikuj teraz",
+        "doświadczenie",
+        "wynagrodzenie"
+      ],
+      "review_status": "reviewed"
+    },
+    "czech": {
+      "indicators": [
+        "hledáme",
+        "požadavky",
+        "nabízíme",
+        "zkušenosti",
+        "nástup možný"
+      ],
+      "review_status": "soft"
+    },
+    "slovak": {
+      "indicators": [
+        "hľadáme",
+        "požiadavky",
+        "ponúkame",
+        "pracovná náplň"
+      ],
+      "review_status": "soft"
+    },
+    "hungarian": {
+      "indicators": [
+        "keresünk",
+        "követelmények",
+        "feladatok",
+        "tapasztalat",
+        "amit kínálunk"
+      ],
+      "review_status": "soft"
+    },
+    "romanian": {
+      "indicators": [
+        "căutăm",
+        "cerințe",
+        "responsabilități",
+        "experiență",
+        "ce oferim"
+      ],
+      "review_status": "soft"
+    },
+    "swedish": {
+      "indicators": [
+        "vi söker",
+        "arbetsuppgifter",
+        "ansök nu",
+        "erfarenhet",
+        "vi erbjuder"
+      ],
+      "review_status": "soft"
+    },
+    "danish": {
+      "indicators": [
+        "vi søger",
+        "arbejdsopgaver",
+        "ansøg nu",
+        "erfaring",
+        "vi tilbyder"
+      ],
+      "review_status": "soft"
+    },
+    "norwegian": {
+      "indicators": [
+        "vi søker",
+        "arbeidsoppgaver",
+        "søk nå",
+        "vi tilbyr"
+      ],
+      "review_status": "soft"
+    },
+    "finnish": {
+      "indicators": [
+        "etsimme",
+        "vaatimukset",
+        "tehtävät",
+        "hae nyt",
+        "tarjoamme"
+      ],
+      "review_status": "soft"
+    },
+    "greek": {
+      "indicators": [
+        "αναζητούμε",
+        "απαιτήσεις",
+        "καθήκοντα",
+        "εμπειρία",
+        "προσφέρουμε"
+      ],
+      "review_status": "soft"
+    },
+    "turkish": {
+      "indicators": [
+        "arıyoruz",
+        "gereksinimler",
+        "görevler",
+        "deneyim",
+        "sunuyoruz"
+      ],
+      "review_status": "reviewed"
+    },
+    "arabic": {
+      "indicators": [
+        "نحن نبحث",
+        "المتطلبات",
+        "المهام",
+        "قدم الآن",
+        "الخبرة"
+      ],
+      "review_status": "reviewed"
+    },
+    "hebrew": {
+      "indicators": [
+        "אנחנו מחפשים",
+        "דרישות",
+        "ניסיון",
+        "שלח קורות חיים"
+      ],
+      "review_status": "soft"
+    },
+    "chinese": {
+      "indicators": [
+        "我们在寻找",
+        "职位要求",
+        "岗位职责",
+        "工作经验",
+        "薪资待遇"
+      ],
+      "review_status": "reviewed"
+    },
+    "japanese": {
+      "indicators": [
+        "募集要項",
+        "業務内容",
+        "応募資格",
+        "勤務地",
+        "給与"
+      ],
+      "review_status": "reviewed"
+    },
+    "korean": {
+      "indicators": [
+        "채용 공고",
+        "지원 자격",
+        "담당 업무",
+        "경력",
+        "급여"
+      ],
+      "review_status": "reviewed"
+    },
+    "hindi": {
+      "indicators": [
+        "हम खोज रहे हैं",
+        "आवश्यकताएं",
+        "अनुभव",
+        "आवेदन करें"
+      ],
+      "review_status": "reviewed"
+    },
+    "indonesian": {
+      "indicators": [
+        "kami mencari",
+        "persyaratan",
+        "tanggung jawab",
+        "pengalaman",
+        "lamar sekarang"
+      ],
+      "review_status": "reviewed"
+    },
+    "thai": {
+      "indicators": [
+        "เรากำลังมองหา",
+        "คุณสมบัติ",
+        "ประสบการณ์",
+        "สมัครงาน"
+      ],
+      "review_status": "soft"
+    },
+    "vietnamese": {
+      "indicators": [
+        "chúng tôi tìm kiếm",
+        "yêu cầu",
+        "kinh nghiệm",
+        "ứng tuyển ngay"
+      ],
+      "review_status": "soft"
+    },
+    "ukrainian": {
+      "indicators": [
+        "ми шукаємо",
+        "вимоги",
+        "обов'язки",
+        "досвід роботи"
+      ],
+      "review_status": "soft"
+    },
+    "catalan": {
+      "indicators": [
+        "busquem",
+        "requisits",
+        "responsabilitats",
+        "experiència"
+      ],
+      "review_status": "soft"
+    }
+  }
+}

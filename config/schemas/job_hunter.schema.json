@@ -26,6 +26,10 @@
       "items": {"type": "string", "minLength": 1},
       "minItems": 1
     },
+    "career_stage": {
+      "type": "string",
+      "enum": ["student", "early_career", "experienced", "leadership", "custom"]
+    },
     "regions": {
       "type": "object",
       "minProperties": 1,

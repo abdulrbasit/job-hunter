@@ -11,6 +11,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from job_hunter.config.loader import get_api_config, get_config, profile_path
+from job_hunter.config.reference_data import resolve_max_years_experience
 from job_hunter.constants import LLM_REPAIR_INPUT_CHARS
 from job_hunter.core.latex_utils import compact_latex_resume as _compact_latex_resume
 from job_hunter.llm.client import get_client as get_llm_client
@@ -214,7 +215,7 @@ def score_and_filter_jobs(
     if min_score is None:
         min_score = scoring_settings.get("min_fit_score", 70)
     if max_years is None:
-        max_years = scoring_settings.get("max_years_experience_required", 4)
+        max_years = resolve_max_years_experience(config)
     logger.info(f"[scorer] Filtering jobs: min_score={min_score}, max_years={max_years}")
 
     # Fail fast if the LLM SDK isn't installed rather than silently scoring everything 0.

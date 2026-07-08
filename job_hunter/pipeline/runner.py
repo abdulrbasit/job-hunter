@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 
 from job_hunter.config.loader import ROOT as REPO_ROOT
 from job_hunter.config.loader import get_api_config, get_config, setup_logging
+from job_hunter.config.reference_data import resolve_max_years_experience
 from job_hunter.core.url_liveness import UrlLivenessCache
 from job_hunter.pipeline.context import PipelineCommandOptions, PipelineResult, PipelineRunContext
 from job_hunter.pipeline.modes import hunt as hunt_mode
@@ -60,7 +61,7 @@ def run(options: PipelineCommandOptions) -> PipelineResult:
     api_config = get_api_config()
     url_liveness = UrlLivenessCache()
     scoring_config = get_config("job_hunter")
-    max_years = scoring_config.get("scoring", {}).get("max_years_experience_required", 4)
+    max_years = resolve_max_years_experience(scoring_config)
 
     ctx = PipelineRunContext(
         options=options,

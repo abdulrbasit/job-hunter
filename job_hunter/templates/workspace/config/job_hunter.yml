@@ -13,6 +13,11 @@ profile:
 
 job_titles: []
 
+# student | early_career | experienced | leadership | custom
+# Ranks matching titles higher and hard-excludes mismatched seniority; see
+# job_hunter/config/filters.json for the term lists behind each stage.
+career_stage: experienced
+
 regions:
   primary:
     enabled: true
