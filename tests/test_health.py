@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from job_hunter.ux.health import doctor, onboarding_status
+from job_hunter.ux.health import doctor, onboarding_checklist, onboarding_status
 
 
 @pytest.fixture(autouse=True)
@@ -118,6 +118,84 @@ def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: P
 
     assert payload["onboardingNeeded"] is False
     assert payload["missing"] == []
+
+
+def test_onboarding_checklist_reports_undone_items_for_minimal_repo(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+
+    checklist = onboarding_checklist(tmp_path)
+
+    by_id = {item["id"]: item for item in checklist["items"]}
+    assert by_id["regions"]["done"] is False
+    assert by_id["resume"]["done"] is False
+    assert by_id["career_context"]["done"] is False
+    assert by_id["story_bank"]["done"] is False
+    assert by_id["api_key"]["done"] is True  # agent mode never needs an API key
+    assert by_id["workflow_schedule"]["done"] is False
+    assert by_id["outputs_writable"]["done"] is True
+    assert checklist["done_count"] < checklist["total_count"]
+    assert str(tmp_path) not in str(checklist)
+
+
+def test_onboarding_checklist_all_done_when_repo_is_ready(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "mode": "agent",
+                "profile": {
+                    "resume_tex": "profile/resume_double_column.tex",
+                    "story_bank": "profile/story_bank.md",
+                },
+                "job_titles": ["Product Manager"],
+                "regions": {"berlin": {"enabled": True, "location": "Berlin", "country": "DE"}},
+                "exclusions": {},
+                "sources": {},
+                "scoring": {"min_fit_score": 70},
+                "linkedin": {"enabled": False},
+                "llm": {"default_provider": "anthropic"},
+                "secrets": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(
+        "\\name{Alex Rivera}\n\\tagline{Senior Product Manager}", encoding="utf-8"
+    )
+    (tmp_path / "profile" / "career_context.md").write_text(
+        "## About Me\n\n- Current role: Senior PM at Example Corp\n"
+        "- Experience summary: 5 years in B2B SaaS product management\n"
+        "- Strongest proof points: Led product from 0 to 10k users\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "profile" / "story_bank.md").write_text(
+        "# Story Bank\n\n# Final - refined STAR stories\n\n## PM-01\nStory.\n", encoding="utf-8"
+    )
+    (tmp_path / ".github" / "workflows" / "find-jobs.yml").write_text(
+        "name: Find Jobs\non:\n  schedule:\n    - cron: '0 6 * * *'\n", encoding="utf-8"
+    )
+
+    checklist = onboarding_checklist(tmp_path)
+
+    assert checklist["done_count"] == checklist["total_count"]
+
+
+def test_onboarding_checklist_requires_api_key_in_llm_api_mode(tmp_path: Path, monkeypatch) -> None:
+    _write_minimal_repo(tmp_path)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"mode": "llm-api", "llm": {"default_provider": "anthropic"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    checklist = onboarding_checklist(tmp_path)
+    by_id = {item["id"]: item for item in checklist["items"]}
+    assert by_id["api_key"]["done"] is False
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    checklist = onboarding_checklist(tmp_path)
+    by_id = {item["id"]: item for item in checklist["items"]}
+    assert by_id["api_key"]["done"] is True
 
 
 def test_agent_mode_does_not_require_docker(tmp_path: Path, monkeypatch) -> None:

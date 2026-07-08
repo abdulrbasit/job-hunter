@@ -118,6 +118,74 @@ def test_get_onboarding_returns_count_without_local_paths(tmp_path: Path) -> Non
     assert str(tmp_path) not in str(payload)
 
 
+def test_get_onboarding_checklist_returns_itemized_list_without_local_paths(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_onboarding_checklist()
+
+    assert payload["ok"] is True
+    assert payload["total_count"] > 0
+    assert payload["done_count"] < payload["total_count"]
+    ids = {item["id"] for item in payload["items"]}
+    assert {"regions", "resume", "career_context", "story_bank", "api_key", "workflow_schedule"} <= ids
+    assert str(tmp_path) not in str(payload)
+
+
+def test_get_api_key_status_reports_not_configured(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    payload = DashAPI(tmp_path).get_api_key_status()
+
+    assert payload == {
+        "ok": True,
+        "provider": "anthropic",
+        "env_var": "ANTHROPIC_API_KEY",
+        "required": True,
+        "configured": False,
+    }
+
+
+def test_get_api_key_status_reports_configured_from_env(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    payload = DashAPI(tmp_path).get_api_key_status()
+
+    assert payload["configured"] is True
+
+
+def test_save_api_key_rejects_empty_value(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+
+    payload = DashAPI(tmp_path).save_api_key("   ")
+
+    assert payload["ok"] is False
+
+
+def test_save_api_key_stores_via_keyring(tmp_path: Path, monkeypatch) -> None:
+    from unittest.mock import MagicMock
+
+    fake_keyring = MagicMock()
+    monkeypatch.setitem(__import__("sys").modules, "keyring", fake_keyring)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+
+    payload = DashAPI(tmp_path).save_api_key("sk-real-key")
+
+    assert payload == {"ok": True, "provider": "anthropic", "env_var": "ANTHROPIC_API_KEY"}
+    fake_keyring.set_password.assert_called_once_with("job-hunter", "ANTHROPIC_API_KEY", "sk-real-key")
+
+
 def test_get_job_detail_reads_from_db(tmp_path: Path) -> None:
     job_dir = _write_job(tmp_path)
     (job_dir / "cover_letter.md").write_text("# Cover letter", encoding="utf-8")

@@ -17,6 +17,7 @@
   --accent: #238636;
   --accent-hover: #2ea043;
   --blue: #1f6feb;
+  --amber: #d29922;
   --radius: 8px;
   --sidebar-w: 60px;
   --sidebar-w-open: 200px;
@@ -202,6 +203,13 @@ main {
 .search-input::placeholder { color: var(--text-muted); }
 .pager { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:10px 14px; color:var(--text-muted); font-size:12px; }
 .onboarding-banner { margin:12px 20px 0; padding:10px 14px; border:1px solid var(--amber); border-radius:8px; background:rgba(245,158,11,.08); font-size:13px; }
+.onboarding-progress { font-weight:600; margin-bottom:6px; }
+.onboarding-checklist { list-style:none; display:flex; flex-direction:column; gap:4px; }
+.onboarding-item { display:flex; align-items:center; gap:8px; font-size:13px; }
+.onboarding-item .oi-mark { width:16px; text-align:center; color: var(--text-muted); }
+.onboarding-item.done { color: var(--text-muted); text-decoration: line-through; }
+.onboarding-item.done .oi-mark { color: var(--accent-hover); }
+.onboarding-item .oi-hint { color: var(--text-muted); font-size:12px; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
   outline: 2px solid var(--blue); outline-offset: 2px;
 }
@@ -1183,16 +1191,28 @@ async function initAll() {
 async function loadOnboarding() {
   const banner = document.getElementById('onboarding-banner');
   try {
-    const result = await window.pywebview.api.get_onboarding();
-    if (result.ok && result.onboardingNeeded) {
-      banner.textContent = `Setup incomplete: ${result.missing_count} required item(s) remain. Run job-hunter doctor for exact next steps.`;
+    const result = await window.pywebview.api.get_onboarding_checklist();
+    if (!result.ok) {
+      banner.textContent = `${result.error || 'Setup status is unavailable.'} ${result.next_action || ''}`;
       banner.style.display = '';
-    } else if (!result.ok) {
-      banner.textContent = `${result.error} ${result.next_action}`;
-      banner.style.display = '';
-    } else {
-      banner.style.display = 'none';
+      return;
     }
+    if (result.done_count >= result.total_count) {
+      banner.style.display = 'none';
+      return;
+    }
+    const rows = result.items.map(item => `
+      <li class="onboarding-item ${item.done ? 'done' : ''}">
+        <span class="oi-mark">${item.done ? '✓' : '○'}</span>
+        <span>${item.label}</span>
+        <span class="oi-hint">— ${item.action_hint}</span>
+      </li>
+    `).join('');
+    banner.innerHTML = `
+      <div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done</div>
+      <ul class="onboarding-checklist">${rows}</ul>
+    `;
+    banner.style.display = '';
   } catch(_) {
     banner.textContent = 'Setup status is unavailable. Run job-hunter doctor in the workspace.';
     banner.style.display = '';

@@ -78,6 +78,53 @@ class DashAPI:
             "warning_count": len(onboarding["warnings"]),
         }
 
+    def get_onboarding_checklist(self) -> dict[str, Any]:
+        from job_hunter.ux.health import onboarding_checklist
+
+        try:
+            checklist = onboarding_checklist(self._root)
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "error": "Setup checklist is unavailable.", "next_action": "Run `job-hunter doctor`."}
+        return {"ok": True, **checklist}
+
+    def get_api_key_status(self) -> dict[str, Any]:
+        from job_hunter.config.secrets import get_secret
+        from job_hunter.core.utils import read_yaml
+        from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
+
+        config = read_yaml(self._root / "config" / "job_hunter.yml")
+        provider = str((config.get("llm") or {}).get("default_provider") or "anthropic")
+        if provider == "ollama":
+            return {"ok": True, "provider": provider, "required": False, "configured": True}
+        env_var = PROVIDER_SECRET_ENV_VARS.get(provider, "")
+        configured = bool(env_var and get_secret(env_var, required=False))
+        return {"ok": True, "provider": provider, "env_var": env_var, "required": True, "configured": configured}
+
+    def save_api_key(self, value: str) -> dict[str, Any]:
+        from job_hunter.core.utils import read_yaml
+        from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
+
+        value = value.strip()
+        if not value:
+            return self._mutation_error("API key cannot be empty.", "Paste a real key and try again.")
+        config = read_yaml(self._root / "config" / "job_hunter.yml")
+        provider = str((config.get("llm") or {}).get("default_provider") or "anthropic")
+        env_var = PROVIDER_SECRET_ENV_VARS.get(provider, "")
+        if not env_var:
+            return self._mutation_error(
+                f"No API key needed for provider '{provider}'.", "Change llm.default_provider if this is wrong."
+            )
+        try:
+            import keyring
+
+            keyring.set_password("job-hunter", env_var, value)
+        except Exception as exc:  # noqa: BLE001
+            return self._mutation_error(
+                f"Could not store the key in the OS keyring: {exc}",
+                "Install with: pip install 'job-hunter-kit[secrets]', or set the env var manually.",
+            )
+        return {"ok": True, "provider": provider, "env_var": env_var}
+
     def get_applications(
         self,
         page: int = 1,

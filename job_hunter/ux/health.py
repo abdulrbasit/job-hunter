@@ -345,6 +345,80 @@ def onboarding_status(root: Path, checks: list[dict[str, Any]] | None = None) ->
     }
 
 
+def onboarding_checklist(root: Path) -> dict[str, Any]:
+    """Human-readable, actionable checklist derived from onboarding_status() — no new detection logic."""
+    status = onboarding_status(root)
+    missing = set(status["missing"])
+    warnings = set(status["warnings"])
+
+    job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
+    resume_rel = _configured_profile_rel(job_hunter_config, "resume_tex", "profile/resume_double_column.tex")
+    career_rel = _configured_profile_rel(job_hunter_config, "career_context", "profile/career_context.md")
+    story_rel = _configured_profile_rel(job_hunter_config, "story_bank", "profile/story_bank.md")
+
+    items = [
+        {
+            "id": "regions",
+            "label": "Add at least one enabled region with a real city",
+            "done": "config/job_hunter.yml" not in missing and "config/job_hunter.yml:regions" not in missing,
+            "action_hint": "Settings → Guided → Regions",
+        },
+        {
+            "id": "resume",
+            "label": "Personalize your resume beyond the template placeholders",
+            "done": resume_rel not in missing and f"{resume_rel}:filled" not in missing,
+            "action_hint": f"Edit {resume_rel}, then rerun doctor",
+        },
+        {
+            "id": "career_context",
+            "label": "Fill in your career context (targeting, resume style, tone)",
+            "done": career_rel not in missing and f"{career_rel}:filled" not in missing,
+            "action_hint": "Settings → Career Context",
+        },
+        {
+            "id": "story_bank",
+            "label": "Write at least one Final STAR story",
+            "done": f"{story_rel}:final_stories" not in missing,
+            "action_hint": f"Add a ### entry under Final in {story_rel}",
+        },
+        {
+            "id": "api_key",
+            "label": "Configure an API key for your LLM provider",
+            "done": _api_key_configured(job_hunter_config),
+            "action_hint": "Settings → Get Started → API Key",
+        },
+        {
+            "id": "workflow_schedule",
+            "label": "Enable the GitHub Actions schedule for unattended hunting",
+            "done": "workflow_schedule" not in warnings,
+            "action_hint": "Settings → Get Started → GitHub Actions",
+        },
+        {
+            "id": "outputs_writable",
+            "label": "Make outputs/ writable",
+            "done": "outputs_writable" not in warnings,
+            "action_hint": "Fix filesystem permissions on outputs/",
+        },
+    ]
+    done_count = sum(1 for item in items if item["done"])
+    return {"items": items, "done_count": done_count, "total_count": len(items)}
+
+
+def _api_key_configured(job_hunter_config: dict[str, Any]) -> bool:
+    """A configured API key is required only in llm-api mode; agent mode uses Claude Code's own auth."""
+    mode = str(job_hunter_config.get("mode") or "agent")
+    if mode != "llm-api":
+        return True
+    from job_hunter.config.secrets import get_secret
+    from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
+
+    provider = str((job_hunter_config.get("llm") or {}).get("default_provider") or "anthropic")
+    if provider == "ollama":
+        return True
+    env_var = PROVIDER_SECRET_ENV_VARS.get(provider, "")
+    return bool(env_var and get_secret(env_var, required=False))
+
+
 def _check_ok(checks: list[dict[str, Any]], name: str) -> bool:
     for check in checks:
         if check.get("name") == name:
