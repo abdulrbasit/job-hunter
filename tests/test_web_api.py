@@ -37,6 +37,31 @@ def _write_job(root: Path, slug: str = "2026-06-12_acme_pm") -> Path:
     return job_dir
 
 
+def test_seen_milestones_round_trip(tmp_path: Path) -> None:
+    api = DashAPI(tmp_path)
+    assert api.get_seen_milestones() == {"ok": True, "seen": []}
+
+    result = api.mark_milestone_seen("app_1")
+
+    assert result == {"ok": True, "seen": ["app_1"]}
+    assert api.get_seen_milestones() == {"ok": True, "seen": ["app_1"]}
+
+
+def test_mark_milestone_seen_is_idempotent_and_sorted(tmp_path: Path) -> None:
+    api = DashAPI(tmp_path)
+    api.mark_milestone_seen("app_5")
+    api.mark_milestone_seen("app_1")
+    api.mark_milestone_seen("app_1")
+
+    assert api.get_seen_milestones() == {"ok": True, "seen": ["app_1", "app_5"]}
+
+
+def test_get_application_streak_returns_ok_shape_for_empty_workspace(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_application_streak()
+
+    assert payload == {"ok": True, "current_streak": 0, "longest_streak": 0, "active_days": 0}
+
+
 def test_get_applications_returns_json_serializable_dicts(tmp_path: Path) -> None:
     _write_job(tmp_path)
     upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)

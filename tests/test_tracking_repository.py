@@ -56,6 +56,43 @@ def test_mark_candidates_discarded_never_clobbers_advanced_job(tmp_path: Path) -
     assert job["status"] == "tailored"
 
 
+def test_get_application_streak_counts_consecutive_active_status_days(tmp_path: Path) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    today = datetime.now(UTC)
+    yesterday = today - timedelta(days=1)
+    repository.upsert_job(tmp_path, {"url": "https://example.com/streak/1", "slug": "s1", "status": "applied"})
+    repository.upsert_job(tmp_path, {"url": "https://example.com/streak/2", "slug": "s2", "status": "interview"})
+    with repository._conn(tmp_path) as conn:
+        conn.execute("UPDATE jobs SET updated_at = ? WHERE slug = 's1'", (yesterday.isoformat(),))
+        conn.execute("UPDATE jobs SET updated_at = ? WHERE slug = 's2'", (today.isoformat(),))
+
+    streak = repository.get_application_streak(tmp_path)
+
+    assert streak["active_days"] == 2
+    assert streak["longest_streak"] == 2
+    assert streak["current_streak"] == 2
+
+
+def test_get_application_streak_resets_when_last_activity_is_old(tmp_path: Path) -> None:
+    repository.upsert_job(tmp_path, {"url": "https://example.com/streak/3", "slug": "s3", "status": "applied"})
+    with repository._conn(tmp_path) as conn:
+        conn.execute("UPDATE jobs SET updated_at = ? WHERE slug = 's3'", ("2020-01-01T10:00:00+00:00",))
+
+    streak = repository.get_application_streak(tmp_path)
+
+    assert streak["current_streak"] == 0
+    assert streak["longest_streak"] == 1
+
+
+def test_get_application_streak_ignores_candidate_and_discarded_status(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/streak/4", "title": "PM", "company": "Acme"}])
+
+    streak = repository.get_application_streak(tmp_path)
+
+    assert streak == {"current_streak": 0, "longest_streak": 0, "active_days": 0}
+
+
 def test_existing_wal_database_migrates_without_sidecars(tmp_path: Path) -> None:
     db = tmp_path / "outputs" / "state" / "jobs.db"
     db.parent.mkdir(parents=True)

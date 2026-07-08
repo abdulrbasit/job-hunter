@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -132,6 +132,42 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # URL dedup — replaces discovered_urls.yml
 # ---------------------------------------------------------------------------
+
+
+def _consecutive_day_streaks(days: list[date]) -> tuple[int, int]:
+    """Current/longest streak from a sorted, deduped list of dates."""
+    if not days:
+        return 0, 0
+    longest = current = 1
+    for prev, curr in zip(days, days[1:], strict=False):
+        current = current + 1 if (curr - prev).days == 1 else 1
+        longest = max(longest, current)
+    today = datetime.now(UTC).date()
+    if days[-1] not in (today, today - timedelta(days=1)):
+        return 0, longest
+    current_streak = 1
+    for prev, curr in zip(reversed(days[:-1]), reversed(days[1:]), strict=False):
+        if (curr - prev).days == 1:
+            current_streak += 1
+        else:
+            break
+    return current_streak, longest
+
+
+def get_application_streak(root: Path) -> dict[str, int]:
+    """Streak of consecutive days with real application activity (a job reaching
+    tailored/applied/responded/interview/offer). Derived from `updated_at`, so a job's
+    original day entering a status is superseded once it advances further — an accepted
+    approximation for a lightweight streak display, not an audit trail."""
+    placeholders = ",".join("?" for _ in ACTIVE_STATUSES)
+    with _conn(root) as conn:
+        rows = conn.execute(
+            f"SELECT DISTINCT substr(updated_at, 1, 10) AS day FROM jobs WHERE status IN ({placeholders})",  # noqa: S608
+            tuple(ACTIVE_STATUSES),
+        ).fetchall()
+    days = sorted({datetime.strptime(row["day"], "%Y-%m-%d").date() for row in rows if row["day"]})
+    current_streak, longest_streak = _consecutive_day_streaks(days)
+    return {"current_streak": current_streak, "longest_streak": longest_streak, "active_days": len(days)}
 
 
 def get_all_known_urls(root: Path) -> set[str]:

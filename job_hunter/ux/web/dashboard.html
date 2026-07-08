@@ -149,6 +149,7 @@ main {
 }
 .topbar-title { font-size: 16px; font-weight: 600; }
 .topbar-subtitle { color: var(--text-muted); font-size: 13px; }
+.streak-badge { font-size: 13px; padding: 3px 10px; border-radius: 99px; background: rgba(210,153,34,0.15); color: #e3b341; font-weight: 600; }
 .topbar-spacer { flex: 1; }
 .btn {
   padding: 6px 14px;
@@ -704,6 +705,20 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.toast {
+  background: var(--surface2);
+  border: 1px solid var(--accent-hover);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  animation: toast-in 0.2s ease, toast-out 0.4s ease 2.6s forwards;
+}
+@keyframes toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(-6px); } }
 .loading-wrap { display: flex; align-items: center; justify-content: center; padding: 60px; gap: 12px; color: var(--text-muted); }
 </style>
 </head>
@@ -754,6 +769,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
   <div class="topbar">
     <span class="topbar-title" id="view-title">Applications</span>
     <span class="topbar-subtitle" id="view-sub"></span>
+    <span class="streak-badge" id="streak-badge" style="display:none"></span>
     <span class="topbar-spacer"></span>
     <button class="btn" onclick="refreshAll()">↺ Refresh</button>
   </div>
@@ -1164,6 +1180,8 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
 
 </main>
 
+<div class="toast-container" id="toast-container"></div>
+
 <script>
 // ── State ──
 let allApps = [];
@@ -1229,6 +1247,47 @@ function reportFailure(message, nextAction='Reload this view and retry.') {
   alert(`${message} ${nextAction}`);
 }
 
+function showToast(message) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+const MILESTONES = [
+  { id: 'app_1', check: c => c.applications >= 1, message: '🎉 First application logged — nice start!' },
+  { id: 'app_5', check: c => c.applications >= 5, message: '🎉 5 applications in — building momentum!' },
+  { id: 'app_10', check: c => c.applications >= 10, message: '🎉 10 applications — great consistency!' },
+  { id: 'app_25', check: c => c.applications >= 25, message: '🎉 25 applications — that is real persistence!' },
+  { id: 'interview_1', check: c => c.interviews >= 1, message: '🎉 First interview scheduled — congratulations!' },
+  { id: 'offer_1', check: c => c.offers >= 1, message: '🎉 First offer — huge milestone!' },
+];
+
+async function checkMilestones() {
+  try {
+    const [insights, seenResult] = await Promise.all([
+      window.pywebview.api.get_insights(),
+      window.pywebview.api.get_seen_milestones(),
+    ]);
+    const byStatus = insights.by_status || {};
+    const counts = {
+      applications: insights.total || 0,
+      interviews: (byStatus.interview || 0) + (byStatus.offer || 0),
+      offers: byStatus.offer || 0,
+    };
+    const seen = new Set(seenResult.seen || []);
+    for (const m of MILESTONES) {
+      if (!seen.has(m.id) && m.check(counts)) {
+        showToast(m.message);
+        await window.pywebview.api.mark_milestone_seen(m.id);
+        seen.add(m.id);
+      }
+    }
+  } catch(_) { /* milestones are a nice-to-have — never block the save flow */ }
+}
+
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
 // fallback if event already fired
@@ -1240,7 +1299,21 @@ async function initAll() {
     if (name) document.getElementById('sidebar-name').textContent = name;
   } catch(_) {}
   await loadOnboarding();
+  await loadApplicationStreak();
   await refreshAll();
+}
+
+async function loadApplicationStreak() {
+  const badge = document.getElementById('streak-badge');
+  try {
+    const result = await window.pywebview.api.get_application_streak();
+    if (!result.ok || result.current_streak < 1) { badge.style.display = 'none'; return; }
+    badge.textContent = `🔥 ${result.current_streak}-day streak`;
+    badge.title = `Longest streak: ${result.longest_streak} day(s)`;
+    badge.style.display = '';
+  } catch(_) {
+    badge.style.display = 'none';
+  }
 }
 
 async function loadOnboarding() {
@@ -1872,17 +1945,23 @@ async function saveStatus() {
   const status = document.getElementById('dp-status').value;
   const note = document.getElementById('dp-note').value.trim();
   const msg = document.getElementById('dp-save-msg');
+  const idx = allApps.findIndex(a => a.slug === activeSlug);
+  const previousStatus = idx >= 0 ? allApps[idx].status : null;
   try {
     const result = await window.pywebview.api.update_status(activeSlug, status, note);
     if (result.error) { msg.textContent = '✗ ' + result.error; msg.style.color = '#f85149'; return; }
     // update local cache
-    const idx = allApps.findIndex(a => a.slug === activeSlug);
     if (idx >= 0) { allApps[idx] = { ...allApps[idx], ...result }; }
     msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
     loadApplications(); // reload the current page in place — a status edit must not bump the user back to page 1
     setTimeout(() => { msg.textContent = ''; }, 2000);
     document.getElementById('dp-note').value = '';
     insightsLoaded = false; // invalidate insights cache
+    if (status === 'applied' && previousStatus !== 'applied') {
+      showToast('✓ Applied — nice work!');
+    }
+    loadApplicationStreak();
+    checkMilestones();
   } catch(e) {
     msg.textContent = '✗ Status could not be saved. Retry, then run job-hunter doctor if the problem continues.';
     msg.style.color = '#f85149';

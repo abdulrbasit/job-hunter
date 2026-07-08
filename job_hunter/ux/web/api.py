@@ -169,6 +169,33 @@ class DashAPI:
             ),
         }
 
+    def get_seen_milestones(self) -> dict[str, Any]:
+        path = self._root / "outputs" / "state" / "milestones.json"
+        if not path.exists():
+            return {"ok": True, "seen": []}
+        try:
+            seen = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"ok": True, "seen": []}
+        return {"ok": True, "seen": seen if isinstance(seen, list) else []}
+
+    def mark_milestone_seen(self, milestone_id: str) -> dict[str, Any]:
+        path = self._root / "outputs" / "state" / "milestones.json"
+        seen = set(self.get_seen_milestones()["seen"])
+        seen.add(milestone_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(sorted(seen)), encoding="utf-8")
+        return {"ok": True, "seen": sorted(seen)}
+
+    def get_application_streak(self) -> dict[str, Any]:
+        from job_hunter.tracking.repository import get_application_streak
+
+        try:
+            streak = get_application_streak(self._root)
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "current_streak": 0, "longest_streak": 0, "active_days": 0}
+        return {"ok": True, **streak}
+
     def get_applications(
         self,
         page: int = 1,
