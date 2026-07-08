@@ -997,6 +997,7 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
         <button class="status-tab active" data-settings-tab="guided">Guided</button>
         <button class="status-tab" data-settings-tab="advanced">Advanced YAML</button>
         <button class="status-tab" data-settings-tab="career-context">Career Context</button>
+        <button class="status-tab" data-settings-tab="get-started">Get Started</button>
       </div>
 
       <div class="settings-errors" id="settings-errors" style="display:none"></div>
@@ -1102,6 +1103,60 @@ td.td-title { color: var(--text-muted); max-width: 320px; white-space: nowrap; o
           <button class="btn" onclick="undoCareerContext()">Undo last save</button>
           <span class="settings-dirty-flag" id="settings-career-context-dirty" style="display:none">Unsaved changes</span>
           <span class="save-msg" id="settings-career-context-msg"></span>
+        </div>
+      </div>
+
+      <!-- Get Started -->
+      <div class="settings-panel" id="settings-panel-get-started">
+        <div class="settings-section" id="gs-section-career">
+          <h3>Quick Career Context Fill</h3>
+          <div class="settings-grid">
+            <div class="settings-field"><label for="gs-current-role">Current role</label><input type="text" id="gs-current-role"></div>
+            <div class="settings-field"><label for="gs-experience-summary">Experience summary</label><input type="text" id="gs-experience-summary"></div>
+            <div class="settings-field"><label for="gs-target-roles">Target role shapes</label><input type="text" id="gs-target-roles"></div>
+            <div class="settings-field"><label for="gs-resume-positioning">Resume positioning</label><input type="text" id="gs-resume-positioning"></div>
+            <div class="settings-field"><label for="gs-cover-voice">Cover letter voice</label><input type="text" id="gs-cover-voice"></div>
+            <div class="settings-field"><label for="gs-linkedin-tone">LinkedIn tone</label><input type="text" id="gs-linkedin-tone"></div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" type="button" onclick="applyQuickCareerContext()">Fill Career Context tab from these answers</button>
+            <span class="save-msg" id="gs-career-msg"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">Writes into the Career Context tab's editor — review and Save there. Leave any field blank to skip it.</span>
+        </div>
+
+        <div class="settings-section" id="gs-section-api-key">
+          <h3>API Key</h3>
+          <div class="settings-field">
+            <label id="gs-api-key-label" for="gs-api-key-input">Provider key</label>
+            <input type="password" id="gs-api-key-input" placeholder="Paste your API key">
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" type="button" onclick="saveApiKey()">Save key</button>
+            <span class="save-msg" id="gs-api-key-msg"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">Stored in your OS keyring — never written to a file, never leaves this machine.</span>
+        </div>
+
+        <div class="settings-section" id="gs-section-actions">
+          <h3>GitHub Actions (unattended hunting)</h3>
+          <div id="gs-actions-status" style="font-size:13px;margin-bottom:8px;"></div>
+          <div class="settings-field">
+            <label>Required secret</label>
+            <div id="gs-required-secret" style="font-family:monospace;font-size:12px;"></div>
+          </div>
+          <div class="settings-field">
+            <label>Other optional secrets (only if you use these providers)</label>
+            <div id="gs-optional-secrets" style="font-size:12px;color:var(--text-muted);"></div>
+          </div>
+          <div class="settings-field">
+            <label>Enable the schedule</label>
+            <pre id="gs-yaml-diff" style="font-size:12px;background:var(--surface2);padding:8px;border-radius:6px;white-space:pre-wrap;"></pre>
+          </div>
+          <div class="settings-actions">
+            <button class="btn" type="button" onclick="loadGetStartedActionsGuide()">Recheck</button>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">You still paste secrets into GitHub's Settings → Secrets UI and edit/commit the workflow file yourself — nothing here pushes on your behalf.</span>
         </div>
       </div>
     </div>
@@ -2185,7 +2240,110 @@ function clearSettingsMessages() {
 
 async function loadSettings() {
   settingsLoaded = true;
-  await Promise.all([loadGuidedConfig(), loadRawConfig(), loadCareerContextSettings()]);
+  await Promise.all([
+    loadGuidedConfig(), loadRawConfig(), loadCareerContextSettings(),
+    loadApiKeyStatus(), loadGetStartedActionsGuide(),
+  ]);
+}
+
+function fillCareerContextLine(text, label, value) {
+  if (!value) return text;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^(-\\s*' + escaped + ':)\\s*$', 'm');
+  return re.test(text) ? text.replace(re, `$1 ${value}`) : text;
+}
+
+function applyQuickCareerContext() {
+  const msg = document.getElementById('gs-career-msg');
+  let text = document.getElementById('settings-career-context').value;
+  if (!text) {
+    msg.textContent = 'Open the Career Context tab once first, then come back.';
+    msg.style.color = '#ffa657';
+    return;
+  }
+  const fields = [
+    ['Current role', document.getElementById('gs-current-role').value.trim()],
+    ['Experience summary', document.getElementById('gs-experience-summary').value.trim()],
+    ['Target role shapes', document.getElementById('gs-target-roles').value.trim()],
+    ['Positioning', document.getElementById('gs-resume-positioning').value.trim()],
+    ['Voice', document.getElementById('gs-cover-voice').value.trim()],
+    ['Tone', document.getElementById('gs-linkedin-tone').value.trim()],
+  ];
+  for (const [label, value] of fields) text = fillCareerContextLine(text, label, value);
+  document.getElementById('settings-career-context').value = text;
+  careerContextDirty = true;
+  updateDirtyFlag('career-context');
+  msg.textContent = '✓ Applied — review and Save in the Career Context tab';
+  msg.style.color = '#56d364';
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+}
+
+async function loadApiKeyStatus() {
+  const label = document.getElementById('gs-api-key-label');
+  try {
+    const result = await window.pywebview.api.get_api_key_status();
+    if (!result.ok) { label.textContent = 'API key status unavailable.'; return; }
+    if (!result.required) { label.textContent = `${result.provider}: no API key needed`; return; }
+    label.textContent = `${result.env_var} — ${result.configured ? 'configured ✓' : 'not set'}`;
+  } catch(_) {
+    label.textContent = 'API key status unavailable.';
+  }
+}
+
+async function saveApiKey() {
+  const input = document.getElementById('gs-api-key-input');
+  const msg = document.getElementById('gs-api-key-msg');
+  const value = input.value;
+  try {
+    const result = await window.pywebview.api.save_api_key(value);
+    if (!result.ok) { msg.textContent = result.error || 'Could not save the key.'; msg.style.color = '#f85149'; return; }
+    input.value = '';
+    msg.textContent = '✓ Saved to OS keyring';
+    msg.style.color = '#56d364';
+    setTimeout(() => { msg.textContent = ''; }, 3000);
+    await loadApiKeyStatus();
+  } catch(_) {
+    msg.textContent = 'Could not save the key.';
+    msg.style.color = '#f85149';
+  }
+}
+
+async function loadGetStartedActionsGuide() {
+  const status = document.getElementById('gs-actions-status');
+  const requiredEl = document.getElementById('gs-required-secret');
+  const optionalEl = document.getElementById('gs-optional-secrets');
+  const diffEl = document.getElementById('gs-yaml-diff');
+  try {
+    const result = await window.pywebview.api.get_github_actions_guide();
+    if (!result.ok) { status.textContent = 'GitHub Actions status unavailable.'; return; }
+    status.textContent = result.schedule_enabled
+      ? '✓ Schedule is enabled — unattended hunting is live.'
+      : '○ Schedule not enabled yet — manual runs only.';
+    const s = result.required_secret;
+    requiredEl.innerHTML = s.name
+      ? `${esc(s.name)}: <span id="gs-secret-value" data-value="${esc(s.value)}">${'•'.repeat(Math.min(s.value.length, 20)) || '(not set)'}</span> `
+        + `<button class="btn" style="padding:2px 8px;font-size:11px;" onclick="toggleSecretReveal()">Show</button>`
+        + `<button class="btn" style="padding:2px 8px;font-size:11px;" onclick="copySecretValue()">Copy</button>`
+      : 'No secret needed for this provider.';
+    optionalEl.textContent = result.optional_secret_names.join(', ');
+    diffEl.textContent = result.yaml_diff;
+  } catch(_) {
+    status.textContent = 'GitHub Actions status unavailable.';
+  }
+}
+
+function toggleSecretReveal() {
+  const el = document.getElementById('gs-secret-value');
+  if (!el) return;
+  const value = el.dataset.value || '';
+  const masked = '•'.repeat(Math.min(value.length, 20)) || '(not set)';
+  el.textContent = el.textContent === masked ? value : masked;
+}
+
+function copySecretValue() {
+  const el = document.getElementById('gs-secret-value');
+  if (!el || !el.dataset.value) return;
+  navigator.clipboard.writeText(el.dataset.value).catch(() => {});
 }
 
 function renderGuidedForm(form) {

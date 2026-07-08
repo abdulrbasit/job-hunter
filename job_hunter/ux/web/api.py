@@ -125,6 +125,50 @@ class DashAPI:
             )
         return {"ok": True, "provider": provider, "env_var": env_var}
 
+    _OPTIONAL_ACTIONS_SECRETS = (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "BRAVE_API_KEY",
+        "TAVILY_API_KEY",
+        "EXA_API_KEY",
+        "RAPIDAPI_KEY",
+        "ADZUNA_APP_ID",
+        "ADZUNA_API_KEY",
+        "REED_API_KEY",
+        "JOOBLE_API_KEY",
+    )
+
+    def get_github_actions_guide(self) -> dict[str, Any]:
+        """Guided (not automated) GitHub Actions setup info: the one required secret's current
+        value for copy-paste, other optional secret names, the exact cron diff, and current
+        schedule state. Never calls `gh` or pushes anything — the user still acts in GitHub's UI."""
+        from job_hunter.config.secrets import get_secret
+        from job_hunter.core.utils import read_yaml
+        from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
+        from job_hunter.ux.health import _workflow_schedule_configured
+
+        config = read_yaml(self._root / "config" / "job_hunter.yml")
+        provider = str((config.get("llm") or {}).get("default_provider") or "anthropic")
+        required_env_var = PROVIDER_SECRET_ENV_VARS.get(provider, "")
+        required_value = get_secret(required_env_var, required=False) if required_env_var else ""
+        optional_names = [name for name in self._OPTIONAL_ACTIONS_SECRETS if name != required_env_var]
+        return {
+            "ok": True,
+            "schedule_enabled": _workflow_schedule_configured(self._root),
+            "required_secret": {
+                "name": required_env_var,
+                "value": required_value,
+                "configured": bool(required_value),
+            },
+            "optional_secret_names": optional_names,
+            "yaml_diff": (
+                "Uncomment in .github/workflows/find-jobs.yml:\n"
+                "  schedule:\n"
+                '    - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri'
+            ),
+        }
+
     def get_applications(
         self,
         page: int = 1,

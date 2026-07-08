@@ -186,6 +186,41 @@ def test_save_api_key_stores_via_keyring(tmp_path: Path, monkeypatch) -> None:
     fake_keyring.set_password.assert_called_once_with("job-hunter", "ANTHROPIC_API_KEY", "sk-real-key")
 
 
+def test_get_github_actions_guide_reports_required_secret_and_schedule_state(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "find-jobs.yml").write_text(
+        'on:\n  # schedule:\n  #   - cron: "0 18 * * 0-4"\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    payload = DashAPI(tmp_path).get_github_actions_guide()
+
+    assert payload["ok"] is True
+    assert payload["schedule_enabled"] is False
+    assert payload["required_secret"] == {"name": "ANTHROPIC_API_KEY", "value": "sk-test", "configured": True}
+    assert "ANTHROPIC_API_KEY" not in payload["optional_secret_names"]
+    assert "cron" in payload["yaml_diff"]
+
+
+def test_get_github_actions_guide_detects_enabled_schedule(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "find-jobs.yml").write_text(
+        'on:\n  schedule:\n    - cron: "0 18 * * 0-4"\n', encoding="utf-8"
+    )
+
+    payload = DashAPI(tmp_path).get_github_actions_guide()
+
+    assert payload["schedule_enabled"] is True
+
+
 def test_get_job_detail_reads_from_db(tmp_path: Path) -> None:
     job_dir = _write_job(tmp_path)
     (job_dir / "cover_letter.md").write_text("# Cover letter", encoding="utf-8")
