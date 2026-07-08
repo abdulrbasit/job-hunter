@@ -250,12 +250,24 @@ def agent_context_tailor_context(
     typer.echo(json.dumps(agent_context.tailor_context(job=job), indent=2))
 
 
-@agent_context_app.command("outreach-context")
-def agent_context_outreach_context() -> None:
-    """Print universal outreach writing rules."""
+@agent_context_app.command("interview-context")
+def agent_context_interview_context(
+    job: str = typer.Option(..., "--job"),
+) -> None:
+    """Print bounded job + matched-story context for interview prep."""
     from job_hunter import agent_context
 
-    typer.echo(json.dumps(agent_context.outreach_context(), indent=2))
+    typer.echo(json.dumps(agent_context.interview_context(job=job), indent=2))
+
+
+@agent_context_app.command("outreach-context")
+def agent_context_outreach_context(
+    job: str | None = typer.Option(None, "--job"),
+) -> None:
+    """Print universal outreach writing rules, plus bounded job context when --job is given."""
+    from job_hunter import agent_context
+
+    typer.echo(json.dumps(agent_context.outreach_context(job=job), indent=2))
 
 
 @agent_context_app.command("evidence-context")

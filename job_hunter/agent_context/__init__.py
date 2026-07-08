@@ -9,6 +9,7 @@ from job_hunter.agent_context.batch import (
 from job_hunter.agent_context.briefing import linkedin_weekly_context
 from job_hunter.agent_context.candidates import build_candidate_queue, candidate_from_queue
 from job_hunter.agent_context.evidence_context import evidence_context
+from job_hunter.agent_context.interview_context import interview_context
 from job_hunter.agent_context.lifecycle import candidate_lifecycle, validate_score_file
 from job_hunter.agent_context.outreach_context import outreach_context
 from job_hunter.agent_context.score_context import score_context
@@ -24,6 +25,7 @@ __all__ = [
     "discard_screened_candidates",
     "evidence_context",
     "final_stories_text",
+    "interview_context",
     "linkedin_weekly_context",
     "match_stories",
     "outreach_context",

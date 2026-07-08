@@ -9,8 +9,8 @@ Telemetry failure is non-blocking and must not be printed.
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context score --mode full --job <slug>`.
-- Story bank: use matched_story_ids first → story-index if thin → stories-final for broad comparison. Never use Draft/raw sections.
+- Start with `job-hunter internal agent-context interview-context --job <slug>`.
+- Story bank: use `job.score.matched_story_ids` first → `matched_stories` (JD-keyword-ranked shortlist) if thin → stories-final for broad comparison. Never use Draft/raw sections.
 - Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`, for learned interview preferences, dealbreakers, and calibration notes.
 
 ## Steps
