@@ -56,10 +56,12 @@
 | Any-chatbot prompt includes exact delimiters; bundle parser validates before any write | `tests/test_onboarding_bundle.py` (7 tests), `tests/test_web_api.py::test_get_onboarding_prompt_returns_copyable_text`, `::test_import_onboarding_bundle_writes_profile_files`, `::test_import_onboarding_bundle_reports_parse_errors_without_writing` | PASS |
 | Bundle import is atomic (all 3 files or none) with one-level backup/undo | `tests/test_config_service.py::test_replace_onboarding_bundle_writes_all_three_files`, `::test_replace_onboarding_bundle_rejects_missing_section`, `::test_replace_onboarding_bundle_backs_up_previous_content`, `::test_replace_onboarding_bundle_rejects_invalid_career_context` | PASS |
 | Desktop launcher: recent workspace resolution, create/open, reject non-empty target | `tests/test_launcher.py` (14 tests) | PASS |
-| `dashboard.html` splits into shell/CSS/JS; no CDN script tags; strict CSP declared | `tests/test_dashboard_assembly.py` (7 tests), `tests/test_web_launch.py::test_dashboard_launches_maximized` | PASS |
+| `dashboard.html` splits into shell/CSS/JS; no CDN script tags; no-remote-source CSP declared | `tests/test_dashboard_assembly.py` (7 tests), `tests/test_web_launch.py::test_dashboard_launches_maximized` | PASS |
 | Chart.js doughnut/bar replaced with CSS/HTML bar summaries (no `new Chart(` calls) | manual grep verified zero `new Chart(` matches in `dashboard.js`; `tests/test_dashboard_assembly.py::test_assembled_dashboard_has_no_cdn_script_tags` | PASS |
 | PyInstaller spec bundles dashboard.css/js and Phase 1/2 catalog JSON (previously missing) | `tests/test_windows_packaging.py::test_windows_pyinstaller_spike_is_isolated_and_keeps_console_enabled` | PASS |
-| `DashAPI.start_hunt`/`get_hunt_status` typed run service exists | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built` | RED |
+| `DashAPI.start_hunt`/`get_hunt_status` typed run service exists; shares the company-hunt lock so runs can never overlap | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built`, `tests/test_web_api.py::test_start_hunt_runs_worker_and_reports_succeeded`, `::test_start_hunt_rejects_concurrent_start`, `::test_start_hunt_and_company_hunt_share_the_same_lock`, `::test_start_hunt_worker_crash_reports_failed_and_resets_lock` | PASS |
+| `start_company_hunt`/`get_company_hunt_status` spec-named aliases wrap the existing wired implementation | `tests/test_web_api.py::test_start_company_hunt_is_alias_for_run_company_hunt`, `::test_get_company_hunt_status_is_alias_for_get_company_hunt_summary` | PASS |
+| GitHub Actions secret value never crosses the JS bridge; copied straight to the OS clipboard from Python | `tests/test_web_api.py::test_get_github_actions_guide_reports_required_secret_and_schedule_state` (asserts the value is absent from the JSON payload), `::test_copy_github_actions_secret_writes_to_clipboard_without_returning_it`, `::test_copy_github_actions_secret_reports_error_when_not_configured` | PASS |
 | `job_hunter.ux.terminal` is removed | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed` | RED |
 | `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
 
@@ -189,9 +191,45 @@ GREEN evidence:
   file split itself is regression-tested (every pre-existing dashboard test
   that grepped `dashboard.html` for JS/CSS content now greps the shell+css+js
   concatenation instead — same assertions, same coverage, relocated content).
-- Phase 5 (hunt service), Phase 6 (terminal removal), Phase 7/8 (diagnostics
-  self-test): not started; their RED tests still fail in
-  `tests/test_gui_onboarding_catalogs_journeys.py`.
+- Phase 5 (GUI run services): landed. `DashAPI.start_hunt()`/`get_hunt_status()`
+  added to `job_hunter/ux/web/api.py`, reusing the existing `_hunt_lock`/
+  `_hunt_running` instance state that `run_company_hunt()` already used —
+  they now genuinely share one lock, so a normal hunt and a company hunt can
+  never run concurrently against the same workspace (satisfies "Prevent
+  overlapping normal/company runs"). The background worker calls
+  `job_hunter.pipeline.hunt.run()` (the same `HuntInput`/`HuntOutput` path
+  `job-hunter hunt` already uses) and maps its typed result into
+  `idle`/`running`/`succeeded`/`failed` + timestamps + fetched/candidate/
+  tailored counts + `next_action`; a crashed worker reports a generic
+  `"failed"` message (detailed exception stays in local logs via
+  `logger.exception`, never reaches the UI) and always releases the lock.
+  Added `start_company_hunt()`/`get_company_hunt_status()` as thin aliases
+  onto the existing `run_company_hunt()`/`get_company_hunt_summary()` (spec's
+  exact method names, without renaming — and breaking — the already-wired
+  implementation). **Found and fixed a real secret-disclosure bug while
+  implementing this phase's "never return stored secret values to
+  JavaScript" requirement**: `get_github_actions_guide()` was returning the
+  user's raw LLM API key string in its JSON payload so the dashboard could
+  render a "Copy" button — the key sat in the DOM (`data-value="..."`),
+  readable via devtools and crossing the JS bridge for no functional reason.
+  Fixed by adding `copy_github_actions_secret()`, which reads the secret and
+  writes it straight to the OS clipboard from Python (`_copy_to_clipboard()`,
+  a new `clip`/`pbcopy`/`xclip` platform dispatch next to the existing
+  `_open_path`/`_open_url` ones) — the value never crosses into JS-visible
+  state at all now; `get_github_actions_guide()` returns only `name`/
+  `configured`. **Also found and fixed a correctness bug from Phase 4**: the
+  strict CSP added that phase (`script-src 'self'`) would have silently
+  blocked all ~65 pre-existing inline `onclick=`/`onchange=` handlers still
+  in `dashboard.html`/`dashboard.js` (CSP-compliant browsers don't execute
+  inline event-handler attributes without `'unsafe-inline'` or a matching
+  hash/nonce) — this wasn't caught by Phase 4's tests because none of them
+  actually execute the HTML in a CSP-enforcing engine. Loosened `script-src`
+  back to `'self' 'unsafe-inline'` with a `ponytail:` comment naming the
+  upgrade trigger (converting those handlers to `addEventListener`, the same
+  deferred work as the nav restructure); `default-src`/`connect-src`/
+  `img-src` remain at their fully strict, no-remote-source values.
+- Phase 6 (terminal removal), Phase 7/8 (diagnostics self-test): not started;
+  their RED tests still fail in `tests/test_gui_onboarding_catalogs_journeys.py`.
 
 ## Final validation
 
@@ -219,4 +257,9 @@ GREEN evidence:
   `ty check`, `scripts/validate_config.py`, `scripts/sync_workspace_template.py
   --check`, and `uv build --wheel` all passed; wheel inspection confirmed
   `dashboard.css`/`dashboard.js` are packaged alongside `dashboard.html`.
+- Phase 5: `pytest tests/ -q --tb=short` — 1417 passed, 2 failed (the
+  remaining Phase 6/7 RED journeys; `daily hunt` journey now passes).
+  `ruff format --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
+  `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
+  passed.
 - No version bump.

@@ -47,15 +47,109 @@ def _open_url(url: str) -> None:
         raise OSError("Unsupported operating system.")
 
 
+def _copy_to_clipboard(text: str) -> None:
+    """Write text to the OS clipboard from Python — never returned across the JS bridge.
+
+    Secrets copied this way (API keys) are always plain ASCII, so a simple UTF-8
+    encode is sufficient — no need to special-case Windows' console codepage.
+    """
+    data = text.encode("utf-8")
+    if sys.platform == "win32":
+        subprocess.run(["clip"], input=data, check=True)  # noqa: S603, S607
+    elif sys.platform == "darwin":
+        subprocess.run(["pbcopy"], input=data, check=True)  # noqa: S603, S607
+    elif sys.platform.startswith("linux"):
+        subprocess.run(["xclip", "-selection", "clipboard"], input=data, check=True)  # noqa: S603, S607
+    else:
+        raise OSError("Unsupported operating system.")
+
+
+def _now_iso() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
 class DashAPI:
     def __init__(self, root: Path) -> None:
         self._root = root
+        # Shared by start_hunt() and run_company_hunt() so a normal hunt and a
+        # company hunt can never run concurrently against the same workspace.
         self._hunt_lock = threading.Lock()
         self._hunt_running = False
+        self._hunt_started_at: str | None = None
+        self._last_hunt_result: dict[str, Any] | None = None
 
     @staticmethod
     def _mutation_error(message: str, next_action: str) -> dict[str, Any]:
         return {"ok": False, "error": message, "next_action": next_action}
+
+    def start_hunt(self) -> dict[str, Any]:
+        """Typed run service for the normal (title/region) hunt — config controls
+        mode/regions; no routine options. Shares the company-hunt lock so the two
+        can never run concurrently against the same workspace."""
+        with self._hunt_lock:
+            if self._hunt_running:
+                return {"ok": False, "status": "running", "error": "A hunt is already running."}
+            self._hunt_running = True
+            self._hunt_started_at = _now_iso()
+        self._last_hunt_result = None
+        threading.Thread(target=self._run_hunt_worker, daemon=True).start()
+        return {"ok": True, "status": "running", "started_at": self._hunt_started_at}
+
+    def _run_hunt_worker(self) -> None:
+        import logging
+
+        from job_hunter.config import get_mode
+        from job_hunter.models import HuntInput
+        from job_hunter.pipeline.hunt import run as run_hunt
+
+        try:
+            mode = get_mode()
+            output = run_hunt(HuntInput(region_key="all", mode=mode))
+            candidates = output.stats.total_after_policy
+            tailored = len(output.jobs) if mode == "llm-api" else 0
+            self._last_hunt_result = {
+                "status": "succeeded",
+                "finished_at": _now_iso(),
+                "message": f"Fetched {output.stats.total_fetched}, {candidates} candidates, {tailored} tailored.",
+                "fetched": output.stats.total_fetched,
+                "candidates": candidates,
+                "tailored": tailored,
+                "next_action": "Continue in Claude/Codex" if mode == "agent" else "Review Applications",
+            }
+        except Exception:  # noqa: BLE001 — a crashed worker must not wedge _hunt_running or leak internals to the UI
+            logging.getLogger(__name__).exception("[hunt] worker crashed")
+            self._last_hunt_result = {
+                "status": "failed",
+                "finished_at": _now_iso(),
+                "message": "The hunt failed. Check local logs for details.",
+                "fetched": 0,
+                "candidates": 0,
+                "tailored": 0,
+                "next_action": "Check Settings → Diagnostics, then try again.",
+            }
+        finally:
+            with self._hunt_lock:
+                self._hunt_running = False
+
+    def get_hunt_status(self) -> dict[str, Any]:
+        with self._hunt_lock:
+            running = self._hunt_running
+            started_at = self._hunt_started_at
+        if running:
+            return {"ok": True, "status": "running", "started_at": started_at}
+        if self._last_hunt_result is None:
+            return {"ok": True, "status": "idle"}
+        return {"ok": True, **self._last_hunt_result}
+
+    def start_company_hunt(self, mode: str = "new_changed") -> dict[str, Any]:
+        """Spec-named alias for run_company_hunt (kept for the existing wired UI)."""
+        return self.run_company_hunt(mode)
+
+    def get_company_hunt_status(self) -> dict[str, Any]:
+        """Spec-named alias for get_company_hunt_summary (kept for the existing wired UI)."""
+        return self.get_company_hunt_summary()
 
     def get_onboarding(self) -> dict[str, Any]:
         from job_hunter.ux.health import doctor
@@ -201,9 +295,10 @@ class DashAPI:
     )
 
     def get_github_actions_guide(self) -> dict[str, Any]:
-        """Guided (not automated) GitHub Actions setup info: the one required secret's current
-        value for copy-paste, other optional secret names, the exact cron diff, and current
-        schedule state. Never calls `gh` or pushes anything — the user still acts in GitHub's UI."""
+        """Guided (not automated) GitHub Actions setup info: the one required secret's
+        name/configured status (never its value — see copy_github_actions_secret()),
+        other optional secret names, the exact cron diff, and current schedule state.
+        Never calls `gh` or pushes anything — the user still acts in GitHub's UI."""
         from job_hunter.config.secrets import get_secret
         from job_hunter.core.utils import read_yaml
         from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
@@ -219,7 +314,6 @@ class DashAPI:
             "schedule_enabled": _workflow_schedule_configured(self._root),
             "required_secret": {
                 "name": required_env_var,
-                "value": required_value,
                 "configured": bool(required_value),
             },
             "optional_secret_names": optional_names,
@@ -229,6 +323,28 @@ class DashAPI:
                 '    - cron: "0 18 * * 0-4"   # 20:00 Berlin (CEST) / 19:00 CET - Mon-Fri'
             ),
         }
+
+    def copy_github_actions_secret(self) -> dict[str, Any]:
+        """Copy the required LLM API secret straight to the OS clipboard.
+
+        The value never crosses the JS bridge (unlike the old get_github_actions_guide
+        payload) — Python reads the secret and writes it directly to the clipboard.
+        """
+        from job_hunter.config.secrets import get_secret
+        from job_hunter.core.utils import read_yaml
+        from job_hunter.llm.providers import PROVIDER_SECRET_ENV_VARS
+
+        config = read_yaml(self._root / "config" / "job_hunter.yml")
+        provider = str((config.get("llm") or {}).get("default_provider") or "anthropic")
+        env_var = PROVIDER_SECRET_ENV_VARS.get(provider, "")
+        value = get_secret(env_var, required=False) if env_var else ""
+        if not value:
+            return {"ok": False, "error": "No API key is configured."}
+        try:
+            _copy_to_clipboard(value)
+        except (OSError, subprocess.SubprocessError):
+            return {"ok": False, "error": "Could not access the system clipboard."}
+        return {"ok": True}
 
     def get_seen_milestones(self) -> dict[str, Any]:
         path = self._root / "outputs" / "state" / "milestones.json"

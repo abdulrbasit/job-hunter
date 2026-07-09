@@ -1209,11 +1209,22 @@ async function loadGetStartedActionsGuide() {
       ? '✓ Schedule is enabled — unattended hunting is live.'
       : '○ Schedule not enabled yet — manual runs only.';
     const s = result.required_secret;
-    requiredEl.innerHTML = s.name
-      ? `${esc(s.name)}: <span id="gs-secret-value" data-value="${esc(s.value)}">${'•'.repeat(Math.min(s.value.length, 20)) || '(not set)'}</span> `
-        + `<button class="btn" style="padding:2px 8px;font-size:11px;" onclick="toggleSecretReveal()">Show</button>`
-        + `<button class="btn" style="padding:2px 8px;font-size:11px;" onclick="copySecretValue()">Copy</button>`
-      : 'No secret needed for this provider.';
+    requiredEl.innerHTML = '';
+    if (s.name) {
+      const label = document.createElement('span');
+      label.textContent = `${s.name}: ${s.configured ? 'configured' : '(not set)'} `;
+      requiredEl.appendChild(label);
+      if (s.configured) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'btn';
+        copyBtn.style.cssText = 'padding:2px 8px;font-size:11px;';
+        copyBtn.textContent = 'Copy';
+        copyBtn.onclick = copySecretValue;
+        requiredEl.appendChild(copyBtn);
+      }
+    } else {
+      requiredEl.textContent = 'No secret needed for this provider.';
+    }
     optionalEl.textContent = result.optional_secret_names.join(', ');
     diffEl.textContent = result.yaml_diff;
   } catch(_) {
@@ -1221,18 +1232,14 @@ async function loadGetStartedActionsGuide() {
   }
 }
 
-function toggleSecretReveal() {
-  const el = document.getElementById('gs-secret-value');
-  if (!el) return;
-  const value = el.dataset.value || '';
-  const masked = '•'.repeat(Math.min(value.length, 20)) || '(not set)';
-  el.textContent = el.textContent === masked ? value : masked;
-}
-
-function copySecretValue() {
-  const el = document.getElementById('gs-secret-value');
-  if (!el || !el.dataset.value) return;
-  navigator.clipboard.writeText(el.dataset.value).catch(() => {});
+async function copySecretValue(event) {
+  // The value is copied to the OS clipboard directly by Python — it never
+  // crosses the JS bridge, so there's nothing to read from the DOM here.
+  const btn = event.target;
+  const original = btn.textContent;
+  const result = await window.pywebview.api.copy_github_actions_secret();
+  btn.textContent = result.ok ? 'Copied!' : 'Failed';
+  setTimeout(() => { btn.textContent = original; }, 1500);
 }
 
 function renderGuidedForm(form) {

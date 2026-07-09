@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Job Hunter</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; connect-src 'none'">
+<!-- ponytail: script-src still allows 'unsafe-inline' — the file has ~65 inline onclick=/onchange=
+     handlers left from before the split. Removing them (event delegation instead) is the
+     Phase 4 nav-restructure follow-up; tightening this line to drop 'unsafe-inline' is the
+     upgrade trigger. default-src/connect-src/img-src are already at their final strict values. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'none'">
 <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>

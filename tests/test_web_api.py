@@ -333,7 +333,8 @@ def test_get_github_actions_guide_reports_required_secret_and_schedule_state(tmp
 
     assert payload["ok"] is True
     assert payload["schedule_enabled"] is False
-    assert payload["required_secret"] == {"name": "ANTHROPIC_API_KEY", "value": "sk-test", "configured": True}
+    assert payload["required_secret"] == {"name": "ANTHROPIC_API_KEY", "configured": True}
+    assert "sk-test" not in json.dumps(payload)  # secret value must never cross the JS bridge
     assert "ANTHROPIC_API_KEY" not in payload["optional_secret_names"]
     assert "cron" in payload["yaml_diff"]
 
@@ -351,6 +352,32 @@ def test_get_github_actions_guide_detects_enabled_schedule(tmp_path: Path) -> No
     payload = DashAPI(tmp_path).get_github_actions_guide()
 
     assert payload["schedule_enabled"] is True
+
+
+def test_copy_github_actions_secret_writes_to_clipboard_without_returning_it(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "anthropic"}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    copied = []
+    monkeypatch.setattr("job_hunter.ux.web.api._copy_to_clipboard", lambda value: copied.append(value))
+
+    result = DashAPI(tmp_path).copy_github_actions_secret()
+
+    assert result == {"ok": True}
+    assert copied == ["sk-test"]
+
+
+def test_copy_github_actions_secret_reports_error_when_not_configured(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"llm": {"default_provider": "ollama"}}), encoding="utf-8"
+    )
+
+    result = DashAPI(tmp_path).copy_github_actions_secret()
+
+    assert result["ok"] is False
 
 
 def test_get_job_detail_reads_from_db(tmp_path: Path) -> None:
@@ -900,6 +927,136 @@ def test_run_company_hunt_reflects_running_state_while_in_progress(tmp_path: Pat
         api._hunt_thread.join(timeout=5)
 
     assert api.get_company_hunt_summary()["running"] is False
+
+
+def _fake_hunt_output(**overrides):
+    from job_hunter.models import HuntOutput, ScrapeStats
+
+    stats = ScrapeStats(total_fetched=10, total_after_policy=3)
+    return HuntOutput(jobs=[], stats=stats, run_id="run-1", mode="agent", **overrides)
+
+
+def test_get_hunt_status_reports_idle_before_any_run(tmp_path: Path) -> None:
+    assert DashAPI(tmp_path).get_hunt_status() == {"ok": True, "status": "idle"}
+
+
+def test_start_hunt_runs_worker_and_reports_succeeded(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", lambda inp: _fake_hunt_output())
+    api = DashAPI(tmp_path)
+
+    result = api.start_hunt()
+    assert result == {"ok": True, "status": "running", "started_at": result["started_at"]}
+
+    for _ in range(50):
+        if api.get_hunt_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_hunt_status()
+    assert status["status"] == "succeeded"
+    assert status["fetched"] == 10
+    assert status["candidates"] == 3
+    assert status["tailored"] == 0
+    assert status["next_action"]
+    json.dumps(status)
+
+
+def test_start_hunt_rejects_concurrent_start(tmp_path: Path, monkeypatch) -> None:
+    import threading
+
+    release = threading.Event()
+
+    def blocking_run(inp):
+        release.wait(timeout=5)
+        return _fake_hunt_output()
+
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", blocking_run)
+    api = DashAPI(tmp_path)
+
+    first = api.start_hunt()
+    try:
+        assert first["ok"] is True
+        second = api.start_hunt()
+        assert second["ok"] is False
+        assert second["status"] == "running"
+    finally:
+        release.set()
+        for _ in range(50):
+            if api.get_hunt_status()["status"] != "running":
+                break
+            import time
+
+            time.sleep(0.05)
+
+
+def test_start_hunt_and_company_hunt_share_the_same_lock(tmp_path: Path, monkeypatch) -> None:
+    """Prevent overlapping normal/company runs against the same workspace."""
+    import threading
+
+    release = threading.Event()
+
+    def blocking_run(inp):
+        release.wait(timeout=5)
+        return _fake_hunt_output()
+
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", blocking_run)
+    _write_career_hunt_config(tmp_path, [])
+    api = DashAPI(tmp_path)
+
+    api.start_hunt()
+    try:
+        assert api.start_company_hunt() == {"already_running": True}
+    finally:
+        release.set()
+        for _ in range(50):
+            if api.get_hunt_status()["status"] != "running":
+                break
+            import time
+
+            time.sleep(0.05)
+
+
+def test_start_hunt_worker_crash_reports_failed_and_resets_lock(tmp_path: Path, monkeypatch) -> None:
+    def boom(inp):
+        raise RuntimeError("scrape failed")
+
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", boom)
+    api = DashAPI(tmp_path)
+
+    api.start_hunt()
+    for _ in range(50):
+        if api.get_hunt_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_hunt_status()
+    assert status["status"] == "failed"
+    assert "scrape failed" not in status["message"]  # detailed exceptions stay out of the UI-facing message
+    assert api.start_hunt()["ok"] is True  # lock was released despite the crash
+
+
+def test_start_company_hunt_is_alias_for_run_company_hunt(tmp_path: Path) -> None:
+    _write_career_hunt_config(tmp_path, [])
+    api = DashAPI(tmp_path)
+
+    result = api.start_company_hunt()
+
+    assert result == {"started": True}
+    api._hunt_thread.join(timeout=5)
+
+
+def test_get_company_hunt_status_is_alias_for_get_company_hunt_summary(tmp_path: Path) -> None:
+    api = DashAPI(tmp_path)
+
+    assert api.get_company_hunt_status() == api.get_company_hunt_summary()
 
 
 def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> None:

@@ -60,8 +60,16 @@ def test_assembled_dashboard_has_no_cdn_script_tags() -> None:
     assert "cdn." not in html.lower()
 
 
-def test_dashboard_shell_declares_strict_csp() -> None:
+def test_dashboard_shell_declares_csp_with_no_remote_sources() -> None:
+    """default-src/script-src/style-src/img-src are all local-only; connect-src is 'none'.
+
+    script-src still needs 'unsafe-inline' until the ~65 pre-existing inline
+    onclick=/onchange= handlers are converted to addEventListener (deferred —
+    see the ponytail comment next to the meta tag in dashboard.html).
+    """
     shell = (_WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
 
     assert "Content-Security-Policy" in shell
+    assert "default-src 'self'" in shell
     assert "script-src 'self'" in shell
+    assert "connect-src 'none'" in shell
