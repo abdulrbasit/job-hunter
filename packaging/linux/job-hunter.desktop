@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Job Hunter
+Comment=Autonomous job search assistant
+Exec=job-hunter dash
+Icon=job-hunter
+Terminal=false
+Categories=Office;Utility;

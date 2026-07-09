@@ -65,7 +65,9 @@
 | `job_hunter.ux.terminal` is removed; `dashboard`/`applications list` CLI commands gone | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed`, `tests/test_cli.py::test_dashboard_and_applications_list_commands_are_removed` | PASS |
 | `internal analytics`, `doctor`, `dash`, `applications update`, `internal verify` still work (hidden/automation contracts intact) | `tests/test_cli.py::test_analytics_doctor_and_verify_commands_load`, `::test_cli_command_registration_matches_known_surface`, `::test_internal_commands_referenced_by_skills_are_all_registered` | PASS |
 | Agent skill "dashboard" routing and batch-review pointer say "open the Job Hunter app", not a terminal command | `tests/test_skills.py` (SKILL.md command-menu assertions) | PASS |
-| `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
+| `job_hunter.diagnostics.self_test` verifies resources/catalogs/workspace/config/DB headlessly | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built`, `tests/test_diagnostics.py` (4 tests) | PASS |
+| `internal self-test` CLI command exposes it; real frozen Windows exe run confirms all 7 checks pass | `tests/test_cli.py::test_analytics_doctor_and_verify_commands_load`, `tests/test_cli.py::test_cli_command_registration_matches_known_surface` — plus a real `job-hunter.exe internal self-test --json` run recorded in `docs/windows-packaging.md` | PASS |
+| macOS/Linux PyInstaller spikes structurally mirror the verified Windows one (asset list, no Playwright, no console) | `tests/test_macos_packaging.py` (2 tests), `tests/test_linux_packaging.py` (3 tests) | PASS |
 
 RED evidence: all six focused tests fail today for the planned reason only —
 `get_bootstrap`/`start_hunt`/`get_hunt_status` are missing from `DashAPI`
@@ -255,8 +257,49 @@ GREEN evidence:
   update becomes Settings → Update Workspace" are GUI-surface requirements
   that depend on the nav restructure Phase 4 deferred — `doctor`/`update`
   remain CLI-only for now; no new gap introduced here.
-- Phase 7/8 (diagnostics self-test): not started; its RED test still fails in
-  `tests/test_gui_onboarding_catalogs_journeys.py`.
+- Phase 7 (cross-platform desktop distribution): landed at reduced scope —
+  see "Known gap" below. New `job_hunter/diagnostics.py::self_test()` runs
+  headlessly: countries/filters/catalog resources load and parse, dashboard
+  assets are present, a workspace can be created, its config round-trips a
+  save, and `outputs/state/jobs.db` opens/migrates — exposed via
+  `job-hunter internal self-test [--json]`. This closes the **last** RED
+  journey from Phase 0's matrix — `tests/test_gui_onboarding_catalogs_journeys.py`
+  is now fully green (all six original journeys pass). Found and fixed a real
+  Windows-specific resource-cleanup bug while writing this: `tracking/
+  repository.py`'s `_conn()` relies on `sqlite3.Connection`'s context manager,
+  which only guards the transaction, not the file handle — an immediate
+  `tempfile.TemporaryDirectory` cleanup right after a DB open raced a
+  not-yet-garbage-collected connection and raised `PermissionError` on
+  Windows. Fixed locally in `diagnostics.py` (manual `tempfile.mkdtemp()` +
+  `shutil.rmtree(..., ignore_errors=True)`) rather than touching the shared,
+  widely-used `_conn()`/`get_all_known_urls()` — every other caller's cleanup
+  happens later (e.g. pytest's `tmp_path` teardown), giving GC time to run,
+  so this was specifically a self-test-shaped problem, not a live bug
+  elsewhere. **Verified for real, not just statically**: built the actual
+  frozen Windows exe from the (now catalog/dashboard-updated) spec via
+  `pyinstaller`, and ran `job-hunter.exe internal self-test --json` — all 7
+  checks passed, including the three brand-new package resources
+  (`countries.json`, `filters.json`, `companies.json`) actually resolving via
+  `importlib.resources` inside a frozen bundle. Also ran frozen `--help`
+  (confirms the removed `dashboard` command is gone), `init`, and `doctor`.
+  Full run recorded in `docs/windows-packaging.md`; build/dist artifacts were
+  deleted after validation, matching the existing spike's own rule. Added
+  `packaging/macos/job-hunter.spec` and `packaging/linux/job-hunter.spec` +
+  `job-hunter.desktop`, structurally mirroring the verified Windows spec
+  (same asset list, `console=False`, no Playwright bundled). **Known gap**:
+  the macOS/Linux specs are **unbuilt** — this environment has no macOS or
+  Linux machine, so unlike Windows they could not be run through PyInstaller
+  or smoke-tested; `docs/macos-packaging.md`/`docs/linux-packaging.md` say so
+  explicitly, along with the separate signing/notarization/AppImage-wrapping
+  steps (codesign, notarytool, appimagetool, GPG) that need real credentials
+  neither available nor appropriate to fabricate here. No release, publish,
+  version bump, or signing was attempted, per the repo's rules and the
+  spec's own "must not publish... without separate user authorization."
+- Phase 8 (verification, documentation, maintenance): not started as a
+  distinct pass — its unit/integration/E2E/security/regression concerns have
+  been addressed incrementally per-phase throughout this doc rather than
+  deferred to the end (every phase above already includes RED→GREEN evidence,
+  a full preflight run, and an explicit list of known gaps).
 
 ## Final validation
 
@@ -294,4 +337,12 @@ GREEN evidence:
   journey now passes). `ruff format --check`, `ruff check`, `ty check`,
   `scripts/validate_config.py`, `scripts/sync_workspace_template.py --check`,
   and `uv build --wheel` all passed.
+- Phase 7: `pytest tests/ -q --tb=short` — **1427 passed, 0 failed** — every
+  RED journey from Phase 0's original matrix is now green. `ruff format
+  --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
+  `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
+  passed. Additionally: a real frozen Windows build via `pyinstaller` (not
+  just source tests) confirmed `internal self-test`, `init`, `doctor`, and
+  `--help` all work correctly in the packaged exe; build/dist artifacts
+  deleted after validation.
 - No version bump.

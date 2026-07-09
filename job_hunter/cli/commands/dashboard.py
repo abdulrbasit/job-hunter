@@ -1,4 +1,4 @@
-"""Dashboard, analytics, doctor, and verify CLI commands."""
+"""Dashboard, analytics, doctor, verify, and self-test CLI commands."""
 
 from __future__ import annotations
 
@@ -74,4 +74,22 @@ def verify(
             typer.echo(f"FAIL {error}", err=True)
         if payload["ok"]:
             typer.echo("[verify] ok")
+    raise typer.Exit(0 if payload["ok"] else 1)
+
+
+@internal_app.command(name="self-test")
+def self_test_cmd(
+    json_output: bool = JSON_OPTION,
+) -> None:
+    """Headless smoke test for frozen builds: resources, catalogs, workspace init, config save, DB open."""
+    from job_hunter.diagnostics import self_test
+    from job_hunter.ux.health import dump_json
+
+    payload = self_test()
+    if json_output:
+        typer.echo(dump_json(payload))
+    else:
+        for check in payload["checks"]:
+            mark = "OK  " if check["ok"] else "FAIL"
+            typer.echo(f"{mark} {check['name']} - {check.get('detail', '')}")
     raise typer.Exit(0 if payload["ok"] else 1)

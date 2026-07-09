@@ -213,6 +213,7 @@ KNOWN_INTERNAL_COMMANDS = {
     "region-lookup",
     "analytics",
     "verify",
+    "self-test",
 }
 
 
@@ -349,6 +350,10 @@ def test_analytics_doctor_and_verify_commands_load() -> None:
     result = run_cli("internal", "verify", "--json")
     assert result.returncode in (0, 1)
     assert "errors" in result.stdout
+
+    result = run_cli("internal", "self-test", "--json")
+    assert result.returncode == 0
+    assert '"ok": true' in result.stdout.lower()
 
 
 def test_finalize_syncs_job_outputs_into_processed_tracker(tmp_path: Path) -> None:

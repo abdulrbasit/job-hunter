@@ -43,3 +43,22 @@ blocker is fixed and verified. Remaining before a release decision: bundle or gr
 degrade the `jobspy` native dependency, and get one real click-through of Settings save in
 the frozen dashboard. Nuitka comparison is still not justified — no measured PyInstaller
 blocker requires it.
+
+## Re-verified after the GUI-first rewrite (dashboard split, catalogs, diagnostics)
+
+Rebuilt from the updated spec (now also bundling `dashboard.css`/`dashboard.js`,
+`config/countries.json`, `config/filters.json`, and `catalog/companies.json` —
+none of which existed at the time of the first spike) and re-ran the frozen exe:
+
+- Build: successful (`uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/windows/job-hunter.spec`)
+- Frozen `--help`: the removed `dashboard` command is gone from the command list; `dash`, `doctor`, `hunt`, `tailor`, `init`, `update`, `version`, `applications` all present
+- Frozen `internal self-test --json` (the new Phase 7 headless smoke test): **all 7 checks pass** — `countries_resource` (249 countries), `filters_resource` (5 career stages, 30 languages), `catalog_resource` (19 companies), `dashboard_assets` (html/css/js all present and non-empty), `workspace_and_config`, `config_save`, `db_open`. This is the strongest evidence yet that the new package resources actually resolve correctly via `importlib.resources` inside a frozen bundle, not just in the dev `.venv`.
+- Frozen `init` into a fresh temp directory: successful, same next-steps output as source
+- Frozen `doctor --json` against the freshly-initialized workspace: `python_version`, `editable_package`, `docker`, and the config/profile file-presence checks all pass
+
+Not re-verified this pass (same limitation as before): a live click-through of
+`dash`'s window (no display automation available in this environment) and a
+real `hunt` network run. The `internal self-test` result is a meaningfully
+stronger proxy than before for "will the packaged data actually load," since
+it's the first frozen-build check that specifically exercises the new
+catalog/reference-data resources end-to-end.
