@@ -196,7 +196,6 @@ class DashAPI:
         return {
             "ok": True,
             "data": {
-                "workspace_root": str(self._root),
                 "config_revision": config_result["revision"],
                 "readiness": readiness,
                 "checklist": checklist,
