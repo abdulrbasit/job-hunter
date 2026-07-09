@@ -468,3 +468,65 @@ packaging and the 19→1,500 company catalog scale-up remain open).
   `job-hunter internal self-test --json`'s `catalog_resource` check reports
   "1533 companies loaded".
 - No version bump.
+
+## Post-Phase-8 regression: CSP script-src broke the entire dashboard
+
+The user reported `job-hunter dash` had stopped working in a live workspace
+(`Abdul.Basit_Resume`) after the CSP follow-up above: window opened, but no
+nav tab responded, "Find Jobs" did nothing, and the applications count
+stayed at 0 despite the workspace having 16 real applications and 143 active
+candidates. This was **caused by this doc's own CSP script-src tightening**,
+never caught because it was only verified statically (id cross-references,
+`node --check`, headless self-test) — none of which execute the assembled
+HTML in a CSP-enforcing engine, the same blind spot Phase 4 originally
+flagged for the pre-existing `'unsafe-inline'` gap.
+
+**Root cause**: `job_hunter/ux/web/assembly.py::build_dashboard_html()`
+inlines `dashboard.js` into a `<script>...</script>` block (pywebview's
+`create_window(html=...)` takes one in-memory string, so `<script
+src="dashboard.js">` can never resolve — the whole point of the assembly
+step). `script-src 'self'` with no `'unsafe-inline'` blocks *all* inline
+script execution, not just inline event-handler attributes — including this
+one. The entire dashboard.js file silently failed to run: no `window.onerror`
+fires (CSP blocks are not JS errors), no `securitypolicyviolation` event
+reached app code either, because the only code that could have listened for
+one was *itself* inline JS and therefore also blocked. Confirmed via a
+throwaway instrumented launch script: wrapping `DashAPI` methods with
+file-based call logging showed zero methods were ever invoked from JS —
+`initAll()` never ran at all, consistent with every symptom reported.
+
+**Fix**: nonce-based CSP instead of a blanket `'unsafe-inline'` revert, to
+preserve the original hardening intent (block attacker-injected inline
+scripts) while allowing the app's own single legitimate inline script block.
+`build_dashboard_html()` now takes a required `nonce` parameter, substitutes
+a `__CSP_NONCE__` placeholder in the shell's CSP meta tag with it, and adds a
+matching `nonce="..."` attribute to the inlined `<script>` tag.
+`job_hunter/ux/web/__init__.py::launch()` generates a fresh
+`secrets.token_urlsafe(16)` nonce per launch (never reused across windows/
+processes, so a nonce leaked once is useless afterward). Regression tests:
+`tests/test_dashboard_assembly.py::test_build_dashboard_html_requires_csp_nonce_placeholder`,
+`::test_assembled_dashboard_js_script_tag_carries_matching_nonce`.
+
+**Verified for real this time**: launched the actual `job-hunter dash`
+entrypoint (not a mock) against the live `Abdul.Basit_Resume` workspace with
+an instrumented copy that captures `window.evaluate_js` state after load —
+before the fix, `total-count` stayed stuck at the static "—" placeholder and
+`app-tbody` stayed on the static "Loading…" row; after the fix, `total-count`
+read "16" (matching the real DB) and `app-tbody` contained real rendered
+rows. Also simulated a real click on the Candidates nav button
+(`document.querySelector('[data-view="unprocessed"]').click()`) and
+confirmed the view actually switched (`view-unprocessed` gained the `active`
+class) — the first actual interactive verification in this whole doc, versus
+every earlier phase's static-analysis-only caveat. One process note: this
+same click-through test also fired a real `find-jobs-btn` click, which
+genuinely calls `DashAPI.start_hunt()` — that started a real background hunt
+against the live workspace. It was killed inside ~1 second when the test
+process exited (daemon thread dies with the process); confirmed no
+`job_hunt.log` was created and `outputs/state/jobs.db`'s mtime was unchanged
+afterward, so no scrape/LLM calls or writes actually happened — but this was
+an unintended side effect of testing a "does the button work" question with
+a real click rather than a mocked one, worth being more careful about next
+time.
+- `pytest tests/ -q --tb=short` — 1434 passed, 0 failed. `ruff format
+  --check`, `ruff check`, `ty check` all passed.
+- No version bump.
