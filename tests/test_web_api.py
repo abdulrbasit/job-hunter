@@ -1550,6 +1550,10 @@ def test_dashboard_contains_companies_nav_and_table() -> None:
     assert 'data-view="companies"' not in html
     assert 'id="view-companies"' not in html
     assert 'id="company-hunt-panel"' in html
+    assert 'data-company-hunt-view="run"' in html
+    assert 'data-company-hunt-view="manage"' in html
+    assert 'id="company-hunt-run-view"' in html
+    assert 'id="company-hunt-manage-view"' in html
     assert 'id="companies-tbody"' in html
     assert 'id="company-search"' in html
     assert 'data-company-filter="enabled"' in html

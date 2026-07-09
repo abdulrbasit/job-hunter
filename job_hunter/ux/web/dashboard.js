@@ -313,10 +313,22 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     candidatePage = 1;
     if (isHunt) {
       refreshCompanyHuntPanel();
-      if (!companiesLoaded) loadCompanies();
     } else {
       loadUnprocessed();
     }
+  });
+});
+
+// Company Hunt sub-tabs: Run Hunt / Manage Companies — split so each view has one job
+// instead of stacking the run panel, results table, and full company CRUD list together.
+document.querySelectorAll('#company-hunt-subtabs .status-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#company-hunt-subtabs .status-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const isManage = tab.dataset.companyHuntView === 'manage';
+    document.getElementById('company-hunt-run-view').style.display = isManage ? 'none' : 'flex';
+    document.getElementById('company-hunt-manage-view').style.display = isManage ? 'flex' : 'none';
+    if (isManage && !companiesLoaded) loadCompanies();
   });
 });
 
@@ -438,8 +450,13 @@ async function refreshAll() {
   if (activeView === 'today') await loadTodayHuntStatus();
   if (activeView === 'insights') await loadInsights();
   if (activeView === 'unprocessed') {
-    await loadUnprocessed();
-    if (candidateScope === 'company-hunt') await loadCompanies();
+    if (candidateScope === 'company-hunt') {
+      await refreshCompanyHuntPanel();
+      const manageActive = document.querySelector('#company-hunt-subtabs .status-tab.active')?.dataset.companyHuntView === 'manage';
+      if (manageActive) await loadCompanies();
+    } else {
+      await loadUnprocessed();
+    }
   }
   if (activeView === 'settings') {
     await loadSettings();

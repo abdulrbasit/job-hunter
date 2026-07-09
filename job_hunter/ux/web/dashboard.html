@@ -207,77 +207,86 @@
       </div>
       <div class="pager" id="candidate-pager"></div>
       <div class="company-hunt-panel" id="company-hunt-panel" style="display:none">
-        <div class="run-header">
-          <select class="filter-select" id="company-hunt-mode">
-            <option value="new_changed">New / changed</option>
-            <option value="failed_only">Failed only</option>
-            <option value="force_all">Force all</option>
-            <option value="resume">Resume</option>
-          </select>
-          <button class="btn btn-primary" id="run-company-hunt-btn">Run Company Hunt</button>
-          <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
-          <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
-          <div class="run-stat"><div class="run-stat-label">Issues</div><div class="run-stat-value" id="ch-issues">—</div></div>
+        <div class="status-tabs" id="company-hunt-subtabs">
+          <button class="status-tab active" data-company-hunt-view="run">Run Hunt</button>
+          <button class="status-tab" data-company-hunt-view="manage">Manage Companies</button>
         </div>
-        <div class="no-data" id="company-hunt-message" style="display:none"></div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Company</th><th>Status</th><th>Jobs found</th></tr></thead>
-            <tbody id="company-hunt-tbody">
-              <tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>
-            </tbody>
-          </table>
+
+        <div id="company-hunt-run-view">
+          <div class="run-header">
+            <select class="filter-select" id="company-hunt-mode">
+              <option value="new_changed">New / changed</option>
+              <option value="failed_only">Failed only</option>
+              <option value="force_all">Force all</option>
+              <option value="resume">Resume</option>
+            </select>
+            <button class="btn btn-primary" id="run-company-hunt-btn">Run Company Hunt</button>
+            <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
+            <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
+            <div class="run-stat"><div class="run-stat-label">Issues</div><div class="run-stat-value" id="ch-issues">—</div></div>
+          </div>
+          <div class="no-data" id="company-hunt-message" style="display:none"></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Company</th><th>Status</th><th>Jobs found</th></tr></thead>
+              <tbody id="company-hunt-tbody">
+                <tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Manage Companies (folded in from the former standalone Companies nav item) -->
-        <div class="settings-section" id="company-form-section">
-          <h3 id="company-form-title">Add Company</h3>
-          <div class="settings-grid">
-            <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
-            <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
-            <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
-            <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+        <div id="company-hunt-manage-view" style="display:none">
+          <div class="settings-section" id="company-form-section">
+            <h3 id="company-form-title">Add Company</h3>
+            <div class="settings-grid">
+              <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
+              <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
+              <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
+              <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn btn-primary" id="company-form-submit">Add company</button>
+              <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
+              <span class="save-msg" id="company-form-msg"></span>
+            </div>
           </div>
-          <div class="settings-actions">
-            <button class="btn btn-primary" id="company-form-submit">Add company</button>
-            <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
-            <span class="save-msg" id="company-form-msg"></span>
-          </div>
-        </div>
 
-        <div class="filter-bar">
-          <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
-          <div class="status-tabs" id="company-filter-tabs">
-            <button class="status-tab active" data-company-filter="">All</button>
-            <button class="status-tab" data-company-filter="enabled">Enabled</button>
-            <button class="status-tab" data-company-filter="disabled">Disabled</button>
+          <div class="filter-bar">
+            <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
+            <div class="status-tabs" id="company-filter-tabs">
+              <button class="status-tab active" data-company-filter="">All</button>
+              <button class="status-tab" data-company-filter="enabled">Enabled</button>
+              <button class="status-tab" data-company-filter="disabled">Disabled</button>
+            </div>
+            <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
+            <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
+            <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
+            <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
+            <button class="btn" id="open-config-folder-btn">Open config folder</button>
+            <button class="btn" id="undo-career-pages-btn">Undo last save</button>
+            <span class="topbar-subtitle" id="company-total-count">0 companies</span>
           </div>
-          <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
-          <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
-          <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
-          <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
-          <button class="btn" id="open-config-folder-btn">Open config folder</button>
-          <button class="btn" id="undo-career-pages-btn">Undo last save</button>
-          <span class="topbar-subtitle" id="company-total-count">0 companies</span>
-        </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th class="td-num"><input type="checkbox" id="company-select-all"></th>
-                <th>Name</th>
-                <th>Career URL</th>
-                <th>Location</th>
-                <th>Enabled</th>
-                <th>Latest Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="companies-tbody">
-              <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
-            </tbody>
-          </table>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="td-num"><input type="checkbox" id="company-select-all"></th>
+                  <th>Name</th>
+                  <th>Career URL</th>
+                  <th>Location</th>
+                  <th>Enabled</th>
+                  <th>Latest Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="companies-tbody">
+                <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
