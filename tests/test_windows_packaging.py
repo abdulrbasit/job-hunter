@@ -8,6 +8,11 @@ def test_windows_pyinstaller_spike_is_isolated_and_keeps_console_enabled() -> No
     assert 'name="job-hunter"' in spec
     assert "console=True" in spec
     assert "dashboard.html" in spec
+    assert "dashboard.css" in spec
+    assert "dashboard.js" in spec
+    assert "countries.json" in spec
+    assert "filters.json" in spec
+    assert "companies.json" in spec
     assert "job_hunter/templates" in spec
     assert 'collect_submodules("anthropic", filter=runtime_module)' in spec
     assert 'collect_submodules("openai", filter=runtime_module)' in spec

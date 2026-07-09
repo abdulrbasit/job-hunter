@@ -56,6 +56,9 @@
 | Any-chatbot prompt includes exact delimiters; bundle parser validates before any write | `tests/test_onboarding_bundle.py` (7 tests), `tests/test_web_api.py::test_get_onboarding_prompt_returns_copyable_text`, `::test_import_onboarding_bundle_writes_profile_files`, `::test_import_onboarding_bundle_reports_parse_errors_without_writing` | PASS |
 | Bundle import is atomic (all 3 files or none) with one-level backup/undo | `tests/test_config_service.py::test_replace_onboarding_bundle_writes_all_three_files`, `::test_replace_onboarding_bundle_rejects_missing_section`, `::test_replace_onboarding_bundle_backs_up_previous_content`, `::test_replace_onboarding_bundle_rejects_invalid_career_context` | PASS |
 | Desktop launcher: recent workspace resolution, create/open, reject non-empty target | `tests/test_launcher.py` (14 tests) | PASS |
+| `dashboard.html` splits into shell/CSS/JS; no CDN script tags; strict CSP declared | `tests/test_dashboard_assembly.py` (7 tests), `tests/test_web_launch.py::test_dashboard_launches_maximized` | PASS |
+| Chart.js doughnut/bar replaced with CSS/HTML bar summaries (no `new Chart(` calls) | manual grep verified zero `new Chart(` matches in `dashboard.js`; `tests/test_dashboard_assembly.py::test_assembled_dashboard_has_no_cdn_script_tags` | PASS |
+| PyInstaller spec bundles dashboard.css/js and Phase 1/2 catalog JSON (previously missing) | `tests/test_windows_packaging.py::test_windows_pyinstaller_spike_is_isolated_and_keeps_console_enabled` | PASS |
 | `DashAPI.start_hunt`/`get_hunt_status` typed run service exists | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built` | RED |
 | `job_hunter.ux.terminal` is removed | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed` | RED |
 | `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
@@ -152,6 +155,40 @@ GREEN evidence:
   compilation. (4) the bundle-import atomic write has backups/rollback but no
   optimistic-concurrency revision check (unlike every other save path) — a
   deliberate, lower-priority gap for a first-run action, not a repeated-edit one.
+- Phase 4 (Simplified Native UI — file split + CDN removal only): landed at
+  reduced scope — see "Known gap" below. `dashboard.html` (2,961 lines, inline
+  CSS+JS) mechanically split into `dashboard.html` (472-line shell),
+  `dashboard.css` (713 lines), `dashboard.js` (1,773 lines) via a verified
+  byte-identical extraction (each extracted block checked to be an exact
+  substring of the original file before anything was overwritten). New
+  `job_hunter/ux/web/assembly.py::build_dashboard_html()` re-inlines the three
+  at launch time, since `pywebview.create_window(html=...)` takes one in-memory
+  string with no base URL to resolve relative `<link>`/`<script src>` against
+  — source stays split for maintainability, runtime behavior is unchanged.
+  Removed the `chart.js` CDN `<script>` tag entirely (`job_hunter/ux/web/dashboard.html`
+  previously loaded `cdn.jsdelivr.net/npm/chart.js`); the two `new Chart(...)`
+  call sites (status-by-doughnut, weekly-applications-bar) are replaced with
+  `renderStatusBreakdown()`/`renderWeeklyBars()`, small CSS/HTML bar lists
+  following the file's own pre-existing `renderFunnel()` pattern — no charting
+  library, no network-loaded UI code. Added a strict CSP `<meta>` tag
+  (`default-src 'self'; script-src 'self'; connect-src 'none'`). Updated
+  `packaging/windows/job-hunter.spec` to bundle `dashboard.css`/`dashboard.js`
+  (previously only `dashboard.html` was listed — would have broken frozen
+  Windows builds against the new assembly step) and, while there, also fixed
+  a pre-existing gap where Phase 1/2's `countries.json`/`filters.json`/
+  `companies.json` weren't listed in the PyInstaller spec at all. **Known
+  gap**: the nav restructure (Today/Applications/Candidates/Insights/Settings,
+  folding Analytics into Settings→Diagnostics, Companies into Candidates→
+  Company Hunt), the new Get Started/search-setup/chatbot-import screens
+  (Phase 3's backend exists; no HTML/JS built against it yet), and a full
+  innerHTML→textContent audit across the pre-existing ~44 `innerHTML` call
+  sites are **not done**. These require visual/interactive iteration this
+  environment can't verify (no display to drive pywebview against) and blind
+  large-scale edits to a working 2,900-line UI carry real regression risk;
+  shipping them unverified seemed worse than flagging the gap honestly. The
+  file split itself is regression-tested (every pre-existing dashboard test
+  that grepped `dashboard.html` for JS/CSS content now greps the shell+css+js
+  concatenation instead — same assertions, same coverage, relocated content).
 - Phase 5 (hunt service), Phase 6 (terminal removal), Phase 7/8 (diagnostics
   self-test): not started; their RED tests still fail in
   `tests/test_gui_onboarding_catalogs_journeys.py`.
@@ -177,4 +214,9 @@ GREEN evidence:
   `ruff format --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
   `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
   passed.
+- Phase 4: `pytest tests/ -q --tb=short` — 1407 passed, 3 failed (the
+  remaining Phase 5/6/7 RED journeys). `ruff format --check`, `ruff check`,
+  `ty check`, `scripts/validate_config.py`, `scripts/sync_workspace_template.py
+  --check`, and `uv build --wheel` all passed; wheel inspection confirmed
+  `dashboard.css`/`dashboard.js` are packaged alongside `dashboard.html`.
 - No version bump.

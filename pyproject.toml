@@ -83,7 +83,7 @@ include = ["job_hunter", "job_hunter.*"]
   "workspace/.claude/skills/setup/**/*",
 ]
 "job_hunter.linkedin" = ["defaults.yml"]
-"job_hunter.ux.web" = ["*.html"]
+"job_hunter.ux.web" = ["*.html", "*.css", "*.js"]
 "job_hunter.config" = ["countries.json", "filters.json"]
 "job_hunter.catalog" = ["companies.json"]
 

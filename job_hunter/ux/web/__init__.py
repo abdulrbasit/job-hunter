@@ -12,10 +12,14 @@ def launch(root: Path) -> None:
     import webview
 
     from job_hunter.ux.web.api import DashAPI
+    from job_hunter.ux.web.assembly import build_dashboard_html
 
     api = DashAPI(root)
-    html_path = importlib.resources.files("job_hunter.ux.web").joinpath("dashboard.html")
-    html_content = html_path.read_text(encoding="utf-8")
+    web_dir = importlib.resources.files("job_hunter.ux.web")
+    shell = web_dir.joinpath("dashboard.html").read_text(encoding="utf-8")
+    css = web_dir.joinpath("dashboard.css").read_text(encoding="utf-8")
+    js = web_dir.joinpath("dashboard.js").read_text(encoding="utf-8")
+    html_content = build_dashboard_html(shell, css, js)
 
     window = webview.create_window(
         "Job Hunter",

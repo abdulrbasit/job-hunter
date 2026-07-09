@@ -17,6 +17,21 @@ from job_hunter.tracking.repository import insert_candidate_urls, insert_jobs, m
 from job_hunter.ux.web import api as api_module
 from job_hunter.ux.web.api import DashAPI
 
+_WEB_DIR = Path(__file__).parents[1] / "job_hunter" / "ux" / "web"
+
+
+def _dashboard_source() -> str:
+    """dashboard.html + dashboard.css + dashboard.js concatenated.
+
+    Phase 4 split the single-file dashboard into a shell/CSS/JS trio; tests
+    that grep for specific markup/JS content read the concatenation so a
+    plain substring search still finds content regardless of which file it
+    now lives in.
+    """
+    return "".join(
+        (_WEB_DIR / name).read_text(encoding="utf-8") for name in ("dashboard.html", "dashboard.css", "dashboard.js")
+    )
+
 
 def _write_job(root: Path, slug: str = "2026-06-12_acme_pm") -> Path:
     job_dir = root / "outputs" / "jobs" / slug
@@ -111,8 +126,7 @@ def test_list_page_size_is_capped_and_sort_column_is_whitelisted(tmp_path: Path)
 
 
 def test_dashboard_table_renders_application_location_and_date() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'data-col="location"' in html
     assert "app.location" in html
@@ -123,8 +137,7 @@ def test_dashboard_table_renders_application_location_and_date() -> None:
 
 
 def test_dashboard_has_safe_shared_states_onboarding_and_keyboard_focus() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'id="onboarding-banner"' in html
     assert "function loadingHtml(" in html
@@ -650,8 +663,7 @@ def test_get_analytics_operational_summary_present(tmp_path: Path) -> None:
 
 
 def test_dashboard_renders_tokens_by_skill_with_backend_split() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "Tokens by Skill" in html
     assert "Tokens by Mode" not in html
@@ -905,8 +917,7 @@ def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> 
 
 
 def test_dashboard_contains_artifact_workspace_controls() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     for artifact in ("resume", "cover_letter", "evaluation", "research", "outreach", "interview"):
         assert f'data-artifact="{artifact}"' in html
@@ -925,8 +936,7 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
 
 
 def test_dashboard_company_hunt_uses_persisted_summary_polling_with_run_modes() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'id="company-hunt-mode"' in html
     for mode in ("new_changed", "failed_only", "force_all", "resume"):
@@ -942,8 +952,7 @@ def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None
     delegated listeners, not string-interpolated into inline onclick/onchange —
     interpolating into a single-quoted JS literal inside a double-quoted HTML
     attribute is a JS-injection vector that a plain HTML-escaper doesn't cover."""
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'onclick="selectApp(' not in html
     assert 'onclick="deleteUnprocessed(${' not in html
@@ -955,8 +964,7 @@ def test_dashboard_has_no_inline_handlers_with_interpolated_row_values() -> None
 
 
 def test_dashboard_uses_safe_url_for_scraped_job_links() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "function safeUrl(" in html
     assert 'href="${esc(job.url)}"' not in html
@@ -1115,8 +1123,7 @@ def test_undo_career_context_restores_previous_save(tmp_path: Path) -> None:
 
 
 def test_dashboard_contains_settings_nav_and_panels() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'data-view="settings"' in html
     assert 'id="view-settings"' in html
@@ -1143,16 +1150,14 @@ def test_dashboard_contains_settings_nav_and_panels() -> None:
 
 
 def test_dashboard_settings_disables_save_buttons_during_save() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "btn.disabled = true;" in html
     assert "btn.disabled = false;" in html
 
 
 def test_dashboard_settings_warns_before_losing_unsaved_changes() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "settingsHasUnsavedChanges()" in html
     assert "Leave without saving" in html
@@ -1324,8 +1329,7 @@ def test_open_career_pages_file_and_config_folder_use_validated_paths(tmp_path: 
 
 
 def test_dashboard_contains_companies_nav_and_table() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'data-view="companies"' in html
     assert 'id="view-companies"' in html
@@ -1349,8 +1353,7 @@ def test_dashboard_contains_companies_nav_and_table() -> None:
 def test_dashboard_companies_table_windows_large_lists_instead_of_rendering_everything() -> None:
     """A 2,000-company career_pages.yml must not build one giant innerHTML string up
     front — the initial render is capped, with a "Show more" affordance to grow it."""
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "companyRenderLimit" in html
     assert "function showMoreCompanies" in html
@@ -1358,8 +1361,7 @@ def test_dashboard_companies_table_windows_large_lists_instead_of_rendering_ever
 
 
 def test_dashboard_companies_table_uses_delegated_listeners_not_inline_row_handlers() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "function companyRowHtml" in html
     assert "data-edit-url=" in html
@@ -1369,8 +1371,7 @@ def test_dashboard_companies_table_uses_delegated_listeners_not_inline_row_handl
 
 
 def test_dashboard_applications_have_bulk_delete_checkboxes() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert 'id="app-select-all"' in html
     assert 'id="app-bulk-delete-btn"' in html
@@ -1385,8 +1386,7 @@ def test_dashboard_status_save_and_deletes_reload_current_page_not_page_one() ->
     """saveStatus/deleteApp/bulkDeleteApplications must not bump the user back to
     page 1 of the applications list — they should reload in place via
     loadApplications(), not applyFilters() (which resets appPage to 1)."""
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     def function_body(name: str) -> str:
         start = html.index(f"async function {name}(")
@@ -1400,8 +1400,7 @@ def test_dashboard_status_save_and_deletes_reload_current_page_not_page_one() ->
 
 
 def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() -> None:
-    dashboard = Path(__file__).parents[1] / "job_hunter" / "ux" / "web" / "dashboard.html"
-    html = dashboard.read_text(encoding="utf-8")
+    html = _dashboard_source()
 
     assert "discard_unprocessed_batch" in html
     assert "Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(" not in html
