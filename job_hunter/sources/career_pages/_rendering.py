@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import time
 from collections.abc import Callable
 
 from job_hunter.config.loader import get_timeout
@@ -94,13 +95,21 @@ def extract_playwright_jobs_batch(  # noqa: C901
     title_filters: list[str],
     excluded_title_terms: list[str] | None = None,
     *,
-    on_result: Callable[[dict, list[dict]], None] | None = None,
+    on_result: Callable[[dict, list[dict], float], None] | None = None,
 ) -> list[tuple[dict, list[dict]]]:
     """Render several companies with one browser launch.
 
     A fresh context/page isolates each company. ``domcontentloaded`` plus a short,
     bounded settle replaces ``networkidle``, which commonly stalls on analytics
     and other long-lived requests.
+
+    ``on_result`` receives this company's own render duration, timed from just
+    before its page load — not from whenever the batch itself started. With a
+    small worker pool and a large fallback queue (e.g. a 2,000-company
+    career_pages.yml where most companies need this Playwright fallback),
+    queue-wait time can dwarf actual per-company render time; a caller-side
+    deadline check needs the latter, or it silently rejects companies that
+    rendered fine but simply waited a long time for a free worker.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -115,6 +124,7 @@ def extract_playwright_jobs_batch(  # noqa: C901
             try:
                 for company in companies:
                     context = browser.new_context(user_agent=USER_AGENT)
+                    company_started_at = time.monotonic()
                     try:
                         page = context.new_page()
                         url = str(company.get("career_url") or "")
@@ -135,7 +145,7 @@ def extract_playwright_jobs_batch(  # noqa: C901
                             job["extraction_method"] = "playwright"
                         results.append((company, jobs))
                         if on_result:
-                            on_result(company, jobs)
+                            on_result(company, jobs, time.monotonic() - company_started_at)
                     except Exception as exc:
                         logger.debug(
                             "[career_pages] Playwright render failed for %s: %s",
@@ -144,7 +154,7 @@ def extract_playwright_jobs_batch(  # noqa: C901
                         )
                         results.append((company, []))
                         if on_result:
-                            on_result(company, [])
+                            on_result(company, [], time.monotonic() - company_started_at)
                     finally:
                         context.close()
             finally:
@@ -157,7 +167,7 @@ def extract_playwright_jobs_batch(  # noqa: C901
                 continue
             results.append((company, []))
             if on_result:
-                on_result(company, [])
+                on_result(company, [], 0.0)
     return results
 
 

@@ -108,6 +108,18 @@ def _cheap_extract(company: dict[str, Any], titles: list[str], exclusions: list[
     return extract_career_page_jobs(company, titles, exclusions), False
 
 
+def _timed_cheap_extract(
+    company: dict[str, Any], titles: list[str], exclusions: list[str]
+) -> tuple[list[dict], bool, float]:
+    """Times only this company's own extraction, from when a pool worker actually picks it
+    up — not from task creation. With CHEAP_WORKERS=8 and a large career_pages.yml (e.g.
+    2,000+ companies), queue-wait alone can exceed COMPANY_DEADLINE_SECONDS long before a
+    company's own turn comes up if duration is measured from task creation instead."""
+    started_at = time.monotonic()
+    jobs, needs_playwright = _cheap_extract(company, titles, exclusions)
+    return jobs, needs_playwright, time.monotonic() - started_at
+
+
 def run(  # noqa: C901
     *,
     on_progress: Progress | None = None,
@@ -238,14 +250,18 @@ def run(  # noqa: C901
     fallback: list[tuple[dict[str, Any], dict[str, Any]]] = []
     with ThreadPoolExecutor(max_workers=min(CHEAP_WORKERS, len(ready_tasks)) or 1) as pool:
         futures = {
-            pool.submit(_cheap_extract, company, titles, exclusions): (task, company) for task, company in ready_tasks
+            pool.submit(_timed_cheap_extract, company, titles, exclusions): (task, company)
+            for task, company in ready_tasks
         }
         for future in as_completed(futures):
             task, company = futures[future]
-            duration = time.monotonic() - started_at[task["id"]]
             try:
-                jobs, needs_playwright = future.result()
+                jobs, needs_playwright, duration = future.result()
             except Exception as exc:  # noqa: BLE001
+                # Task never started_at-timestamped its own attempt (it raised before
+                # returning one) — fall back to the queue-inclusive duration for logging
+                # purposes only; _friendly_reason doesn't consult it.
+                duration = time.monotonic() - started_at[task["id"]]
                 logger.warning("[browser-hunt] %s: failed (%s)", task["company_name"], exc)
                 finish_failed(task, _friendly_reason(exc), duration)
                 continue
@@ -263,9 +279,14 @@ def run(  # noqa: C901
         else:
             task_by_id = {task["id"]: task for task, _company in fallback}
 
-            def on_browser_result(company: dict, jobs: list[dict]) -> None:
+            def on_browser_result(company: dict, jobs: list[dict], duration: float) -> None:
+                # duration is this company's own render time (from extract_playwright_jobs_batch),
+                # not time.monotonic() - started_at[task["id"]] — with a 2-worker pool and a
+                # fallback queue that can run into the thousands, queue-wait alone can dwarf
+                # COMPANY_DEADLINE_SECONDS long before a company's own turn comes up, which
+                # falsely marked companies that rendered fine as "took too long to respond".
                 task = task_by_id[company["_task_id"]]
-                finish_success(task, jobs, time.monotonic() - started_at[task["id"]])
+                finish_success(task, jobs, duration)
 
             worker_count = min(PLAYWRIGHT_WORKERS, len(fallback))
             chunks = [fallback[index::worker_count] for index in range(worker_count)]

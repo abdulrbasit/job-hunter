@@ -295,6 +295,39 @@ def test_browser_hunt_persists_a_run_and_task_row_on_success(tmp_path: Path, mon
     assert task["duration_s"] is not None
 
 
+def test_browser_hunt_deadline_measures_own_processing_time_not_queue_wait(tmp_path: Path, monkeypatch) -> None:
+    """Regression: with a small worker pool and a long queue (e.g. a 2,000+ company
+    career_pages.yml), duration used to be measured from task creation — so a company
+    queued behind a slow one could get marked "took too long to respond" even though its
+    own fetch was instant, just because it waited a long time for a free worker. duration
+    must be timed from when a worker actually starts that company's own attempt."""
+    companies = [
+        {"name": "Slow First", "career_url": "https://slow.example.com/jobs"},
+        {"name": "Fast Second", "career_url": "https://fast.example.com/jobs"},
+    ]
+    _write_config(tmp_path, companies)
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "CHEAP_WORKERS", 1)  # forces strictly sequential processing
+    monkeypatch.setattr(browser_hunt, "COMPANY_DEADLINE_SECONDS", 0.2)
+
+    def fake_extract(company, titles, exclusions):
+        if company["name"] == "Slow First":
+            time.sleep(0.35)
+        return []
+
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", fake_extract)
+
+    assert browser_hunt.run() == 0
+
+    run = company_hunts.get_latest_run(tmp_path)
+    tasks = {t["company_name"]: t for t in company_hunts.get_tasks_for_run(tmp_path, run["id"])}
+    assert tasks["Slow First"]["status"] == company_hunts.FAILED
+    assert tasks["Slow First"]["failure_reason"] == "took too long to respond"
+    # Fast Second waited ~0.35s in queue behind Slow First, but its own processing was
+    # instant — the old (buggy) duration measurement would have failed this one too.
+    assert tasks["Fast Second"]["status"] == company_hunts.OK
+
+
 def test_browser_hunt_persists_a_failed_task_with_reason(tmp_path: Path, monkeypatch) -> None:
     companies = [{"name": "Broken", "career_url": "https://broken.example.com/jobs"}]
     _write_config(tmp_path, companies)
@@ -522,12 +555,13 @@ def test_browser_hunt_only_probes_chromium_when_fallback_queue_exists(tmp_path: 
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: probes.append(True) or True)
 
     def fake_batch(companies, titles, exclusions, *, on_result=None):
-        # Real extract_playwright_jobs_batch's signature includes on_result — a mock
-        # missing it previously masked a TypeError into a silently-"failed" task.
+        # Real extract_playwright_jobs_batch's signature includes on_result (and now a
+        # per-company duration) — a mock missing it previously masked a TypeError into a
+        # silently-"failed" task.
         results = [(company, []) for company in companies]
         if on_result:
             for company, jobs in results:
-                on_result(company, jobs)
+                on_result(company, jobs, 0.01)
         return results
 
     monkeypatch.setattr(browser_hunt, "extract_playwright_jobs_batch", fake_batch)
