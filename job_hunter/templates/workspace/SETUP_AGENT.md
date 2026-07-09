@@ -126,7 +126,7 @@ this needs your editor's auto-approve setting turned on first:
 > separately, once you've reviewed the output.
 
 ```bash
-job-hunter dashboard --no-interactive
+job-hunter dash
 ```
 
 Review what got tailored. Then, per job:
@@ -148,7 +148,7 @@ Confirms outputs are consistent and asks before committing or pushing.
 
 Workspace setup enables privacy-safe token telemetry for both Claude Code and
 Codex. Restart the editor after setup, run `/job-hunter batch` normally, then
-open `job-hunter dashboard --no-interactive` and select Analytics. Metrics are
+open `job-hunter dash` and select Analytics. Metrics are
 stored locally in `outputs/state/metrics.db`; prompts, responses, resume text,
 and tool arguments are not stored. Telemetry failure never blocks a batch.
 

@@ -211,7 +211,8 @@ def test_job_hunter_router_skill_contract() -> None:
         )
 
     assert "## Command Menu" in text
-    assert "job-hunter dashboard --no-interactive" in text
+    assert "job-hunter dash" in text
+    assert "no terminal dashboard to run inline" in text
 
     # All required /job-hunter commands present in the command menu
     for command in (

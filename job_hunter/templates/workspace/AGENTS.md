@@ -17,7 +17,7 @@ Set `mode:` in `config/job_hunter.yml`.
 ```bash
 job-hunter doctor
 job-hunter hunt --region primary
-job-hunter dashboard --no-interactive
+job-hunter dash
 ```
 
 ## Agent Skills

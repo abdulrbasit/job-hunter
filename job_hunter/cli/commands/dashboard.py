@@ -19,39 +19,18 @@ def dash() -> None:
     launch(ROOT)
 
 
-@app.command()
-def dashboard(
-    status: str | None = typer.Option(None, "--status"),
-    region: str | None = typer.Option(None, "--region"),
-    since: str | None = typer.Option(None, "--since"),
-    no_interactive: bool = typer.Option(False, "--no-interactive"),
-) -> None:
-    """Open the terminal application dashboard."""
-    from job_hunter.tracker import repo_path
-    from job_hunter.tracking.applications import filtered_applications
-    from job_hunter.ux.terminal.dashboard import render_dashboard, run_interactive_dashboard
-
-    root = repo_path()
-    apps = filtered_applications(root=root, status=status, region=region, since=since)
-    if no_interactive:
-        typer.echo(render_dashboard(apps))
-    else:
-        raise typer.Exit(run_interactive_dashboard(apps, root))
-
-
 @internal_app.command()
 def analytics(
     days: int = typer.Option(30, "--days"),
     json_output: bool = JSON_OPTION,
 ) -> None:
-    """Show pipeline analytics."""
+    """Show pipeline analytics (JSON — internal/automation use; see the desktop app for the GUI view)."""
     from job_hunter.tracker import repo_path
     from job_hunter.ux.analytics import analyze_pipeline
     from job_hunter.ux.health import dump_json
-    from job_hunter.ux.terminal.analytics import render_analytics
 
     payload = analyze_pipeline(repo_path(), days=days)
-    typer.echo(dump_json(payload) if json_output else render_analytics(payload))
+    typer.echo(dump_json(payload))
 
 
 @app.command()

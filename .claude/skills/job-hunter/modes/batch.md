@@ -90,7 +90,7 @@ Tailored: N, marked processed: M
 Cleaned transient batch files
 
 Tailoring complete. Changes are uncommitted. Run /job-hunter finalize only after review.
-Review: `job-hunter dashboard --no-interactive`
+Review: open the Job Hunter app (`job-hunter dash`) → Applications
 Optional: /job-hunter outreach <slug> or /job-hunter interview <slug>
 ```
 

@@ -46,8 +46,7 @@ Set `mode:` in `config/job_hunter.yml`. Default is `agent`.
 
 ```bash
 job-hunter hunt --region primary
-job-hunter dash                      # web dashboard
-job-hunter dashboard --no-interactive  # terminal
+job-hunter dash                      # desktop app
 ```
 
 In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use:
@@ -79,8 +78,8 @@ are skipped by default and every company result is persisted immediately.
 - `job-hunter doctor` — check setup health
 - `job-hunter hunt` — discover and enrich jobs
 - `job-hunter tailor` — tailor resume for one or more job postings
-- `job-hunter dash` — open web dashboard in a native window (Applications, Insights, Analytics)
-- `job-hunter dashboard`, `applications` — terminal dashboard and application list
+- `job-hunter dash` — open the desktop app in a native window (Applications, Insights, Analytics)
+- `job-hunter applications update <job> <status>` — update an application's lifecycle status from a script
 - `job-hunter hunt --from-db-candidates` — process pending company-hunt candidates in `llm-api` mode
 - `job-hunter update` — update workspace assets, skills, and workflows after a package upgrade
 - `job-hunter update --skills-only` or `--workflows-only` — targeted refresh

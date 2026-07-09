@@ -52,7 +52,7 @@ ty check job_hunter tests
 
 ```bash
 job-hunter hunt --region primary
-job-hunter dashboard --no-interactive
+job-hunter dash
 job-hunter doctor
 
 uv sync --extra dev

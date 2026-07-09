@@ -12,8 +12,7 @@ Package docs: https://github.com/abdulrbasit/job-hunter
 ```bash
 job-hunter doctor                      # check setup health
 job-hunter hunt --region primary       # find and enrich jobs
-job-hunter dash                        # open the web dashboard
-job-hunter dashboard --no-interactive  # terminal dashboard
+job-hunter dash                        # open the desktop app
 job-hunter update                      # refresh skills/workflows after an upgrade
 ```
 

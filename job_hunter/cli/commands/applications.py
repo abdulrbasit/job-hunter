@@ -7,21 +7,6 @@ import typer
 from job_hunter.cli.app import applications_app
 
 
-@applications_app.command("list")
-def applications_list(
-    status: str | None = typer.Option(None, "--status"),
-    region: str | None = typer.Option(None, "--region"),
-    since: str | None = typer.Option(None, "--since"),
-) -> None:
-    """List applications, optionally filtered."""
-    from job_hunter.tracker import repo_path
-    from job_hunter.tracking.applications import filtered_applications
-    from job_hunter.ux.terminal.applications import render_applications_table
-
-    apps = filtered_applications(root=repo_path(), status=status, region=region, since=since)
-    typer.echo(render_applications_table(apps))
-
-
 @applications_app.command("update")
 def applications_update(
     job: str = typer.Argument(...),

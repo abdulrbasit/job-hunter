@@ -119,7 +119,7 @@ def test_removed_commands_not_in_help() -> None:
     assert result.returncode == 0
     for public in (
         "applications",
-        "dashboard",
+        "dash",
         "doctor",
         "hunt",
         "init",
@@ -149,6 +149,17 @@ def test_removed_commands_not_in_help() -> None:
         assert removed not in result.stdout, f"removed command still present in help: {removed}"
 
 
+def test_dashboard_and_applications_list_commands_are_removed() -> None:
+    """dash's help text still says 'dashboard' descriptively (it opens the desktop
+    dashboard) — check the removed subcommands don't exist directly instead of a
+    substring match on --help output."""
+    result = run_cli("dashboard", "--no-interactive")
+    assert result.returncode != 0
+
+    result = run_cli("applications", "list")
+    assert result.returncode != 0
+
+
 def test_agent_context_help_loads() -> None:
     result = run_cli("internal", "agent-context", "--help")
     assert result.returncode == 0
@@ -175,7 +186,6 @@ def test_internal_commands_remain_available_but_hidden() -> None:
 KNOWN_PUBLIC_COMMANDS = {
     "applications",
     "dash",
-    "dashboard",
     "doctor",
     "hunt",
     "init",
@@ -323,15 +333,7 @@ def test_mark_processed_from_candidates() -> None:
         Path(tmp).unlink(missing_ok=True)
 
 
-def test_applications_list_dashboard_doctor_and_verify_commands_load() -> None:
-    result = run_cli("applications", "list")
-    assert result.returncode == 0
-    assert "Status" in result.stdout
-
-    result = run_cli("dashboard", "--no-interactive")
-    assert result.returncode == 0
-    assert "Job Hunter Dashboard" in result.stdout
-
+def test_analytics_doctor_and_verify_commands_load() -> None:
     result = run_cli("internal", "analytics", "--json")
     assert result.returncode == 0
     assert "by_status" in result.stdout

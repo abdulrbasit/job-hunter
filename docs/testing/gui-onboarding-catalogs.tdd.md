@@ -62,7 +62,9 @@
 | `DashAPI.start_hunt`/`get_hunt_status` typed run service exists; shares the company-hunt lock so runs can never overlap | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built`, `tests/test_web_api.py::test_start_hunt_runs_worker_and_reports_succeeded`, `::test_start_hunt_rejects_concurrent_start`, `::test_start_hunt_and_company_hunt_share_the_same_lock`, `::test_start_hunt_worker_crash_reports_failed_and_resets_lock` | PASS |
 | `start_company_hunt`/`get_company_hunt_status` spec-named aliases wrap the existing wired implementation | `tests/test_web_api.py::test_start_company_hunt_is_alias_for_run_company_hunt`, `::test_get_company_hunt_status_is_alias_for_get_company_hunt_summary` | PASS |
 | GitHub Actions secret value never crosses the JS bridge; copied straight to the OS clipboard from Python | `tests/test_web_api.py::test_get_github_actions_guide_reports_required_secret_and_schedule_state` (asserts the value is absent from the JSON payload), `::test_copy_github_actions_secret_writes_to_clipboard_without_returning_it`, `::test_copy_github_actions_secret_reports_error_when_not_configured` | PASS |
-| `job_hunter.ux.terminal` is removed | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed` | RED |
+| `job_hunter.ux.terminal` is removed; `dashboard`/`applications list` CLI commands gone | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed`, `tests/test_cli.py::test_dashboard_and_applications_list_commands_are_removed` | PASS |
+| `internal analytics`, `doctor`, `dash`, `applications update`, `internal verify` still work (hidden/automation contracts intact) | `tests/test_cli.py::test_analytics_doctor_and_verify_commands_load`, `::test_cli_command_registration_matches_known_surface`, `::test_internal_commands_referenced_by_skills_are_all_registered` | PASS |
+| Agent skill "dashboard" routing and batch-review pointer say "open the Job Hunter app", not a terminal command | `tests/test_skills.py` (SKILL.md command-menu assertions) | PASS |
 | `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
 
 RED evidence: all six focused tests fail today for the planned reason only —
@@ -228,8 +230,33 @@ GREEN evidence:
   upgrade trigger (converting those handlers to `addEventListener`, the same
   deferred work as the nav restructure); `default-src`/`connect-src`/
   `img-src` remain at their fully strict, no-remote-source values.
-- Phase 6 (terminal removal), Phase 7/8 (diagnostics self-test): not started;
-  their RED tests still fail in `tests/test_gui_onboarding_catalogs_journeys.py`.
+- Phase 6 (remove terminal UI): landed. Deleted `job_hunter/ux/terminal/`
+  (`dashboard.py`, `analytics.py`, `applications.py`, `__init__.py`) and their
+  two dedicated test files. Removed the public `dashboard` CLI command
+  (interactive/`--no-interactive` terminal renderer) and `applications list`
+  (terminal table); kept `applications update` (a real scriptable command, not
+  terminal UI — `SETUP.md` already documented it as the correct way to change
+  application status). `internal analytics` now always emits JSON (dropped its
+  terminal-render fallback) rather than being deleted outright, since the
+  underlying data is still useful for automation/debugging. `dash` (GUI),
+  `doctor`, `internal verify`, `update`, and every `internal ...`
+  agent/GitHub-Actions-facing command are untouched. Updated the agent skill
+  routing (`.claude/skills/job-hunter/SKILL.md` and its packaged copy, synced
+  via `scripts/sync_workspace_template.py`) so `dashboard`/`apps`/
+  `applications` tells the user to open the desktop app instead of running a
+  terminal command, and `batch.md`'s post-run "Review:" pointer does the same.
+  Updated `README.md`, `AGENTS.md` (repo root, dev-context), and the workspace
+  template's `AGENTS.md`/`README.md`/`SETUP.md`/`SETUP_AGENT.md` to drop every
+  `job-hunter dashboard --no-interactive` mention in favor of `job-hunter dash`
+  — confirmed via a repo-wide grep (excluding `.venv`/`build`/`dist`) that zero
+  references to the deleted terminal modules or commands remain outside this
+  doc and the (now-GREEN) journey test. **Known gap carried from Phase 4,
+  unchanged**: "Doctor output becomes Settings → Diagnostics" and "Workspace
+  update becomes Settings → Update Workspace" are GUI-surface requirements
+  that depend on the nav restructure Phase 4 deferred — `doctor`/`update`
+  remain CLI-only for now; no new gap introduced here.
+- Phase 7/8 (diagnostics self-test): not started; its RED test still fails in
+  `tests/test_gui_onboarding_catalogs_journeys.py`.
 
 ## Final validation
 
@@ -262,4 +289,9 @@ GREEN evidence:
   `ruff format --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
   `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
   passed.
+- Phase 6: `pytest tests/ -q --tb=short` — 1417 passed, 1 failed (only
+  Phase 7/8's diagnostics-self-test RED journey remains; `terminal removal`
+  journey now passes). `ruff format --check`, `ruff check`, `ty check`,
+  `scripts/validate_config.py`, `scripts/sync_workspace_template.py --check`,
+  and `uv build --wheel` all passed.
 - No version bump.

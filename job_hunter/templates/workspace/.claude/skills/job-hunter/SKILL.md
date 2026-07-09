@@ -53,7 +53,7 @@ raises or blocks the session.
 Normalize the first argument to lowercase. Empty argument → `help`.
 
 **Daily workflow**
-- `dashboard`, `apps`, `applications`: run `job-hunter dashboard --no-interactive`, pass remaining arguments through.
+- `dashboard`, `apps`, `applications`: tell the user to open the Job Hunter app (`job-hunter dash`) and use the Applications view — there is no terminal dashboard to run inline.
 - `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
 - `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.
@@ -79,7 +79,7 @@ Unknown mode → print the command menu and ask the user to choose a listed mode
 Job Hunter Command Center
 
 ── Daily Workflow ──────────────────────────────────────────────────────
-/job-hunter dashboard          Show the application tracker dashboard
+/job-hunter dashboard          Open the Job Hunter app to review applications
 /job-hunter batch              Process the next frozen candidate batch
 /job-hunter one <url>          Process one job URL end-to-end
 /job-hunter finalize           Commit durable reviewed outputs
