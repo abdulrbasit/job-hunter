@@ -434,4 +434,37 @@ packaging and the 19→1,500 company catalog scale-up remain open).
   `dashboard_assets`). No actual click-through in a rendered window.
 - `pytest tests/ -q --tb=short` — 1432 passed, 0 failed. `ruff format
   --check`, `ruff check`, `ty check` all passed.
+- **Company catalog scale-up (19 → 1,533)**: closes the last of the five
+  Phase 8 gaps except macOS packaging (out of scope — needs physical Apple
+  hardware). Scope per user request: Europe, North America, Gulf states, and
+  Asia; a company present in multiple countries gets one entry with
+  `country_codes` listing all of them (the schema already supported this —
+  no loader/model change needed), not one row per country. Built via five
+  batches: ~122 hand-written high-confidence global multinationals (Amazon,
+  Apple, McKinsey, HSBC, etc. — the ones most likely to have real multi-country
+  presence), then four parallel research agents (~380 North America, ~442
+  Europe, ~162 Gulf, ~402 Asia), each explicitly told to skip the global
+  batch's companies and validate its own output against the real
+  `job_hunter/catalog/loader.py` Pydantic model before returning. Merge step
+  re-validated the combined file against that same model and auto-dropped 2
+  cross-batch duplicates (`stellantis`, `elastic`) by id/normalized-URL
+  collision — 0 schema errors, final count 1,533. Per user follow-up
+  ("optimized way... reliable companies", "Python APIs... instead of wasting
+  tokens with WebFetch"): switched the Gulf/Europe agents off WebSearch/WebFetch
+  after the first pass (too token-expensive at this volume) in favor of the
+  agents' own training knowledge plus the `<domain>/careers` fallback
+  convention for uncertain subpaths; separately ran targeted `curl`/`nslookup`
+  reachability checks (cheap, no LLM tokens) against every company each agent
+  self-flagged as lower-confidence (~30 entries) and corrected 13 with dead
+  or wrong URLs (e.g. `norwegian_cruise_line` → `nclhcareers.com` didn't
+  resolve at all, real page is `norwegiancruiseline.com/careers`; several
+  Asia entries' guessed `/careers` subpath 404'd where the bare domain
+  worked, so those fell back to the bare domain). This reachability pass
+  confirms URLs *resolve*, not that the company/page content is correct —
+  full link-liveness verification across all 1,533 entries remains future
+  work, same as the original Phase 8 gap's own caveat. Regression coverage:
+  existing `tests/test_catalog.py` (uniqueness/https/known-country/known-industry
+  validators) now runs against the full 1,533-entry file un-mocked;
+  `job-hunter internal self-test --json`'s `catalog_resource` check reports
+  "1533 companies loaded".
 - No version bump.
