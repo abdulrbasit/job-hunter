@@ -60,6 +60,15 @@ def test_assembled_dashboard_has_no_cdn_script_tags() -> None:
     assert "cdn." not in html.lower()
 
 
+def test_onboarding_checklist_labels_are_escaped_before_innerhtml() -> None:
+    """item.label/action_hint reach innerHTML; action_hint embeds user-configured file
+    paths (resume_tex/career_context/story_bank), so both must be esc()'d."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "${esc(item.label)}" in js
+    assert "${esc(item.action_hint)}" in js
+
+
 def test_dashboard_shell_declares_csp_with_no_remote_sources() -> None:
     """default-src/script-src/style-src/img-src are all local-only; connect-src is 'none'.
 

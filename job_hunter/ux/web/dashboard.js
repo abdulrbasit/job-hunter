@@ -145,8 +145,8 @@ async function loadOnboarding() {
     const rows = result.items.map(item => `
       <li class="onboarding-item ${item.done ? 'done' : ''}">
         <span class="oi-mark">${item.done ? '✓' : '○'}</span>
-        <span>${item.label}</span>
-        <span class="oi-hint">— ${item.action_hint}</span>
+        <span>${esc(item.label)}</span>
+        <span class="oi-hint">— ${esc(item.action_hint)}</span>
       </li>
     `).join('');
     banner.innerHTML = `
