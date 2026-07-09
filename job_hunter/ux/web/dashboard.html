@@ -16,25 +16,21 @@
     <span class="logo-text" id="sidebar-name">Job Hunter</span>
   </div>
   <nav>
-    <button class="nav-btn active" data-view="applications">
+    <button class="nav-btn active" data-view="today">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Today</span>
+    </button>
+    <button class="nav-btn" data-view="applications">
       <span class="nav-icon">📋</span>
       <span class="nav-label">Applications</span>
     </button>
     <button class="nav-btn" data-view="unprocessed">
       <span class="nav-icon">📥</span>
-      <span class="nav-label">Job Candidates</span>
+      <span class="nav-label">Candidates</span>
     </button>
     <button class="nav-btn" data-view="insights">
       <span class="nav-icon">📈</span>
       <span class="nav-label">Insights</span>
-    </button>
-    <button class="nav-btn" data-view="analytics">
-      <span class="nav-icon">⚡</span>
-      <span class="nav-label">Analytics</span>
-    </button>
-    <button class="nav-btn" data-view="companies">
-      <span class="nav-icon">🏢</span>
-      <span class="nav-label">Companies</span>
     </button>
     <button class="nav-btn" data-view="settings">
       <span class="nav-icon">⚙️</span>
@@ -52,7 +48,7 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <span class="topbar-title" id="view-title">Applications</span>
+    <span class="topbar-title" id="view-title">Today</span>
     <span class="topbar-subtitle" id="view-sub"></span>
     <span class="streak-badge" id="streak-badge" style="display:none"></span>
     <span class="topbar-spacer"></span>
@@ -60,8 +56,20 @@
   </div>
   <div class="onboarding-banner" id="onboarding-banner" style="display:none"></div>
 
+  <!-- Today view -->
+  <section id="view-today" class="view active">
+    <div class="run-header" id="today-hunt-panel">
+      <button class="btn btn-primary" id="find-jobs-btn">🔍 Find Jobs</button>
+      <div class="run-stat"><div class="run-stat-label">Status</div><div class="run-stat-value" id="today-hunt-status-value">Idle</div></div>
+      <div class="run-stat"><div class="run-stat-label">Fetched</div><div class="run-stat-value" id="today-hunt-fetched">—</div></div>
+      <div class="run-stat"><div class="run-stat-label">Candidates</div><div class="run-stat-value" id="today-hunt-candidates">—</div></div>
+      <div class="run-stat"><div class="run-stat-label">Tailored</div><div class="run-stat-value" id="today-hunt-tailored">—</div></div>
+    </div>
+    <div class="no-data" id="today-hunt-message" style="display:none"></div>
+  </section>
+
   <!-- Applications view -->
-  <section id="view-applications" class="view active">
+  <section id="view-applications" class="view">
     <div class="app-panel">
       <div class="filter-bar">
         <input class="search-input" type="text" id="search-input" placeholder="Search company or title…">
@@ -220,6 +228,57 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Manage Companies (folded in from the former standalone Companies nav item) -->
+        <div class="settings-section" id="company-form-section">
+          <h3 id="company-form-title">Add Company</h3>
+          <div class="settings-grid">
+            <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
+            <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
+            <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
+            <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="company-form-submit">Add company</button>
+            <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
+            <span class="save-msg" id="company-form-msg"></span>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
+          <div class="status-tabs" id="company-filter-tabs">
+            <button class="status-tab active" data-company-filter="">All</button>
+            <button class="status-tab" data-company-filter="enabled">Enabled</button>
+            <button class="status-tab" data-company-filter="disabled">Disabled</button>
+          </div>
+          <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
+          <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
+          <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
+          <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
+          <button class="btn" id="open-config-folder-btn">Open config folder</button>
+          <button class="btn" id="undo-career-pages-btn">Undo last save</button>
+          <span class="topbar-subtitle" id="company-total-count">0 companies</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="td-num"><input type="checkbox" id="company-select-all"></th>
+                <th>Name</th>
+                <th>Career URL</th>
+                <th>Location</th>
+                <th>Enabled</th>
+                <th>Latest Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="companies-tbody">
+              <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -231,66 +290,6 @@
     </div>
   </section>
 
-  <!-- Analytics view -->
-  <section id="view-analytics" class="view">
-    <div class="run-header" id="analytics-header">
-      <div class="loading-wrap"><span class="spinner"></span></div>
-    </div>
-  </section>
-
-  <!-- Companies view -->
-  <section id="view-companies" class="view">
-    <div class="settings-section" id="company-form-section">
-      <h3 id="company-form-title">Add Company</h3>
-      <div class="settings-grid">
-        <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
-        <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
-        <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
-        <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
-      </div>
-      <div class="settings-actions">
-        <button class="btn btn-primary" id="company-form-submit">Add company</button>
-        <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
-        <span class="save-msg" id="company-form-msg"></span>
-      </div>
-    </div>
-
-    <div class="filter-bar">
-      <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
-      <div class="status-tabs" id="company-filter-tabs">
-        <button class="status-tab active" data-company-filter="">All</button>
-        <button class="status-tab" data-company-filter="enabled">Enabled</button>
-        <button class="status-tab" data-company-filter="disabled">Disabled</button>
-      </div>
-      <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
-      <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
-      <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
-      <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
-      <button class="btn" id="open-config-folder-btn">Open config folder</button>
-      <button class="btn" id="undo-career-pages-btn">Undo last save</button>
-      <span class="topbar-subtitle" id="company-total-count">0 companies</span>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="td-num"><input type="checkbox" id="company-select-all"></th>
-            <th>Name</th>
-            <th>Career URL</th>
-            <th>Location</th>
-            <th>Enabled</th>
-            <th>Latest Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="companies-tbody">
-          <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
   <!-- Settings view -->
   <section id="view-settings" class="view">
     <div class="settings-wrap">
@@ -299,6 +298,7 @@
         <button class="status-tab" data-settings-tab="advanced">Advanced YAML</button>
         <button class="status-tab" data-settings-tab="career-context">Career Context</button>
         <button class="status-tab" data-settings-tab="get-started">Get Started</button>
+        <button class="status-tab" data-settings-tab="diagnostics">Diagnostics</button>
       </div>
 
       <div class="settings-errors" id="settings-errors" style="display:none"></div>
@@ -409,6 +409,56 @@
 
       <!-- Get Started -->
       <div class="settings-panel" id="settings-panel-get-started">
+        <div class="settings-section" id="gs-section-search-setup">
+          <h3>Quick Search Setup</h3>
+          <div class="settings-grid">
+            <div class="settings-field"><label for="gs-search-mode">Execution mode</label>
+              <select id="gs-search-mode">
+                <option value="agent">agent</option>
+                <option value="llm-api">llm-api</option>
+              </select>
+            </div>
+            <div class="settings-field"><label for="gs-career-stage">Career stage</label>
+              <select id="gs-career-stage">
+                <option value="student">student</option>
+                <option value="early_career">early_career</option>
+                <option value="experienced">experienced</option>
+                <option value="leadership">leadership</option>
+                <option value="custom">custom</option>
+              </select>
+            </div>
+            <div class="settings-field"><label for="gs-search-country">Country (ISO2)</label><input type="text" id="gs-search-country" maxlength="2"></div>
+            <div class="settings-field"><label for="gs-search-location">Location</label><input type="text" id="gs-search-location"></div>
+            <div class="settings-field"><label for="gs-search-lang">Search lang</label><input type="text" id="gs-search-lang"></div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-field"><label for="gs-search-job-titles">Job titles (one per line)</label><textarea id="gs-search-job-titles"></textarea></div>
+            <div class="settings-field"><label for="gs-search-excl-industries">Exclude industries (one per line, optional)</label><textarea id="gs-search-excl-industries"></textarea></div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" type="button" id="save-search-setup-btn">Save search setup</button>
+            <span class="save-msg" id="gs-search-msg"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">Sets mode, career stage, job titles, and your primary region in one step. Advanced fields (scoring, exclusions, LLM provider/model) stay in the Guided tab.</span>
+        </div>
+
+        <div class="settings-section" id="gs-section-chatbot-import">
+          <h3>Import from Any Chatbot</h3>
+          <div class="settings-actions">
+            <button class="btn" type="button" id="copy-onboarding-prompt-btn">Copy setup prompt</button>
+            <span style="font-size:12px;color:var(--text-muted)">Paste into any chatbot (ChatGPT, Claude, Gemini) along with your resume/background, then paste its reply below.</span>
+          </div>
+          <div class="settings-field">
+            <label for="gs-chatbot-response">Chatbot's reply</label>
+            <textarea class="settings-textarea" id="gs-chatbot-response" placeholder="Paste the chatbot's full reply here…"></textarea>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" type="button" id="import-chatbot-bundle-btn">Import</button>
+            <span class="save-msg" id="gs-import-msg"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">Overwrites career context, story bank, and resume source from the reply — validated before anything is written, with an automatic backup.</span>
+        </div>
+
         <div class="settings-section" id="gs-section-career">
           <h3>Quick Career Context Fill</h3>
           <div class="settings-grid">
@@ -458,6 +508,20 @@
             <button class="btn" type="button" id="gs-recheck-btn">Recheck</button>
           </div>
           <span style="font-size:12px;color:var(--text-muted)">You still paste secrets into GitHub's Settings → Secrets UI and edit/commit the workflow file yourself — nothing here pushes on your behalf.</span>
+        </div>
+      </div>
+
+      <!-- Diagnostics (folded in from the former standalone Analytics nav item, plus doctor output) -->
+      <div class="settings-panel" id="settings-panel-diagnostics">
+        <div class="settings-section" id="diag-section-doctor">
+          <h3>Setup Health Check</h3>
+          <ul class="onboarding-checklist" id="diag-checklist"><li class="no-data">Loading…</li></ul>
+        </div>
+        <div class="settings-section" id="diag-section-analytics">
+          <h3>Analytics</h3>
+          <div id="analytics-header">
+            <div class="loading-wrap"><span class="spinner"></span></div>
+          </div>
         </div>
       </div>
     </div>

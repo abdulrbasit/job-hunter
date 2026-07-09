@@ -376,4 +376,62 @@ GREEN evidence:
   deleted after validation.
 - Phase 8: `pytest --cov=job_hunter --cov-report=term-missing` — 1427
   passed, **85.87% coverage** (gate: 80%, `pyproject.toml`).
+
+## Phase 8 follow-up: nav restructure, CSP, innerHTML audit
+
+Closes three of the five gaps listed in the Phase 8 entry above (macOS
+packaging and the 19→1,500 company catalog scale-up remain open).
+
+- **innerHTML XSS audit**: reviewed all 44 `innerHTML` call sites in
+  `dashboard.js`. All scraped/external data (job company/title/location,
+  career-page URLs, failure reasons) was already routed through `esc()`/
+  `safeUrl()`. Found and fixed one real gap: the onboarding checklist banner
+  interpolated `item.label`/`item.action_hint` unescaped, and `action_hint`
+  embeds user-configured file paths (`resume_tex`/`career_context`/
+  `story_bank` from `job_hunter.yml`) — now `esc()`'d. Regression test:
+  `tests/test_dashboard_assembly.py::test_onboarding_checklist_labels_are_escaped_before_innerhtml`.
+- **CSP `script-src 'unsafe-inline'` removal**: converted all ~65 inline
+  `onclick=`/`oninput=`/`onchange=` attributes in `dashboard.html` and the 5
+  in `dashboard.js`-generated markup to `addEventListener` wiring (static
+  by-id list, plus event delegation for `th[data-col]` sort headers, artifact
+  tabs, and pager buttons — following the file's own pre-existing delegation
+  pattern for untrusted row data). `script-src` is now `'self'` with no
+  `'unsafe-inline'`; `style-src` still allows it for inline `style="..."`
+  attributes (out of scope for this gap). Regression tests:
+  `tests/test_dashboard_assembly.py::test_dashboard_html_has_no_inline_event_handler_attributes`,
+  `::test_dashboard_shell_declares_csp_with_no_remote_sources`.
+- **Nav restructure**: sidebar is now Today / Applications / Candidates /
+  Insights / Settings. Companies folded into Candidates → Company Hunt (the
+  full add/edit/delete/enable-disable UI now lives inside
+  `#company-hunt-panel`, loaded lazily the first time that tab opens — no
+  standalone top-level nav item; all existing ids/functions unchanged).
+  Analytics folded into a new Settings → Diagnostics tab, alongside a
+  "Setup Health Check" checklist reusing the existing `get_onboarding_checklist()`
+  (doctor-derived) — no new backend endpoint needed. New **Today** view
+  wires the Phase 5 typed hunt service (`DashAPI.start_hunt()`/
+  `get_hunt_status()`) to a "Find Jobs" button for the first time — that
+  service existed since Phase 5 but was never called from any UI element
+  before this. New **search-setup** and **chatbot-import** screens added
+  under Settings → Get Started, wiring the Phase 3 backend
+  (`get_bootstrap()`/`save_onboarding_preferences()`/`get_onboarding_prompt()`/
+  `import_onboarding_bundle()`) that also existed unused until now. Career
+  stage is a hardcoded 5-option `<select>` (student/early_career/experienced/
+  leadership/custom, matching `filters.json`'s stable key set) rather than a
+  new reference-data endpoint; country/search-lang stayed plain text inputs,
+  matching the existing Guided-tab region-row pattern — no new
+  `get_setup_reference_data()`-style endpoint was needed. Regression tests:
+  `tests/test_web_api.py::test_dashboard_contains_today_view_with_find_jobs`,
+  `::test_dashboard_contains_diagnostics_tab_with_doctor_and_analytics`,
+  `::test_dashboard_contains_companies_nav_and_table` (updated),
+  `::test_dashboard_contains_search_setup_and_chatbot_import_sections`.
+  **Verification note**: this environment still has no display to drive a
+  live pywebview window against (same constraint Phase 4 originally flagged).
+  Verified instead via: full suite green, a Node.js `getElementById`/
+  `data-view` cross-reference script confirming every JS DOM lookup resolves
+  to a real HTML id with no duplicates and every nav target has a matching
+  view section, `node --check` for JS syntax, and
+  `job-hunter internal self-test --json` (all 7 checks pass, including
+  `dashboard_assets`). No actual click-through in a rendered window.
+- `pytest tests/ -q --tb=short` — 1432 passed, 0 failed. `ruff format
+  --check`, `ruff check`, `ty check` all passed.
 - No version bump.

@@ -129,6 +129,64 @@ async function loadApplicationStreak() {
   }
 }
 
+let todayHuntPolling = false;
+
+function renderTodayHuntStatus(result) {
+  const label = { idle: 'Idle', running: 'Running…', succeeded: 'Done', failed: 'Failed' }[result.status] || result.status;
+  document.getElementById('today-hunt-status-value').textContent = label;
+  document.getElementById('find-jobs-btn').disabled = result.status === 'running';
+  document.getElementById('today-hunt-fetched').textContent = result.fetched ?? '—';
+  document.getElementById('today-hunt-candidates').textContent = result.candidates ?? '—';
+  document.getElementById('today-hunt-tailored').textContent = result.tailored ?? '—';
+  const messageEl = document.getElementById('today-hunt-message');
+  if (result.status === 'succeeded' || result.status === 'failed') {
+    messageEl.textContent = `${result.message || ''} ${result.next_action || ''}`.trim();
+    messageEl.style.display = '';
+  } else {
+    messageEl.style.display = 'none';
+  }
+}
+
+async function loadTodayHuntStatus() {
+  const result = await window.pywebview.api.get_hunt_status();
+  renderTodayHuntStatus(result);
+  if (result.status === 'running') pollTodayHuntStatus();
+}
+
+async function pollTodayHuntStatus() {
+  if (todayHuntPolling) return;
+  todayHuntPolling = true;
+  try {
+    while (true) {
+      const result = await window.pywebview.api.get_hunt_status();
+      renderTodayHuntStatus(result);
+      if (result.status !== 'running') {
+        if (result.status === 'succeeded') refreshAll();
+        break;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    todayHuntPolling = false;
+  }
+}
+
+async function findJobs() {
+  const result = await window.pywebview.api.start_hunt();
+  if (!result.ok) { reportFailure(result.error || 'Could not start the hunt.'); return; }
+  pollTodayHuntStatus();
+}
+
+function checklistItemsHtml(items) {
+  return items.map(item => `
+    <li class="onboarding-item ${item.done ? 'done' : ''}">
+      <span class="oi-mark">${item.done ? '✓' : '○'}</span>
+      <span>${esc(item.label)}</span>
+      <span class="oi-hint">— ${esc(item.action_hint)}</span>
+    </li>
+  `).join('');
+}
+
 async function loadOnboarding() {
   const banner = document.getElementById('onboarding-banner');
   try {
@@ -142,21 +200,28 @@ async function loadOnboarding() {
       banner.style.display = 'none';
       return;
     }
-    const rows = result.items.map(item => `
-      <li class="onboarding-item ${item.done ? 'done' : ''}">
-        <span class="oi-mark">${item.done ? '✓' : '○'}</span>
-        <span>${esc(item.label)}</span>
-        <span class="oi-hint">— ${esc(item.action_hint)}</span>
-      </li>
-    `).join('');
     banner.innerHTML = `
       <div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done</div>
-      <ul class="onboarding-checklist">${rows}</ul>
+      <ul class="onboarding-checklist">${checklistItemsHtml(result.items)}</ul>
     `;
     banner.style.display = '';
   } catch(_) {
     banner.textContent = 'Setup status is unavailable. Run job-hunter doctor in the workspace.';
     banner.style.display = '';
+  }
+}
+
+async function loadDiagnosticsChecklist() {
+  const el = document.getElementById('diag-checklist');
+  try {
+    const result = await window.pywebview.api.get_onboarding_checklist();
+    if (!result.ok) {
+      el.innerHTML = errorHtml(result.error || 'Setup status is unavailable.', result.next_action || '');
+      return;
+    }
+    el.innerHTML = checklistItemsHtml(result.items) || '<li class="no-data">All setup checks pass.</li>';
+  } catch(_) {
+    el.innerHTML = errorHtml('Setup status is unavailable.', 'Run job-hunter doctor in the workspace.');
   }
 }
 
@@ -174,11 +239,10 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
+    if (view === 'today') loadTodayHuntStatus();
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'insights' && !insightsLoaded) loadInsights();
-    if (view === 'analytics' && !analyticsLoaded) loadAnalytics();
     if (view === 'settings' && !settingsLoaded) loadSettings();
-    if (view === 'companies' && !companiesLoaded) loadCompanies();
   });
 });
 
@@ -217,6 +281,10 @@ document.querySelectorAll('#settings-tabs .status-tab').forEach(tab => {
     document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
     document.getElementById(`settings-panel-${tab.dataset.settingsTab}`).classList.add('active');
     clearSettingsMessages();
+    if (tab.dataset.settingsTab === 'diagnostics') {
+      loadDiagnosticsChecklist();
+      if (!analyticsLoaded) loadAnalytics();
+    }
   });
 });
 
@@ -243,7 +311,12 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     document.getElementById('candidate-total-count').style.display = isHunt ? 'none' : '';
     document.getElementById('candidate-pager').style.display = isHunt ? 'none' : '';
     candidatePage = 1;
-    if (isHunt) { refreshCompanyHuntPanel(); } else { loadUnprocessed(); }
+    if (isHunt) {
+      refreshCompanyHuntPanel();
+      if (!companiesLoaded) loadCompanies();
+    } else {
+      loadUnprocessed();
+    }
   });
 });
 
@@ -277,6 +350,7 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
 // CSP script-src dropped 'unsafe-inline'; ids below are 1:1 with the removed attributes.
 [
   ['refresh-btn', refreshAll],
+  ['find-jobs-btn', findJobs],
   ['app-bulk-delete-btn', bulkDeleteApplications],
   ['dp-close-btn', closeDetail],
   ['dp-save-status-btn', saveStatus],
@@ -302,6 +376,9 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['undo-raw-config-btn', undoJobHunterConfig],
   ['save-career-context-btn', saveCareerContext],
   ['undo-career-context-btn', undoCareerContext],
+  ['save-search-setup-btn', saveSearchSetup],
+  ['copy-onboarding-prompt-btn', copyOnboardingPrompt],
+  ['import-chatbot-bundle-btn', importChatbotBundle],
   ['apply-quick-career-context-btn', applyQuickCareerContext],
   ['save-api-key-btn', saveApiKey],
   ['gs-recheck-btn', loadGetStartedActionsGuide],
@@ -358,11 +435,19 @@ async function refreshAll() {
   companiesLoaded = false;
   await loadApplications();
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
-  if (activeView === 'analytics') await loadAnalytics();
+  if (activeView === 'today') await loadTodayHuntStatus();
   if (activeView === 'insights') await loadInsights();
-  if (activeView === 'unprocessed') await loadUnprocessed();
-  if (activeView === 'settings') await loadSettings();
-  if (activeView === 'companies') await loadCompanies();
+  if (activeView === 'unprocessed') {
+    await loadUnprocessed();
+    if (candidateScope === 'company-hunt') await loadCompanies();
+  }
+  if (activeView === 'settings') {
+    await loadSettings();
+    if (document.querySelector('#settings-tabs .status-tab.active')?.dataset.settingsTab === 'diagnostics') {
+      loadDiagnosticsChecklist();
+      await loadAnalytics();
+    }
+  }
 }
 
 async function loadApplications() {
@@ -603,7 +688,7 @@ async function loadInsights() {
 
 async function loadAnalytics() {
   analyticsLoaded = true;
-  const section = document.getElementById('view-analytics');
+  const section = document.getElementById('analytics-header');
   section.innerHTML = `<div class="loading-wrap"><span class="spinner"></span> Loading…</div>`;
   try {
     const data = await window.pywebview.api.get_analytics();
@@ -1209,6 +1294,72 @@ async function loadSettings() {
     loadGuidedConfig(), loadRawConfig(), loadCareerContextSettings(),
     loadApiKeyStatus(), loadGetStartedActionsGuide(),
   ]);
+}
+
+async function saveSearchSetup() {
+  const msg = document.getElementById('gs-search-msg');
+  msg.textContent = '';
+  const bootstrap = await window.pywebview.api.get_bootstrap();
+  if (!bootstrap.ok) {
+    msg.textContent = 'Could not load current config.';
+    msg.style.color = '#f85149';
+    return;
+  }
+  const prefs = {
+    mode: document.getElementById('gs-search-mode').value,
+    career_stage: document.getElementById('gs-career-stage').value,
+    job_titles: document.getElementById('gs-search-job-titles').value.split('\n').map(s => s.trim()).filter(Boolean),
+    country: document.getElementById('gs-search-country').value,
+    location: document.getElementById('gs-search-location').value,
+    search_lang: document.getElementById('gs-search-lang').value,
+    excluded_industries: document.getElementById('gs-search-excl-industries').value.split('\n').map(s => s.trim()).filter(Boolean),
+  };
+  const result = await window.pywebview.api.save_onboarding_preferences(prefs, bootstrap.data.config_revision);
+  if (result.ok) {
+    msg.textContent = 'Saved.';
+    msg.style.color = '#56d364';
+    loadOnboarding();
+  } else {
+    msg.textContent = (result.errors || []).join(' ') || 'Could not save.';
+    msg.style.color = '#f85149';
+  }
+}
+
+async function copyOnboardingPrompt() {
+  const btn = document.getElementById('copy-onboarding-prompt-btn');
+  const result = await window.pywebview.api.get_onboarding_prompt();
+  if (!result.ok) {
+    btn.textContent = 'Failed';
+    setTimeout(() => { btn.textContent = 'Copy setup prompt'; }, 1200);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(result.data.prompt);
+  } catch(_) {
+    const area = document.createElement('textarea');
+    area.value = result.data.prompt;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = 'Copy setup prompt'; }, 1200);
+}
+
+async function importChatbotBundle() {
+  const msg = document.getElementById('gs-import-msg');
+  const text = document.getElementById('gs-chatbot-response').value;
+  const result = await window.pywebview.api.import_onboarding_bundle(text);
+  if (result.ok) {
+    msg.textContent = 'Imported — career context, story bank, and resume source updated.';
+    msg.style.color = '#56d364';
+    document.getElementById('gs-chatbot-response').value = '';
+    loadOnboarding();
+  } else {
+    msg.textContent = (result.errors || []).join(' ') || 'Could not import.';
+    msg.style.color = '#f85149';
+  }
 }
 
 function fillCareerContextLine(text, label, value) {

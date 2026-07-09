@@ -1308,6 +1308,61 @@ def test_dashboard_contains_settings_nav_and_panels() -> None:
     assert "save_career_context" in html
 
 
+def test_dashboard_contains_diagnostics_tab_with_doctor_and_analytics() -> None:
+    """Analytics folded into Settings -> Diagnostics (no standalone top-level nav item),
+    alongside a doctor-derived setup health checklist."""
+    html = _dashboard_source()
+
+    assert 'data-view="analytics"' not in html
+    assert 'id="view-analytics"' not in html
+    assert 'data-settings-tab="diagnostics"' in html
+    assert 'id="settings-panel-diagnostics"' in html
+    assert 'id="diag-checklist"' in html
+    assert 'id="analytics-header"' in html
+    assert "function loadDiagnosticsChecklist" in html
+    assert "function loadAnalytics" in html
+    assert "function renderAnalytics" in html
+
+
+def test_dashboard_contains_today_view_with_find_jobs() -> None:
+    html = _dashboard_source()
+
+    assert 'data-view="today"' in html
+    assert 'id="view-today"' in html
+    assert 'id="find-jobs-btn"' in html
+    assert 'id="today-hunt-status-value"' in html
+    assert "function findJobs" in html
+    assert "function loadTodayHuntStatus" in html
+    assert "function pollTodayHuntStatus" in html
+    assert "start_hunt" in html
+    assert "get_hunt_status" in html
+
+
+def test_dashboard_contains_search_setup_and_chatbot_import_sections() -> None:
+    html = _dashboard_source()
+
+    assert 'id="gs-section-search-setup"' in html
+    assert 'id="gs-search-mode"' in html
+    assert 'id="gs-career-stage"' in html
+    assert 'id="gs-search-job-titles"' in html
+    assert 'id="gs-search-country"' in html
+    assert 'id="gs-search-location"' in html
+    assert 'id="gs-search-lang"' in html
+    assert 'id="gs-search-excl-industries"' in html
+    assert 'id="save-search-setup-btn"' in html
+    assert "function saveSearchSetup" in html
+    assert "save_onboarding_preferences" in html
+
+    assert 'id="gs-section-chatbot-import"' in html
+    assert 'id="copy-onboarding-prompt-btn"' in html
+    assert 'id="gs-chatbot-response"' in html
+    assert 'id="import-chatbot-bundle-btn"' in html
+    assert "function copyOnboardingPrompt" in html
+    assert "function importChatbotBundle" in html
+    assert "get_onboarding_prompt" in html
+    assert "import_onboarding_bundle" in html
+
+
 def test_dashboard_settings_disables_save_buttons_during_save() -> None:
     html = _dashboard_source()
 
@@ -1488,10 +1543,13 @@ def test_open_career_pages_file_and_config_folder_use_validated_paths(tmp_path: 
 
 
 def test_dashboard_contains_companies_nav_and_table() -> None:
+    """Companies management is folded into Candidates -> Company Hunt (no standalone
+    top-level nav item), reachable inside #company-hunt-panel."""
     html = _dashboard_source()
 
-    assert 'data-view="companies"' in html
-    assert 'id="view-companies"' in html
+    assert 'data-view="companies"' not in html
+    assert 'id="view-companies"' not in html
+    assert 'id="company-hunt-panel"' in html
     assert 'id="companies-tbody"' in html
     assert 'id="company-search"' in html
     assert 'data-company-filter="enabled"' in html

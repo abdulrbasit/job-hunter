@@ -134,8 +134,8 @@ job-hunter dash
 ```
 
 **Expected result:** `hunt` prints a summary of jobs found, scored, and
-tailored. `dash` opens a native window with Applications, Insights, and
-Analytics tabs.
+tailored. `dash` opens a native window with Today, Applications, Candidates,
+Insights, and Settings tabs (Analytics lives under Settings → Diagnostics).
 
 ## 9. Run unattended with GitHub Actions
 
