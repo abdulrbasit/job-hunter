@@ -41,7 +41,14 @@
 | Excludes are word-boundary matched, not substring false positives | `tests/test_reference_data.py::test_student_exclude_does_not_match_substring_false_positive`, `::test_experienced_exclude_does_not_match_partial_word` | PASS |
 | Default experience caps per stage (student 1 / early_career 3 / experienced 8 / leadership uncapped), explicit override always wins | `tests/test_reference_data.py::test_student_default_max_years_is_one`, `::test_early_career_default_max_years_is_three`, `::test_experienced_default_max_years_is_eight`, `::test_leadership_has_no_years_cap`, `::test_explicit_max_years_override_wins_over_career_stage` | PASS |
 | Preferred (soft-ranking) terms exist per stage without becoming mandatory | `tests/test_reference_data.py::test_student_preferred_terms_include_internship_signals`, `::test_leadership_preferred_terms_include_director_signals`, `::test_custom_stage_has_no_preferred_terms` | PASS |
-| `job_hunter.catalog.load_companies` loads the bundled company catalog | `tests/test_gui_onboarding_catalogs_journeys.py::test_catalog_company_selection_package_not_yet_built` | RED |
+| `job_hunter.catalog.load_companies` loads the bundled company catalog | `tests/test_gui_onboarding_catalogs_journeys.py::test_catalog_company_selection_package_not_yet_built` | PASS |
+| Catalog entries have unique IDs, unique https career_url, country/industry metadata | `tests/test_catalog.py::test_catalog_company_ids_are_unique`, `::test_catalog_career_urls_are_unique_https`, `::test_catalog_companies_have_country_and_industry_metadata` | PASS |
+| Catalog rejects unknown country/industry refs, duplicate IDs, non-https URLs | `tests/test_catalog.py::test_catalog_rejects_unknown_country_code`, `::test_catalog_rejects_unknown_industry_id`, `::test_catalog_rejects_duplicate_company_id`, `::test_catalog_rejects_non_https_career_url` | PASS |
+| Effective company list matches enabled regions (incl. no-region = all) | `tests/test_catalog.py::test_effective_companies_matches_enabled_region`, `::test_effective_companies_with_no_regions_returns_all_catalog_companies` | PASS |
+| `disabled_company_ids` and `catalog.enabled=false` overrides work | `tests/test_catalog.py::test_effective_companies_disabled_company_ids_excludes_that_company`, `::test_effective_companies_catalog_disabled_returns_only_custom` | PASS |
+| Custom `career_pages.yml` entry wins on duplicate URL; disabled custom entries excluded | `tests/test_catalog.py::test_effective_companies_custom_entry_wins_on_duplicate_url`, `::test_effective_companies_disabled_custom_entry_is_excluded` | PASS |
+| `exclusions.industries` expands known industry id/label/alias; unknown strings match nothing | `tests/test_catalog.py::test_effective_companies_excludes_by_industry_alias`, `::test_effective_companies_unknown_industry_string_matches_nothing` | PASS |
+| `career_pages.yml` `catalog:` block is additive, defaults preserved, round-trips, validated | `tests/test_config_service.py::test_read_career_pages_defaults_catalog_when_absent`, `::test_save_career_pages_without_catalog_arg_preserves_existing_catalog_block`, `::test_save_career_pages_omits_default_catalog_block`, `::test_validate_career_pages_rejects_non_boolean_catalog_enabled`, `::test_validate_career_pages_rejects_non_string_disabled_company_ids` | PASS |
 | `DashAPI.start_hunt`/`get_hunt_status` typed run service exists | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built` | RED |
 | `job_hunter.ux.terminal` is removed | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed` | RED |
 | `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
@@ -78,9 +85,31 @@ GREEN evidence:
   removing the Python copy "after parity tests pass" — not done this phase to
   avoid an unreviewed behavior change to `job_hunter/sources/policy.py`'s
   existing language-exclusion runtime path).
-- Phase 2 (catalog), Phase 3 (bootstrap), Phase 5 (hunt service), Phase 6
-  (terminal removal), Phase 7/8 (diagnostics self-test): not started; their
-  RED tests still fail in `tests/test_gui_onboarding_catalogs_journeys.py`.
+- Phase 2 (1,500-company catalog): scoped down for this pass — see "Known gap"
+  below. `job_hunter/catalog/` package added: `loader.py` (Pydantic-validated
+  `companies.json`, cross-references `country_codes`/`industry_ids` against
+  Phase 1's `reference_data`, rejects duplicate IDs/URLs and non-https URLs)
+  and `merge.py` (`effective_companies()`: eligible bundled companies for the
+  workspace's enabled regions, minus `catalog.disabled_company_ids` and
+  industry-excluded companies, plus enabled custom `career_pages.yml`
+  entries — a custom entry always wins on a duplicate `career_url`).
+  `career_pages.yml` extended with an optional `catalog: {enabled,
+  disabled_company_ids}` block in `job_hunter/config/service.py`
+  (`read_career_pages`/`save_career_pages`/`validate_career_pages`) —
+  additive, round-trips, and is omitted from the written file when it's the
+  default (matches the existing `enabled: true`-is-omitted convention for
+  company entries). **Known gap**: the catalog ships 19 companies, not
+  1,500 — each one's `career_url` was live-verified via WebFetch this
+  session (not fabricated), spanning Americas/Europe/APAC/Middle East/global-
+  remote and 8 industries, to exercise every code path (region matching,
+  industry exclusion, override, dedupe) against real data. Bulk-verifying
+  1,500 official career pages requires either extensive individual web
+  verification per company or a licensed company-directory data source —
+  explicitly out of scope for a single session; the code/schema is ready to
+  receive more entries without changes.
+- Phase 3 (bootstrap), Phase 5 (hunt service), Phase 6 (terminal removal),
+  Phase 7/8 (diagnostics self-test): not started; their RED tests still fail
+  in `tests/test_gui_onboarding_catalogs_journeys.py`.
 
 ## Final validation
 
@@ -92,4 +121,10 @@ GREEN evidence:
   `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
   passed; wheel inspection confirmed `job_hunter/config/countries.json` and
   `job_hunter/config/filters.json` are packaged.
+- Phase 2: `pytest tests/ -q --tb=short` — 1359 passed, 4 failed (the
+  remaining Phase 3/5/6/7 RED journeys; `catalog` journey now passes).
+  `ruff format --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
+  `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
+  passed; wheel inspection confirmed `job_hunter/catalog/companies.json` is
+  packaged.
 - No version bump.

@@ -396,6 +396,53 @@ def test_undo_career_pages_restores_exact_prior_bytes(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# career_pages.yml catalog block (Phase 2: catalog.enabled / disabled_company_ids)
+# ---------------------------------------------------------------------------
+
+
+def test_read_career_pages_defaults_catalog_when_absent(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+
+    result = service.read_career_pages(tmp_path)
+
+    assert result["data"]["catalog"] == {"enabled": True, "disabled_company_ids": []}
+
+
+def test_save_career_pages_without_catalog_arg_preserves_existing_catalog_block(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+    service.save_career_pages(tmp_path, [], revision, catalog={"enabled": False, "disabled_company_ids": ["google"]})
+    revision2 = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision2)
+
+    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
+    assert reloaded["catalog"] == {"enabled": False, "disabled_company_ids": ["google"]}
+
+
+def test_save_career_pages_omits_default_catalog_block(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+
+    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision)
+
+    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
+    assert "catalog" not in reloaded
+
+
+def test_validate_career_pages_rejects_non_boolean_catalog_enabled() -> None:
+    errors = service.validate_career_pages({"companies": [], "catalog": {"enabled": "yes"}})
+
+    assert any("catalog.enabled" in e for e in errors)
+
+
+def test_validate_career_pages_rejects_non_string_disabled_company_ids() -> None:
+    errors = service.validate_career_pages({"companies": [], "catalog": {"disabled_company_ids": [123]}})
+
+    assert any("disabled_company_ids" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
 # career_context.md read/save/undo
 # ---------------------------------------------------------------------------
 

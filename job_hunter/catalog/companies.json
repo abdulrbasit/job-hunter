@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "count": 19,
+  "companies": [
+    {
+      "id": "google",
+      "name": "Google",
+      "career_url": "https://www.google.com/about/careers/applications/",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "career_url": "https://careers.microsoft.com",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "career_url": "https://jobs.netflix.com",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "media_entertainment",
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "goldman_sachs",
+      "name": "Goldman Sachs",
+      "career_url": "https://www.goldmansachs.com/careers",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "finance"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "shopify",
+      "name": "Shopify",
+      "career_url": "https://www.shopify.com/careers",
+      "country_codes": [
+        "CA"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it",
+        "retail_ecommerce"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "sap",
+      "name": "SAP",
+      "career_url": "https://jobs.sap.com/",
+      "country_codes": [
+        "DE"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "siemens",
+      "name": "Siemens",
+      "career_url": "https://jobs.siemens.com",
+      "country_codes": [
+        "DE"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "manufacturing"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "career_url": "https://www.lifeatspotify.com",
+      "country_codes": [
+        "SE"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "media_entertainment",
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "revolut",
+      "name": "Revolut",
+      "career_url": "https://www.revolut.com/careers",
+      "country_codes": [
+        "GB"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "finance",
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "adyen",
+      "name": "Adyen",
+      "career_url": "https://careers.adyen.com/",
+      "country_codes": [
+        "NL"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "finance",
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "sony",
+      "name": "Sony",
+      "career_url": "https://www.sonyjobs.com/",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "media_entertainment"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "toyota",
+      "name": "Toyota",
+      "career_url": "https://careers.toyota.com/us/en",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "automotive"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": "phenom_people",
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "grab",
+      "name": "Grab",
+      "career_url": "https://grab.careers",
+      "country_codes": [
+        "SG"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it",
+        "transportation_logistics"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "tcs",
+      "name": "Tata Consultancy Services",
+      "career_url": "https://www.tcs.com/careers",
+      "country_codes": [
+        "IN"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it",
+        "consulting"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "atlassian",
+      "name": "Atlassian",
+      "career_url": "https://www.atlassian.com/company/careers",
+      "country_codes": [
+        "AU"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": "beamery",
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "emirates_group",
+      "name": "Emirates Group",
+      "career_url": "https://www.emiratesgroupcareers.com",
+      "country_codes": [
+        "AE"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "transportation_logistics"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": "avature",
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "stc",
+      "name": "stc (Saudi Telecom)",
+      "career_url": "https://careers.stc.com.sa/",
+      "country_codes": [
+        "SA"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "telecommunications"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": "successfactors",
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "career_url": "https://about.gitlab.com/jobs/",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    },
+    {
+      "id": "zapier",
+      "name": "Zapier",
+      "career_url": "https://zapier.com/jobs",
+      "country_codes": [
+        "US"
+      ],
+      "city_tags": [],
+      "industry_ids": [
+        "software_it"
+      ],
+      "remote_country_codes": [],
+      "ats_platform": null,
+      "verified_at": "2026-07-09"
+    }
+  ]
+}

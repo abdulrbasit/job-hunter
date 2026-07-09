@@ -16,3 +16,11 @@ companies: []
 #   - name: "N26"
 #     career_url: "https://n26.com/en/careers"
 #     location: "Berlin"
+
+# Optional: control the bundled company catalog (job_hunter/catalog/companies.json).
+# Catalog companies are auto-matched to your enabled regions/industries and merged
+# with the list above; a custom entry above always wins if its career_url matches
+# a catalog company. Omit this block to keep the catalog fully enabled (default).
+# catalog:
+#   enabled: true
+#   disabled_company_ids: []

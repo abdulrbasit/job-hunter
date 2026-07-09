@@ -107,8 +107,25 @@ def _validate_company_entry(i: int, entry: dict[str, Any], seen_names: set[str],
     return errors
 
 
+DEFAULT_CATALOG_SETTINGS: dict[str, Any] = {"enabled": True, "disabled_company_ids": []}
+
+
+def _validate_catalog_settings(data: Any) -> list[str]:
+    if data is None:
+        return []
+    if not isinstance(data, dict):
+        return ["career_pages.yml: 'catalog' must be a mapping"]
+    errors: list[str] = []
+    if "enabled" in data and not isinstance(data["enabled"], bool):
+        errors.append("career_pages.yml: catalog.enabled must be a boolean")
+    ids = data.get("disabled_company_ids", [])
+    if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+        errors.append("career_pages.yml: catalog.disabled_company_ids must be a list of strings")
+    return errors
+
+
 def validate_career_pages(data: Any) -> list[str]:
-    """Structural validation for career_pages.yml's 'companies' list."""
+    """Structural validation for career_pages.yml's 'companies' list and optional 'catalog' settings."""
     if not isinstance(data, dict):
         return ["career_pages.yml must be a YAML mapping"]
 
@@ -124,6 +141,7 @@ def validate_career_pages(data: Any) -> list[str]:
             errors.append(f"companies[{i}]: must be a mapping")
             continue
         errors.extend(_validate_company_entry(i, entry, seen_names, seen_urls))
+    errors.extend(_validate_catalog_settings(data.get("catalog")))
     return errors
 
 
@@ -363,17 +381,37 @@ def read_career_pages(root: Path) -> dict[str, Any]:
     path = root / CAREER_PAGES_REL
     data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
     companies = (data or {}).get("companies") or []
-    return {"ok": True, "data": {"companies": companies}, "revision": get_revision(path), "errors": [], "warnings": []}
+    catalog = (data or {}).get("catalog") or dict(DEFAULT_CATALOG_SETTINGS)
+    return {
+        "ok": True,
+        "data": {"companies": companies, "catalog": catalog},
+        "revision": get_revision(path),
+        "errors": [],
+        "warnings": [],
+    }
 
 
-def save_career_pages(root: Path, companies: list[dict[str, Any]], expected_revision: str) -> dict[str, Any]:
+def save_career_pages(
+    root: Path,
+    companies: list[dict[str, Any]],
+    expected_revision: str,
+    catalog: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """catalog=None preserves whatever catalog settings are already on disk (default if none)."""
     path = root / CAREER_PAGES_REL
-    errors = validate_career_pages({"companies": companies})
+    if catalog is None:
+        existing = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+        catalog = (existing or {}).get("catalog")
+
+    errors = validate_career_pages({"companies": companies, "catalog": catalog})
     if errors:
         return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
 
     header = _extract_leading_comment(path)
-    body = yaml.safe_dump({"companies": _normalize_companies(companies)}, sort_keys=False, allow_unicode=True)
+    body_data: dict[str, Any] = {"companies": _normalize_companies(companies)}
+    if catalog is not None and catalog != DEFAULT_CATALOG_SETTINGS:
+        body_data["catalog"] = catalog
+    body = yaml.safe_dump(body_data, sort_keys=False, allow_unicode=True)
     return _safe_replace(root, "career_pages", CAREER_PAGES_REL, f"{header}{body}".encode(), expected_revision)
 
 
