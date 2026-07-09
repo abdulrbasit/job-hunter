@@ -1079,8 +1079,10 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     for artifact in ("resume", "cover_letter", "evaluation", "research", "outreach", "interview"):
         assert f'data-artifact="{artifact}"' in html
     assert 'id="dp-artifact-preview"' in html
-    assert 'onclick="copyArtifact()"' in html
-    assert 'onclick="openJobFolder()"' in html
+    assert 'id="dp-copy-artifact"' in html
+    assert "['dp-copy-artifact', copyArtifact]" in html
+    assert 'id="dp-open-folder-btn"' in html
+    assert "['dp-open-folder-btn', openJobFolder]" in html
     assert "URL.revokeObjectURL" in html
     assert "@media (max-width: 900px)" in html
     assert 'data-candidate-scope="active"' in html

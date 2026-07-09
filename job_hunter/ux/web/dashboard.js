@@ -196,9 +196,11 @@ document.getElementById('companies-tbody').addEventListener('click', (e) => {
   const editBtn = e.target.closest('[data-edit-url]');
   const deleteBtn = e.target.closest('[data-delete-url]');
   const openLink = e.target.closest('[data-open-url]');
+  const showMoreBtn = e.target.closest('[data-show-more-companies]');
   if (editBtn) startEditCompany(editBtn.dataset.editUrl);
   if (deleteBtn) deleteCompanyByUrl(deleteBtn.dataset.deleteUrl);
   if (openLink) { e.preventDefault(); openCareerPage(openLink.dataset.openUrl); }
+  if (showMoreBtn) showMoreCompanies();
 });
 
 document.getElementById('companies-tbody').addEventListener('change', (e) => {
@@ -269,6 +271,80 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   if (e.target.classList.contains('candidate-checkbox')) {
     toggleCandidateSelected(Number(e.target.dataset.id), e.target.checked);
   }
+});
+
+// Static button/control wiring — was inline onclick=/oninput=/onchange= before
+// CSP script-src dropped 'unsafe-inline'; ids below are 1:1 with the removed attributes.
+[
+  ['refresh-btn', refreshAll],
+  ['app-bulk-delete-btn', bulkDeleteApplications],
+  ['dp-close-btn', closeDetail],
+  ['dp-save-status-btn', saveStatus],
+  ['dp-copy-artifact', copyArtifact],
+  ['dp-open-artifact', openArtifact],
+  ['dp-open-folder-btn', openJobFolder],
+  ['dp-delete-btn', deleteApp],
+  ['discard-selected-btn', discardSelected],
+  ['run-company-hunt-btn', runCompanyHunt],
+  ['company-form-submit', submitCompanyForm],
+  ['company-form-cancel', cancelCompanyForm],
+  ['company-bulk-delete-btn', bulkDeleteCompanies],
+  ['company-bulk-enable-btn', () => bulkSetCompaniesEnabled(true)],
+  ['company-bulk-disable-btn', () => bulkSetCompaniesEnabled(false)],
+  ['open-career-pages-btn', openCareerPagesFile],
+  ['open-config-folder-btn', openConfigFolder],
+  ['undo-career-pages-btn', undoCareerPages],
+  ['add-region-btn', () => addRegionRow()],
+  ['add-override-btn', () => addOverrideRow()],
+  ['settings-save-guided', saveGuidedConfig],
+  ['undo-guided-config-btn', undoJobHunterConfig],
+  ['save-raw-config-btn', saveRawConfig],
+  ['undo-raw-config-btn', undoJobHunterConfig],
+  ['save-career-context-btn', saveCareerContext],
+  ['undo-career-context-btn', undoCareerContext],
+  ['apply-quick-career-context-btn', applyQuickCareerContext],
+  ['save-api-key-btn', saveApiKey],
+  ['gs-recheck-btn', loadGetStartedActionsGuide],
+].forEach(([id, handler]) => document.getElementById(id).addEventListener('click', handler));
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => sortBy(th.dataset.col));
+});
+
+document.getElementById('dp-artifact-tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-artifact]');
+  if (tab) selectArtifact(tab.dataset.artifact);
+});
+
+document.getElementById('search-input').addEventListener('input', debouncedLoadApplications);
+document.getElementById('candidate-search').addEventListener('input', debouncedLoadCandidates);
+document.getElementById('company-search').addEventListener('input', renderCompanies);
+
+['cfg-mode', 'cfg-llm-provider'].forEach(id => {
+  document.getElementById(id).addEventListener('change', markConfigDirty);
+});
+[
+  'cfg-resume-tex', 'cfg-story-bank', 'cfg-career-context-path', 'cfg-latex-class',
+  'cfg-profile-image', 'cfg-job-titles', 'cfg-excl-companies', 'cfg-excl-titles',
+  'cfg-excl-languages', 'cfg-excl-industries', 'cfg-min-fit-score', 'cfg-max-years',
+  'cfg-batch-size',
+].forEach(id => {
+  document.getElementById(id).addEventListener('input', markConfigDirty);
+});
+document.getElementById('settings-raw-yaml').addEventListener('input', markRawDirty);
+document.getElementById('settings-career-context').addEventListener('input', markCareerContextDirty);
+
+document.getElementById('app-select-all').addEventListener('change', (e) => toggleSelectAllApps(e.target.checked));
+document.getElementById('candidate-select-all').addEventListener('change', (e) => toggleSelectAll(e.target.checked));
+document.getElementById('company-select-all').addEventListener('change', (e) => toggleSelectAllCompanies(e.target.checked));
+
+document.getElementById('candidate-pager').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page-delta]');
+  if (btn && !btn.disabled) changeCandidatePage(Number(btn.dataset.pageDelta));
+});
+document.getElementById('app-pager').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page-delta]');
+  if (btn && !btn.disabled) changeAppPage(Number(btn.dataset.pageDelta));
 });
 
 // ── Data loading ──
@@ -454,9 +530,9 @@ function renderCandidates() {
 
 function renderCandidatePager() {
   const el = document.getElementById('candidate-pager');
-  el.innerHTML = `<button class="btn" ${candidatePage <= 1 ? 'disabled' : ''} onclick="changeCandidatePage(-1)">Previous</button>
+  el.innerHTML = `<button class="btn" data-page-delta="-1" ${candidatePage <= 1 ? 'disabled' : ''}>Previous</button>
     <span>Page ${candidateData.page || 1} of ${candidateData.pages || 1} · ${candidateData.total || 0} results</span>
-    <button class="btn" ${candidatePage >= (candidateData.pages || 1) ? 'disabled' : ''} onclick="changeCandidatePage(1)">Next</button>`;
+    <button class="btn" data-page-delta="1" ${candidatePage >= (candidateData.pages || 1) ? 'disabled' : ''}>Next</button>`;
 }
 
 function changeCandidatePage(delta) {
@@ -585,9 +661,9 @@ function renderTable() {
 
 function renderAppPager() {
   const el = document.getElementById('app-pager');
-  el.innerHTML = `<button class="btn" ${appPage <= 1 ? 'disabled' : ''} onclick="changeAppPage(-1)">Previous</button>
+  el.innerHTML = `<button class="btn" data-page-delta="-1" ${appPage <= 1 ? 'disabled' : ''}>Previous</button>
     <span>Page ${appPageData.page || 1} of ${appPageData.pages || 1} · ${appPageData.total || 0} results</span>
-    <button class="btn" ${appPage >= (appPageData.pages || 1) ? 'disabled' : ''} onclick="changeAppPage(1)">Next</button>`;
+    <button class="btn" data-page-delta="1" ${appPage >= (appPageData.pages || 1) ? 'disabled' : ''}>Next</button>`;
 }
 
 function changeAppPage(delta) {
@@ -1587,7 +1663,7 @@ function renderCompanies() {
   const remaining = filtered.length - visible.length;
   if (remaining > 0) {
     rowsHtml += `<tr><td colspan="7" style="text-align:center">
-      <button class="btn" onclick="showMoreCompanies()">Show ${Math.min(COMPANY_RENDER_STEP, remaining)} more (${remaining} not shown)</button>
+      <button class="btn" data-show-more-companies>Show ${Math.min(COMPANY_RENDER_STEP, remaining)} more (${remaining} not shown)</button>
     </td></tr>`;
   }
   tbody.innerHTML = rowsHtml;

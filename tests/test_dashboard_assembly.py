@@ -70,15 +70,27 @@ def test_onboarding_checklist_labels_are_escaped_before_innerhtml() -> None:
 
 
 def test_dashboard_shell_declares_csp_with_no_remote_sources() -> None:
-    """default-src/script-src/style-src/img-src are all local-only; connect-src is 'none'.
+    """default-src/script-src/img-src are all local-only; connect-src is 'none'.
 
-    script-src still needs 'unsafe-inline' until the ~65 pre-existing inline
-    onclick=/onchange= handlers are converted to addEventListener (deferred —
-    see the ponytail comment next to the meta tag in dashboard.html).
+    script-src has no 'unsafe-inline' — all former inline onclick=/oninput=/onchange=
+    handlers were converted to addEventListener wiring in dashboard.js. style-src still
+    allows 'unsafe-inline' for inline style="..." attributes (not part of this gap).
     """
     shell = (_WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
 
     assert "Content-Security-Policy" in shell
     assert "default-src 'self'" in shell
     assert "script-src 'self'" in shell
+    assert "script-src 'self' 'unsafe-inline'" not in shell
     assert "connect-src 'none'" in shell
+
+
+def test_dashboard_html_has_no_inline_event_handler_attributes() -> None:
+    """Regression guard for the CSP script-src tightening above — no onclick=/oninput=/
+    onchange= strings should ever reappear in the static shell or the generated JS."""
+    shell = (_WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    for attr in ('onclick="', 'oninput="', 'onchange="'):
+        assert attr not in shell
+        assert attr not in js

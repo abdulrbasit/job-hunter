@@ -4,11 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Job Hunter</title>
-<!-- ponytail: script-src still allows 'unsafe-inline' — the file has ~65 inline onclick=/onchange=
-     handlers left from before the split. Removing them (event delegation instead) is the
-     Phase 4 nav-restructure follow-up; tightening this line to drop 'unsafe-inline' is the
-     upgrade trigger. default-src/connect-src/img-src are already at their final strict values. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; connect-src 'none'">
 <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
@@ -60,7 +56,7 @@
     <span class="topbar-subtitle" id="view-sub"></span>
     <span class="streak-badge" id="streak-badge" style="display:none"></span>
     <span class="topbar-spacer"></span>
-    <button class="btn" onclick="refreshAll()">↺ Refresh</button>
+    <button class="btn" id="refresh-btn">↺ Refresh</button>
   </div>
   <div class="onboarding-banner" id="onboarding-banner" style="display:none"></div>
 
@@ -68,7 +64,7 @@
   <section id="view-applications" class="view active">
     <div class="app-panel">
       <div class="filter-bar">
-        <input class="search-input" type="text" id="search-input" placeholder="Search company or title…" oninput="debouncedLoadApplications()">
+        <input class="search-input" type="text" id="search-input" placeholder="Search company or title…">
         <div class="status-tabs" id="status-tabs">
           <button class="status-tab active" data-status="">All</button>
           <button class="status-tab" data-status="tailored">Tailored</button>
@@ -78,20 +74,20 @@
           <button class="status-tab" data-status="offer">Offer</button>
           <button class="status-tab" data-status="rejected">Rejected</button>
         </div>
-        <button class="btn btn-danger" id="app-bulk-delete-btn" style="display:none" onclick="bulkDeleteApplications()">Delete selected</button>
+        <button class="btn btn-danger" id="app-bulk-delete-btn" style="display:none">Delete selected</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th class="td-num"><input type="checkbox" id="app-select-all" onchange="toggleSelectAllApps(this.checked)"></th>
+              <th class="td-num"><input type="checkbox" id="app-select-all"></th>
               <th class="td-num">#</th>
-              <th data-col="company" onclick="sortBy('company')">Company</th>
-              <th data-col="title" onclick="sortBy('title')">Title</th>
-              <th data-col="location" onclick="sortBy('location')">Location</th>
+              <th data-col="company">Company</th>
+              <th data-col="title">Title</th>
+              <th data-col="location">Location</th>
               <th>Status</th>
-              <th data-col="score" onclick="sortBy('score')">Score</th>
-              <th data-col="date" onclick="sortBy('date')">Date</th>
+              <th data-col="score">Score</th>
+              <th data-col="date">Date</th>
             </tr>
           </thead>
           <tbody id="app-tbody">
@@ -106,7 +102,7 @@
     <div class="detail-panel" id="detail-panel">
       <div class="detail-header">
         <h2 id="dp-title">—</h2>
-        <button class="detail-close" onclick="closeDetail()">✕</button>
+        <button class="detail-close" id="dp-close-btn">✕</button>
       </div>
       <div class="detail-meta" id="dp-meta"></div>
       <div class="detail-body">
@@ -126,7 +122,7 @@
                 <option value="offer">Offer</option>
                 <option value="rejected">Rejected</option>
               </select>
-              <button class="btn btn-primary" onclick="saveStatus()">Save</button>
+              <button class="btn btn-primary" id="dp-save-status-btn">Save</button>
             </div>
             <textarea class="note-input" id="dp-note" placeholder="Optional note…"></textarea>
             <div class="save-msg" id="dp-save-msg"></div>
@@ -135,19 +131,19 @@
         <div>
           <div class="detail-section-title">Job Artifacts</div>
           <div class="artifact-tabs" id="dp-artifact-tabs">
-            <button class="artifact-tab" data-artifact="resume" onclick="selectArtifact('resume')">Resume PDF <span class="artifact-state">N/A</span></button>
-            <button class="artifact-tab" data-artifact="cover_letter" onclick="selectArtifact('cover_letter')">Cover Letter <span class="artifact-state">N/A</span></button>
-            <button class="artifact-tab" data-artifact="evaluation" onclick="selectArtifact('evaluation')">Evaluation <span class="artifact-state">N/A</span></button>
-            <button class="artifact-tab" data-artifact="research" onclick="selectArtifact('research')">Company Research <span class="artifact-state">N/A</span></button>
-            <button class="artifact-tab" data-artifact="outreach" onclick="selectArtifact('outreach')">Outreach Drafts <span class="artifact-state">N/A</span></button>
-            <button class="artifact-tab" data-artifact="interview" onclick="selectArtifact('interview')">Interview Prep <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="resume">Resume PDF <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="cover_letter">Cover Letter <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="evaluation">Evaluation <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="research">Company Research <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="outreach">Outreach Drafts <span class="artifact-state">N/A</span></button>
+            <button class="artifact-tab" data-artifact="interview">Interview Prep <span class="artifact-state">N/A</span></button>
           </div>
         </div>
         <div class="artifact-preview" id="dp-artifact-preview">
           <div class="artifact-preview-header">
             <span class="artifact-preview-title" id="dp-artifact-title">Select an artifact</span>
-            <button class="btn" id="dp-copy-artifact" onclick="copyArtifact()" style="display:none">Copy</button>
-            <button class="btn" id="dp-open-artifact" onclick="openArtifact()" style="display:none">Open file</button>
+            <button class="btn" id="dp-copy-artifact" style="display:none">Copy</button>
+            <button class="btn" id="dp-open-artifact" style="display:none">Open file</button>
           </div>
           <div class="artifact-preview-body" id="dp-artifact-body">
             <div class="artifact-empty">Available job files appear here.</div>
@@ -163,9 +159,9 @@
         </div>
       </div>
       <div class="detail-footer">
-        <button class="btn" onclick="openJobFolder()">Open Folder</button>
+        <button class="btn" id="dp-open-folder-btn">Open Folder</button>
         <span class="detail-footer-spacer"></span>
-        <button class="btn btn-danger" onclick="deleteApp()">🗑 Delete</button>
+        <button class="btn btn-danger" id="dp-delete-btn">🗑 Delete</button>
       </div>
     </div>
   </section>
@@ -174,20 +170,20 @@
   <section id="view-unprocessed" class="view">
     <div class="app-panel">
       <div class="filter-bar">
-        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…" oninput="debouncedLoadCandidates()">
+        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…">
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
           <button class="status-tab" data-candidate-scope="company-hunt">Company Hunt</button>
         </div>
-        <button class="btn btn-danger" id="discard-selected-btn" style="display:none" onclick="discardSelected()">Discard selected</button>
+        <button class="btn btn-danger" id="discard-selected-btn" style="display:none">Discard selected</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
       <div class="table-wrap" id="candidate-table-wrap">
         <table>
           <thead>
             <tr>
-              <th class="td-num"><input type="checkbox" id="candidate-select-all" onchange="toggleSelectAll(this.checked)"></th>
+              <th class="td-num"><input type="checkbox" id="candidate-select-all"></th>
               <th>Company</th>
               <th>Title</th>
               <th>Location</th>
@@ -210,7 +206,7 @@
             <option value="force_all">Force all</option>
             <option value="resume">Resume</option>
           </select>
-          <button class="btn btn-primary" id="run-company-hunt-btn" onclick="runCompanyHunt()">Run Company Hunt</button>
+          <button class="btn btn-primary" id="run-company-hunt-btn">Run Company Hunt</button>
           <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
           <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
           <div class="run-stat"><div class="run-stat-label">Issues</div><div class="run-stat-value" id="ch-issues">—</div></div>
@@ -253,25 +249,25 @@
         <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
       </div>
       <div class="settings-actions">
-        <button class="btn btn-primary" id="company-form-submit" onclick="submitCompanyForm()">Add company</button>
-        <button class="btn" id="company-form-cancel" onclick="cancelCompanyForm()" style="display:none">Cancel edit</button>
+        <button class="btn btn-primary" id="company-form-submit">Add company</button>
+        <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
         <span class="save-msg" id="company-form-msg"></span>
       </div>
     </div>
 
     <div class="filter-bar">
-      <input class="search-input" type="text" id="company-search" placeholder="Search companies…" oninput="renderCompanies()">
+      <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
       <div class="status-tabs" id="company-filter-tabs">
         <button class="status-tab active" data-company-filter="">All</button>
         <button class="status-tab" data-company-filter="enabled">Enabled</button>
         <button class="status-tab" data-company-filter="disabled">Disabled</button>
       </div>
-      <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none" onclick="bulkDeleteCompanies()">Delete selected</button>
-      <button class="btn" id="company-bulk-enable-btn" style="display:none" onclick="bulkSetCompaniesEnabled(true)">Enable selected</button>
-      <button class="btn" id="company-bulk-disable-btn" style="display:none" onclick="bulkSetCompaniesEnabled(false)">Disable selected</button>
-      <button class="btn" onclick="openCareerPagesFile()">Open career_pages.yml</button>
-      <button class="btn" onclick="openConfigFolder()">Open config folder</button>
-      <button class="btn" onclick="undoCareerPages()">Undo last save</button>
+      <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
+      <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
+      <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
+      <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
+      <button class="btn" id="open-config-folder-btn">Open config folder</button>
+      <button class="btn" id="undo-career-pages-btn">Undo last save</button>
       <span class="topbar-subtitle" id="company-total-count">0 companies</span>
     </div>
 
@@ -279,7 +275,7 @@
       <table>
         <thead>
           <tr>
-            <th class="td-num"><input type="checkbox" id="company-select-all" onchange="toggleSelectAllCompanies(this.checked)"></th>
+            <th class="td-num"><input type="checkbox" id="company-select-all"></th>
             <th>Name</th>
             <th>Career URL</th>
             <th>Location</th>
@@ -314,7 +310,7 @@
           <h3>Mode</h3>
           <div class="settings-field">
             <label for="cfg-mode">Execution mode</label>
-            <select id="cfg-mode" onchange="markConfigDirty()">
+            <select id="cfg-mode">
               <option value="agent">agent</option>
               <option value="llm-api">llm-api</option>
             </select>
@@ -324,11 +320,11 @@
         <div class="settings-section" id="settings-section-profile">
           <h3>Profile</h3>
           <div class="settings-grid">
-            <div class="settings-field"><label for="cfg-resume-tex">Resume .tex path</label><input type="text" id="cfg-resume-tex" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-story-bank">Story bank path</label><input type="text" id="cfg-story-bank" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-career-context-path">Career context path</label><input type="text" id="cfg-career-context-path" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-latex-class">LaTeX class (optional)</label><input type="text" id="cfg-latex-class" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-profile-image">Profile image (optional)</label><input type="text" id="cfg-profile-image" oninput="markConfigDirty()"></div>
+            <div class="settings-field"><label for="cfg-resume-tex">Resume .tex path</label><input type="text" id="cfg-resume-tex"></div>
+            <div class="settings-field"><label for="cfg-story-bank">Story bank path</label><input type="text" id="cfg-story-bank"></div>
+            <div class="settings-field"><label for="cfg-career-context-path">Career context path</label><input type="text" id="cfg-career-context-path"></div>
+            <div class="settings-field"><label for="cfg-latex-class">LaTeX class (optional)</label><input type="text" id="cfg-latex-class"></div>
+            <div class="settings-field"><label for="cfg-profile-image">Profile image (optional)</label><input type="text" id="cfg-profile-image"></div>
           </div>
         </div>
 
@@ -336,42 +332,42 @@
           <h3>Job Titles</h3>
           <div class="settings-field">
             <label for="cfg-job-titles">One title per line</label>
-            <textarea id="cfg-job-titles" oninput="markConfigDirty()"></textarea>
+            <textarea id="cfg-job-titles"></textarea>
           </div>
         </div>
 
         <div class="settings-section" id="settings-section-regions">
           <h3>Regions</h3>
           <div id="cfg-regions-rows"></div>
-          <button class="btn" type="button" onclick="addRegionRow()">+ Add region</button>
+          <button class="btn" type="button" id="add-region-btn">+ Add region</button>
         </div>
 
         <div class="settings-section" id="settings-section-exclusions">
           <h3>Exclusions</h3>
           <div class="settings-grid">
-            <div class="settings-field"><label for="cfg-excl-companies">Companies (one per line)</label><textarea id="cfg-excl-companies" oninput="markConfigDirty()"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-titles">Title terms (one per line)</label><textarea id="cfg-excl-titles" oninput="markConfigDirty()"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-languages">Languages (one per line)</label><textarea id="cfg-excl-languages" oninput="markConfigDirty()"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-industries">Industries (one per line)</label><textarea id="cfg-excl-industries" oninput="markConfigDirty()"></textarea></div>
+            <div class="settings-field"><label for="cfg-excl-companies">Companies (one per line)</label><textarea id="cfg-excl-companies"></textarea></div>
+            <div class="settings-field"><label for="cfg-excl-titles">Title terms (one per line)</label><textarea id="cfg-excl-titles"></textarea></div>
+            <div class="settings-field"><label for="cfg-excl-languages">Languages (one per line)</label><textarea id="cfg-excl-languages"></textarea></div>
+            <div class="settings-field"><label for="cfg-excl-industries">Industries (one per line)</label><textarea id="cfg-excl-industries"></textarea></div>
           </div>
         </div>
 
         <div class="settings-section" id="settings-section-scoring">
           <h3>Scoring</h3>
           <div class="settings-grid">
-            <div class="settings-field"><label for="cfg-min-fit-score">Min fit score (0-100)</label><input type="number" id="cfg-min-fit-score" min="0" max="100" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-max-years">Max years experience required (optional)</label><input type="number" id="cfg-max-years" min="0" oninput="markConfigDirty()"></div>
-            <div class="settings-field"><label for="cfg-batch-size">Batch size</label><input type="number" id="cfg-batch-size" min="1" oninput="markConfigDirty()"></div>
+            <div class="settings-field"><label for="cfg-min-fit-score">Min fit score (0-100)</label><input type="number" id="cfg-min-fit-score" min="0" max="100"></div>
+            <div class="settings-field"><label for="cfg-max-years">Max years experience required (optional)</label><input type="number" id="cfg-max-years" min="0"></div>
+            <div class="settings-field"><label for="cfg-batch-size">Batch size</label><input type="number" id="cfg-batch-size" min="1"></div>
           </div>
           <div id="cfg-overrides-rows"></div>
-          <button class="btn" type="button" onclick="addOverrideRow()">+ Add strategic override</button>
+          <button class="btn" type="button" id="add-override-btn">+ Add strategic override</button>
         </div>
 
         <div class="settings-section" id="settings-section-llm">
           <h3>LLM Provider</h3>
           <div class="settings-field">
             <label for="cfg-llm-provider">Default provider</label>
-            <select id="cfg-llm-provider" onchange="markConfigDirty()">
+            <select id="cfg-llm-provider">
               <option value="anthropic">anthropic</option>
               <option value="openai">openai</option>
               <option value="google">google</option>
@@ -382,8 +378,8 @@
         </div>
 
         <div class="settings-actions">
-          <button class="btn btn-primary" id="settings-save-guided" onclick="saveGuidedConfig()">Save</button>
-          <button class="btn" onclick="undoJobHunterConfig()">Undo last save</button>
+          <button class="btn btn-primary" id="settings-save-guided">Save</button>
+          <button class="btn" id="undo-guided-config-btn">Undo last save</button>
           <span class="settings-dirty-flag" id="settings-guided-dirty" style="display:none">Unsaved changes</span>
           <span class="save-msg" id="settings-guided-msg"></span>
         </div>
@@ -391,10 +387,10 @@
 
       <!-- Advanced raw YAML -->
       <div class="settings-panel" id="settings-panel-advanced">
-        <textarea class="settings-textarea" id="settings-raw-yaml" spellcheck="false" oninput="markRawDirty()"></textarea>
+        <textarea class="settings-textarea" id="settings-raw-yaml" spellcheck="false"></textarea>
         <div class="settings-actions">
-          <button class="btn btn-primary" onclick="saveRawConfig()">Save</button>
-          <button class="btn" onclick="undoJobHunterConfig()">Undo last save</button>
+          <button class="btn btn-primary" id="save-raw-config-btn">Save</button>
+          <button class="btn" id="undo-raw-config-btn">Undo last save</button>
           <span class="settings-dirty-flag" id="settings-raw-dirty" style="display:none">Unsaved changes</span>
           <span class="save-msg" id="settings-raw-msg"></span>
         </div>
@@ -402,10 +398,10 @@
 
       <!-- Career context -->
       <div class="settings-panel" id="settings-panel-career-context">
-        <textarea class="settings-textarea" id="settings-career-context" spellcheck="false" oninput="markCareerContextDirty()"></textarea>
+        <textarea class="settings-textarea" id="settings-career-context" spellcheck="false"></textarea>
         <div class="settings-actions">
-          <button class="btn btn-primary" onclick="saveCareerContext()">Save</button>
-          <button class="btn" onclick="undoCareerContext()">Undo last save</button>
+          <button class="btn btn-primary" id="save-career-context-btn">Save</button>
+          <button class="btn" id="undo-career-context-btn">Undo last save</button>
           <span class="settings-dirty-flag" id="settings-career-context-dirty" style="display:none">Unsaved changes</span>
           <span class="save-msg" id="settings-career-context-msg"></span>
         </div>
@@ -424,7 +420,7 @@
             <div class="settings-field"><label for="gs-linkedin-tone">LinkedIn tone</label><input type="text" id="gs-linkedin-tone"></div>
           </div>
           <div class="settings-actions">
-            <button class="btn btn-primary" type="button" onclick="applyQuickCareerContext()">Fill Career Context tab from these answers</button>
+            <button class="btn btn-primary" type="button" id="apply-quick-career-context-btn">Fill Career Context tab from these answers</button>
             <span class="save-msg" id="gs-career-msg"></span>
           </div>
           <span style="font-size:12px;color:var(--text-muted)">Writes into the Career Context tab's editor — review and Save there. Leave any field blank to skip it.</span>
@@ -437,7 +433,7 @@
             <input type="password" id="gs-api-key-input" placeholder="Paste your API key">
           </div>
           <div class="settings-actions">
-            <button class="btn btn-primary" type="button" onclick="saveApiKey()">Save key</button>
+            <button class="btn btn-primary" type="button" id="save-api-key-btn">Save key</button>
             <span class="save-msg" id="gs-api-key-msg"></span>
           </div>
           <span style="font-size:12px;color:var(--text-muted)">Stored in your OS keyring — never written to a file, never leaves this machine.</span>
@@ -459,7 +455,7 @@
             <pre id="gs-yaml-diff" style="font-size:12px;background:var(--surface2);padding:8px;border-radius:6px;white-space:pre-wrap;"></pre>
           </div>
           <div class="settings-actions">
-            <button class="btn" type="button" onclick="loadGetStartedActionsGuide()">Recheck</button>
+            <button class="btn" type="button" id="gs-recheck-btn">Recheck</button>
           </div>
           <span style="font-size:12px;color:var(--text-muted)">You still paste secrets into GitHub's Settings → Secrets UI and edit/commit the workflow file yourself — nothing here pushes on your behalf.</span>
         </div>
