@@ -29,11 +29,12 @@ def test_linux_desktop_file_points_at_dash_command() -> None:
     assert "Terminal=false" in desktop
 
 
-def test_linux_packaging_docs_state_unbuilt_status_and_appimage_gap() -> None:
+def test_linux_packaging_docs_state_verified_build_and_appimage_gap() -> None:
     root = Path(__file__).parents[1]
     docs = (root / "docs" / "linux-packaging.md").read_text(encoding="utf-8")
 
-    assert "unbuilt" in docs.lower()
+    assert "built and smoke-tested" in docs.lower()
+    assert "internal self-test --json" in docs
     assert "appimagetool" in docs.lower()
     assert "GPG" in docs
     assert "do not** publish, bump the version, or trigger a" in docs

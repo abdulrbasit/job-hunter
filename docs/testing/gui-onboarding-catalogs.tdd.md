@@ -68,6 +68,7 @@
 | `job_hunter.diagnostics.self_test` verifies resources/catalogs/workspace/config/DB headlessly | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built`, `tests/test_diagnostics.py` (4 tests) | PASS |
 | `internal self-test` CLI command exposes it; real frozen Windows exe run confirms all 7 checks pass | `tests/test_cli.py::test_analytics_doctor_and_verify_commands_load`, `tests/test_cli.py::test_cli_command_registration_matches_known_surface` — plus a real `job-hunter.exe internal self-test --json` run recorded in `docs/windows-packaging.md` | PASS |
 | macOS/Linux PyInstaller spikes structurally mirror the verified Windows one (asset list, no Playwright, no console) | `tests/test_macos_packaging.py` (2 tests), `tests/test_linux_packaging.py` (3 tests) | PASS |
+| Linux frozen build actually runs (Docker container, not just static spec check): `internal self-test --json` all 7 checks pass | `docs/linux-packaging.md` "Verified spike result" — real `job-hunter internal self-test --json`/`init`/`doctor` run inside a `python:3.12-slim` container | PASS |
 
 RED evidence: all six focused tests fail today for the planned reason only —
 `get_bootstrap`/`start_hunt`/`get_hunt_status` are missing from `DashAPI`
@@ -286,15 +287,29 @@ GREEN evidence:
   deleted after validation, matching the existing spike's own rule. Added
   `packaging/macos/job-hunter.spec` and `packaging/linux/job-hunter.spec` +
   `job-hunter.desktop`, structurally mirroring the verified Windows spec
-  (same asset list, `console=False`, no Playwright bundled). **Known gap**:
-  the macOS/Linux specs are **unbuilt** — this environment has no macOS or
-  Linux machine, so unlike Windows they could not be run through PyInstaller
-  or smoke-tested; `docs/macos-packaging.md`/`docs/linux-packaging.md` say so
-  explicitly, along with the separate signing/notarization/AppImage-wrapping
-  steps (codesign, notarytool, appimagetool, GPG) that need real credentials
-  neither available nor appropriate to fabricate here. No release, publish,
-  version bump, or signing was attempted, per the repo's rules and the
-  spec's own "must not publish... without separate user authorization."
+  (same asset list, `console=False`, no Playwright bundled).
+  **Linux — also verified for real, in a follow-up pass**: Docker Desktop
+  was available on this Windows machine, so the Linux spike was built inside
+  a `python:3.12-slim` (Debian 13) container (a real Linux userspace, not
+  emulation) rather than left as an unbuilt static spec. Discovered and
+  documented the system packages `pywebview[gtk]` actually needs on Linux
+  (`libgirepository1.0-dev`, `gir1.2-gtk-3.0`, `gir1.2-webkit2-4.1`,
+  `python3-gi`, etc. — `import webview` fails without them, before
+  PyInstaller even runs) in `docs/linux-packaging.md`. `internal self-test
+  --json` against the frozen Linux binary: all 7 checks pass, same as
+  Windows. Frozen `--help`, `init`, and `doctor` also verified. **Known gap,
+  macOS only**: unlike Linux, there is no legitimate way to run macOS in a
+  container or VM on non-Apple hardware (Apple's EULA restricts macOS
+  virtualization to Apple hardware) — `packaging/macos/job-hunter.spec`
+  remains structurally-correct but unbuilt; `docs/macos-packaging.md` says so
+  explicitly. A real macOS build would need either physical Apple hardware or
+  a hosted macOS CI runner (e.g. GitHub Actions `macos-latest`), which needs
+  separate user authorization to set up/run. Signing/notarization for both
+  platforms (codesign, notarytool, appimagetool GPG-signing) still need real
+  credentials neither available nor appropriate to fabricate here. No
+  release, publish, version bump, or signing was attempted, per the repo's
+  rules and the spec's own "must not publish... without separate user
+  authorization."
 - Phase 8 (verification, documentation, maintenance): its unit/integration/
   security/regression concerns were addressed incrementally per-phase
   throughout this doc rather than deferred to the end (every phase above
