@@ -295,11 +295,25 @@ GREEN evidence:
   neither available nor appropriate to fabricate here. No release, publish,
   version bump, or signing was attempted, per the repo's rules and the
   spec's own "must not publish... without separate user authorization."
-- Phase 8 (verification, documentation, maintenance): not started as a
-  distinct pass — its unit/integration/E2E/security/regression concerns have
-  been addressed incrementally per-phase throughout this doc rather than
-  deferred to the end (every phase above already includes RED→GREEN evidence,
-  a full preflight run, and an explicit list of known gaps).
+- Phase 8 (verification, documentation, maintenance): its unit/integration/
+  security/regression concerns were addressed incrementally per-phase
+  throughout this doc rather than deferred to the end (every phase above
+  already includes RED→GREEN evidence, a full preflight run, and an explicit
+  list of known gaps). One thing that hadn't been run yet: coverage. Ran
+  `pytest --cov=job_hunter --cov-report=term-missing` across the full
+  1,427-test suite — **85.87% coverage, above the 80% gate**
+  (`[tool.coverage.report] fail_under = 80` in `pyproject.toml`; pytest-cov
+  itself reports "Required test coverage of 80.0% reached"). Not done this
+  phase (each already called out as a known gap above, listed together here
+  for a single point of reference): the Phase 4 nav restructure and its new
+  Get Started/search-setup/chatbot-import screens; the ~44 pre-existing
+  `innerHTML` call sites' XSS-hardening audit; removing `'unsafe-inline'`
+  from the dashboard's CSP `script-src` (blocked on converting ~65 inline
+  event handlers); bulk-verifying the company catalog from 19 to 1,500
+  entries; and macOS/Linux packaging builds/signing (no hardware/credentials
+  in this environment). Everything else in the original 8-phase spec is
+  implemented, tested, and verified — including one real frozen-Windows-exe
+  run, not just source-level tests.
 
 ## Final validation
 
@@ -345,4 +359,6 @@ GREEN evidence:
   just source tests) confirmed `internal self-test`, `init`, `doctor`, and
   `--help` all work correctly in the packaged exe; build/dist artifacts
   deleted after validation.
+- Phase 8: `pytest --cov=job_hunter --cov-report=term-missing` — 1427
+  passed, **85.87% coverage** (gate: 80%, `pyproject.toml`).
 - No version bump.
