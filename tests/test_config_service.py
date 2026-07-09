@@ -512,6 +512,133 @@ def test_undo_career_context_restores_exact_prior_bytes(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Onboarding: compact search-setup prefs (Phase 3)
+# ---------------------------------------------------------------------------
+
+_ONBOARDING_BASE_CONFIG = {
+    "mode": "agent",
+    "job_titles": ["Old Title"],
+    "regions": {"primary": {"enabled": True, "country": "DE", "location": "Berlin"}},
+    "exclusions": {"title_terms": ["intern"]},
+    "scoring": {"min_fit_score": 70, "batch_size": 15},
+}
+
+
+def test_apply_onboarding_prefs_updates_titles_stage_and_primary_region() -> None:
+    prefs = {
+        "career_stage": "leadership",
+        "job_titles": ["Director of Product"],
+        "country": "us",
+        "location": "New York",
+        "search_lang": "en",
+    }
+
+    merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
+
+    assert merged["career_stage"] == "leadership"
+    assert merged["job_titles"] == ["Director of Product"]
+    assert merged["regions"]["primary"]["country"] == "US"
+    assert merged["regions"]["primary"]["location"] == "New York"
+    assert merged["regions"]["primary"]["search_lang"] == "en"
+
+
+def test_apply_onboarding_prefs_leaves_scoring_and_other_exclusions_untouched() -> None:
+    prefs = {"job_titles": ["New Title"]}
+
+    merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
+
+    assert merged["scoring"] == _ONBOARDING_BASE_CONFIG["scoring"]
+    assert merged["exclusions"]["title_terms"] == ["intern"]
+
+
+def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
+    prefs = {"job_titles": ["PM"], "excluded_industries": ["Finance", "Retail"]}
+
+    merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
+
+    assert merged["exclusions"]["industries"] == ["Finance", "Retail"]
+    assert merged["exclusions"]["title_terms"] == ["intern"]
+
+
+def test_apply_onboarding_prefs_preserves_other_regions() -> None:
+    config = dict(_ONBOARDING_BASE_CONFIG)
+    config["regions"] = {
+        "primary": {"enabled": True, "country": "DE", "location": "Berlin"},
+        "secondary": {"enabled": True, "country": "FR", "location": "Paris"},
+    }
+    prefs = {"job_titles": ["PM"], "country": "GB", "location": "London"}
+
+    merged = service.apply_onboarding_prefs(config, prefs)
+
+    assert merged["regions"]["secondary"] == {"enabled": True, "country": "FR", "location": "Paris"}
+    assert merged["regions"]["primary"]["country"] == "GB"
+
+
+# ---------------------------------------------------------------------------
+# Onboarding: any-chatbot bundle import (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+def _bootstrap_profile_dir(root: Path) -> None:
+    (root / "profile").mkdir(parents=True, exist_ok=True)
+
+
+def test_replace_onboarding_bundle_writes_all_three_files(tmp_path: Path) -> None:
+    _bootstrap_profile_dir(tmp_path)
+    sections = {
+        "CAREER_CONTEXT": "- targeting: Product roles in Berlin",
+        "STORY_BANK": "### Led a launch\nSTAR content here.",
+        "BASE_RESUME": "# Jane Doe\nProduct Manager.",
+    }
+
+    result = service.replace_onboarding_bundle(tmp_path, sections)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == sections["CAREER_CONTEXT"]
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == sections["STORY_BANK"]
+    assert (tmp_path / "profile" / "resume_source.md").read_text(encoding="utf-8") == sections["BASE_RESUME"]
+
+
+def test_replace_onboarding_bundle_rejects_missing_section(tmp_path: Path) -> None:
+    _bootstrap_profile_dir(tmp_path)
+
+    result = service.replace_onboarding_bundle(tmp_path, {"CAREER_CONTEXT": "context", "STORY_BANK": "stories"})
+
+    assert result["ok"] is False
+    assert not (tmp_path / "profile" / "career_context.md").exists()
+
+
+def test_replace_onboarding_bundle_backs_up_previous_content(tmp_path: Path) -> None:
+    _bootstrap_profile_dir(tmp_path)
+    (tmp_path / "profile" / "career_context.md").write_text("old context", encoding="utf-8")
+    sections = {
+        "CAREER_CONTEXT": "- targeting: new",
+        "STORY_BANK": "new stories",
+        "BASE_RESUME": "new resume",
+    }
+
+    service.replace_onboarding_bundle(tmp_path, sections)
+    undo = service.undo_last_save(tmp_path, "career_context")
+
+    assert undo["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "old context"
+
+
+def test_replace_onboarding_bundle_rejects_invalid_career_context(tmp_path: Path) -> None:
+    _bootstrap_profile_dir(tmp_path)
+    sections = {
+        "CAREER_CONTEXT": "has\x00nul",
+        "STORY_BANK": "stories",
+        "BASE_RESUME": "resume",
+    }
+
+    result = service.replace_onboarding_bundle(tmp_path, sections)
+
+    assert result["ok"] is False
+    assert not (tmp_path / "profile" / "story_bank.md").exists()
+
+
+# ---------------------------------------------------------------------------
 # Temp-file cleanup on failure
 # ---------------------------------------------------------------------------
 

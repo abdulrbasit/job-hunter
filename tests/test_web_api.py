@@ -154,6 +154,100 @@ def test_get_onboarding_checklist_returns_itemized_list_without_local_paths(tmp_
     assert str(tmp_path) not in str(payload)
 
 
+def test_get_bootstrap_reports_readiness_and_checklist(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_bootstrap()
+
+    assert payload["ok"] is True
+    assert payload["data"]["readiness"]["ready"] is False
+    assert "checklist" in payload["data"]
+    assert payload["data"]["config_revision"]
+    assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "mode": "agent",
+                "job_titles": [],
+                "regions": {"primary": {"enabled": True, "country": "DE", "location": "Your City"}},
+                "exclusions": {},
+                "scoring": {"min_fit_score": 70, "batch_size": 15},
+                "llm": {"default_provider": "anthropic"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    api = DashAPI(tmp_path)
+    revision = api.get_bootstrap()["data"]["config_revision"]
+
+    result = api.save_onboarding_preferences(
+        {
+            "career_stage": "early_career",
+            "job_titles": ["Associate PM"],
+            "country": "de",
+            "location": "Munich",
+            "search_lang": "en",
+        },
+        revision,
+    )
+
+    assert result["ok"] is True
+    on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert on_disk["career_stage"] == "early_career"
+    assert on_disk["job_titles"] == ["Associate PM"]
+    assert on_disk["regions"]["primary"]["location"] == "Munich"
+
+
+def test_get_onboarding_prompt_returns_copyable_text(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "mode": "agent",
+                "job_titles": ["Product Manager"],
+                "regions": {},
+                "exclusions": {},
+                "scoring": {"min_fit_score": 70, "batch_size": 15},
+                "llm": {"default_provider": "anthropic"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = DashAPI(tmp_path).get_onboarding_prompt()
+
+    assert result["ok"] is True
+    assert "CAREER_CONTEXT" in result["data"]["prompt"]
+
+
+def test_import_onboarding_bundle_writes_profile_files(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir(parents=True)
+    bundle = (
+        "<<<CAREER_CONTEXT>>>\ntargeting notes\n<<<END_CAREER_CONTEXT>>>\n"
+        "<<<STORY_BANK>>>\nstory content\n<<<END_STORY_BANK>>>\n"
+        "<<<BASE_RESUME>>>\nresume content\n<<<END_BASE_RESUME>>>\n"
+    )
+
+    result = DashAPI(tmp_path).import_onboarding_bundle(bundle)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "targeting notes"
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == "story content"
+    assert (tmp_path / "profile" / "resume_source.md").read_text(encoding="utf-8") == "resume content"
+
+
+def test_import_onboarding_bundle_reports_parse_errors_without_writing(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir(parents=True)
+
+    result = DashAPI(tmp_path).import_onboarding_bundle("not a valid bundle")
+
+    assert result["ok"] is False
+    assert result["errors"]
+    assert not (tmp_path / "profile" / "career_context.md").exists()
+
+
 def test_get_api_key_status_reports_not_configured(tmp_path: Path, monkeypatch) -> None:
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "job_hunter.yml").write_text(

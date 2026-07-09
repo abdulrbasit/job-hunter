@@ -49,6 +49,13 @@
 | Custom `career_pages.yml` entry wins on duplicate URL; disabled custom entries excluded | `tests/test_catalog.py::test_effective_companies_custom_entry_wins_on_duplicate_url`, `::test_effective_companies_disabled_custom_entry_is_excluded` | PASS |
 | `exclusions.industries` expands known industry id/label/alias; unknown strings match nothing | `tests/test_catalog.py::test_effective_companies_excludes_by_industry_alias`, `::test_effective_companies_unknown_industry_string_matches_nothing` | PASS |
 | `career_pages.yml` `catalog:` block is additive, defaults preserved, round-trips, validated | `tests/test_config_service.py::test_read_career_pages_defaults_catalog_when_absent`, `::test_save_career_pages_without_catalog_arg_preserves_existing_catalog_block`, `::test_save_career_pages_omits_default_catalog_block`, `::test_validate_career_pages_rejects_non_boolean_catalog_enabled`, `::test_validate_career_pages_rejects_non_string_disabled_company_ids` | PASS |
+| `DashAPI.get_bootstrap` reports readiness + checklist without leaking local paths | `tests/test_gui_onboarding_catalogs_journeys.py::test_onboarding_bootstrap_api_not_yet_built`, `tests/test_web_api.py::test_get_bootstrap_reports_readiness_and_checklist` | PASS |
+| Readiness blocking checks (titles/career_stage/region/context/resume/api_key); missing key resolves via `custom` | `tests/test_readiness.py::test_fully_filled_workspace_is_ready`, `::test_missing_career_stage_key_is_still_valid_via_custom_default`, `::test_unfilled_career_context_blocks_readiness`, `::test_unfilled_resume_blocks_readiness` | PASS |
+| Final story / GitHub schedule are non-blocking (never block younger users) | `tests/test_readiness.py::test_missing_final_story_is_non_blocking_not_blocking`, `::test_missing_github_schedule_is_non_blocking` | PASS |
+| Compact search-setup save touches only mode/career_stage/titles/primary region/industries | `tests/test_config_service.py::test_apply_onboarding_prefs_updates_titles_stage_and_primary_region`, `::test_apply_onboarding_prefs_leaves_scoring_and_other_exclusions_untouched`, `::test_apply_onboarding_prefs_preserves_other_regions`, `tests/test_web_api.py::test_save_onboarding_preferences_updates_config` | PASS |
+| Any-chatbot prompt includes exact delimiters; bundle parser validates before any write | `tests/test_onboarding_bundle.py` (7 tests), `tests/test_web_api.py::test_get_onboarding_prompt_returns_copyable_text`, `::test_import_onboarding_bundle_writes_profile_files`, `::test_import_onboarding_bundle_reports_parse_errors_without_writing` | PASS |
+| Bundle import is atomic (all 3 files or none) with one-level backup/undo | `tests/test_config_service.py::test_replace_onboarding_bundle_writes_all_three_files`, `::test_replace_onboarding_bundle_rejects_missing_section`, `::test_replace_onboarding_bundle_backs_up_previous_content`, `::test_replace_onboarding_bundle_rejects_invalid_career_context` | PASS |
+| Desktop launcher: recent workspace resolution, create/open, reject non-empty target | `tests/test_launcher.py` (14 tests) | PASS |
 | `DashAPI.start_hunt`/`get_hunt_status` typed run service exists | `tests/test_gui_onboarding_catalogs_journeys.py::test_daily_hunt_typed_service_not_yet_built` | RED |
 | `job_hunter.ux.terminal` is removed | `tests/test_gui_onboarding_catalogs_journeys.py::test_terminal_ux_not_yet_removed` | RED |
 | `job_hunter.diagnostics.self_test` exists for frozen-build smoke checks | `tests/test_gui_onboarding_catalogs_journeys.py::test_packaged_launch_self_test_not_yet_built` | RED |
@@ -107,9 +114,47 @@ GREEN evidence:
   verification per company or a licensed company-directory data source —
   explicitly out of scope for a single session; the code/schema is ready to
   receive more entries without changes.
-- Phase 3 (bootstrap), Phase 5 (hunt service), Phase 6 (terminal removal),
-  Phase 7/8 (diagnostics self-test): not started; their RED tests still fail
-  in `tests/test_gui_onboarding_catalogs_journeys.py`.
+- Phase 3 (Get Started onboarding — backend/service layer): landed. New
+  `job_hunter/launcher.py` (recent-workspace resolution via a platform-native
+  JSON file — `%APPDATA%/job-hunter` on Windows, `~/Library/Application
+  Support/job-hunter` on macOS, `$XDG_CONFIG_HOME` on Linux — `create_workspace`/
+  `open_workspace` wrapping the existing `run_init`/`WorkspaceNotEmptyError`).
+  New `job_hunter/ux/web/readiness.py` (`get_readiness()`: the spec's exact
+  blocking set — job_titles, career_stage, region, career_context, base_resume,
+  api_key — plus non-blocking warnings for final story/GitHub schedule/browser
+  support/telemetry; reuses `job_hunter.ux.health`'s private checks rather than
+  duplicating them, and deliberately does **not** touch `onboarding_status`/
+  `onboarding_checklist`, which the pre-existing doctor/dashboard still use and
+  which classify story_bank as blocking — this flow implements the spec's
+  "stories never block" rule as a separate function instead of changing shared,
+  already-tested behavior). New `DashAPI.get_bootstrap()` (readiness +
+  checklist + config revision), `save_onboarding_preferences()` (compact
+  search-setup page → `job_hunter.yml`, via new `service.apply_onboarding_prefs`,
+  reusing the existing revision-guard/schema-validation save path), and the
+  any-chatbot pair `get_onboarding_prompt()`/`import_onboarding_bundle()`
+  (new `job_hunter/config/onboarding_bundle.py` for prompt-building and
+  delimited-section parsing/validation, and `service.replace_onboarding_bundle`
+  for the atomic all-3-or-nothing write with per-file backups reusing the
+  existing `_atomic_write`/`_backup_path`/`undo_last_save` machinery).
+  **Known gaps**: (1) no new pywebview HTML/JS screens yet — Get Started,
+  the search-setup page, and the chatbot-import UI are drawn against
+  `dashboard.html`'s current 2,961-line monolith today; building them once
+  against Phase 4's split shell/CSS/JS avoids building the same screens twice,
+  so the actual screens land in Phase 4. (2) `/setup onboard` was not rewritten
+  — on inspection it already dispatches through one `/setup onboard` invocation
+  into mode-specific flow files (not multiple separate commands), so the spec's
+  "one config-aware session" bar is largely met already; a deeper content
+  rewrite is deferred. (3) `BASE_RESUME` from the any-chatbot bundle is staged
+  to a new `profile/resume_source.md`, not written directly into the LaTeX
+  `resume_tex` template — bridging arbitrary chatbot prose into the existing
+  LaTeX resume class is a distinct, larger task belonging to `/setup resume`,
+  and writing unvalidated content into the LaTeX file risked breaking PDF
+  compilation. (4) the bundle-import atomic write has backups/rollback but no
+  optimistic-concurrency revision check (unlike every other save path) — a
+  deliberate, lower-priority gap for a first-run action, not a repeated-edit one.
+- Phase 5 (hunt service), Phase 6 (terminal removal), Phase 7/8 (diagnostics
+  self-test): not started; their RED tests still fail in
+  `tests/test_gui_onboarding_catalogs_journeys.py`.
 
 ## Final validation
 
@@ -127,4 +172,9 @@ GREEN evidence:
   `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
   passed; wheel inspection confirmed `job_hunter/catalog/companies.json` is
   packaged.
+- Phase 3: `pytest tests/ -q --tb=short` — 1401 passed, 3 failed (the
+  remaining Phase 5/6/7 RED journeys; `bootstrap` journey now passes).
+  `ruff format --check`, `ruff check`, `ty check`, `scripts/validate_config.py`,
+  `scripts/sync_workspace_template.py --check`, and `uv build --wheel` all
+  passed.
 - No version bump.

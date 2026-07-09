@@ -87,6 +87,67 @@ class DashAPI:
             return {"ok": False, "error": "Setup checklist is unavailable.", "next_action": "Run `job-hunter doctor`."}
         return {"ok": True, **checklist}
 
+    def get_bootstrap(self) -> dict[str, Any]:
+        """Everything the Get Started page needs on load: readiness, checklist, config revision."""
+        from job_hunter.config import service
+        from job_hunter.ux.health import onboarding_checklist
+        from job_hunter.ux.web.readiness import get_readiness
+
+        try:
+            config_result = service.read_job_hunter_config(self._root)
+            readiness = get_readiness(self._root)
+            checklist = onboarding_checklist(self._root)
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "data": None, "errors": ["Setup status is unavailable."], "warnings": []}
+        return {
+            "ok": True,
+            "data": {
+                "workspace_root": str(self._root),
+                "config_revision": config_result["revision"],
+                "readiness": readiness,
+                "checklist": checklist,
+            },
+            "errors": [],
+            "warnings": [],
+        }
+
+    def save_onboarding_preferences(self, prefs: dict[str, Any], revision: str) -> dict[str, Any]:
+        """Save the compact Get Started search-setup page (mode/career_stage/titles/region/industries)."""
+        import yaml
+
+        from job_hunter.config import service
+
+        raw = service.read_job_hunter_config(self._root)
+        try:
+            parsed = yaml.safe_load(raw["data"]) or {}
+        except yaml.YAMLError as exc:
+            return {"ok": False, "data": None, "errors": [f"Invalid YAML on disk: {exc}"], "warnings": []}
+        merged = service.apply_onboarding_prefs(parsed if isinstance(parsed, dict) else {}, prefs)
+        new_text = yaml.safe_dump(merged, sort_keys=False, allow_unicode=True)
+        result = service.save_job_hunter_config(self._root, new_text, revision)
+        return self._config_result(result)
+
+    def get_onboarding_prompt(self) -> dict[str, Any]:
+        """A copyable prompt for the any-chatbot onboarding path."""
+        from job_hunter.config.loader import get_job_hunter_config
+        from job_hunter.config.onboarding_bundle import build_onboarding_prompt
+
+        prompt = build_onboarding_prompt(get_job_hunter_config())
+        return {"ok": True, "data": {"prompt": prompt}, "errors": [], "warnings": []}
+
+    def import_onboarding_bundle(self, text: str) -> dict[str, Any]:
+        """Parse a pasted any-chatbot response and atomically replace the three profile files."""
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import parse_onboarding_bundle
+
+        sections, errors = parse_onboarding_bundle(text)
+        if errors:
+            return {"ok": False, "data": None, "errors": errors, "warnings": []}
+        result = service.replace_onboarding_bundle(self._root, sections)
+        if not result["ok"]:
+            return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
+        return {"ok": True, "data": None, "errors": [], "warnings": []}
+
     def get_api_key_status(self) -> dict[str, Any]:
         from job_hunter.config.secrets import get_secret
         from job_hunter.core.utils import read_yaml

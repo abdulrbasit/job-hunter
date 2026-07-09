@@ -31,12 +31,18 @@ MAX_CAREER_CONTEXT_BYTES = 512 * 1024
 JOB_HUNTER_CONFIG_REL = Path("config/job_hunter.yml")
 CAREER_PAGES_REL = Path("config/career_pages.yml")
 CAREER_CONTEXT_REL = Path("profile/career_context.md")
+STORY_BANK_REL = Path("profile/story_bank.md")
+# Chatbot-authored resume content lands here, not on the LaTeX resume_tex — bridging plain
+# text to the LaTeX template is a separate, larger task (see /setup resume).
+ONBOARDING_RESUME_SOURCE_REL = Path("profile/resume_source.md")
 
 _BACKUP_DIR_REL = Path("outputs/state/config_backups")
 _LOGICAL_FILES: dict[str, Path] = {
     "job_hunter_config": JOB_HUNTER_CONFIG_REL,
     "career_pages": CAREER_PAGES_REL,
     "career_context": CAREER_CONTEXT_REL,
+    "story_bank": STORY_BANK_REL,
+    "resume_source": ONBOARDING_RESUME_SOURCE_REL,
 }
 
 
@@ -264,6 +270,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "profile_image": profile.get("profile_image", ""),
         },
         "job_titles": list(data.get("job_titles") or []),
+        "career_stage": data.get("career_stage", "custom"),
         "regions": deepcopy(data.get("regions") or {}),
         "exclusions": {
             "companies": list(exclusions.get("companies") or []),
@@ -324,6 +331,11 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     merged["mode"] = form.get("mode") or merged.get("mode", "agent")
     merged["profile"] = _apply_form_profile(merged.get("profile") or {}, form.get("profile") or {})
     merged["job_titles"] = [str(t).strip() for t in (form.get("job_titles") or []) if str(t).strip()]
+    # Only write career_stage back if it actually changed — config_to_form() projects
+    # a "custom" default for display even when the key is absent, and a form round-trip
+    # of an unchanged value must not introduce a key that wasn't in the original YAML.
+    if "career_stage" in form and form["career_stage"] != merged.get("career_stage", "custom"):
+        merged["career_stage"] = form["career_stage"]
     merged["regions"] = form.get("regions") or {}
 
     form_exclusions = form.get("exclusions") or {}
@@ -339,6 +351,44 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     if form.get("llm_default_provider"):
         llm["default_provider"] = form["llm_default_provider"]
     merged["llm"] = llm
+
+    return merged
+
+
+def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[str, Any]:
+    """Apply the compact Get-Started search-setup fields onto existing job_hunter.yml data.
+
+    Touches only mode, career_stage, job_titles, the "primary" region, and
+    exclusions.industries — leaves scoring, llm, other regions, and other
+    exclusion categories untouched (those stay Advanced-editor-only).
+    """
+    merged = deepcopy(data)
+    if prefs.get("mode"):
+        merged["mode"] = prefs["mode"]
+    if prefs.get("career_stage"):
+        merged["career_stage"] = prefs["career_stage"]
+    merged["job_titles"] = [str(t).strip() for t in (prefs.get("job_titles") or []) if str(t).strip()]
+
+    regions = dict(merged.get("regions") or {})
+    primary = dict(regions.get("primary") or {})
+    primary["enabled"] = True
+    primary["primary"] = True
+    if prefs.get("country"):
+        primary["country"] = str(prefs["country"]).strip().upper()
+    if prefs.get("location"):
+        primary["location"] = str(prefs["location"])
+    if prefs.get("search_lang"):
+        primary["search_lang"] = str(prefs["search_lang"])
+    regions["primary"] = primary
+    merged["regions"] = regions
+
+    exclusions = dict(merged.get("exclusions") or {})
+    industries = [str(i).strip() for i in (prefs.get("excluded_industries") or []) if str(i).strip()]
+    if industries:
+        exclusions["industries"] = industries
+    else:
+        exclusions.pop("industries", None)
+    merged["exclusions"] = exclusions
 
     return merged
 
@@ -432,6 +482,54 @@ def save_career_context(root: Path, text: str, expected_revision: str) -> dict[s
     if errors:
         return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
     return _safe_replace(root, "career_context", CAREER_CONTEXT_REL, text.encode("utf-8"), expected_revision)
+
+
+# ---------------------------------------------------------------------------
+# Any-chatbot onboarding bundle (profile/career_context.md, story_bank.md, resume_source.md)
+# ---------------------------------------------------------------------------
+
+# Section name -> (relative path, logical name). Logical names reuse existing
+# undo slots (e.g. "career_context" is the same file/slot save_career_context uses).
+_ONBOARDING_BUNDLE_TARGETS: dict[str, tuple[Path, str]] = {
+    "CAREER_CONTEXT": (CAREER_CONTEXT_REL, "career_context"),
+    "STORY_BANK": (STORY_BANK_REL, "story_bank"),
+    "BASE_RESUME": (ONBOARDING_RESUME_SOURCE_REL, "resume_source"),
+}
+
+
+def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str, Any]:
+    """Atomically replace all three onboarding profile files, or none of them.
+
+    Backs up each file's previous bytes before writing (one slot per file,
+    reusing the same backup dir/logical names as their regular save functions)
+    and rolls back any file already written if a later write in the batch fails.
+    """
+    missing = [name for name in _ONBOARDING_BUNDLE_TARGETS if name not in sections]
+    if missing:
+        return {"ok": False, "errors": [f"Missing section(s): {', '.join(missing)}"], "warnings": []}
+
+    errors = validate_career_context(sections["CAREER_CONTEXT"])
+    if errors:
+        return {"ok": False, "errors": errors, "warnings": []}
+
+    previous: dict[str, bytes] = {}
+    written: list[str] = []
+    for name, (rel_path, _logical) in _ONBOARDING_BUNDLE_TARGETS.items():
+        path = root / rel_path
+        previous[name] = path.read_bytes() if path.exists() else b""
+
+    try:
+        for name, (rel_path, logical) in _ONBOARDING_BUNDLE_TARGETS.items():
+            _atomic_write(_backup_path(root, logical), previous[name])
+            _atomic_write(root / rel_path, sections[name].encode("utf-8"))
+            written.append(name)
+    except OSError as exc:
+        for name in written:
+            with suppress(OSError):
+                _atomic_write(root / _ONBOARDING_BUNDLE_TARGETS[name][0], previous[name])
+        return {"ok": False, "errors": [f"Could not save onboarding bundle: {exc}"], "warnings": []}
+
+    return {"ok": True, "errors": [], "warnings": []}
 
 
 # ---------------------------------------------------------------------------
