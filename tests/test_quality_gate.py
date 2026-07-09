@@ -214,6 +214,39 @@ def test_excluded_title_is_hard_rejected_by_objective_screen():
     assert rejected[0]["_rejection_reason"] == "excluded_title"
 
 
+def test_company_hunt_jobs_with_no_region_tag_are_still_location_screened():
+    """Company-hunt (browser_hunt.py) scrapes career pages without per-region context, so
+    job["region"] is never set and regions.get(region, {}) resolves to {} — has_wrong_location/
+    has_incompatible_location_metadata both no-op on an empty region_config, silently letting
+    any country's jobs through. screen_jobs_by_rules must fall back to
+    has_incompatible_location_for_global_feed (same as orchestrator.py already does for other
+    no-region-context sources) so out-of-region jobs are still rejected."""
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    config = {"regions": {"primary": {"enabled": True, "country": "DE", "location": "Munich"}}}
+    job = {**_job(title="Software Engineer"), "location": "New York, USA"}
+    # No "region" key on the job at all — simulates a company-hunt scrape.
+    assert "region" not in job
+
+    kept, rejected = screen_jobs_by_rules([job], config)
+
+    assert kept == []
+    assert len(rejected) == 1
+    assert rejected[0]["_rejection_reason"] == "incompatible_location_metadata"
+
+
+def test_company_hunt_jobs_matching_a_configured_country_are_kept():
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    config = {"regions": {"primary": {"enabled": True, "country": "DE", "location": "Munich"}}}
+    job = {**_job(title="Software Engineer"), "location": "Munich, Germany"}
+
+    kept, rejected = screen_jobs_by_rules([job], config)
+
+    assert len(kept) == 1
+    assert rejected == []
+
+
 def test_excluded_title_gets_negative_quality_reason_but_gate_alone_does_not_reject():
     """One excluded term scores -5 against the -10 default threshold: the gate
     records the signal but hard rejection is the objective screen's job."""

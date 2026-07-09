@@ -39,6 +39,13 @@ def _screen_job(
         reason = "incompatible_location_metadata"
     if not reason and policy.has_wrong_location(job, region_config):
         reason = "wrong_location"
+    if not reason and not region_config and policy.has_incompatible_location_for_global_feed(job):
+        # Jobs with no per-region context (e.g. company-hunt career-page scrapes,
+        # which don't tag a "region" key) skip has_incompatible_location_metadata/
+        # has_wrong_location above entirely, since both no-op on an empty
+        # region_config — this is the same fallback orchestrator.py already applies
+        # for global-feed sources with no region context.
+        reason = "incompatible_location_metadata"
     if not reason and policy.is_location_restricted(title, snippet):
         reason = "location_restricted"
 
