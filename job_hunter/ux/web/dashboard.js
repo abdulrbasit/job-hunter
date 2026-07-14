@@ -213,9 +213,16 @@ async function pollSyncStatus(silent) {
       const result = await window.pywebview.api.get_sync_status();
       if (result.status !== 'running') {
         if (result.status === 'succeeded') {
-          const moved = (result.inserted || 0) + (result.updated || 0);
-          if (!silent || moved > 0) showToast(moved ? `Synced — ${moved} job(s) merged` : 'Synced');
-          if (moved) refreshAll();
+          const inserted = result.inserted || 0;
+          const updated = result.updated || 0;
+          const deleted = result.deleted || 0;
+          const changed = inserted + updated + deleted;
+          const parts = [];
+          if (inserted) parts.push(`${inserted} new`);
+          if (updated) parts.push(`${updated} updated`);
+          if (deleted) parts.push(`${deleted} removed`);
+          if (!silent || changed > 0) showToast(changed ? `Synced — ${parts.join(', ')}` : 'Synced');
+          if (changed) refreshAll();
         } else if (result.status === 'failed' && !silent) {
           showToast(result.error || 'Sync failed.');
         }

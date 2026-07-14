@@ -117,14 +117,14 @@ def merge_and_push(root: Path) -> dict[str, Any]:
 
     from job_hunter.tracking.repository import merge_remote_jobs
 
-    merged = {"inserted": 0, "updated": 0}
+    merged = {"inserted": 0, "updated": 0, "deleted": 0}
     snapshot_bytes = _run_git_binary(["show", f"origin/{branch}:outputs/state/jobs.db"], root)
     if snapshot_bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             remote_snapshot = Path(tmpdir) / "remote_jobs.db"
             remote_snapshot.write_bytes(snapshot_bytes)
             merged = merge_remote_jobs(root, remote_snapshot)
-        if merged["inserted"] or merged["updated"]:
+        if merged["inserted"] or merged["updated"] or merged["deleted"]:
             commit_dirty_paths(root, ("outputs/state/jobs.db",), "chore(sync): merge remote job state")
 
     if not _rebase_onto(root, branch):
@@ -137,7 +137,13 @@ def merge_and_push(root: Path) -> dict[str, Any]:
     for _ in range(3):
         push = _run_git(["push", "origin", f"HEAD:{branch}"], root)
         if push.returncode == 0:
-            return {"ok": True, "inserted": merged["inserted"], "updated": merged["updated"], "pushed": True}
+            return {
+                "ok": True,
+                "inserted": merged["inserted"],
+                "updated": merged["updated"],
+                "deleted": merged["deleted"],
+                "pushed": True,
+            }
         _run_git(["fetch", "origin", branch], root)
         if not _rebase_onto(root, branch):
             break

@@ -281,8 +281,11 @@ def _push_finalized_run(root: Path, *, push: bool, mode: str) -> None:
     result = merge_and_push(root)
     if not result["ok"]:
         fail(f"[finalize-run] {result['error']}")
-    if result["inserted"] or result["updated"]:
-        typer.echo(f"[finalize-run] merged remote job state: {result['inserted']} new, {result['updated']} updated")
+    if result["inserted"] or result["updated"] or result["deleted"]:
+        typer.echo(
+            f"[finalize-run] merged remote job state: {result['inserted']} new, "
+            f"{result['updated']} updated, {result['deleted']} removed"
+        )
     typer.echo("[finalize-run] pushed to origin")
 
 
@@ -334,7 +337,10 @@ def sync(
     result = sync_workspace(repo_path(), message=message)
     if not result["ok"]:
         fail(f"[sync] {result['error']}")
-    typer.echo(f"[sync] merged remote job state: {result['inserted']} new, {result['updated']} updated")
+    typer.echo(
+        f"[sync] merged remote job state: {result['inserted']} new, "
+        f"{result['updated']} updated, {result['deleted']} removed"
+    )
     typer.echo("[sync] pushed to origin")
 
 

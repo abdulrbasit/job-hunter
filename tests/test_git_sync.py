@@ -41,7 +41,7 @@ def test_merge_remote_jobs_inserts_remote_only_row(tmp_path: Path) -> None:
 
     result = merge_remote_jobs(local_root, remote_root / "outputs" / "state" / "jobs.db")
 
-    assert result == {"inserted": 1, "updated": 0}
+    assert result == {"inserted": 1, "updated": 0, "deleted": 0}
     assert get_job_by_slug(local_root, "remote-job")["title"] == "Engineer"
 
 
@@ -118,7 +118,73 @@ def test_merge_remote_jobs_empty_remote_db_is_noop(tmp_path: Path) -> None:
 
     result = merge_remote_jobs(local_root, remote_root / "outputs" / "state" / "jobs.db")
 
-    assert result == {"inserted": 0, "updated": 0}
+    assert result == {"inserted": 0, "updated": 0, "deleted": 0}
+
+
+# ---------------------------------------------------------------------------
+# Tombstones — deleted jobs must never come back on sync
+# ---------------------------------------------------------------------------
+
+
+def test_merge_remote_jobs_does_not_resurrect_locally_deleted_row(tmp_path: Path) -> None:
+    """The exact bug reported: delete an application locally, sync — remote still has
+    the older un-deleted row, and a naive merge re-inserts it as 'new'."""
+    local_root = tmp_path / "local"
+    remote_root = tmp_path / "remote"
+    (local_root / "outputs" / "state").mkdir(parents=True)
+    (remote_root / "outputs" / "state").mkdir(parents=True)
+
+    from job_hunter.tracking.repository import delete_job
+
+    upsert_job(local_root, {"url": "https://x.example/job", "slug": "job-1"})
+    upsert_job(remote_root, {"url": "https://x.example/job", "slug": "job-1"})
+    delete_job(local_root, "job-1")  # user deletes it locally, before syncing
+
+    result = merge_remote_jobs(local_root, remote_root / "outputs" / "state" / "jobs.db")
+
+    assert result == {"inserted": 0, "updated": 0, "deleted": 0}
+    assert get_job_by_slug(local_root, "job-1") is None
+
+
+def test_merge_remote_jobs_propagates_remote_deletion_to_local(tmp_path: Path) -> None:
+    """Cross-machine case: another machine deleted the row and pushed its tombstone —
+    this machine's own untouched copy must be removed too, not just left alone."""
+    local_root = tmp_path / "local"
+    remote_root = tmp_path / "remote"
+    (local_root / "outputs" / "state").mkdir(parents=True)
+    (remote_root / "outputs" / "state").mkdir(parents=True)
+
+    from job_hunter.tracking.repository import delete_job
+
+    upsert_job(local_root, {"url": "https://x.example/job", "slug": "job-1"})
+    upsert_job(remote_root, {"url": "https://x.example/job", "slug": "job-1"})
+    delete_job(remote_root, "job-1")  # deleted on the *other* machine
+
+    result = merge_remote_jobs(local_root, remote_root / "outputs" / "state" / "jobs.db")
+
+    assert result == {"inserted": 0, "updated": 0, "deleted": 1}
+    assert get_job_by_slug(local_root, "job-1") is None
+
+
+def test_merge_remote_jobs_tombstone_blocks_rediscovery_by_url_alone(tmp_path: Path) -> None:
+    """A deleted job re-appearing on remote under the same URL but a fresh slug (e.g. a
+    re-scrape) must still be blocked — tombstones match on url/canonical_url too, not
+    just slug."""
+    local_root = tmp_path / "local"
+    remote_root = tmp_path / "remote"
+    (local_root / "outputs" / "state").mkdir(parents=True)
+    (remote_root / "outputs" / "state").mkdir(parents=True)
+
+    from job_hunter.tracking.repository import delete_job
+
+    upsert_job(local_root, {"url": "https://x.example/job", "slug": "job-1"})
+    delete_job(local_root, "job-1")
+    upsert_job(remote_root, {"url": "https://x.example/job", "slug": "job-1"})
+
+    result = merge_remote_jobs(local_root, remote_root / "outputs" / "state" / "jobs.db")
+
+    assert result == {"inserted": 0, "updated": 0, "deleted": 0}
+    assert get_job_by_slug(local_root, "job-1") is None
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +264,33 @@ def test_sync_workspace_preserves_local_status_promotion_across_machines(_two_cl
     result_a = git_sync.sync_workspace(clone_a)
     assert result_a["ok"] is True, result_a
     assert get_job_by_slug(clone_a, "seed")["status"] == "applied"
+
+
+def test_sync_workspace_deletion_survives_repeated_sync(_two_clones: tuple[Path, Path]) -> None:
+    """End-to-end reproduction of the reported bug: delete an application, sync — it must
+    stay gone, including on a second sync of the same machine and after another machine
+    (which never saw the delete) syncs too."""
+    clone_a, clone_b = _two_clones
+    git_sync.sync_workspace(clone_b)  # b picks up the seed row first
+    assert get_job_by_slug(clone_b, "seed") is not None
+
+    from job_hunter.tracking.repository import delete_job
+
+    delete_job(clone_a, "seed")
+    result_a = git_sync.sync_workspace(clone_a)
+    assert result_a["ok"] is True, result_a
+    assert get_job_by_slug(clone_a, "seed") is None
+
+    # Syncing the same machine again must not resurrect it from its own remote push.
+    result_a_again = git_sync.sync_workspace(clone_a)
+    assert result_a_again["ok"] is True, result_a_again
+    assert get_job_by_slug(clone_a, "seed") is None
+
+    # b never deleted it locally — its own sync must still remove it via the tombstone.
+    result_b = git_sync.sync_workspace(clone_b)
+    assert result_b["ok"] is True, result_b
+    assert result_b["deleted"] == 1
+    assert get_job_by_slug(clone_b, "seed") is None
 
 
 def test_sync_status_reports_ahead_and_behind(_two_clones: tuple[Path, Path]) -> None:

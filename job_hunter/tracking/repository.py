@@ -71,6 +71,21 @@ CREATE INDEX IF NOT EXISTS idx_jobs_run_id        ON jobs(run_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_region        ON jobs(region);
 CREATE INDEX IF NOT EXISTS idx_jobs_canonical_url ON jobs(canonical_url);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_processed_at ON jobs(status, processed_at);
+
+-- Tombstones for hard-deleted jobs. jobs.db is merged (not replaced) across machines on
+-- sync — without this, deleting an application locally doesn't stop a later sync from
+-- pulling the still-present row back in from a remote snapshot that hasn't caught up yet.
+CREATE TABLE IF NOT EXISTS deleted_jobs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    url           TEXT,
+    canonical_url TEXT,
+    slug          TEXT,
+    deleted_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_deleted_jobs_slug          ON deleted_jobs(slug);
+CREATE INDEX IF NOT EXISTS idx_deleted_jobs_url           ON deleted_jobs(url);
+CREATE INDEX IF NOT EXISTS idx_deleted_jobs_canonical_url ON deleted_jobs(canonical_url);
 """
 
 # (table, column, declaration) — additive, backward-compatible with existing jobs.db files.
@@ -632,64 +647,117 @@ def _merge_row_set_clause(
     return set_clauses, params
 
 
+def _is_tombstoned(tombstones: set[str], slug: str | None, url: str | None, canonical_url: str | None) -> bool:
+    return bool(
+        (slug and slug in tombstones) or (url and url in tombstones) or (canonical_url and canonical_url in tombstones)
+    )
+
+
+def _import_tombstones(conn: sqlite3.Connection, remote_conn: sqlite3.Connection) -> tuple[set[str], int]:
+    """Merge remote's deleted_jobs into local, then delete any local `jobs` row a tombstone
+    (local or freshly-imported) still matches — propagates a delete made on one machine to
+    every other machine's next sync, instead of only blocking re-inserts on the machine that
+    did the deleting. Returns (full local slug/url/canonical_url tombstone set, rows deleted)."""
+    remote_tombstones = remote_conn.execute("SELECT url, canonical_url, slug, deleted_at FROM deleted_jobs").fetchall()
+    existing = {
+        (row["slug"], row["url"], row["canonical_url"])
+        for row in conn.execute("SELECT slug, url, canonical_url FROM deleted_jobs")
+    }
+    for row in remote_tombstones:
+        key = (row["slug"], row["url"], row["canonical_url"])
+        if key in existing:
+            continue
+        conn.execute(
+            "INSERT INTO deleted_jobs (url, canonical_url, slug, deleted_at) VALUES (?, ?, ?, ?)",
+            (row["url"], row["canonical_url"], row["slug"], row["deleted_at"]),
+        )
+        existing.add(key)
+
+    tombstones: set[str] = set()
+    for slug, url, canonical_url in existing:
+        for value in (slug, url, canonical_url):
+            if value:
+                tombstones.add(value)
+
+    deleted = 0
+    if tombstones:
+        placeholders = ", ".join("?" for _ in tombstones)
+        cursor = conn.execute(
+            f"DELETE FROM jobs WHERE slug IN ({placeholders}) OR url IN ({placeholders}) "  # noqa: S608
+            f"OR canonical_url IN ({placeholders})",
+            list(tombstones) * 3,
+        )
+        deleted = cursor.rowcount
+
+    return tombstones, deleted
+
+
 def merge_remote_jobs(root: Path, remote_db_path: Path) -> dict[str, int]:
     """Merge another jobs.db snapshot into this workspace's DB.
 
     jobs.db is a committed binary SQLite file, so a plain git rebase can't 3-way-merge
     it — whichever side loses a conflict silently drops rows. This folds the remote
-    snapshot in first: rows are matched by slug/url, status is promoted forward-only
-    (never downgraded), notes are unioned, and other fields keep the local value unless
-    it's empty (never clobbers a local edit, but fills gaps from the remote). Rows that
-    only exist on the remote side are inserted whole. company_hunt_* tables are local
-    run telemetry and are not merged.
+    snapshot in first: deletions win first (a tombstone from either side removes the row
+    everywhere and blocks it from ever being re-inserted), then surviving rows are matched
+    by slug/url — status is promoted forward-only (never downgraded), notes are unioned,
+    and other fields keep the local value unless it's empty (never clobbers a local edit,
+    but fills gaps from the remote). Rows that only exist on the remote side are inserted
+    whole. company_hunt_* tables are local run telemetry and are not merged.
     """
     remote_conn = sqlite3.connect(f"file:{remote_db_path.as_posix()}?mode=ro", uri=True, timeout=10)
     remote_conn.row_factory = sqlite3.Row
     try:
         remote_rows = remote_conn.execute("SELECT * FROM jobs").fetchall()
+
+        if not remote_rows:
+            with _conn(root) as conn:
+                _, deleted = _import_tombstones(conn, remote_conn)
+            return {"inserted": 0, "updated": 0, "deleted": deleted}
+
+        inserted = 0
+        updated = 0
+        with _conn(root) as conn:
+            tombstones, deleted = _import_tombstones(conn, remote_conn)
+            local_columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+            write_columns = [c for c in remote_rows[0].keys() if c != "id" and c in local_columns]
+
+            for remote_row in remote_rows:
+                remote = dict(remote_row)
+                slug = remote.get("slug")
+                url = remote.get("url")
+                canonical_url = remote.get("canonical_url")
+                if _is_tombstoned(tombstones, slug, url, canonical_url):
+                    continue
+
+                local_row = None
+                if slug:
+                    local_row = conn.execute("SELECT * FROM jobs WHERE slug = ?", (slug,)).fetchone()
+                if not local_row and url:
+                    local_row = conn.execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
+
+                if local_row is None:
+                    cols_sql = ", ".join(write_columns)
+                    placeholders = ", ".join("?" for _ in write_columns)
+                    conn.execute(
+                        f"INSERT OR IGNORE INTO jobs ({cols_sql}) VALUES ({placeholders})",  # noqa: S608
+                        [remote[c] for c in write_columns],
+                    )
+                    inserted += 1
+                    continue
+
+                set_clauses, params = _merge_row_set_clause(dict(local_row), remote, write_columns)
+                if not set_clauses:
+                    continue
+
+                set_clauses.append("updated_at = ?")
+                params.append(_now())
+                params.append(local_row["id"])
+                conn.execute(f"UPDATE jobs SET {', '.join(set_clauses)} WHERE id = ?", params)  # noqa: S608
+                updated += 1
     finally:
         remote_conn.close()
 
-    if not remote_rows:
-        return {"inserted": 0, "updated": 0}
-
-    inserted = 0
-    updated = 0
-    with _conn(root) as conn:
-        local_columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
-        write_columns = [c for c in remote_rows[0].keys() if c != "id" and c in local_columns]
-
-        for remote_row in remote_rows:
-            remote = dict(remote_row)
-            slug = remote.get("slug")
-            url = remote.get("url")
-            local_row = None
-            if slug:
-                local_row = conn.execute("SELECT * FROM jobs WHERE slug = ?", (slug,)).fetchone()
-            if not local_row and url:
-                local_row = conn.execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
-
-            if local_row is None:
-                cols_sql = ", ".join(write_columns)
-                placeholders = ", ".join("?" for _ in write_columns)
-                conn.execute(
-                    f"INSERT OR IGNORE INTO jobs ({cols_sql}) VALUES ({placeholders})",  # noqa: S608
-                    [remote[c] for c in write_columns],
-                )
-                inserted += 1
-                continue
-
-            set_clauses, params = _merge_row_set_clause(dict(local_row), remote, write_columns)
-            if not set_clauses:
-                continue
-
-            set_clauses.append("updated_at = ?")
-            params.append(_now())
-            params.append(local_row["id"])
-            conn.execute(f"UPDATE jobs SET {', '.join(set_clauses)} WHERE id = ?", params)  # noqa: S608
-            updated += 1
-
-    return {"inserted": inserted, "updated": updated}
+    return {"inserted": inserted, "updated": updated, "deleted": deleted}
 
 
 def update_job_status(root: Path, slug: str, status: str, note: str = "") -> dict[str, Any]:
@@ -861,9 +929,27 @@ def get_job_by_url(root: Path, url: str) -> dict[str, Any] | None:
     return _row_to_dict(row) if row else None
 
 
+def _tombstone_and_delete(conn: sqlite3.Connection, where_sql: str, params: tuple[Any, ...]) -> int:
+    """Record a tombstone for each row matching where_sql, then delete it.
+
+    jobs.db is merged across machines on sync, not replaced wholesale — without a
+    tombstone, deleting a row locally doesn't stop a later sync from pulling it straight
+    back in from a remote snapshot that hasn't caught up to the delete yet.
+    """
+    now = _now()
+    rows = conn.execute(f"SELECT url, canonical_url, slug FROM jobs WHERE {where_sql}", params).fetchall()  # noqa: S608
+    for row in rows:
+        conn.execute(
+            "INSERT INTO deleted_jobs (url, canonical_url, slug, deleted_at) VALUES (?, ?, ?, ?)",
+            (row["url"], row["canonical_url"], row["slug"], now),
+        )
+    cursor = conn.execute(f"DELETE FROM jobs WHERE {where_sql}", params)  # noqa: S608
+    return cursor.rowcount
+
+
 def delete_job(root: Path, slug: str) -> None:
     with _conn(root) as conn:
-        conn.execute("DELETE FROM jobs WHERE slug = ?", (slug,))
+        _tombstone_and_delete(conn, "slug = ?", (slug,))
 
 
 def delete_jobs_by_slugs(root: Path, slugs: list[str]) -> int:
@@ -874,13 +960,12 @@ def delete_jobs_by_slugs(root: Path, slugs: list[str]) -> int:
         return 0
     placeholders = ",".join("?" * len(slugs))
     with _conn(root) as conn:
-        cursor = conn.execute(f"DELETE FROM jobs WHERE slug IN ({placeholders})", slugs)  # noqa: S608
-    return cursor.rowcount
+        return _tombstone_and_delete(conn, f"slug IN ({placeholders})", tuple(slugs))  # noqa: S608
 
 
 def delete_job_by_id(root: Path, job_id: int) -> None:
     with _conn(root) as conn:
-        conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        _tombstone_and_delete(conn, "id = ?", (job_id,))
 
 
 def delete_discarded_older_than(root: Path, days: int = 90) -> int:
@@ -888,11 +973,11 @@ def delete_discarded_older_than(root: Path, days: int = 90) -> int:
     candidate rows or any post-tailor application status (tailored/applied/etc)."""
     cutoff = (datetime.now(UTC) - timedelta(days=days)).replace(microsecond=0).isoformat()
     with _conn(root) as conn:
-        cur = conn.execute(
-            "DELETE FROM jobs WHERE status IN ('discarded', 'processed') AND COALESCE(processed_at, updated_at) < ?",
+        return _tombstone_and_delete(
+            conn,
+            "status IN ('discarded', 'processed') AND COALESCE(processed_at, updated_at) < ?",
             (cutoff,),
         )
-    return cur.rowcount
 
 
 def count_active(root: Path) -> int:
