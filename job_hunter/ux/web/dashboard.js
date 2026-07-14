@@ -308,6 +308,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
     if (view === 'unprocessed') loadUnprocessed();
+    if (view === 'company-hunt') refreshCompanyHuntPanel();
     if (view === 'insights' && !insightsLoaded) loadInsights();
     if (view === 'settings' && !settingsLoaded) loadSettings();
     if (view === 'get-started') loadGetStarted();
@@ -373,18 +374,8 @@ document.querySelectorAll('[data-candidate-scope]').forEach(tab => {
     tab.classList.add('active');
     candidateScope = tab.dataset.candidateScope;
     selectedCandidateIds.clear();
-    const isHunt = candidateScope === 'company-hunt';
-    document.getElementById('candidate-table-wrap').style.display = isHunt ? 'none' : '';
-    document.getElementById('company-hunt-panel').style.display = isHunt ? 'flex' : 'none';
-    document.getElementById('candidate-search').style.display = isHunt ? 'none' : '';
-    document.getElementById('candidate-total-count').style.display = isHunt ? 'none' : '';
-    document.getElementById('candidate-pager').style.display = isHunt ? 'none' : '';
     candidatePage = 1;
-    if (isHunt) {
-      refreshCompanyHuntPanel();
-    } else {
-      loadUnprocessed();
-    }
+    loadUnprocessed();
   });
 });
 
@@ -518,14 +509,11 @@ async function refreshAll() {
   await loadApplications();
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
   if (activeView === 'insights') await loadInsights();
-  if (activeView === 'unprocessed') {
-    if (candidateScope === 'company-hunt') {
-      await refreshCompanyHuntPanel();
-      const manageActive = document.querySelector('#company-hunt-subtabs .status-tab.active')?.dataset.companyHuntView === 'manage';
-      if (manageActive) await loadCompanies();
-    } else {
-      await loadUnprocessed();
-    }
+  if (activeView === 'unprocessed') await loadUnprocessed();
+  if (activeView === 'company-hunt') {
+    await refreshCompanyHuntPanel();
+    const manageActive = document.querySelector('#company-hunt-subtabs .status-tab.active')?.dataset.companyHuntView === 'manage';
+    if (manageActive) await loadCompanies();
   }
   if (activeView === 'settings') {
     await loadSettings();
@@ -628,8 +616,9 @@ async function refreshCompanyHuntPanel() {
 }
 
 async function runCompanyHunt() {
-  const mode = document.getElementById('company-hunt-mode').value;
-  const result = await window.pywebview.api.run_company_hunt(mode);
+  // "resume" continues an interrupted run if one exists, otherwise behaves like the
+  // normal new/changed check — one button, no mode picker to reason about.
+  const result = await window.pywebview.api.run_company_hunt('resume');
   if (result.already_running) return;
   document.getElementById('company-hunt-tbody').innerHTML = '';
   companyHuntRunId = null;

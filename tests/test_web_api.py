@@ -1199,19 +1199,30 @@ def test_dashboard_contains_artifact_workspace_controls() -> None:
     assert "@media (max-width: 900px)" in html
     assert 'data-candidate-scope="active"' in html
     assert 'data-candidate-scope="discarded"' in html
-    assert 'data-candidate-scope="company-hunt"' in html
-    assert 'id="company-hunt-panel"' in html
-    assert 'id="run-company-hunt-btn"' in html
     assert 'id="candidate-search"' in html
     assert ".badge-rejected  { background: rgba(248,81,73" in html
 
 
-def test_dashboard_company_hunt_uses_persisted_summary_polling_with_run_modes() -> None:
+def test_company_hunt_is_top_level_nav_not_nested_in_candidates() -> None:
+    """Regression: Company Hunt used to be a scope-tab hidden inside Candidates — it must
+    be its own top-level sidebar destination."""
     html = _dashboard_source()
 
-    assert 'id="company-hunt-mode"' in html
-    for mode in ("new_changed", "failed_only", "force_all", "resume"):
-        assert f'value="{mode}"' in html
+    assert 'data-view="company-hunt"' in html
+    assert '<section id="view-company-hunt" class="view">' in html
+    assert 'data-candidate-scope="company-hunt"' not in html
+    assert 'id="company-hunt-panel"' in html
+    assert 'id="run-company-hunt-btn"' in html
+
+
+def test_dashboard_company_hunt_uses_persisted_summary_polling_no_mode_picker() -> None:
+    """Regression: new_changed/failed_only/force_all/resume was a confusing 4-option
+    picker — the button always resumes an interrupted run if one exists, else behaves
+    like new/changed. No mode selector should remain in the UI."""
+    html = _dashboard_source()
+
+    assert 'id="company-hunt-mode"' not in html
+    assert "run_company_hunt('resume')" in html
     assert "get_company_hunt_summary" in html
     assert "get_company_hunt_updates" in html
     assert "get_company_hunt_status" not in html

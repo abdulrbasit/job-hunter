@@ -28,6 +28,10 @@
       <span class="nav-icon">📥</span>
       <span class="nav-label">Candidates</span>
     </button>
+    <button class="nav-btn" data-view="company-hunt">
+      <span class="nav-icon">🏢</span>
+      <span class="nav-label">Company Hunt</span>
+    </button>
     <button class="nav-btn" data-view="insights">
       <span class="nav-icon">📈</span>
       <span class="nav-label">Insights</span>
@@ -171,7 +175,6 @@
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
-          <button class="status-tab" data-candidate-scope="company-hunt">Company Hunt</button>
         </div>
         <button class="btn btn-danger" id="discard-selected-btn" style="display:none">Discard selected</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
@@ -195,7 +198,13 @@
         </table>
       </div>
       <div class="pager" id="candidate-pager"></div>
-      <div class="company-hunt-panel" id="company-hunt-panel" style="display:none">
+    </div>
+  </section>
+
+  <!-- Company Hunt view -->
+  <section id="view-company-hunt" class="view">
+    <div class="app-panel">
+      <div class="company-hunt-panel" id="company-hunt-panel">
         <div class="status-tabs" id="company-hunt-subtabs">
           <button class="status-tab active" data-company-hunt-view="run">Run Hunt</button>
           <button class="status-tab" data-company-hunt-view="manage">Manage Companies</button>
@@ -203,12 +212,6 @@
 
         <div id="company-hunt-run-view">
           <div class="run-header">
-            <select class="filter-select" id="company-hunt-mode">
-              <option value="new_changed">New / changed</option>
-              <option value="failed_only">Failed only</option>
-              <option value="force_all">Force all</option>
-              <option value="resume">Resume</option>
-            </select>
             <button class="btn btn-primary" id="run-company-hunt-btn">Run Company Hunt</button>
             <div class="run-stat"><div class="run-stat-label">Checked</div><div class="run-stat-value" id="ch-checked">—</div></div>
             <div class="run-stat"><div class="run-stat-label">Found</div><div class="run-stat-value" id="ch-found">—</div></div>
@@ -219,7 +222,7 @@
             <table class="data-table">
               <thead><tr><th>Company</th><th>Status</th><th>Jobs found</th></tr></thead>
               <tbody id="company-hunt-tbody">
-                <tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages.</div></td></tr>
+                <tr><td colspan="3"><div class="no-data">Click "Run Company Hunt" to check your configured career pages. Continues an interrupted run automatically.</div></td></tr>
               </tbody>
             </table>
           </div>
