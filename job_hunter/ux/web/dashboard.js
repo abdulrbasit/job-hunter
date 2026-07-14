@@ -39,9 +39,11 @@ const COMPANY_RENDER_STEP = 500;
 let companyRenderLimit = COMPANY_RENDER_STEP;
 let catalogIndustriesLoaded = false;
 let catalogPage = 1;
-let catalogPageData = { items: [], total: 0, page: 1, page_size: 100, pages: 1, revision: null };
+let catalogPageData = { items: [], total: 0, page: 1, page_size: 300, pages: 1, revision: null };
 let catalogIndustry = '';
+let catalogEnabledFilter = '';
 let selectedCatalogIds = new Set();
+let activeCatalogId = null;
 
 function debounce(fn, delay=250) {
   let timer;
@@ -332,6 +334,17 @@ document.querySelectorAll('#company-filter-tabs .status-tab').forEach(tab => {
   });
 });
 
+// Shared Catalog enabled/disabled filter tabs
+document.querySelectorAll('#catalog-filter-tabs .status-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#catalog-filter-tabs .status-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    catalogEnabledFilter = tab.dataset.catalogFilter;
+    catalogPage = 1;
+    loadCatalogPage();
+  });
+});
+
 document.getElementById('companies-tbody').addEventListener('click', (e) => {
   const editBtn = e.target.closest('[data-edit-url]');
   const deleteBtn = e.target.closest('[data-delete-url]');
@@ -357,13 +370,21 @@ document.getElementById('catalog-tbody').addEventListener('change', (e) => {
 
 document.getElementById('catalog-tbody').addEventListener('click', (e) => {
   const row = e.target.closest('tr[data-id]');
+  if (!row) return;
   const openLink = e.target.closest('[data-open-url]');
-  if (openLink && row) { e.preventDefault(); openCatalogCompany(row.dataset.id); }
+  if (openLink) { e.preventDefault(); openCatalogCompany(row.dataset.id); return; }
+  if (e.target.closest('.catalog-checkbox')) return;
+  openCatalogDetail(row.dataset.id);
 });
 
 document.getElementById('catalog-pager').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-page-delta]');
   if (btn && !btn.disabled) changeCatalogPage(Number(btn.dataset.pageDelta));
+});
+
+document.getElementById('catdp-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (activeCatalogId != null) openCatalogCompany(activeCatalogId);
 });
 
 // Settings sub-tabs
@@ -484,8 +505,10 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['company-bulk-disable-btn', () => bulkSetCompaniesEnabled(false)],
   ['catalog-bulk-enable-btn', () => bulkSetCatalogEnabled(true)],
   ['catalog-bulk-disable-btn', () => bulkSetCatalogEnabled(false)],
-  ['catalog-enable-industry-btn', () => setCatalogIndustryEnabled(true)],
-  ['catalog-disable-industry-btn', () => setCatalogIndustryEnabled(false)],
+  ['catalog-enable-shown-btn', () => setCatalogShownEnabled(true)],
+  ['catalog-disable-shown-btn', () => setCatalogShownEnabled(false)],
+  ['catdp-close-btn', closeCatalogDetail],
+  ['catdp-toggle-btn', toggleCatalogDetailEnabled],
   ['open-career-pages-btn', openCareerPagesFile],
   ['open-config-folder-btn', openConfigFolder],
   ['undo-career-pages-btn', undoCareerPages],
@@ -2287,7 +2310,7 @@ async function loadCatalogPage() {
   tbody.innerHTML = `<tr><td colspan="5">${loadingHtml()}</td></tr>`;
   try {
     const search = document.getElementById('catalog-search').value;
-    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 100);
+    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 300, catalogEnabledFilter);
     if (!result.ok) throw new Error('not ok');
     catalogPageData = result.data;
     document.getElementById('catalog-total-count').textContent = `${catalogPageData.total} companies`;
@@ -2364,13 +2387,62 @@ async function openCatalogCompany(id) {
   }
 }
 
-async function setCatalogIndustryEnabled(enabled) {
-  if (!catalogIndustry) { alert('Pick an industry from the dropdown first.'); return; }
-  const label = document.getElementById('catalog-industry-filter').selectedOptions[0]?.textContent || catalogIndustry;
-  if (!confirm(`${enabled ? 'Enable' : 'Disable'} every company in ${label}?`)) return;
+async function setCatalogShownEnabled(enabled) {
+  // Works for "All industries" too — enables/disables every company matching the
+  // current industry + search + enabled-state filter, not just what fits on one page.
+  const label = document.getElementById('catalog-industry-filter').selectedOptions[0]?.textContent || 'All industries';
+  const n = catalogPageData.total || 0;
+  if (!confirm(`${enabled ? 'Enable' : 'Disable'} all ${n} shown compan${n === 1 ? 'y' : 'ies'} (${label})?`)) return;
   try {
-    const result = await window.pywebview.api.save_catalog_industry_enabled(catalogIndustry, enabled, catalogPageData.revision);
+    const search = document.getElementById('catalog-search').value;
+    const result = await window.pywebview.api.save_catalog_filter_enabled(
+      catalogIndustry, search, catalogEnabledFilter, enabled, catalogPageData.revision
+    );
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
+    loadCatalogPage();
+  } catch(e) {
+    reportFailure('Shared catalog could not be updated.');
+  }
+}
+
+function openCatalogDetail(id) {
+  const company = (catalogPageData.items || []).find(c => c.id === id);
+  if (!company) return;
+  activeCatalogId = id;
+  document.getElementById('catalog-detail-panel').classList.add('open');
+  document.getElementById('catdp-title').textContent = company.name || '—';
+  const chips = [];
+  if (company.country_codes && company.country_codes.length) {
+    chips.push(`<span class="meta-chip">📍 ${esc(company.country_codes.join(', '))}</span>`);
+  }
+  chips.push(`<span class="meta-chip">${company.enabled ? 'Enabled' : 'Disabled'}</span>`);
+  document.getElementById('catdp-meta').innerHTML = chips.join('');
+  document.getElementById('catdp-link').textContent = `🔗 ${company.career_url}`;
+  updateCatalogToggleButton(company.enabled);
+}
+
+function updateCatalogToggleButton(enabled) {
+  const btn = document.getElementById('catdp-toggle-btn');
+  btn.textContent = enabled ? 'Disable' : 'Enable';
+  btn.classList.toggle('btn-danger', enabled);
+  btn.classList.toggle('btn-primary', !enabled);
+}
+
+function closeCatalogDetail() {
+  activeCatalogId = null;
+  document.getElementById('catalog-detail-panel').classList.remove('open');
+}
+
+async function toggleCatalogDetailEnabled() {
+  if (activeCatalogId == null) return;
+  const company = (catalogPageData.items || []).find(c => c.id === activeCatalogId);
+  if (!company) return;
+  const nextEnabled = !company.enabled;
+  try {
+    const result = await window.pywebview.api.save_catalog_enabled_ids([activeCatalogId], nextEnabled, catalogPageData.revision);
+    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
+    company.enabled = nextEnabled;
+    updateCatalogToggleButton(nextEnabled);
     loadCatalogPage();
   } catch(e) {
     reportFailure('Shared catalog could not be updated.');

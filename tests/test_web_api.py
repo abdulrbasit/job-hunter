@@ -1861,18 +1861,76 @@ def test_save_catalog_enabled_ids_preserves_custom_companies(tmp_path: Path) -> 
     assert reloaded["data"]["companies"][0]["name"] == "Stripe"
 
 
-def test_save_catalog_industry_enabled_enables_every_company_in_sector(tmp_path: Path) -> None:
+def test_save_catalog_filter_enabled_enables_every_company_in_sector(tmp_path: Path) -> None:
     from job_hunter.catalog import load_companies
 
     _write_career_pages(tmp_path)
     api = DashAPI(tmp_path)
     revision = api.get_career_pages()["data"]["revision"]
 
-    result = api.save_catalog_industry_enabled("software_it", True, revision)
+    result = api.save_catalog_filter_enabled("software_it", "", "", True, revision)
 
     expected = {c.id for c in load_companies() if "software_it" in c.industry_ids}
     assert result["ok"] is True
     assert set(result["data"]["catalog"]["enabled_company_ids"]) == expected
+
+
+def test_save_catalog_filter_enabled_with_empty_industry_enables_everything_matching_search(tmp_path: Path) -> None:
+    """Regression: "Enable all in this industry" used to hard-require an industry pick —
+    empty industry (the "All industries" filter) must mean "every industry", not a no-op,
+    so users can bulk-enable a whole search result without picking a sector first."""
+    from job_hunter.catalog import load_companies
+
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    revision = api.get_career_pages()["data"]["revision"]
+
+    result = api.save_catalog_filter_enabled("", "sap", "", True, revision)
+
+    expected = {c.id for c in load_companies() if "sap" in c.name.lower()}
+    assert expected  # sanity: the fixture catalog does contain a matching company
+    assert result["ok"] is True
+    assert set(result["data"]["catalog"]["enabled_company_ids"]) == expected
+
+
+def test_save_catalog_filter_enabled_disable_respects_enabled_filter(tmp_path: Path) -> None:
+    """Disabling "all shown" while viewing the Enabled tab must only touch companies that
+    are actually enabled right now, not silently enable-then-disable everything matching
+    the industry/search regardless of current state."""
+    from job_hunter.catalog import load_companies
+
+    software_ids = {c.id for c in load_companies() if "software_it" in c.industry_ids}
+    some_id = next(iter(software_ids))
+    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": [some_id]}}))
+    api = DashAPI(tmp_path)
+    revision = api.get_career_pages()["data"]["revision"]
+
+    result = api.save_catalog_filter_enabled("software_it", "", "enabled", False, revision)
+
+    assert result["ok"] is True
+    assert result["data"]["catalog"]["enabled_company_ids"] == []
+
+
+def test_get_catalog_filter_ids_returns_only_matching_ids(tmp_path: Path) -> None:
+    from job_hunter.catalog import load_companies
+
+    _write_career_pages(tmp_path)
+    result = DashAPI(tmp_path).get_catalog_filter_ids("software_it", "", "")
+
+    expected = {c.id for c in load_companies() if "software_it" in c.industry_ids}
+    assert result["ok"] is True
+    assert set(result["data"]["ids"]) == expected
+
+
+def test_get_catalog_page_filters_by_enabled_state(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": ["sap"]}}))
+    api = DashAPI(tmp_path)
+
+    enabled_only = api.get_catalog_page(search="sap", enabled_filter="enabled")
+    disabled_only = api.get_catalog_page(search="sap", enabled_filter="disabled")
+
+    assert any(item["id"] == "sap" for item in enabled_only["data"]["items"])
+    assert not any(item["id"] == "sap" for item in disabled_only["data"]["items"])
 
 
 def test_open_catalog_company_opens_known_id(tmp_path: Path, monkeypatch) -> None:
@@ -1897,10 +1955,24 @@ def test_dashboard_has_shared_catalog_browse_ui() -> None:
     assert "get_catalog_industries" in html
     assert "get_catalog_page" in html
     assert "save_catalog_enabled_ids" in html
-    assert "save_catalog_industry_enabled" in html
+    assert "save_catalog_filter_enabled" in html
     assert "open_catalog_company" in html
     assert 'data-companies-view="catalog"' in html
     assert 'id="catalog-industry-filter"' in html
+
+
+def test_dashboard_shared_catalog_has_enabled_disabled_tabs_and_preview_panel() -> None:
+    html = _dashboard_source()
+
+    assert 'id="catalog-filter-tabs"' in html
+    assert 'data-catalog-filter="enabled"' in html
+    assert 'data-catalog-filter="disabled"' in html
+    assert 'id="catalog-enable-shown-btn"' in html
+    assert 'id="catalog-disable-shown-btn"' in html
+    assert 'id="catalog-detail-panel"' in html
+    assert 'id="catdp-toggle-btn"' in html
+    assert "function openCatalogDetail" in html
+    assert "function toggleCatalogDetailEnabled" in html
 
 
 def test_load_catalog_page_unwraps_the_ok_data_envelope() -> None:

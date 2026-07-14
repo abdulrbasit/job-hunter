@@ -162,7 +162,7 @@ main {
 .view.active { display: flex; }
 
 /* ── Applications view ── */
-#view-applications, #view-unprocessed { flex-direction: row; position: relative; }
+#view-applications, #view-unprocessed, #view-company-hunt { flex-direction: row; position: relative; }
 
 .app-panel {
   flex: 1;

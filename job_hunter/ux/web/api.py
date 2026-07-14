@@ -1061,15 +1061,10 @@ class DashAPI:
             industries.append({"id": "uncategorized", "label": "Uncategorized", "count": uncategorized})
         return {"ok": True, "data": {"industries": industries}}
 
-    def get_catalog_page(
-        self, industry: str = "", search: str = "", page: int = 1, page_size: int = 100
-    ) -> dict[str, Any]:
-        """Server-paginated browse of the bundled catalog with current opt-in state."""
+    def _filtered_catalog_companies(
+        self, industry: str, search: str, enabled_filter: str, enabled_ids: set[str]
+    ) -> list[Any]:
         from job_hunter.catalog import load_companies
-        from job_hunter.config import service
-
-        pages = service.read_career_pages(self._root)
-        enabled_ids = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
 
         companies = load_companies()
         if industry == "uncategorized":
@@ -1079,6 +1074,29 @@ class DashAPI:
         if search.strip():
             needle = search.strip().lower()
             companies = [c for c in companies if needle in c.name.lower()]
+        if enabled_filter == "enabled":
+            companies = [c for c in companies if c.id in enabled_ids]
+        elif enabled_filter == "disabled":
+            companies = [c for c in companies if c.id not in enabled_ids]
+        return companies
+
+    def get_catalog_page(
+        self,
+        industry: str = "",
+        search: str = "",
+        page: int = 1,
+        page_size: int = 100,
+        enabled_filter: str = "",
+    ) -> dict[str, Any]:
+        """Server-paginated browse of the bundled catalog with current opt-in state.
+
+        enabled_filter: "" (all) | "enabled" | "disabled".
+        """
+        from job_hunter.config import service
+
+        pages = service.read_career_pages(self._root)
+        enabled_ids = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
+        companies = self._filtered_catalog_companies(industry, search, enabled_filter, enabled_ids)
 
         total = len(companies)
         page = max(1, page)
@@ -1090,6 +1108,7 @@ class DashAPI:
                 "name": c.name,
                 "career_url": c.career_url,
                 "country_codes": c.country_codes,
+                "industry_ids": c.industry_ids,
                 "enabled": c.id in enabled_ids,
             }
             for c in companies[start : start + page_size]
@@ -1144,15 +1163,28 @@ class DashAPI:
             return {"ok": False, "error": "Could not open URL."}
         return {"ok": True}
 
-    def save_catalog_industry_enabled(self, industry: str, enabled: bool, revision: str) -> dict[str, Any]:
-        """Bulk enable/disable every catalog company in one sector at once."""
-        from job_hunter.catalog import load_companies
+    def save_catalog_filter_enabled(
+        self, industry: str, search: str, enabled_filter: str, enabled: bool, revision: str
+    ) -> dict[str, Any]:
+        """Bulk enable/disable every catalog company matching the current browse filter
+        (industry/search/enabled-state) in one call — "industry" may be empty for
+        "every industry", so this also covers "enable everything currently shown"."""
+        from job_hunter.config import service
 
-        if industry == "uncategorized":
-            ids = [c.id for c in load_companies() if not c.industry_ids]
-        else:
-            ids = [c.id for c in load_companies() if industry in c.industry_ids]
-        return self.save_catalog_enabled_ids(ids, enabled, revision)
+        pages = service.read_career_pages(self._root)
+        current_enabled_ids = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
+        matching = self._filtered_catalog_companies(industry, search, enabled_filter, current_enabled_ids)
+        return self.save_catalog_enabled_ids([c.id for c in matching], enabled, revision)
+
+    def get_catalog_filter_ids(self, industry: str, search: str, enabled_filter: str) -> dict[str, Any]:
+        """All company ids matching the current browse filter — powers "select all N
+        matching companies" without shipping every field for thousands of rows."""
+        from job_hunter.config import service
+
+        pages = service.read_career_pages(self._root)
+        enabled_ids = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
+        matching = self._filtered_catalog_companies(industry, search, enabled_filter, enabled_ids)
+        return {"ok": True, "data": {"ids": [c.id for c in matching]}}
 
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""

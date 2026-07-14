@@ -316,10 +316,15 @@
               <select class="filter-select" id="catalog-industry-filter">
                 <option value="">All industries</option>
               </select>
+              <div class="status-tabs" id="catalog-filter-tabs">
+                <button class="status-tab active" data-catalog-filter="">All</button>
+                <button class="status-tab" data-catalog-filter="enabled">Enabled</button>
+                <button class="status-tab" data-catalog-filter="disabled">Disabled</button>
+              </div>
               <button class="btn" id="catalog-bulk-enable-btn" style="display:none">Enable selected</button>
               <button class="btn" id="catalog-bulk-disable-btn" style="display:none">Disable selected</button>
-              <button class="btn" id="catalog-enable-industry-btn">Enable all in this industry</button>
-              <button class="btn" id="catalog-disable-industry-btn">Disable all in this industry</button>
+              <button class="btn btn-primary" id="catalog-enable-shown-btn">Enable all shown</button>
+              <button class="btn" id="catalog-disable-shown-btn">Disable all shown</button>
               <span class="topbar-subtitle" id="catalog-total-count">0 companies</span>
             </div>
 
@@ -342,6 +347,25 @@
             <div class="pager" id="catalog-pager"></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Catalog company preview panel -->
+    <div class="detail-panel" id="catalog-detail-panel">
+      <div class="detail-header">
+        <h2 id="catdp-title">—</h2>
+        <button class="detail-close" id="catdp-close-btn">✕</button>
+      </div>
+      <div class="detail-meta" id="catdp-meta"></div>
+      <div class="detail-body">
+        <div>
+          <div class="detail-section-title">Career Page</div>
+          <a id="catdp-link" class="detail-link" href="#">🔗 Open career page</a>
+        </div>
+      </div>
+      <div class="detail-footer">
+        <span class="detail-footer-spacer"></span>
+        <button class="btn btn-primary" id="catdp-toggle-btn">Enable</button>
       </div>
     </div>
   </section>
