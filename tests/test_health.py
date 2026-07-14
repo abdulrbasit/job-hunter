@@ -180,6 +180,49 @@ def test_onboarding_checklist_all_done_when_repo_is_ready(tmp_path: Path) -> Non
     assert checklist["done_count"] == checklist["total_count"]
 
 
+def test_career_context_filled_accepts_prose(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _career_context_filled
+
+    path = tmp_path / "career_context.md"
+    path.write_text(
+        "I am a backend engineer with six years of experience building payment systems "
+        "in Berlin. I want staff-level roles at product companies with strong platform teams.",
+        encoding="utf-8",
+    )
+    assert _career_context_filled(path) is True
+
+
+def test_career_context_filled_rejects_pristine_template(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _career_context_filled
+    from job_hunter.workspace.assets import workspace_assets_root
+
+    template = workspace_assets_root().joinpath("profile/career_context.md").read_text(encoding="utf-8")
+    path = tmp_path / "career_context.md"
+    path.write_text(template, encoding="utf-8")
+    assert _career_context_filled(path) is False
+
+
+def test_career_context_filled_accepts_indented_and_bold_bullets(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _career_context_filled
+
+    path = tmp_path / "career_context.md"
+    path.write_text(
+        "## About Me\n\n"
+        "  - **Current role:** Senior Product Manager at Example Corp in Berlin\n"
+        "  - **Experience summary:** 5 years in B2B SaaS product management roles\n",
+        encoding="utf-8",
+    )
+    assert _career_context_filled(path) is True
+
+
+def test_career_context_filled_rejects_tiny_additions(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _career_context_filled
+
+    path = tmp_path / "career_context.md"
+    path.write_text("# Career Context\n\n- Current role: PM\n", encoding="utf-8")
+    assert _career_context_filled(path) is False
+
+
 def test_onboarding_checklist_requires_api_key_in_llm_api_mode(tmp_path: Path, monkeypatch) -> None:
     _write_minimal_repo(tmp_path)
     (tmp_path / "config" / "job_hunter.yml").write_text(

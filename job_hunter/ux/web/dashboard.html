@@ -16,6 +16,10 @@
     <span class="logo-text" id="sidebar-name">Job Hunter</span>
   </div>
   <nav>
+    <button class="nav-btn" data-view="get-started">
+      <span class="nav-icon">🚀</span>
+      <span class="nav-label">Get Started</span>
+    </button>
     <button class="nav-btn active" data-view="today">
       <span class="nav-icon">🏠</span>
       <span class="nav-label">Today</span>
@@ -306,7 +310,6 @@
         <button class="status-tab active" data-settings-tab="guided">Guided</button>
         <button class="status-tab" data-settings-tab="advanced">Advanced YAML</button>
         <button class="status-tab" data-settings-tab="career-context">Career Context</button>
-        <button class="status-tab" data-settings-tab="get-started">Get Started</button>
         <button class="status-tab" data-settings-tab="diagnostics">Diagnostics</button>
       </div>
 
@@ -416,9 +419,31 @@
         </div>
       </div>
 
-      <!-- Get Started -->
-      <div class="settings-panel" id="settings-panel-get-started">
-        <div class="settings-section" id="gs-section-search-setup">
+      <!-- Diagnostics (folded in from the former standalone Analytics nav item, plus doctor output) -->
+      <div class="settings-panel" id="settings-panel-diagnostics">
+        <div class="settings-section" id="diag-section-doctor">
+          <h3>Setup Health Check</h3>
+          <ul class="onboarding-checklist" id="diag-checklist"><li class="no-data">Loading…</li></ul>
+        </div>
+        <div class="settings-section" id="diag-section-analytics">
+          <h3>Analytics</h3>
+          <div id="analytics-header">
+            <div class="loading-wrap"><span class="spinner"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Get Started view -->
+  <section id="view-get-started" class="view">
+    <div class="settings-wrap">
+      <div class="settings-section" id="gs-section-checklist">
+        <h3>Setup Checklist</h3>
+        <ul class="onboarding-checklist" id="gs-checklist"><li class="no-data">Loading…</li></ul>
+      </div>
+
+      <div class="settings-section" id="gs-section-search-setup">
           <h3>Quick Search Setup</h3>
           <div class="settings-grid">
             <div class="settings-field"><label for="gs-search-mode">Execution mode</label>
@@ -479,10 +504,10 @@
             <div class="settings-field"><label for="gs-linkedin-tone">LinkedIn tone</label><input type="text" id="gs-linkedin-tone"></div>
           </div>
           <div class="settings-actions">
-            <button class="btn btn-primary" type="button" id="apply-quick-career-context-btn">Fill Career Context tab from these answers</button>
+            <button class="btn btn-primary" type="button" id="apply-quick-career-context-btn">Fill Career Context from these answers</button>
             <span class="save-msg" id="gs-career-msg"></span>
           </div>
-          <span style="font-size:12px;color:var(--text-muted)">Writes into the Career Context tab's editor — review and Save there. Leave any field blank to skip it.</span>
+          <span style="font-size:12px;color:var(--text-muted)">Writes into the editor at Settings → Career Context — review and Save there. Leave any field blank to skip it.</span>
         </div>
 
         <div class="settings-section" id="gs-section-api-key">
@@ -518,21 +543,6 @@
           </div>
           <span style="font-size:12px;color:var(--text-muted)">You still paste secrets into GitHub's Settings → Secrets UI and edit/commit the workflow file yourself — nothing here pushes on your behalf.</span>
         </div>
-      </div>
-
-      <!-- Diagnostics (folded in from the former standalone Analytics nav item, plus doctor output) -->
-      <div class="settings-panel" id="settings-panel-diagnostics">
-        <div class="settings-section" id="diag-section-doctor">
-          <h3>Setup Health Check</h3>
-          <ul class="onboarding-checklist" id="diag-checklist"><li class="no-data">Loading…</li></ul>
-        </div>
-        <div class="settings-section" id="diag-section-analytics">
-          <h3>Analytics</h3>
-          <div id="analytics-header">
-            <div class="loading-wrap"><span class="spinner"></span></div>
-          </div>
-        </div>
-      </div>
     </div>
   </section>
 

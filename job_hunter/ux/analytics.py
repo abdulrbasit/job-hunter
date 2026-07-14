@@ -1,4 +1,4 @@
-"""Application pipeline analytics — compute only, shared by terminal and web dashboards."""
+"""Application pipeline analytics — compute only, consumed by the web dashboard."""
 
 from __future__ import annotations
 

@@ -111,9 +111,20 @@ async function initAll() {
     const name = await window.pywebview.api.get_user_name();
     if (name) document.getElementById('sidebar-name').textContent = name;
   } catch(_) {}
-  await loadOnboarding();
+  const setup = await loadOnboarding();
+  if (setupIncomplete(setup)) {
+    document.querySelector('.nav-btn[data-view="get-started"]').click();
+  }
   await loadApplicationStreak();
   await refreshAll();
+}
+
+// Schedule and permissions are optional polish — they never force the Get Started landing.
+const OPTIONAL_SETUP_IDS = new Set(['workflow_schedule', 'outputs_writable']);
+
+function setupIncomplete(checklist) {
+  if (!checklist || !checklist.ok) return false;
+  return (checklist.items || []).some(item => !item.done && !OPTIONAL_SETUP_IDS.has(item.id));
 }
 
 async function loadApplicationStreak() {
@@ -187,27 +198,33 @@ function checklistItemsHtml(items) {
   `).join('');
 }
 
+// One fetch feeds both setup surfaces: the slim topbar pill and the Get Started checklist.
 async function loadOnboarding() {
   const banner = document.getElementById('onboarding-banner');
+  const checklistEl = document.getElementById('gs-checklist');
   try {
     const result = await window.pywebview.api.get_onboarding_checklist();
     if (!result.ok) {
       banner.textContent = `${result.error || 'Setup status is unavailable.'} ${result.next_action || ''}`;
       banner.style.display = '';
-      return;
+      return result;
     }
+    checklistEl.innerHTML = checklistItemsHtml(result.items) || '<li class="no-data">All setup checks pass.</li>';
     if (result.done_count >= result.total_count) {
       banner.style.display = 'none';
-      return;
+      return result;
     }
-    banner.innerHTML = `
-      <div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done</div>
-      <ul class="onboarding-checklist">${checklistItemsHtml(result.items)}</ul>
-    `;
+    banner.innerHTML = `<div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done — <a href="#" id="finish-setup-link">Finish setup →</a></div>`;
+    document.getElementById('finish-setup-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelector('.nav-btn[data-view="get-started"]').click();
+    });
     banner.style.display = '';
+    return result;
   } catch(_) {
     banner.textContent = 'Setup status is unavailable. Run job-hunter doctor in the workspace.';
     banner.style.display = '';
+    return null;
   }
 }
 
@@ -230,7 +247,9 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const view = btn.dataset.view;
     const currentView = document.querySelector('.nav-btn.active')?.dataset.view;
-    if (currentView === 'settings' && view !== 'settings' && settingsHasUnsavedChanges() &&
+    // Get Started's quick fill writes into the Settings editors, so both views share the guard.
+    const editViews = ['settings', 'get-started'];
+    if (editViews.includes(currentView) && !editViews.includes(view) && settingsHasUnsavedChanges() &&
         !confirm('You have unsaved Settings changes. Leave without saving?')) {
       return;
     }
@@ -243,6 +262,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'insights' && !insightsLoaded) loadInsights();
     if (view === 'settings' && !settingsLoaded) loadSettings();
+    if (view === 'get-started') loadGetStarted();
   });
 });
 
@@ -465,6 +485,7 @@ async function refreshAll() {
       await loadAnalytics();
     }
   }
+  if (activeView === 'get-started') await loadGetStarted();
 }
 
 async function loadApplications() {
@@ -1313,6 +1334,12 @@ async function loadSettings() {
   ]);
 }
 
+async function loadGetStarted() {
+  // Settings editors back the quick-fill and import flows, so load them alongside the checklist.
+  await loadOnboarding();
+  if (!settingsLoaded) await loadSettings();
+}
+
 async function saveSearchSetup() {
   const msg = document.getElementById('gs-search-msg');
   msg.textContent = '';
@@ -1390,7 +1417,7 @@ function applyQuickCareerContext() {
   const msg = document.getElementById('gs-career-msg');
   let text = document.getElementById('settings-career-context').value;
   if (!text) {
-    msg.textContent = 'Open the Career Context tab once first, then come back.';
+    msg.textContent = 'Open Settings → Career Context once first, then come back.';
     msg.style.color = '#ffa657';
     return;
   }
@@ -1406,7 +1433,7 @@ function applyQuickCareerContext() {
   document.getElementById('settings-career-context').value = text;
   careerContextDirty = true;
   updateDirtyFlag('career-context');
-  msg.textContent = '✓ Applied — review and Save in the Career Context tab';
+  msg.textContent = '✓ Applied — review and Save in Settings → Career Context';
   msg.style.color = '#56d364';
   setTimeout(() => { msg.textContent = ''; }, 3000);
 }
@@ -1744,6 +1771,7 @@ async function saveCareerContext() {
     updateDirtyFlag('career-context');
     msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
     setTimeout(() => { msg.textContent = ''; }, 2000);
+    loadOnboarding();
   } catch(e) {
     showSettingsErrors(['career_context.md could not be saved. Retry, then run job-hunter doctor if the problem continues.']);
   } finally {

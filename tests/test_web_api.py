@@ -147,6 +147,19 @@ def test_dashboard_has_safe_shared_states_onboarding_and_keyboard_focus() -> Non
     assert "${e}" not in html
 
 
+def test_get_started_is_a_top_level_view_not_a_settings_tab() -> None:
+    html = _dashboard_source()
+
+    assert 'data-view="get-started"' in html
+    assert 'id="view-get-started"' in html
+    assert 'id="gs-checklist"' in html
+    assert 'data-settings-tab="get-started"' not in html
+    assert 'id="settings-panel-get-started"' not in html
+    # First run lands on Get Started; optional items never force it.
+    assert "setupIncomplete" in html
+    assert "workflow_schedule" in html
+
+
 def test_get_onboarding_returns_count_without_local_paths(tmp_path: Path) -> None:
     payload = DashAPI(tmp_path).get_onboarding()
 

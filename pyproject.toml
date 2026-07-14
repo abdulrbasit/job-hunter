@@ -152,13 +152,12 @@ ignore = ["E501", "S101"]
 "job_hunter/cli/**" = ["TID251"]
 # TID251: pipeline/ submodules import job_hunter.pipeline internally.
 "job_hunter/pipeline/**" = ["TID251"]
-# TID251: ux/ submodules import job_hunter.ux internally (e.g. ux/terminal/dashboard.py importing
-# ux/terminal/applications.py). ux/terminal/dashboard.py and ux/web/api.py also call
+# TID251: ux/ submodules import job_hunter.ux internally. ux/web/api.py also calls
 # pipeline.stages.readme.update_readme_from_applications explicitly after a tracking/applications.py
 # state change, to refresh README.md — a legitimate call into a self-contained report generator (no
 # pipeline execution state involved), not a "mutate pipeline internals" violation. Phase 10 moved
 # this call out of the data layer (was ux/applications.py — that hidden side effect is gone;
-# tracking/applications.py mutations are now pure) and made it explicit at these two call sites.
+# tracking/applications.py mutations are now pure) and made it explicit at that call site.
 "job_hunter/ux/**" = ["TID251"]
 # TID251: agent_context/ is agent-mode's context builder — a legitimate current caller of pipeline
 # stages (enrichment, screening, tailorer), not a boundary violation.
@@ -187,7 +186,6 @@ ignore = ["E501", "S101"]
 "job_hunter/sources/{jd_fetcher,orchestrator}.py" = ["C901"]
 "job_hunter/sources/career_pages/{__init__,_jsonld}.py" = ["C901"]
 "job_hunter/sources/search/{ats_discovery,router}.py" = ["C901"]
-"job_hunter/ux/terminal/dashboard.py" = ["C901"]
 "job_hunter/ux/health.py" = ["C901"]
 
 [tool.ruff.lint.flake8-bugbear]

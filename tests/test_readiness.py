@@ -30,7 +30,11 @@ def _write_workspace(
     resume_text = "not a template placeholder" if resume_filled else r"\name{Name}"
     (root / "profile" / "resume_double_column.tex").write_text(resume_text, encoding="utf-8")
     if career_context_filled:
-        context = "\n".join(f"- field{i}: value{i}" for i in range(4))
+        context = (
+            "- Current role: Senior Product Manager at Example Corp\n"
+            "- Experience summary: 5 years in B2B SaaS product management\n"
+            "- Strongest proof points: Led product from 0 to 10k users\n"
+        )
     else:
         context = ""
     (root / "profile" / "career_context.md").write_text(context, encoding="utf-8")

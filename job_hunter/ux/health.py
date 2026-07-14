@@ -373,7 +373,7 @@ def onboarding_checklist(root: Path) -> dict[str, Any]:
             "id": "career_context",
             "label": "Fill in your career context (targeting, resume style, tone)",
             "done": career_rel not in missing and f"{career_rel}:filled" not in missing,
-            "action_hint": "Settings → Career Context",
+            "action_hint": "Get Started → Import from Any Chatbot, or Settings → Career Context",
         },
         {
             "id": "story_bank",
@@ -385,13 +385,13 @@ def onboarding_checklist(root: Path) -> dict[str, Any]:
             "id": "api_key",
             "label": "Configure an API key for your LLM provider",
             "done": _api_key_configured(job_hunter_config),
-            "action_hint": "Settings → Get Started → API Key",
+            "action_hint": "Get Started → API Key",
         },
         {
             "id": "workflow_schedule",
             "label": "Enable the GitHub Actions schedule for unattended hunting",
             "done": "workflow_schedule" not in warnings,
-            "action_hint": "Settings → Get Started → GitHub Actions",
+            "action_hint": "Get Started → GitHub Actions",
         },
         {
             "id": "outputs_writable",
@@ -449,11 +449,25 @@ def _resume_filled(path: Path) -> bool:
     return True
 
 
+def _career_context_template_lines() -> frozenset[str]:
+    from job_hunter.workspace.assets import workspace_assets_root
+
+    text = workspace_assets_root().joinpath("profile/career_context.md").read_text(encoding="utf-8")
+    return frozenset(line.strip() for line in text.splitlines() if line.strip())
+
+
 def _career_context_filled(path: Path) -> bool:
-    """Return True if career_context.md has content beyond empty template fields."""
+    """Return True if career_context.md has meaningful content beyond the bundled template.
+
+    Counts characters on lines that don't appear in the pristine template, so any
+    format counts — prose, indented bullets, bold labels, chatbot imports.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
-    filled = sum(1 for line in text.splitlines() if re.match(r"^-\s+[^:]+:\s+\S", line))
-    return filled >= 3
+    template_lines = _career_context_template_lines()
+    novel = sum(
+        len(stripped) for line in text.splitlines() if (stripped := line.strip()) and stripped not in template_lines
+    )
+    return novel >= 100
 
 
 def _has_final_story(path: Path) -> bool:

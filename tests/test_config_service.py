@@ -511,6 +511,26 @@ def test_undo_career_context_restores_exact_prior_bytes(tmp_path: Path) -> None:
     assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "original"
 
 
+def test_career_context_honors_configured_profile_path(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"profile": {"career_context": "docs/context.md"}}), encoding="utf-8"
+    )
+    (tmp_path / "docs" / "context.md").write_text("custom location", encoding="utf-8")
+
+    read = service.read_career_context(tmp_path)
+    assert read["data"] == "custom location"
+
+    result = service.save_career_context(tmp_path, "updated text", read["revision"])
+    assert result["ok"] is True
+    assert (tmp_path / "docs" / "context.md").read_text(encoding="utf-8") == "updated text"
+
+    undo = service.undo_last_save(tmp_path, "career_context")
+    assert undo["ok"] is True
+    assert (tmp_path / "docs" / "context.md").read_text(encoding="utf-8") == "custom location"
+
+
 # ---------------------------------------------------------------------------
 # Onboarding: compact search-setup prefs (Phase 3)
 # ---------------------------------------------------------------------------

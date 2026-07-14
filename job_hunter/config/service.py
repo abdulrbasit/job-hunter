@@ -46,6 +46,17 @@ _LOGICAL_FILES: dict[str, Path] = {
 }
 
 
+def _career_context_rel(root: Path) -> Path:
+    """The configured profile.career_context path — doctor/readiness honor it, so writers must too."""
+    path = root / JOB_HUNTER_CONFIG_REL
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, yaml.YAMLError):
+        data = {}
+    value = str((data.get("profile") or {}).get("career_context") or "") if isinstance(data, dict) else ""
+    return Path(value) if value else CAREER_CONTEXT_REL
+
+
 def get_revision(path: Path) -> str:
     """SHA-256 hex digest of the file's current bytes (empty-file digest if missing)."""
     data = path.read_bytes() if path.exists() else b""
@@ -471,30 +482,32 @@ def save_career_pages(
 
 
 def read_career_context(root: Path) -> dict[str, Any]:
-    path = root / CAREER_CONTEXT_REL
+    path = root / _career_context_rel(root)
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     return {"ok": True, "data": text, "revision": get_revision(path), "errors": [], "warnings": []}
 
 
 def save_career_context(root: Path, text: str, expected_revision: str) -> dict[str, Any]:
-    path = root / CAREER_CONTEXT_REL
+    rel = _career_context_rel(root)
     errors = validate_career_context(text)
     if errors:
-        return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
-    return _safe_replace(root, "career_context", CAREER_CONTEXT_REL, text.encode("utf-8"), expected_revision)
+        return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(root / rel)}
+    return _safe_replace(root, "career_context", rel, text.encode("utf-8"), expected_revision)
 
 
 # ---------------------------------------------------------------------------
 # Any-chatbot onboarding bundle (profile/career_context.md, story_bank.md, resume_source.md)
 # ---------------------------------------------------------------------------
 
+
 # Section name -> (relative path, logical name). Logical names reuse existing
 # undo slots (e.g. "career_context" is the same file/slot save_career_context uses).
-_ONBOARDING_BUNDLE_TARGETS: dict[str, tuple[Path, str]] = {
-    "CAREER_CONTEXT": (CAREER_CONTEXT_REL, "career_context"),
-    "STORY_BANK": (STORY_BANK_REL, "story_bank"),
-    "BASE_RESUME": (ONBOARDING_RESUME_SOURCE_REL, "resume_source"),
-}
+def _onboarding_bundle_targets(root: Path) -> dict[str, tuple[Path, str]]:
+    return {
+        "CAREER_CONTEXT": (_career_context_rel(root), "career_context"),
+        "STORY_BANK": (STORY_BANK_REL, "story_bank"),
+        "BASE_RESUME": (ONBOARDING_RESUME_SOURCE_REL, "resume_source"),
+    }
 
 
 def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str, Any]:
@@ -504,7 +517,8 @@ def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str,
     reusing the same backup dir/logical names as their regular save functions)
     and rolls back any file already written if a later write in the batch fails.
     """
-    missing = [name for name in _ONBOARDING_BUNDLE_TARGETS if name not in sections]
+    targets = _onboarding_bundle_targets(root)
+    missing = [name for name in targets if name not in sections]
     if missing:
         return {"ok": False, "errors": [f"Missing section(s): {', '.join(missing)}"], "warnings": []}
 
@@ -514,19 +528,19 @@ def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str,
 
     previous: dict[str, bytes] = {}
     written: list[str] = []
-    for name, (rel_path, _logical) in _ONBOARDING_BUNDLE_TARGETS.items():
+    for name, (rel_path, _logical) in targets.items():
         path = root / rel_path
         previous[name] = path.read_bytes() if path.exists() else b""
 
     try:
-        for name, (rel_path, logical) in _ONBOARDING_BUNDLE_TARGETS.items():
+        for name, (rel_path, logical) in targets.items():
             _atomic_write(_backup_path(root, logical), previous[name])
             _atomic_write(root / rel_path, sections[name].encode("utf-8"))
             written.append(name)
     except OSError as exc:
         for name in written:
             with suppress(OSError):
-                _atomic_write(root / _ONBOARDING_BUNDLE_TARGETS[name][0], previous[name])
+                _atomic_write(root / targets[name][0], previous[name])
         return {"ok": False, "errors": [f"Could not save onboarding bundle: {exc}"], "warnings": []}
 
     return {"ok": True, "errors": [], "warnings": []}
@@ -539,7 +553,7 @@ def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str,
 
 def undo_last_save(root: Path, logical_name: str) -> dict[str, Any]:
     """Restore the one backup slot kept for logical_name. Consumes the backup (one-level)."""
-    rel_path = _LOGICAL_FILES.get(logical_name)
+    rel_path = _career_context_rel(root) if logical_name == "career_context" else _LOGICAL_FILES.get(logical_name)
     if rel_path is None:
         return {"ok": False, "errors": [f"Unknown config file: {logical_name}"], "warnings": [], "revision": ""}
 
