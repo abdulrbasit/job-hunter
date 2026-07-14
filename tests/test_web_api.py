@@ -1901,3 +1901,19 @@ def test_dashboard_has_shared_catalog_browse_ui() -> None:
     assert "open_catalog_company" in html
     assert 'data-companies-view="catalog"' in html
     assert 'id="catalog-industry-filter"' in html
+
+
+def test_load_catalog_page_unwraps_the_ok_data_envelope() -> None:
+    """Regression: get_catalog_page returns {ok, data: {...}} (like get_career_pages),
+    not a flat dict (like get_applications/get_unprocessed) — loadCatalogPage previously
+    assigned the whole envelope to catalogPageData, so catalogPageData.total/.items were
+    undefined and every catalog-page load fell into the error path in the live app,
+    even though every unit test (calling the Python method directly) passed."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    start = js.index("async function loadCatalogPage(")
+    end = js.index("\n}\n", start)
+    body = js[start:end]
+
+    assert "catalogPageData = result.data" in body
+    assert "catalogPageData = await window.pywebview.api.get_catalog_page" not in body

@@ -2287,7 +2287,9 @@ async function loadCatalogPage() {
   tbody.innerHTML = `<tr><td colspan="5">${loadingHtml()}</td></tr>`;
   try {
     const search = document.getElementById('catalog-search').value;
-    catalogPageData = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 100);
+    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 100);
+    if (!result.ok) throw new Error('not ok');
+    catalogPageData = result.data;
     document.getElementById('catalog-total-count').textContent = `${catalogPageData.total} companies`;
     if (!catalogPageData.items.length) {
       tbody.innerHTML = `<tr><td colspan="5"><div class="no-data">No companies found</div></td></tr>`;
