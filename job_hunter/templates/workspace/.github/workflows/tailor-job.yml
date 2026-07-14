@@ -81,37 +81,8 @@ jobs:
           if [ "$FORCE" = "true" ]; then args+=(--force); fi
           job-hunter "${args[@]}"
 
-      - name: Commit results
+      - name: Commit and sync results
         run: |
           git config user.name "Job Hunter"
           git config user.email "noreply@github.com"
-          for path in \
-            README.md \
-            outputs/jobs/ \
-            outputs/candidates/ \
-            outputs/linkedin/ \
-            outputs/state/jobs.db \
-            outputs/state/discovered_urls.yml \
-            outputs/state/agent_candidate_queue.json \
-            outputs/state/api_usage.json \
-            outputs/state/dev_token_metrics.json
-          do
-            [ -e "$path" ] && git add --force "$path"
-          done
-          git diff --staged --quiet && exit 0
-          git commit -m "chore(tailor): queue links $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          for i in 1 2 3; do
-            git push && exit 0
-            git fetch origin main
-            git rebase origin/main || {
-              git diff --name-only --diff-filter=U | while IFS= read -r f; do
-                case "$f" in
-                  outputs/*) git checkout --ours -- "$f" ;;
-                  *) git checkout --theirs -- "$f" ;;
-                esac
-              done
-              git add -u
-              git rebase --continue || { git rebase --abort; exit 1; }
-            }
-          done
-          echo "Push failed after 3 retries" && exit 1
+          job-hunter internal sync -m "chore(tailor): queue links $(date -u +%Y-%m-%dT%H:%M:%SZ)"

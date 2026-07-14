@@ -9,16 +9,8 @@ from typing import Any
 
 import typer
 
-FINALIZE_PATHS = (
-    "README.md",
-    "config",
-    "profile",
-    "outputs/jobs",
-    "outputs/linkedin",
-    "outputs/state/api_usage.json",
-    "outputs/state/dev_token_metrics.json",
-    "outputs/state/jobs.db",
-)
+from job_hunter.workspace.git_sync import FINALIZE_PATHS  # noqa: F401 — re-exported for cli/commands/internal.py
+
 TRANSIENT_STATE_PATHS = (
     "outputs/state/agent_candidate_queue.json",
     "outputs/state/agent_candidate_batch.json",

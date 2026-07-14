@@ -160,6 +160,15 @@ def test_get_started_is_a_top_level_view_not_a_settings_tab() -> None:
     assert "workflow_schedule" in html
 
 
+def test_dashboard_has_sync_button_and_auto_sync_on_open() -> None:
+    html = _dashboard_source()
+
+    assert 'id="sync-btn"' in html
+    assert "start_sync" in html
+    assert "get_sync_status" in html
+    assert "runSync({ silent: true })" in html
+
+
 def test_get_onboarding_returns_count_without_local_paths(tmp_path: Path) -> None:
     payload = DashAPI(tmp_path).get_onboarding()
 
@@ -1054,6 +1063,83 @@ def test_start_hunt_worker_crash_reports_failed_and_resets_lock(tmp_path: Path, 
     assert status["status"] == "failed"
     assert "scrape failed" not in status["message"]  # detailed exceptions stay out of the UI-facing message
     assert api.start_hunt()["ok"] is True  # lock was released despite the crash
+
+
+def test_get_sync_status_reports_idle_before_any_run(tmp_path: Path) -> None:
+    assert DashAPI(tmp_path).get_sync_status() == {"ok": True, "status": "idle"}
+
+
+def test_start_sync_runs_worker_and_reports_result(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "job_hunter.workspace.git_sync.sync_workspace",
+        lambda root: {"ok": True, "inserted": 2, "updated": 1, "pushed": True},
+    )
+    api = DashAPI(tmp_path)
+
+    result = api.start_sync()
+    assert result == {"ok": True, "status": "running"}
+
+    for _ in range(50):
+        if api.get_sync_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_sync_status()
+    assert status["status"] == "succeeded"
+    assert status["inserted"] == 2
+    assert status["updated"] == 1
+    json.dumps(status)
+
+
+def test_start_sync_rejects_concurrent_start_with_hunt(tmp_path: Path, monkeypatch) -> None:
+    import threading
+
+    release = threading.Event()
+
+    def blocking_run(inp):
+        release.wait(timeout=5)
+        return _fake_hunt_output()
+
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", blocking_run)
+    api = DashAPI(tmp_path)
+
+    api.start_hunt()
+    try:
+        second = api.start_sync()
+        assert second["ok"] is False
+        assert second["status"] == "running"
+    finally:
+        release.set()
+        for _ in range(50):
+            if api.get_hunt_status()["status"] != "running":
+                break
+            import time
+
+            time.sleep(0.05)
+
+
+def test_start_sync_worker_crash_reports_failed_and_resets_lock(tmp_path: Path, monkeypatch) -> None:
+    def boom(root):
+        raise RuntimeError("git exploded")
+
+    monkeypatch.setattr("job_hunter.workspace.git_sync.sync_workspace", boom)
+    api = DashAPI(tmp_path)
+
+    api.start_sync()
+    for _ in range(50):
+        if api.get_sync_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_sync_status()
+    assert status["status"] == "failed"
+    assert "git exploded" not in status["error"]  # detailed exceptions stay out of the UI-facing message
+    assert api.start_sync()["ok"] is True  # lock was released despite the crash
 
 
 def test_start_company_hunt_is_alias_for_run_company_hunt(tmp_path: Path) -> None:

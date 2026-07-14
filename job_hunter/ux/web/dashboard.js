@@ -117,6 +117,7 @@ async function initAll() {
   }
   await loadApplicationStreak();
   await refreshAll();
+  runSync({ silent: true }); // auto-sync on open — merge is lossless by construction, safe unattended
 }
 
 // Schedule and permissions are optional polish — they never force the Get Started landing.
@@ -186,6 +187,47 @@ async function findJobs() {
   const result = await window.pywebview.api.start_hunt();
   if (!result.ok) { reportFailure(result.error || 'Could not start the hunt.'); return; }
   pollTodayHuntStatus();
+}
+
+// ── Sync — merges and pushes outputs/state/jobs.db without the user ever touching git ──
+let syncPolling = false;
+
+async function runSync({ silent } = {}) {
+  const result = await window.pywebview.api.start_sync();
+  if (!result.ok) {
+    // A hunt or another sync is already running — try again once it finishes.
+    if (!silent) showToast(result.error || 'Could not start sync.');
+    return;
+  }
+  pollSyncStatus(silent);
+}
+
+async function pollSyncStatus(silent) {
+  if (syncPolling) return;
+  syncPolling = true;
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true;
+  btn.textContent = '⇅ Syncing…';
+  try {
+    while (true) {
+      const result = await window.pywebview.api.get_sync_status();
+      if (result.status !== 'running') {
+        if (result.status === 'succeeded') {
+          const moved = (result.inserted || 0) + (result.updated || 0);
+          if (!silent || moved > 0) showToast(moved ? `Synced — ${moved} job(s) merged` : 'Synced');
+          if (moved) refreshAll();
+        } else if (result.status === 'failed' && !silent) {
+          showToast(result.error || 'Sync failed.');
+        }
+        break;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    syncPolling = false;
+    btn.disabled = false;
+    btn.textContent = '⇅ Sync';
+  }
 }
 
 function checklistItemsHtml(items) {
@@ -382,6 +424,7 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
 // CSP script-src dropped 'unsafe-inline'; ids below are 1:1 with the removed attributes.
 [
   ['refresh-btn', refreshAll],
+  ['sync-btn', () => runSync({ silent: false })],
   ['find-jobs-btn', findJobs],
   ['app-bulk-delete-btn', bulkDeleteApplications],
   ['dp-close-btn', closeDetail],

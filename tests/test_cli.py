@@ -88,13 +88,17 @@ def test_setup_doc_explains_company_hunt_feeds_the_main_jobs_db() -> None:
     assert "outputs/state/jobs.db" in setup
 
 
-def test_tailor_job_workflow_push_retries_like_find_jobs() -> None:
-    """tailor-job.yml's push must retry/rebase on race, matching find-jobs.yml — a bare
-    `git push` previously failed hard if find-jobs and tailor-job ran close together."""
-    workflow = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "tailor-job.yml").read_text(encoding="utf-8")
+def test_tailor_job_and_find_jobs_workflows_sync_through_internal_sync() -> None:
+    """Both workflows must commit/push through `job-hunter internal sync`, not inline bash —
+    the retry/rebase-with-jobs.db-merge logic lives once in workspace/git_sync.py so find-jobs
+    and tailor-job (and a local `job-hunter dash` Sync click) can never race and drop rows."""
+    tailor_job = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "tailor-job.yml").read_text(encoding="utf-8")
+    find_jobs = (WORKSPACE_TEMPLATE / ".github" / "workflows" / "find-jobs.yml").read_text(encoding="utf-8")
 
-    assert "for i in 1 2 3; do" in workflow
-    assert "git rebase origin/main" in workflow
+    for workflow in (tailor_job, find_jobs):
+        assert "job-hunter internal sync" in workflow
+        assert "git rebase" not in workflow
+        assert "git push" not in workflow
 
 
 def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:

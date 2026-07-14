@@ -12,7 +12,7 @@ import json
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 _DDL = """
 PRAGMA busy_timeout=10000;
@@ -105,8 +105,21 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
+class _AutoCloseConnection(sqlite3.Connection):
+    """sqlite3.Connection's own `with conn:` only commits/rolls back — it never closes the
+    file handle. On Windows a lingering handle blocks anything that later needs to unlink or
+    replace the same file (e.g. `git checkout` during a rebase), so every `with _conn(root)`
+    call site in this module needs the handle released the moment its block exits."""
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> Literal[False]:
+        try:
+            return super().__exit__(exc_type, exc, tb)
+        finally:
+            self.close()
+
+
 def _conn(root: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path(root), timeout=10)
+    conn = sqlite3.connect(db_path(root), timeout=10, factory=_AutoCloseConnection)
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
     _migrate(conn)
@@ -581,6 +594,102 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
             ),
         )
         return entry
+
+
+_MERGE_SKIP_COLUMNS = ("status", "notes", "created_at", "updated_at", "url", "canonical_url", "slug")
+
+
+def _merge_row_set_clause(
+    local: dict[str, Any], remote: dict[str, Any], write_columns: list[str]
+) -> tuple[list[str], list[Any]]:
+    """Build the SET clause merging one remote row into its local match: local wins on
+    non-empty values (gaps filled from remote), status is forward-only, notes are unioned."""
+    set_clauses: list[str] = []
+    params: list[Any] = []
+    for col in write_columns:
+        if col in _MERGE_SKIP_COLUMNS:
+            continue
+        local_val = local.get(col)
+        remote_val = remote.get(col)
+        if (local_val is None or local_val == "") and remote_val not in (None, ""):
+            set_clauses.append(f"{col} = ?")
+            params.append(remote_val)
+
+    merged_status = (
+        local["status"] if _status_rank(local["status"]) >= _status_rank(remote["status"]) else remote["status"]
+    )
+    if merged_status != local["status"]:
+        set_clauses.append("status = ?")
+        params.append(merged_status)
+
+    local_notes = json.loads(local.get("notes") or "[]")
+    remote_notes = json.loads(remote.get("notes") or "[]")
+    merged_notes = local_notes + [n for n in remote_notes if n not in local_notes]
+    if json.dumps(merged_notes) != (local.get("notes") or "[]"):
+        set_clauses.append("notes = ?")
+        params.append(json.dumps(merged_notes))
+
+    return set_clauses, params
+
+
+def merge_remote_jobs(root: Path, remote_db_path: Path) -> dict[str, int]:
+    """Merge another jobs.db snapshot into this workspace's DB.
+
+    jobs.db is a committed binary SQLite file, so a plain git rebase can't 3-way-merge
+    it — whichever side loses a conflict silently drops rows. This folds the remote
+    snapshot in first: rows are matched by slug/url, status is promoted forward-only
+    (never downgraded), notes are unioned, and other fields keep the local value unless
+    it's empty (never clobbers a local edit, but fills gaps from the remote). Rows that
+    only exist on the remote side are inserted whole. company_hunt_* tables are local
+    run telemetry and are not merged.
+    """
+    remote_conn = sqlite3.connect(f"file:{remote_db_path.as_posix()}?mode=ro", uri=True, timeout=10)
+    remote_conn.row_factory = sqlite3.Row
+    try:
+        remote_rows = remote_conn.execute("SELECT * FROM jobs").fetchall()
+    finally:
+        remote_conn.close()
+
+    if not remote_rows:
+        return {"inserted": 0, "updated": 0}
+
+    inserted = 0
+    updated = 0
+    with _conn(root) as conn:
+        local_columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+        write_columns = [c for c in remote_rows[0].keys() if c != "id" and c in local_columns]
+
+        for remote_row in remote_rows:
+            remote = dict(remote_row)
+            slug = remote.get("slug")
+            url = remote.get("url")
+            local_row = None
+            if slug:
+                local_row = conn.execute("SELECT * FROM jobs WHERE slug = ?", (slug,)).fetchone()
+            if not local_row and url:
+                local_row = conn.execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
+
+            if local_row is None:
+                cols_sql = ", ".join(write_columns)
+                placeholders = ", ".join("?" for _ in write_columns)
+                conn.execute(
+                    f"INSERT OR IGNORE INTO jobs ({cols_sql}) VALUES ({placeholders})",  # noqa: S608
+                    [remote[c] for c in write_columns],
+                )
+                inserted += 1
+                continue
+
+            set_clauses, params = _merge_row_set_clause(dict(local_row), remote, write_columns)
+            if not set_clauses:
+                continue
+
+            set_clauses.append("updated_at = ?")
+            params.append(_now())
+            params.append(local_row["id"])
+            conn.execute(f"UPDATE jobs SET {', '.join(set_clauses)} WHERE id = ?", params)  # noqa: S608
+            updated += 1
+
+    return {"inserted": inserted, "updated": updated}
 
 
 def update_job_status(root: Path, slug: str, status: str, note: str = "") -> dict[str, Any]:

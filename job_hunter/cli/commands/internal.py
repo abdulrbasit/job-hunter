@@ -274,14 +274,16 @@ def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], mes
 
 
 def _push_finalized_run(root: Path, *, push: bool, mode: str) -> None:
-    import subprocess
+    if not (push or mode == "auto"):
+        return
+    from job_hunter.workspace.git_sync import merge_and_push
 
-    if mode == "auto":
-        subprocess.run(["git", "push", "origin", "HEAD:main"], check=True, cwd=root)
-        typer.echo("[finalize-run] pushed HEAD to origin/main")
-    elif push:
-        subprocess.run(["git", "push"], check=True, cwd=root)
-        typer.echo("[finalize-run] pushed to origin")
+    result = merge_and_push(root)
+    if not result["ok"]:
+        fail(f"[finalize-run] {result['error']}")
+    if result["inserted"] or result["updated"]:
+        typer.echo(f"[finalize-run] merged remote job state: {result['inserted']} new, {result['updated']} updated")
+    typer.echo("[finalize-run] pushed to origin")
 
 
 @internal_app.command(name="finalize-run")
@@ -317,6 +319,23 @@ def finalize_run(
     if committed:
         _push_finalized_run(root, push=push, mode=mode)
     _cleanup_transient_state(root, label="finalize-run")
+
+
+@internal_app.command(name="sync")
+def sync(
+    message: str = typer.Option(
+        "chore(sync): local changes", "--message", "-m", help="Commit message for local changes"
+    ),
+) -> None:
+    """Commit dirty durable state, merge the remote jobs.db, and push — the GUI Sync button's CLI twin."""
+    from job_hunter.tracker import repo_path
+    from job_hunter.workspace.git_sync import sync_workspace
+
+    result = sync_workspace(repo_path(), message=message)
+    if not result["ok"]:
+        fail(f"[sync] {result['error']}")
+    typer.echo(f"[sync] merged remote job state: {result['inserted']} new, {result['updated']} updated")
+    typer.echo("[sync] pushed to origin")
 
 
 @internal_app.command(name="cleanup-transient")

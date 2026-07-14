@@ -79,6 +79,7 @@ class DashAPI:
         self._hunt_running = False
         self._hunt_started_at: str | None = None
         self._last_hunt_result: dict[str, Any] | None = None
+        self._last_sync_result: dict[str, Any] | None = None
 
     @staticmethod
     def _mutation_error(message: str, next_action: str) -> dict[str, Any]:
@@ -142,6 +143,46 @@ class DashAPI:
         if self._last_hunt_result is None:
             return {"ok": True, "status": "idle"}
         return {"ok": True, **self._last_hunt_result}
+
+    def start_sync(self) -> dict[str, Any]:
+        """Commit dirty state, merge the remote jobs.db, and push — no git commands for the
+        user to run. Shares the hunt lock: sync replaces outputs/state/jobs.db on disk, which
+        must never race a concurrent hunt or company-hunt write to the same file."""
+        with self._hunt_lock:
+            if self._hunt_running:
+                return {"ok": False, "status": "running", "error": "A hunt or sync is already running."}
+            self._hunt_running = True
+        self._last_sync_result = None
+        threading.Thread(target=self._run_sync_worker, daemon=True).start()
+        return {"ok": True, "status": "running"}
+
+    def _run_sync_worker(self) -> None:
+        import logging
+
+        from job_hunter.workspace.git_sync import sync_workspace
+
+        try:
+            result = sync_workspace(self._root)
+            self._last_sync_result = {**result, "status": "succeeded" if result["ok"] else "failed"}
+        except Exception:  # noqa: BLE001 — a crashed worker must not wedge _hunt_running
+            logging.getLogger(__name__).exception("[sync] worker crashed")
+            self._last_sync_result = {
+                "ok": False,
+                "status": "failed",
+                "error": "Sync failed. Check local logs for details.",
+            }
+        finally:
+            with self._hunt_lock:
+                self._hunt_running = False
+
+    def get_sync_status(self) -> dict[str, Any]:
+        with self._hunt_lock:
+            running = self._hunt_running
+        if running:
+            return {"ok": True, "status": "running"}
+        if self._last_sync_result is None:
+            return {"ok": True, "status": "idle"}
+        return {"ok": True, **self._last_sync_result}
 
     def start_company_hunt(self, mode: str = "new_changed") -> dict[str, Any]:
         """Spec-named alias for run_company_hunt (kept for the existing wired UI)."""
