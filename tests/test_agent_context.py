@@ -752,6 +752,25 @@ def test_score_context_snippet_uses_no_story_bank(tmp_path: Path) -> None:
     assert payload["story_index"] == []
 
 
+def test_score_context_resolves_max_years_from_career_stage_when_unset(tmp_path: Path) -> None:
+    """Regression: the agent scoring context used to pass the raw (often absent)
+    scoring.max_years_experience_required straight through — a student-stage workspace
+    with no explicit override showed the agent `null` instead of the stage's own cap."""
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(
+        json.dumps({"jobs": [{"title": "PM", "company": "ExampleCo", "snippet": "short"}]}),
+        encoding="utf-8",
+    )
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {"scoring": {}, "job_titles": [], "profile": {}, "career_stage": "student"},
+    )
+
+    payload = score_context(mode="snippet", root=tmp_path, queue=queue_path)
+
+    assert payload["profile"]["scoring"]["max_years_experience_required"] == 1
+
+
 def test_linkedin_weekly_limit_comes_from_job_hunter_config(tmp_path: Path) -> None:
     _write_yaml(
         tmp_path / "config" / "job_hunter.yml",

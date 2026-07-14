@@ -59,29 +59,54 @@ If yes, repeat city → code → language for each. Use the city name (lowercase
 
 ---
 
-## Step 3 — Exclusions
+## Step 3 — Career Stage
 
-Show current values in one block:
+Ask:
+
+> What career stage are you at? This ranks matching titles higher and auto-excludes
+> mismatched seniority (e.g. student stage won't show you Director roles) — on top of
+> whatever you set in the next step.
+>
+> 1. **Student** — internships, working student, apprenticeships, graduate programs
+> 2. **Early career** — junior, associate, graduate, entry-level roles
+> 3. **Experienced** — no seniority preference (default)
+> 4. **Leadership** — lead, head of, director, VP, chief roles
+> 5. **Custom** — no automatic ranking/exclusion; only your own exclusions below apply
+>
+> Reply with a number, or press Enter for Experienced.
+
+Set `career_stage` to `student`, `early_career`, `experienced`, `leadership`, or `custom`.
+
+---
+
+## Step 4 — Exclusions
+
+Read the *actual current* values from `exclusions.*` in the config you loaded in
+"Before You Start" — the template ships all four empty (`[]`). Show them as read,
+substituting `(none)` for any empty list. Do not invent or assume example values.
 
 ```
 Current exclusions — edit anything or press Enter to keep as-is:
 
-Title terms to skip:  intern, internship, trainee, working student, werkstudent, junior, principal, expert, chief product
-Languages to exclude: german
-Companies to skip:    (none)
-Industries to skip:   (none)
+Title terms to skip:  [actual title_terms, or "(none)"]
+Languages to exclude: [actual languages, or "(none)"]
+Companies to skip:    [actual companies, or "(none)"]
+Industries to skip:   [actual industries, or "(none)"]
 ```
+
+These are on top of the career-stage exclusions from Step 3 — a student-stage user
+does not need "junior" or "working student" here; that's already handled by career_stage.
 
 Ask:
 
-> Any changes? Examples: "remove junior", "add consulting to industries", "remove german from languages".
+> Any changes? Examples: "add consulting to industries", "exclude language German".
 > Press Enter to keep all defaults.
 
 Apply any changes to the four `exclusions.*` fields.
 
 ---
 
-## Step 4 — Quick Settings
+## Step 5 — Quick Settings
 
 Show all at once:
 
@@ -91,7 +116,7 @@ Quick settings — press Enter to keep defaults or type changes:
 Resume layout:               double column  (alt: single column)
 Profile photo:               none           (provide filename if you have one in profile/)
 Min fit score:               70 / 100
-Max years experience req'd:  5
+Max years experience req'd:  (auto, from your career stage — leave blank, or enter a number to override)
 Batch size:                  15
 LLM provider:                anthropic      (alt: openai, google)
 Tailoring model:             claude-sonnet-4-6
@@ -102,13 +127,16 @@ Ask: `Any changes?`
 Update:
 - `profile.resume_tex`: `profile/resume_double_column.tex` or `profile/resume_single_column.tex`
 - `profile.profile_image`: path or `""`
-- `scoring.min_fit_score`, `scoring.max_years_experience_required`, `scoring.batch_size`
+- `scoring.min_fit_score`, `scoring.batch_size`
+- `scoring.max_years_experience_required` — only set this if the user gives an explicit
+  number; otherwise leave it unset in the config so it defaults to the Step 3 career
+  stage's own cap (student=1, early_career=3, experienced=8, leadership=none).
 - `llm.default_provider` and all `llm.providers.*`
 - `llm.models.tailoring` and `llm.models.cover_letter`
 
 ---
 
-## Step 5 — API Keys and GitHub Actions
+## Step 6 — API Keys and GitHub Actions
 
 Tell the user:
 
@@ -136,7 +164,7 @@ No config changes here. Continue when ready.
 
 ---
 
-## Step 6 — Config Preview and Write
+## Step 7 — Config Preview and Write
 
 Set `mode: llm-api` in the config.
 
@@ -154,7 +182,7 @@ After confirmation, write the file.
 
 ---
 
-## Step 7 — Health Check
+## Step 8 — Health Check
 
 Run:
 
@@ -166,7 +194,7 @@ Parse and display results in a compact table (✓ pass / ✗ fail with fix hint)
 
 ---
 
-## Step 8 — Career Context
+## Step 9 — Career Context
 
 Tell the user:
 
@@ -178,7 +206,7 @@ Execute `.claude/skills/setup/modes/context.md` inline.
 
 ---
 
-## Step 9 — Story Bank
+## Step 10 — Story Bank
 
 Tell the user:
 
@@ -188,7 +216,7 @@ Execute `.claude/skills/setup/modes/stories.md` inline.
 
 ---
 
-## Step 10 — Base Resume
+## Step 11 — Base Resume
 
 Tell the user:
 
@@ -198,7 +226,7 @@ Execute `.claude/skills/setup/modes/resume.md` inline.
 
 ---
 
-## Step 11 — Done
+## Step 12 — Done
 
 Tell the user:
 

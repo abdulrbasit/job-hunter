@@ -9,6 +9,7 @@ from job_hunter.agent_context._types import MAX_JD_CHARS
 from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_json_or_yaml, _root
 from job_hunter.agent_context.candidates import candidate_from_queue
 from job_hunter.agent_context.stories import match_stories, story_index
+from job_hunter.config.reference_data import resolve_max_years_experience
 from job_hunter.core.utils import read_yaml
 from job_hunter.writing.rules import universal_score_decision_rules
 
@@ -39,7 +40,9 @@ def _profile_context(root: Path) -> dict[str, Any]:
     return {
         "scoring": {
             "min_fit_score": scoring.get("min_fit_score"),
-            "max_years_experience_required": scoring.get("max_years_experience_required"),
+            # Resolved, not raw: an unset value defaults to career_stage's own cap
+            # (see resolve_max_years_experience) rather than showing the agent a null.
+            "max_years_experience_required": resolve_max_years_experience(config),
             "strategic_overrides": scoring.get("strategic_overrides", []),
         },
         "excluded_industries": list(config.get("exclusions", {}).get("industries", []) or []),

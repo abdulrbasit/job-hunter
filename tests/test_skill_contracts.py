@@ -225,6 +225,21 @@ def test_linkedin_modes_emit_non_blocking_telemetry_markers() -> None:
         assert "Telemetry failure is non-blocking" in text
 
 
+def test_onboard_skills_ask_career_stage_and_do_not_hardcode_stale_defaults() -> None:
+    """Regression: both onboarding conversations used to show a hardcoded 'current
+    exclusions' example that pre-excluded working student/werkstudent/junior/intern —
+    the exact terms a student/early-career user needs kept — and a fixed 'Max years
+    experience req'd: 5' that no longer matches the template (now unset, defaulting to
+    career_stage's own cap). Neither reflected the real (empty) template defaults, and
+    career_stage was never asked at all."""
+    for mode in ("onboard_agent", "onboard_llm_api"):
+        text = (ROOT / ".claude" / "skills" / "setup" / "modes" / f"{mode}.md").read_text(encoding="utf-8")
+        assert "Career Stage" in text
+        assert "career_stage" in text
+        assert "working student, werkstudent, junior" not in text
+        assert "Max years experience req'd:  5" not in text
+
+
 def test_user_facing_skills_are_mirrored_byte_identical_into_workspace_template() -> None:
     """.claude/skills/ is the source of truth; the bundled workspace template copy must match.
 
