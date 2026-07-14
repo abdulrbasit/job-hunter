@@ -106,43 +106,51 @@ def test_catalog_rejects_non_https_career_url() -> None:
 
 
 # ---------------------------------------------------------------------------
-# effective_companies — region selection, overrides, dedupe, industry exclusion
+# effective_companies — opt-in allowlist, region selection, overrides, dedupe,
+# industry exclusion
 # ---------------------------------------------------------------------------
 
 _DE_CONFIG = {"regions": {"primary": {"enabled": True, "country": "DE"}}, "exclusions": {}}
 _NO_REGION_CONFIG: dict = {"regions": {}, "exclusions": {}}
+_SAP_SIEMENS_GOOGLE = {"catalog": {"enabled_company_ids": ["sap", "siemens", "google"]}}
 
 
-def test_effective_companies_matches_enabled_region() -> None:
+def test_effective_companies_defaults_to_no_catalog_companies() -> None:
+    """Shared catalog companies are opt-in — an empty (or absent) allowlist means none run."""
     result = effective_companies(_DE_CONFIG, {"companies": []})
 
-    ids = {c["id"] for c in result if c["source"] == "catalog"}
-    assert "sap" in ids
-    assert "siemens" in ids
-    assert "google" not in ids  # US-only, DE region not matched
+    assert not [c for c in result if c["source"] == "catalog"]
 
 
-def test_effective_companies_with_no_regions_returns_all_catalog_companies() -> None:
-    result = effective_companies(_NO_REGION_CONFIG, {"companies": []})
-
-    assert len([c for c in result if c["source"] == "catalog"]) == len(load_companies())
-
-
-def test_effective_companies_disabled_company_ids_excludes_that_company() -> None:
-    career_pages = {"companies": [], "catalog": {"enabled": True, "disabled_company_ids": ["sap"]}}
+def test_effective_companies_enabled_ids_includes_only_those_companies() -> None:
+    career_pages = {"companies": [], "catalog": {"enabled_company_ids": ["sap", "siemens"]}}
 
     result = effective_companies(_DE_CONFIG, career_pages)
 
     ids = {c["id"] for c in result if c["source"] == "catalog"}
-    assert "sap" not in ids
+    assert ids == {"sap", "siemens"}
+
+
+def test_effective_companies_matches_enabled_region() -> None:
+    result = effective_companies(_DE_CONFIG, {"companies": [], **_SAP_SIEMENS_GOOGLE})
+
+    ids = {c["id"] for c in result if c["source"] == "catalog"}
+    assert "sap" in ids
     assert "siemens" in ids
+    assert "google" not in ids  # US-only, DE region not matched even though allow-listed
 
 
-def test_effective_companies_catalog_disabled_returns_only_custom() -> None:
-    career_pages = {
-        "companies": [{"name": "Custom Co", "career_url": "https://custom.example/careers"}],
-        "catalog": {"enabled": False, "disabled_company_ids": []},
-    }
+def test_effective_companies_with_no_regions_and_full_allowlist_returns_all_catalog_companies() -> None:
+    all_ids = [c.id for c in load_companies()]
+    career_pages = {"companies": [], "catalog": {"enabled_company_ids": all_ids}}
+
+    result = effective_companies(_NO_REGION_CONFIG, career_pages)
+
+    assert len([c for c in result if c["source"] == "catalog"]) == len(load_companies())
+
+
+def test_effective_companies_no_catalog_block_returns_only_custom() -> None:
+    career_pages = {"companies": [{"name": "Custom Co", "career_url": "https://custom.example/careers"}]}
 
     result = effective_companies(_DE_CONFIG, career_pages)
 
@@ -152,7 +160,10 @@ def test_effective_companies_catalog_disabled_returns_only_custom() -> None:
 
 def test_effective_companies_custom_entry_wins_on_duplicate_url() -> None:
     sap_url = next(c.career_url for c in load_companies() if c.id == "sap")
-    career_pages = {"companies": [{"name": "SAP (custom override)", "career_url": sap_url}]}
+    career_pages = {
+        "companies": [{"name": "SAP (custom override)", "career_url": sap_url}],
+        "catalog": {"enabled_company_ids": ["sap"]},
+    }
 
     result = effective_companies(_DE_CONFIG, career_pages)
 
@@ -162,7 +173,7 @@ def test_effective_companies_custom_entry_wins_on_duplicate_url() -> None:
 
 
 def test_effective_companies_excludes_by_industry_alias() -> None:
-    career_pages = {"companies": []}
+    career_pages = {"companies": [], **_SAP_SIEMENS_GOOGLE}
     config = {**_DE_CONFIG, "exclusions": {"industries": ["Software & IT"]}}
 
     result = effective_companies(config, career_pages)
@@ -173,7 +184,7 @@ def test_effective_companies_excludes_by_industry_alias() -> None:
 
 
 def test_effective_companies_unknown_industry_string_matches_nothing() -> None:
-    career_pages = {"companies": []}
+    career_pages = {"companies": [], **_SAP_SIEMENS_GOOGLE}
     config = {**_DE_CONFIG, "exclusions": {"industries": ["not-a-real-industry-name"]}}
 
     result = effective_companies(config, career_pages)

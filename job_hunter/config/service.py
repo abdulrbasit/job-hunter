@@ -124,7 +124,7 @@ def _validate_company_entry(i: int, entry: dict[str, Any], seen_names: set[str],
     return errors
 
 
-DEFAULT_CATALOG_SETTINGS: dict[str, Any] = {"enabled": True, "disabled_company_ids": []}
+DEFAULT_CATALOG_SETTINGS: dict[str, Any] = {"enabled_company_ids": []}
 
 
 def _validate_catalog_settings(data: Any) -> list[str]:
@@ -133,11 +133,9 @@ def _validate_catalog_settings(data: Any) -> list[str]:
     if not isinstance(data, dict):
         return ["career_pages.yml: 'catalog' must be a mapping"]
     errors: list[str] = []
-    if "enabled" in data and not isinstance(data["enabled"], bool):
-        errors.append("career_pages.yml: catalog.enabled must be a boolean")
-    ids = data.get("disabled_company_ids", [])
+    ids = data.get("enabled_company_ids", [])
     if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
-        errors.append("career_pages.yml: catalog.disabled_company_ids must be a list of strings")
+        errors.append("career_pages.yml: catalog.enabled_company_ids must be a list of strings")
     return errors
 
 

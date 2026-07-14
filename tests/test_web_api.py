@@ -1764,3 +1764,124 @@ def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() 
 
     assert "discard_unprocessed_batch" in html
     assert "Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(" not in html
+
+
+# ---------------------------------------------------------------------------
+# Shared catalog browse (opt-in allowlist)
+# ---------------------------------------------------------------------------
+
+
+def test_get_catalog_industries_returns_only_industries_present_in_catalog() -> None:
+    result = DashAPI(Path("unused")).get_catalog_industries()
+
+    assert result["ok"] is True
+    industries = {i["id"]: i["count"] for i in result["data"]["industries"]}
+    assert industries["software_it"] > 0
+    assert "uncategorized" not in industries or industries["uncategorized"] >= 0
+    json.dumps(result)
+
+
+def test_get_catalog_page_reflects_enabled_state_from_career_pages(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": ["sap"]}}))
+
+    result = DashAPI(tmp_path).get_catalog_page(search="sap")
+
+    assert result["ok"] is True
+    items = result["data"]["items"]
+    assert any(item["id"] == "sap" and item["enabled"] is True for item in items)
+    json.dumps(result)
+
+
+def test_get_catalog_page_filters_by_industry(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+
+    result = DashAPI(tmp_path).get_catalog_page(industry="software_it", page_size=500)
+
+    assert result["ok"] is True
+    assert result["data"]["total"] > 0
+    assert all("software_it" in _industry_ids_for(item["id"]) for item in result["data"]["items"])
+
+
+def _industry_ids_for(company_id: str) -> list[str]:
+    from job_hunter.catalog import load_companies
+
+    return next(c.industry_ids for c in load_companies() if c.id == company_id)
+
+
+def test_get_catalog_page_paginates(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+
+    page1 = DashAPI(tmp_path).get_catalog_page(page=1, page_size=10)
+
+    assert page1["ok"] is True
+    assert len(page1["data"]["items"]) == 10
+    assert page1["data"]["pages"] > 1
+
+
+def test_save_catalog_enabled_ids_adds_and_removes(tmp_path: Path) -> None:
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    revision = api.get_career_pages()["data"]["revision"]
+
+    enabled = api.save_catalog_enabled_ids(["sap", "siemens"], True, revision)
+    assert enabled["ok"] is True
+    assert set(enabled["data"]["catalog"]["enabled_company_ids"]) == {"sap", "siemens"}
+
+    disabled = api.save_catalog_enabled_ids(["sap"], False, enabled["data"]["revision"])
+    assert disabled["ok"] is True
+    assert disabled["data"]["catalog"]["enabled_company_ids"] == ["siemens"]
+
+
+def test_save_catalog_enabled_ids_preserves_custom_companies(tmp_path: Path) -> None:
+    _write_career_pages(
+        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
+    )
+    api = DashAPI(tmp_path)
+    revision = api.get_career_pages()["data"]["revision"]
+
+    api.save_catalog_enabled_ids(["sap"], True, revision)
+
+    reloaded = api.get_career_pages()
+    assert reloaded["data"]["companies"][0]["name"] == "Stripe"
+
+
+def test_save_catalog_industry_enabled_enables_every_company_in_sector(tmp_path: Path) -> None:
+    from job_hunter.catalog import load_companies
+
+    _write_career_pages(tmp_path)
+    api = DashAPI(tmp_path)
+    revision = api.get_career_pages()["data"]["revision"]
+
+    result = api.save_catalog_industry_enabled("software_it", True, revision)
+
+    expected = {c.id for c in load_companies() if "software_it" in c.industry_ids}
+    assert result["ok"] is True
+    assert set(result["data"]["catalog"]["enabled_company_ids"]) == expected
+
+
+def test_open_catalog_company_opens_known_id(tmp_path: Path, monkeypatch) -> None:
+    opened = []
+    monkeypatch.setattr("job_hunter.ux.web.api._open_url", lambda url: opened.append(url))
+
+    result = DashAPI(tmp_path).open_catalog_company("sap")
+
+    assert result["ok"] is True
+    assert opened and opened[0].startswith("https://")
+
+
+def test_open_catalog_company_rejects_unknown_id(tmp_path: Path) -> None:
+    result = DashAPI(tmp_path).open_catalog_company("not-a-real-company")
+
+    assert result["ok"] is False
+
+
+def test_dashboard_has_shared_catalog_browse_ui() -> None:
+    html = _dashboard_source()
+
+    assert "get_catalog_industries" in html
+    assert "get_catalog_page" in html
+    assert "save_catalog_enabled_ids" in html
+    assert "save_catalog_industry_enabled" in html
+    assert "open_catalog_company" in html
+    assert 'data-companies-view="catalog"' in html
+    assert 'id="catalog-industry-filter"' in html

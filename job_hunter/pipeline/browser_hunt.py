@@ -24,6 +24,7 @@ from typing import Any
 
 import yaml
 
+from job_hunter.catalog.merge import effective_companies
 from job_hunter.config.loader import ROOT
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.career_pages import extract_career_page_jobs
@@ -146,8 +147,7 @@ def run(  # noqa: C901
 
     titles = config.get("job_titles", [])
     exclusions = (config.get("exclusions") or {}).get("title_terms", [])
-    all_companies = companies_config.get("companies") or []
-    enabled_companies = [c for c in all_companies if not (isinstance(c, dict) and c.get("enabled") is False)]
+    enabled_companies = effective_companies(config, companies_config)
 
     if not enabled_companies:
         logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)

@@ -1037,6 +1037,123 @@ class DashAPI:
     def open_config_folder(self) -> dict[str, Any]:
         return self._launch(self._root / "config")
 
+    # ── Shared catalog browse (opt-in allowlist) ──
+
+    def get_catalog_industries(self) -> dict[str, Any]:
+        """Industry list + company counts, for the Shared Catalog filter dropdown."""
+        from job_hunter.catalog import load_companies
+        from job_hunter.config.reference_data import load_filters
+
+        companies = load_companies()
+        counts: dict[str, int] = {}
+        uncategorized = 0
+        for company in companies:
+            if not company.industry_ids:
+                uncategorized += 1
+            for industry_id in company.industry_ids:
+                counts[industry_id] = counts.get(industry_id, 0) + 1
+        industries = [
+            {"id": industry.id, "label": industry.label, "count": counts[industry.id]}
+            for industry in load_filters().industries
+            if counts.get(industry.id)
+        ]
+        if uncategorized:
+            industries.append({"id": "uncategorized", "label": "Uncategorized", "count": uncategorized})
+        return {"ok": True, "data": {"industries": industries}}
+
+    def get_catalog_page(
+        self, industry: str = "", search: str = "", page: int = 1, page_size: int = 100
+    ) -> dict[str, Any]:
+        """Server-paginated browse of the bundled catalog with current opt-in state."""
+        from job_hunter.catalog import load_companies
+        from job_hunter.config import service
+
+        pages = service.read_career_pages(self._root)
+        enabled_ids = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
+
+        companies = load_companies()
+        if industry == "uncategorized":
+            companies = [c for c in companies if not c.industry_ids]
+        elif industry:
+            companies = [c for c in companies if industry in c.industry_ids]
+        if search.strip():
+            needle = search.strip().lower()
+            companies = [c for c in companies if needle in c.name.lower()]
+
+        total = len(companies)
+        page = max(1, page)
+        page_size = min(500, max(1, page_size))
+        start = (page - 1) * page_size
+        items = [
+            {
+                "id": c.id,
+                "name": c.name,
+                "career_url": c.career_url,
+                "country_codes": c.country_codes,
+                "enabled": c.id in enabled_ids,
+            }
+            for c in companies[start : start + page_size]
+        ]
+        pages_count = max(1, -(-total // page_size))
+        return {
+            "ok": True,
+            "data": {
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": pages_count,
+                "revision": pages["revision"],
+            },
+        }
+
+    def save_catalog_enabled_ids(self, ids: list[str], enabled: bool, revision: str) -> dict[str, Any]:
+        """Bulk add/remove catalog company ids from the opt-in allowlist."""
+        from job_hunter.config import service
+
+        pages = service.read_career_pages(self._root)
+        current = set((pages["data"]["catalog"] or {}).get("enabled_company_ids", []) or [])
+        if enabled:
+            current.update(ids)
+        else:
+            current.difference_update(ids)
+        result = service.save_career_pages(
+            self._root, pages["data"]["companies"], revision, catalog={"enabled_company_ids": sorted(current)}
+        )
+        if not result["ok"]:
+            return {"ok": False, "errors": result["errors"], "warnings": result["warnings"]}
+        fresh = service.read_career_pages(self._root)
+        return {
+            "ok": True,
+            "data": {"catalog": fresh["data"]["catalog"], "revision": fresh["revision"]},
+            "errors": [],
+            "warnings": result["warnings"],
+        }
+
+    def open_catalog_company(self, company_id: str) -> dict[str, Any]:
+        """Open a bundled catalog company's career page by id — looked up from our own
+        trusted companies.json, not an arbitrary URL string from the caller."""
+        from job_hunter.catalog import load_companies
+
+        company = next((c for c in load_companies() if c.id == company_id), None)
+        if company is None:
+            return {"ok": False, "error": "Unknown catalog company."}
+        try:
+            _open_url(company.career_url)
+        except OSError:
+            return {"ok": False, "error": "Could not open URL."}
+        return {"ok": True}
+
+    def save_catalog_industry_enabled(self, industry: str, enabled: bool, revision: str) -> dict[str, Any]:
+        """Bulk enable/disable every catalog company in one sector at once."""
+        from job_hunter.catalog import load_companies
+
+        if industry == "uncategorized":
+            ids = [c.id for c in load_companies() if not c.industry_ids]
+        else:
+            ids = [c.id for c in load_companies() if industry in c.industry_ids]
+        return self.save_catalog_enabled_ids(ids, enabled, revision)
+
     def get_user_name(self) -> str:
         """Extract candidate name from LaTeX resume via \\name{...}."""
         import re

@@ -230,54 +230,97 @@
 
         <!-- Manage Companies (folded in from the former standalone Companies nav item) -->
         <div id="company-hunt-manage-view" style="display:none">
-          <div class="settings-section" id="company-form-section">
-            <h3 id="company-form-title">Add Company</h3>
-            <div class="settings-grid">
-              <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
-              <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
-              <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
-              <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+          <div class="status-tabs" id="companies-view-tabs">
+            <button class="status-tab active" data-companies-view="mine">My Companies</button>
+            <button class="status-tab" data-companies-view="catalog">Shared Catalog</button>
+          </div>
+
+          <!-- My Companies: user-added, from career_pages.yml, enabled by default -->
+          <div id="companies-mine-view">
+            <div class="settings-section" id="company-form-section">
+              <h3 id="company-form-title">Add Company</h3>
+              <div class="settings-grid">
+                <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
+                <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
+                <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
+                <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
+              </div>
+              <div class="settings-actions">
+                <button class="btn btn-primary" id="company-form-submit">Add company</button>
+                <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
+                <span class="save-msg" id="company-form-msg"></span>
+              </div>
             </div>
-            <div class="settings-actions">
-              <button class="btn btn-primary" id="company-form-submit">Add company</button>
-              <button class="btn" id="company-form-cancel" style="display:none">Cancel edit</button>
-              <span class="save-msg" id="company-form-msg"></span>
+
+            <div class="filter-bar">
+              <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
+              <div class="status-tabs" id="company-filter-tabs">
+                <button class="status-tab active" data-company-filter="">All</button>
+                <button class="status-tab" data-company-filter="enabled">Enabled</button>
+                <button class="status-tab" data-company-filter="disabled">Disabled</button>
+              </div>
+              <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
+              <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
+              <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
+              <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
+              <button class="btn" id="open-config-folder-btn">Open config folder</button>
+              <button class="btn" id="undo-career-pages-btn">Undo last save</button>
+              <span class="topbar-subtitle" id="company-total-count">0 companies</span>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="td-num"><input type="checkbox" id="company-select-all"></th>
+                    <th>Name</th>
+                    <th>Career URL</th>
+                    <th>Location</th>
+                    <th>Enabled</th>
+                    <th>Latest Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="companies-tbody">
+                  <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div class="filter-bar">
-            <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
-            <div class="status-tabs" id="company-filter-tabs">
-              <button class="status-tab active" data-company-filter="">All</button>
-              <button class="status-tab" data-company-filter="enabled">Enabled</button>
-              <button class="status-tab" data-company-filter="disabled">Disabled</button>
+          <!-- Shared Catalog: bundled companies (job_hunter/catalog/companies.json), opt-in
+               per-company or per-sector — off by default, unlike your own added companies. -->
+          <div id="companies-catalog-view" style="display:none">
+            <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Bundled companies shared with every Job Hunter user. None of these run until you enable them, one at a time or a whole sector.</span>
+            <div class="filter-bar">
+              <input class="search-input" type="text" id="catalog-search" placeholder="Search shared catalog…">
+              <select class="filter-select" id="catalog-industry-filter">
+                <option value="">All industries</option>
+              </select>
+              <button class="btn" id="catalog-bulk-enable-btn" style="display:none">Enable selected</button>
+              <button class="btn" id="catalog-bulk-disable-btn" style="display:none">Disable selected</button>
+              <button class="btn" id="catalog-enable-industry-btn">Enable all in this industry</button>
+              <button class="btn" id="catalog-disable-industry-btn">Disable all in this industry</button>
+              <span class="topbar-subtitle" id="catalog-total-count">0 companies</span>
             </div>
-            <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
-            <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
-            <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
-            <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
-            <button class="btn" id="open-config-folder-btn">Open config folder</button>
-            <button class="btn" id="undo-career-pages-btn">Undo last save</button>
-            <span class="topbar-subtitle" id="company-total-count">0 companies</span>
-          </div>
 
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th class="td-num"><input type="checkbox" id="company-select-all"></th>
-                  <th>Name</th>
-                  <th>Career URL</th>
-                  <th>Location</th>
-                  <th>Enabled</th>
-                  <th>Latest Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="companies-tbody">
-                <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
-              </tbody>
-            </table>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="td-num"><input type="checkbox" id="catalog-select-all"></th>
+                    <th>Name</th>
+                    <th>Career URL</th>
+                    <th>Countries</th>
+                    <th>Enabled</th>
+                  </tr>
+                </thead>
+                <tbody id="catalog-tbody">
+                  <tr><td colspan="5"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pager" id="catalog-pager"></div>
           </div>
         </div>
       </div>

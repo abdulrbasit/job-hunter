@@ -1,5 +1,5 @@
 # Company career pages for the browser hunt workflow.
-# Add companies here, then run it from the dashboard's Job Candidates → Company Hunt tab.
+# Add companies here, then run it from the dashboard's Company Hunt tab.
 #
 # Fields:
 #   name        Company name
@@ -17,10 +17,10 @@ companies: []
 #     career_url: "https://n26.com/en/careers"
 #     location: "Berlin"
 
-# Optional: control the bundled company catalog (job_hunter/catalog/companies.json).
-# Catalog companies are auto-matched to your enabled regions/industries and merged
-# with the list above; a custom entry above always wins if its career_url matches
-# a catalog company. Omit this block to keep the catalog fully enabled (default).
+# Optional: opt in to companies from the shared bundled catalog
+# (job_hunter/catalog/companies.json). Catalog companies are OFF by default — pick
+# individual companies or whole sectors in the dashboard's Company Hunt → Manage
+# Companies → Shared Catalog tab, which writes their ids here for you. A custom
+# entry above always wins if its career_url matches a catalog company.
 # catalog:
-#   enabled: true
-#   disabled_company_ids: []
+#   enabled_company_ids: ["stripe", "n26"]
