@@ -59,18 +59,21 @@ In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use
 
 In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover letter → PDF → tracker in one pipeline.
 
-## Company Browser Hunt
+## Company Hunt
 
 For company career pages that need a real browser, add targets to
-`config/career_pages.yml`, then click **Run Company Browser Hunt** in
-`job-hunter dash`. Results land in `outputs/state/jobs.db`, the same store
-the normal hunt uses.
+`config/career_pages.yml` (or opt in to the shared catalog), then open the
+**Company Hunt** tab in `job-hunter dash` and click **Run Company Hunt**.
+Results land in `outputs/state/jobs.db`, the same store the normal hunt uses.
 
 The native web dashboard includes Settings, Companies, paginated Applications
-and Candidates, company-hunt progress, Insights, and Analytics. Settings and
-Companies use revision-guarded saves with one-level Undo. Company Hunt offers
-new/changed, failed-only, force-all, and resume modes; recent successful pages
-are skipped by default and every company result is persisted immediately.
+and Candidates, Company Hunt (its own top-level tab), Insights, and Analytics.
+Settings and Companies use revision-guarded saves with one-level Undo. Company
+Hunt is one button — it continues an interrupted run automatically, otherwise
+checks whatever's new or changed; recent successful pages are skipped by
+default and every company result is persisted immediately. Bundled catalog
+companies (Manage Companies → Shared Catalog) are opt-in per company or per
+sector; companies you add yourself stay enabled by default.
 
 ## CLI Reference
 

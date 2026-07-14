@@ -17,9 +17,10 @@ job-hunter update                      # refresh skills/workflows after an upgra
 ```
 
 `job-hunter dash` includes Settings and Companies editors with validation,
-revision-safe saves, and one-level Undo. Company Hunt supports new/changed,
-failed-only, force-all, and resume modes. In `llm-api` mode, process its
-pending DB candidates without scraping again:
+revision-safe saves, and one-level Undo. Company Hunt is one button — it
+continues an interrupted run automatically, otherwise checks whatever's new
+or changed. In `llm-api` mode, process its pending DB candidates without
+scraping again:
 
 ```bash
 job-hunter hunt --from-db-candidates
