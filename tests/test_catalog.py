@@ -33,10 +33,12 @@ def test_catalog_career_urls_are_unique_https() -> None:
     assert all(url.startswith("https://") for url in urls)
 
 
-def test_catalog_companies_have_country_and_industry_metadata() -> None:
+def test_catalog_companies_have_country_and_verified_date() -> None:
+    """industry_ids may be empty — companies migrated in bulk without a reliable
+    sector classification land in the Shared Catalog UI's "Uncategorized" bucket
+    rather than have a guessed/fabricated industry."""
     for company in load_companies():
         assert company.country_codes
-        assert company.industry_ids
         assert company.verified_at
 
 
