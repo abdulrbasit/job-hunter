@@ -126,6 +126,39 @@ def test_merge_remote_jobs_empty_remote_db_is_noop(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_merge_remote_jobs_handles_remote_snapshot_without_tombstone_table(tmp_path: Path) -> None:
+    """Regression: a remote jobs.db written before the deleted_jobs table existed (any
+    real workspace's pre-fix history) has no such table — merge must not crash on it,
+    just treat it as having no tombstones."""
+    import sqlite3
+
+    local_root = tmp_path / "local"
+    remote_root = tmp_path / "remote"
+    (local_root / "outputs" / "state").mkdir(parents=True)
+    (remote_root / "outputs" / "state").mkdir(parents=True)
+    old_remote_db = remote_root / "outputs" / "state" / "jobs.db"
+
+    conn = sqlite3.connect(old_remote_db)
+    conn.execute(
+        """CREATE TABLE jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT UNIQUE, canonical_url TEXT UNIQUE,
+            slug TEXT UNIQUE, status TEXT DEFAULT 'candidate', title TEXT, company TEXT,
+            notes TEXT DEFAULT '[]', created_at TEXT, updated_at TEXT
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO jobs (url, slug, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        ("https://old-schema.example/job", "old-job", "Engineer", "2026-01-01", "2026-01-01"),
+    )
+    conn.commit()
+    conn.close()
+
+    result = merge_remote_jobs(local_root, old_remote_db)
+
+    assert result == {"inserted": 1, "updated": 0, "deleted": 0}
+    assert get_job_by_slug(local_root, "old-job")["title"] == "Engineer"
+
+
 def test_merge_remote_jobs_does_not_resurrect_locally_deleted_row(tmp_path: Path) -> None:
     """The exact bug reported: delete an application locally, sync — remote still has
     the older un-deleted row, and a naive merge re-inserts it as 'new'."""

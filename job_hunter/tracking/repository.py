@@ -658,7 +658,14 @@ def _import_tombstones(conn: sqlite3.Connection, remote_conn: sqlite3.Connection
     (local or freshly-imported) still matches — propagates a delete made on one machine to
     every other machine's next sync, instead of only blocking re-inserts on the machine that
     did the deleting. Returns (full local slug/url/canonical_url tombstone set, rows deleted)."""
-    remote_tombstones = remote_conn.execute("SELECT url, canonical_url, slug, deleted_at FROM deleted_jobs").fetchall()
+    remote_has_tombstones = remote_conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='deleted_jobs'"
+    ).fetchone()
+    remote_tombstones = (
+        remote_conn.execute("SELECT url, canonical_url, slug, deleted_at FROM deleted_jobs").fetchall()
+        if remote_has_tombstones
+        else []
+    )
     existing = {
         (row["slug"], row["url"], row["canonical_url"])
         for row in conn.execute("SELECT slug, url, canonical_url FROM deleted_jobs")
