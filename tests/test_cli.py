@@ -101,6 +101,17 @@ def test_tailor_job_and_find_jobs_workflows_sync_through_internal_sync() -> None
         assert "git push" not in workflow
 
 
+def test_template_config_does_not_hardcode_max_years_experience() -> None:
+    """A hardcoded max_years_experience_required overrides career_stage's own default
+    (resolve_max_years_experience) — regression: a fresh 'student' workspace was capped at
+    5 years instead of the student stage's 1, silently filtering out its own target roles."""
+    import yaml
+
+    config = yaml.safe_load((WORKSPACE_TEMPLATE / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+
+    assert "max_years_experience_required" not in (config.get("scoring") or {})
+
+
 def test_upstream_repo_context_uses_github_repository(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "abdul/Abdul.Basit_Resume")
     assert _is_upstream_repo_context(Path("job-hunter")) is False

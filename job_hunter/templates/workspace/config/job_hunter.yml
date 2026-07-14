@@ -36,13 +36,17 @@ regions:
 
 exclusions:
   companies: []
+  # Example: companies: ["Staffing Agency Inc", "Recruiter Co"]
   title_terms: []
+  # Example (on top of your career_stage's own exclude list): title_terms: ["contract to hire"]
   languages: []
   industries: []
 
 scoring:
   min_fit_score: 70
-  max_years_experience_required: 5
+  # Caps years-of-experience mentioned in a posting. Defaults to your career_stage's cap
+  # (see filters.json) when unset — uncomment to override it.
+  # max_years_experience_required: 5
   # Shared run batch size. Agent mode freezes this many candidates per batch;
   # LLM API mode tailors this many top-scored matches per run. Request
   # concurrency is controlled separately by llm.max_workers.
