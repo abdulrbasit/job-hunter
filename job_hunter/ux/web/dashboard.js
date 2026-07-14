@@ -16,7 +16,6 @@ let candidateData = { items: [], counts: { active: 0, discarded: 0, total: 0 }, 
 let candidatePage = 1;
 let candidateScope = 'active';
 let selectedCandidateIds = new Set();
-let activeCandidateId = null;
 let settingsLoaded = false;
 let cfgRevision = null;
 let cfgRawRevision = null;
@@ -43,7 +42,6 @@ let catalogPageData = { items: [], total: 0, page: 1, page_size: 300, pages: 1, 
 let catalogIndustry = '';
 let catalogEnabledFilter = '';
 let selectedCatalogIds = new Set();
-let activeCatalogId = null;
 
 function debounce(fn, delay=250) {
   let timer;
@@ -369,22 +367,15 @@ document.getElementById('catalog-tbody').addEventListener('change', (e) => {
 });
 
 document.getElementById('catalog-tbody').addEventListener('click', (e) => {
-  const row = e.target.closest('tr[data-id]');
-  if (!row) return;
   const openLink = e.target.closest('[data-open-url]');
-  if (openLink) { e.preventDefault(); openCatalogCompany(row.dataset.id); return; }
-  if (e.target.closest('.catalog-checkbox')) return;
-  openCatalogDetail(row.dataset.id);
+  if (!openLink) return;
+  e.preventDefault();
+  openCatalogCompany(openLink.closest('tr[data-id]').dataset.id);
 });
 
 document.getElementById('catalog-pager').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-page-delta]');
   if (btn && !btn.disabled) changeCatalogPage(Number(btn.dataset.pageDelta));
-});
-
-document.getElementById('catdp-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  if (activeCatalogId != null) openCatalogCompany(activeCatalogId);
 });
 
 // Settings sub-tabs
@@ -469,10 +460,7 @@ document.getElementById('app-tbody').addEventListener('change', (e) => {
 
 document.getElementById('unprocessed-tbody').addEventListener('click', (e) => {
   const deleteBtn = e.target.closest('[data-delete-id]');
-  if (deleteBtn) { deleteUnprocessed(Number(deleteBtn.dataset.deleteId)); return; }
-  if (e.target.closest('.candidate-checkbox') || e.target.closest('a')) return;
-  const row = e.target.closest('tr[data-id]');
-  if (row) openCandidateDetail(Number(row.dataset.id));
+  if (deleteBtn) deleteUnprocessed(Number(deleteBtn.dataset.deleteId));
 });
 
 document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
@@ -489,8 +477,6 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['find-jobs-btn', findJobs],
   ['app-bulk-delete-btn', bulkDeleteApplications],
   ['dp-close-btn', closeDetail],
-  ['cdp-close-btn', closeCandidateDetail],
-  ['cdp-delete-btn', deleteCandidateDetail],
   ['dp-save-status-btn', saveStatus],
   ['dp-copy-artifact', copyArtifact],
   ['dp-open-artifact', openArtifact],
@@ -507,8 +493,6 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['catalog-bulk-disable-btn', () => bulkSetCatalogEnabled(false)],
   ['catalog-enable-shown-btn', () => setCatalogShownEnabled(true)],
   ['catalog-disable-shown-btn', () => setCatalogShownEnabled(false)],
-  ['catdp-close-btn', closeCatalogDetail],
-  ['catdp-toggle-btn', toggleCatalogDetailEnabled],
   ['open-career-pages-btn', openCareerPagesFile],
   ['open-config-folder-btn', openConfigFolder],
   ['undo-career-pages-btn', undoCareerPages],
@@ -829,43 +813,6 @@ async function deleteUnprocessed(id) {
   }
 }
 
-// ── Candidate preview panel — click a row to see it and open/delete without leaving the app ──
-function openCandidateDetail(id) {
-  const job = (candidateData.items || []).find(j => j.id === id);
-  if (!job) return;
-  activeCandidateId = id;
-  document.getElementById('candidate-detail-panel').classList.add('open');
-  document.getElementById('cdp-title').textContent = `${job.title || '—'} @ ${job.company || '—'}`;
-  const chips = [];
-  if (job.location) chips.push(`<span class="meta-chip">📍 ${esc(job.location)}</span>`);
-  if (job.date) chips.push(`<span class="meta-chip">${esc(job.date)}</span>`);
-  document.getElementById('cdp-meta').innerHTML = chips.join('');
-  const linkEl = document.getElementById('cdp-link');
-  if (job.url) {
-    linkEl.href = safeUrl(job.url);
-    linkEl.style.display = '';
-  } else {
-    linkEl.style.display = 'none';
-  }
-}
-
-function closeCandidateDetail() {
-  activeCandidateId = null;
-  document.getElementById('candidate-detail-panel').classList.remove('open');
-}
-
-async function deleteCandidateDetail() {
-  if (activeCandidateId == null) return;
-  if (!confirm('Delete this candidate from the database? This cannot be undone.')) return;
-  try {
-    const result = await window.pywebview.api.delete_unprocessed(activeCandidateId);
-    if (!result.ok) { alert('Delete failed: ' + result.error); return; }
-    closeCandidateDetail();
-    loadUnprocessed();
-  } catch(e) {
-    reportFailure('Candidate could not be deleted.');
-  }
-}
 
 async function loadInsights() {
   insightsLoaded = true;
@@ -2399,50 +2346,6 @@ async function setCatalogShownEnabled(enabled) {
       catalogIndustry, search, catalogEnabledFilter, enabled, catalogPageData.revision
     );
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
-    loadCatalogPage();
-  } catch(e) {
-    reportFailure('Shared catalog could not be updated.');
-  }
-}
-
-function openCatalogDetail(id) {
-  const company = (catalogPageData.items || []).find(c => c.id === id);
-  if (!company) return;
-  activeCatalogId = id;
-  document.getElementById('catalog-detail-panel').classList.add('open');
-  document.getElementById('catdp-title').textContent = company.name || '—';
-  const chips = [];
-  if (company.country_codes && company.country_codes.length) {
-    chips.push(`<span class="meta-chip">📍 ${esc(company.country_codes.join(', '))}</span>`);
-  }
-  chips.push(`<span class="meta-chip">${company.enabled ? 'Enabled' : 'Disabled'}</span>`);
-  document.getElementById('catdp-meta').innerHTML = chips.join('');
-  document.getElementById('catdp-link').textContent = `🔗 ${company.career_url}`;
-  updateCatalogToggleButton(company.enabled);
-}
-
-function updateCatalogToggleButton(enabled) {
-  const btn = document.getElementById('catdp-toggle-btn');
-  btn.textContent = enabled ? 'Disable' : 'Enable';
-  btn.classList.toggle('btn-danger', enabled);
-  btn.classList.toggle('btn-primary', !enabled);
-}
-
-function closeCatalogDetail() {
-  activeCatalogId = null;
-  document.getElementById('catalog-detail-panel').classList.remove('open');
-}
-
-async function toggleCatalogDetailEnabled() {
-  if (activeCatalogId == null) return;
-  const company = (catalogPageData.items || []).find(c => c.id === activeCatalogId);
-  if (!company) return;
-  const nextEnabled = !company.enabled;
-  try {
-    const result = await window.pywebview.api.save_catalog_enabled_ids([activeCatalogId], nextEnabled, catalogPageData.revision);
-    if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
-    company.enabled = nextEnabled;
-    updateCatalogToggleButton(nextEnabled);
     loadCatalogPage();
   } catch(e) {
     reportFailure('Shared catalog could not be updated.');

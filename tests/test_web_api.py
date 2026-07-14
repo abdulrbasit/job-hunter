@@ -1766,20 +1766,17 @@ def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() 
     assert "Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(" not in html
 
 
-def test_dashboard_candidates_have_click_to_preview_panel() -> None:
-    """Clicking a candidate row must open a side panel (same pattern as the Applications
-    detail panel) with an external-open link and a delete button — not an in-app iframe
-    (CSP + third-party frame-ancestors headers make that unreliable)."""
+def test_dashboard_candidates_have_no_preview_panel() -> None:
+    """No side panel: a per-row delete button and the title-cell external link cover
+    open/delete without a panel that can silently fail to render (a real in-app preview
+    would need CSP frame-src loosened and still blank-fail on many boards' own
+    frame-ancestors headers, so it's out of scope — see catalog panel's twin)."""
     html = _dashboard_source()
 
-    assert 'id="candidate-detail-panel"' in html
-    assert 'id="cdp-link"' in html
-    assert 'id="cdp-delete-btn"' in html
-    assert "function openCandidateDetail" in html
-    assert "function closeCandidateDetail" in html
-    assert "function deleteCandidateDetail" in html
+    assert 'id="candidate-detail-panel"' not in html
+    assert "function openCandidateDetail" not in html
     assert "delete_unprocessed" in html
-    assert 'data-id="${job.id}"' in html
+    assert "data-delete-id" in html
 
 
 # ---------------------------------------------------------------------------
@@ -1961,7 +1958,10 @@ def test_dashboard_has_shared_catalog_browse_ui() -> None:
     assert 'id="catalog-industry-filter"' in html
 
 
-def test_dashboard_shared_catalog_has_enabled_disabled_tabs_and_preview_panel() -> None:
+def test_dashboard_shared_catalog_has_enabled_disabled_tabs_and_no_preview_panel() -> None:
+    """No side panel: the career-URL cell opens the real page in a real browser directly
+    (open_catalog_company), and the row's own Enabled checkbox toggles state — a panel
+    duplicating both wasn't reliably rendering and isn't needed."""
     html = _dashboard_source()
 
     assert 'id="catalog-filter-tabs"' in html
@@ -1969,10 +1969,10 @@ def test_dashboard_shared_catalog_has_enabled_disabled_tabs_and_preview_panel() 
     assert 'data-catalog-filter="disabled"' in html
     assert 'id="catalog-enable-shown-btn"' in html
     assert 'id="catalog-disable-shown-btn"' in html
-    assert 'id="catalog-detail-panel"' in html
-    assert 'id="catdp-toggle-btn"' in html
-    assert "function openCatalogDetail" in html
-    assert "function toggleCatalogDetailEnabled" in html
+    assert 'id="catalog-detail-panel"' not in html
+    assert "function openCatalogDetail" not in html
+    assert "data-open-url" in html
+    assert "openCatalogCompany" in html
 
 
 def test_load_catalog_page_unwraps_the_ok_data_envelope() -> None:

@@ -162,7 +162,7 @@ main {
 .view.active { display: flex; }
 
 /* ── Applications view ── */
-#view-applications, #view-unprocessed, #view-company-hunt { flex-direction: row; position: relative; }
+#view-applications { flex-direction: row; position: relative; }
 
 .app-panel {
   flex: 1;
@@ -234,10 +234,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .status-tab:hover { color: var(--text); border-color: #555; }
 .status-tab.active { background: var(--surface2); color: var(--text); border-color: var(--blue); }
 
-.company-hunt-panel { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 24px; overflow-y: auto; }
+.company-hunt-panel { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 24px; overflow: hidden; min-height: 0; }
 .company-hunt-panel .run-header { flex-wrap: wrap; }
+/* Sub-views need to be bounded flex columns too, or their .table-wrap never gets a fixed
+   height to scroll within — content-based sizing propagates up and clips silently instead. */
+#company-hunt-run-view, #company-hunt-manage-view, #companies-mine-view, #companies-catalog-view {
+  flex: 1; display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: hidden;
+}
 
-.table-wrap { flex: 1; overflow-y: auto; }
+.table-wrap { flex: 1; overflow-y: auto; min-height: 0; }
 table { width: 100%; border-collapse: collapse; }
 thead th {
   position: sticky; top: 0;
