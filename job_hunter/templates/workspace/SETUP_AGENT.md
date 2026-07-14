@@ -67,14 +67,28 @@ sign in.
 
 ## 5. First-time workspace setup
 
-**Do this**, in order, from the Claude Code or Codex chat panel:
+**Do this:**
 
-```text
-job-hunter doctor
+```bash
+job-hunter dash
 ```
 
-Run this from a terminal first. It's normal to see failures before
-onboarding — each one lists a fix. Then in the chat panel:
+A new workspace opens straight to **Get Started**. Work through its
+sections — Quick Search Setup (job titles, career stage, region), Import
+from Any Chatbot or Quick Career Context Fill, and the API Key /
+GitHub Actions sections if you use them. This is the fastest path and
+needs no VS Code.
+
+**Expected result:** the Get Started checklist shows all items done, and
+the dashboard lands on **Today** the next time you open it.
+
+**Common mistake:** rushing career context — thin or vague input here
+produces weak scoring and generic tailored resumes later.
+
+**Alternative: setup from the chat panel.** If you'd rather do it as a
+conversation, the same steps are available as agent skills — run
+`job-hunter doctor` from a terminal first (failures before onboarding are
+normal; each lists a fix), then in the Claude Code or Codex chat panel:
 
 ```text
 /setup onboard
@@ -83,17 +97,8 @@ onboarding — each one lists a fix. Then in the chat panel:
 /setup resume
 ```
 
-- `/setup onboard` — asks for job titles, region, exclusions, and scoring
-  settings, and writes `config/job_hunter.yml`.
-- `/setup context` — builds `profile/career_context.md` from your
-  background and target roles.
-- `/setup stories` — turns your achievements into STAR-format stories in
-  `profile/story_bank.md`.
-- `/setup resume` — builds your base resume as a LaTeX file in `profile/`.
-
-**Expected result:** `job-hunter doctor` shows no required failures.
-**Common mistake:** rushing career context — thin or vague input here
-produces weak scoring and generic tailored resumes later.
+Both paths write the same files — use whichever is faster for you, and
+mix and match freely.
 
 ## 6. Daily workflow
 
@@ -142,7 +147,11 @@ done reviewing:
 /job-hunter finalize
 ```
 
-Confirms outputs are consistent and asks before committing or pushing.
+Confirms outputs are consistent and asks before committing or pushing. If
+you also run the **Find Jobs** GitHub Actions workflow, click **Sync** in
+the dashboard topbar afterward (or after `finalize`) — it merges your local
+`outputs/state/jobs.db` with whatever the workflow found and pushes, so the
+two never conflict. No git commands needed.
 
 ### Review token usage
 

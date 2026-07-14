@@ -3,7 +3,9 @@
 ## 1. Who this mode is for
 
 You want Job Hunter to run unattended — on a schedule, with no one reviewing
-each step — typically via GitHub Actions.
+each step — typically via GitHub Actions. This is also the mode to pick if
+you don't want to install or use VS Code at all: setup and daily use both
+happen in the `job-hunter dash` window.
 
 ## 2. What runs in this mode
 
@@ -104,8 +106,8 @@ exclusions:
 
 scoring:
   min_fit_score: 70
-  max_years_experience_required: 5
   batch_size: 15
+  # max_years_experience_required: 5   # optional — defaults to your career_stage's cap
 
 llm:
   default_provider: anthropic   # or openai, google, ollama
@@ -156,7 +158,10 @@ adjust the `cron:` time. Commit and push to enable it.
 
 **How outputs get committed** — a successful run commits discovered jobs,
 tailored resumes, and cover letters back to your repository automatically.
-Pull those changes locally before reviewing them.
+To review them locally, open `job-hunter dash` and click **Sync** in the
+topbar — it merges the workflow's `outputs/state/jobs.db` with your local
+one and pulls everything else down. No `git pull` needed, and it also runs
+automatically each time you open the dashboard.
 
 ## 10. Cost and token safety
 

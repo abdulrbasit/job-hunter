@@ -13,22 +13,23 @@ applications, posts on LinkedIn, or contacts anyone automatically.
 
 ## 2. Which mode should I use?
 
-| Mode | Best for | Needs |
+| Mode | Best for | Daily tool |
 |---|---|---|
-| **Agent mode** | Reviewing jobs interactively, one day at a time | VS Code + Claude Code or Codex. No LLM API key needed. |
-| **LLM API mode** | Fully automated runs, e.g. a nightly GitHub Actions job | An API key from Anthropic, OpenAI, or Google |
+| **LLM API mode** | Fully automated runs — the dashboard and GitHub Actions do everything | Just the **Job Hunter dashboard** (`job-hunter dash`). No VS Code, no Claude Code. |
+| **Agent mode** | Reviewing jobs interactively, one day at a time, no LLM API key/billing | The dashboard for setup, plus **Claude Code or Codex in VS Code** for daily review/tailoring. |
 
-Not sure? Start with **agent mode** — you can switch later by changing
-`mode:` in `config/job_hunter.yml`.
+Not sure? If you don't want to touch VS Code at all, pick **LLM API
+mode** — setup and daily use both happen in the dashboard. You can switch
+later by changing `mode:` in `config/job_hunter.yml`.
 
 ## 3. Requirements
 
 | Tool | Needed for | Get it |
 |---|---|---|
-| Python 3.12 or 3.13 | Both modes | [python.org/downloads](https://www.python.org/downloads/) |
+| Python 3.12 or 3.13 | Both modes (there's no packaged installer yet — install still runs through a terminal once) | [python.org/downloads](https://www.python.org/downloads/) |
 | [uv](https://docs.astral.sh/uv/) | Both modes (recommended installer) | Installed in step 4 below |
-| VS Code + Claude Code or Codex extension | Agent mode only | [code.visualstudio.com](https://code.visualstudio.com/) |
 | An LLM API key (Anthropic, OpenAI, or Google) | LLM API mode only | See [SETUP_LLM_API.md](SETUP_LLM_API.md) |
+| VS Code + Claude Code or Codex extension | Agent mode's daily review/tailoring only — not needed for setup, and not needed at all in LLM API mode | [code.visualstudio.com](https://code.visualstudio.com/) |
 
 Python 3.14 and Python 3.11 or older are not supported.
 
@@ -67,7 +68,19 @@ and `.claude/` — your resume, settings, and results all live here, private
 to you. **Expected result:** `[ok] Workspace created at: ...` with next
 steps printed.
 
-## 6. Choose your setup guide
+## 6. Open the dashboard and finish setup there
+
+```bash
+job-hunter dash
+```
+
+A new workspace opens straight to **Get Started** — job titles, region,
+career context, API key (if you're using LLM API mode), and the GitHub
+Actions schedule are all set up from that one screen, in whatever order
+you like. Nothing here needs VS Code.
+
+For mode-specific detail (the `.env` file for LLM API mode, or the
+`/setup`/`/job-hunter` agent skills for agent mode), see:
 
 - **[SETUP_AGENT.md](SETUP_AGENT.md)** — agent mode, interactive review in VS Code
 - **[SETUP_LLM_API.md](SETUP_LLM_API.md)** — LLM API mode, automated runs and GitHub Actions
