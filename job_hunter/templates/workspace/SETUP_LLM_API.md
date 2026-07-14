@@ -136,8 +136,10 @@ job-hunter dash
 ```
 
 **Expected result:** `hunt` prints a summary of jobs found, scored, and
-tailored. `dash` opens a native window with Today, Applications, Candidates,
-Insights, and Settings tabs (Analytics lives under Settings → Diagnostics).
+tailored. `dash` opens a native window with Applications, Candidates,
+Insights, and Settings tabs (Analytics lives under Settings → Diagnostics;
+a manual/local hunt trigger lives there too, for testing — day-to-day
+hunting normally runs on GitHub Actions' schedule, see the next section).
 
 ## 9. Run unattended with GitHub Actions
 

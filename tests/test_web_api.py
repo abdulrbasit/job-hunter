@@ -1423,18 +1423,34 @@ def test_dashboard_contains_diagnostics_tab_with_doctor_and_analytics() -> None:
     assert "function renderAnalytics" in html
 
 
-def test_dashboard_contains_today_view_with_find_jobs() -> None:
+def test_today_tab_removed_manual_hunt_lives_in_diagnostics() -> None:
+    """Regression: hunting runs on GitHub Actions' schedule, not by a user clicking a
+    button — Today was a standalone landing tab nobody used for that. The manual/local
+    run trigger still exists (for testing config changes) but now lives inside Settings →
+    Diagnostics, not as a top-level nav destination or the default view."""
     html = _dashboard_source()
 
-    assert 'data-view="today"' in html
-    assert 'id="view-today"' in html
+    assert 'data-view="today"' not in html
+    assert 'id="view-today"' not in html
     assert 'id="find-jobs-btn"' in html
     assert 'id="today-hunt-status-value"' in html
+    assert '<div class="settings-panel" id="settings-panel-diagnostics">' in html
+    diagnostics_panel = html.split('id="settings-panel-diagnostics"', 1)[1].split('<section id="view-get-started"', 1)[
+        0
+    ]
+    assert 'id="find-jobs-btn"' in diagnostics_panel
     assert "function findJobs" in html
     assert "function loadTodayHuntStatus" in html
     assert "function pollTodayHuntStatus" in html
     assert "start_hunt" in html
     assert "get_hunt_status" in html
+
+
+def test_applications_is_the_default_landing_view() -> None:
+    html = _dashboard_source()
+
+    assert '<button class="nav-btn active" data-view="applications">' in html
+    assert '<section id="view-applications" class="view active">' in html
 
 
 def test_dashboard_contains_search_setup_and_chatbot_import_sections() -> None:

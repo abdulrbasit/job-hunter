@@ -307,7 +307,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
-    if (view === 'today') loadTodayHuntStatus();
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'insights' && !insightsLoaded) loadInsights();
     if (view === 'settings' && !settingsLoaded) loadSettings();
@@ -352,6 +351,7 @@ document.querySelectorAll('#settings-tabs .status-tab').forEach(tab => {
     clearSettingsMessages();
     if (tab.dataset.settingsTab === 'diagnostics') {
       loadDiagnosticsChecklist();
+      loadTodayHuntStatus();
       if (!analyticsLoaded) loadAnalytics();
     }
   });
@@ -517,7 +517,6 @@ async function refreshAll() {
   companiesLoaded = false;
   await loadApplications();
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
-  if (activeView === 'today') await loadTodayHuntStatus();
   if (activeView === 'insights') await loadInsights();
   if (activeView === 'unprocessed') {
     if (candidateScope === 'company-hunt') {
@@ -532,6 +531,7 @@ async function refreshAll() {
     await loadSettings();
     if (document.querySelector('#settings-tabs .status-tab.active')?.dataset.settingsTab === 'diagnostics') {
       loadDiagnosticsChecklist();
+      await loadTodayHuntStatus();
       await loadAnalytics();
     }
   }

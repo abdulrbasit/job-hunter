@@ -80,7 +80,7 @@ GitHub Actions sections if you use them. This is the fastest path and
 needs no VS Code.
 
 **Expected result:** the Get Started checklist shows all items done, and
-the dashboard lands on **Today** the next time you open it.
+the dashboard lands on **Applications** the next time you open it.
 
 **Common mistake:** rushing career context — thin or vague input here
 produces weak scoring and generic tailored resumes later.

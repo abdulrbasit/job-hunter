@@ -20,11 +20,7 @@
       <span class="nav-icon">🚀</span>
       <span class="nav-label">Get Started</span>
     </button>
-    <button class="nav-btn active" data-view="today">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Today</span>
-    </button>
-    <button class="nav-btn" data-view="applications">
+    <button class="nav-btn active" data-view="applications">
       <span class="nav-icon">📋</span>
       <span class="nav-label">Applications</span>
     </button>
@@ -52,7 +48,7 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <span class="topbar-title" id="view-title">Today</span>
+    <span class="topbar-title" id="view-title">Applications</span>
     <span class="topbar-subtitle" id="view-sub"></span>
     <span class="streak-badge" id="streak-badge" style="display:none"></span>
     <span class="topbar-spacer"></span>
@@ -61,20 +57,8 @@
   </div>
   <div class="onboarding-banner" id="onboarding-banner" style="display:none"></div>
 
-  <!-- Today view -->
-  <section id="view-today" class="view active">
-    <div class="run-header" id="today-hunt-panel">
-      <button class="btn btn-primary" id="find-jobs-btn">🔍 Find Jobs</button>
-      <div class="run-stat"><div class="run-stat-label">Status</div><div class="run-stat-value" id="today-hunt-status-value">Idle</div></div>
-      <div class="run-stat"><div class="run-stat-label">Fetched</div><div class="run-stat-value" id="today-hunt-fetched">—</div></div>
-      <div class="run-stat"><div class="run-stat-label">Candidates</div><div class="run-stat-value" id="today-hunt-candidates">—</div></div>
-      <div class="run-stat"><div class="run-stat-label">Tailored</div><div class="run-stat-value" id="today-hunt-tailored">—</div></div>
-    </div>
-    <div class="no-data" id="today-hunt-message" style="display:none"></div>
-  </section>
-
   <!-- Applications view -->
-  <section id="view-applications" class="view">
+  <section id="view-applications" class="view active">
     <div class="app-panel">
       <div class="filter-bar">
         <input class="search-input" type="text" id="search-input" placeholder="Search company or title…">
@@ -425,6 +409,18 @@
         <div class="settings-section" id="diag-section-doctor">
           <h3>Setup Health Check</h3>
           <ul class="onboarding-checklist" id="diag-checklist"><li class="no-data">Loading…</li></ul>
+        </div>
+        <div class="settings-section" id="diag-section-manual-run">
+          <h3>Manual Local Run</h3>
+          <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Hunting normally runs on GitHub Actions' schedule — you shouldn't need this. Use it only to test config changes or run a one-off search from this machine.</span>
+          <div class="run-header" id="today-hunt-panel">
+            <button class="btn btn-primary" id="find-jobs-btn">🔍 Find Jobs</button>
+            <div class="run-stat"><div class="run-stat-label">Status</div><div class="run-stat-value" id="today-hunt-status-value">Idle</div></div>
+            <div class="run-stat"><div class="run-stat-label">Fetched</div><div class="run-stat-value" id="today-hunt-fetched">—</div></div>
+            <div class="run-stat"><div class="run-stat-label">Candidates</div><div class="run-stat-value" id="today-hunt-candidates">—</div></div>
+            <div class="run-stat"><div class="run-stat-label">Tailored</div><div class="run-stat-value" id="today-hunt-tailored">—</div></div>
+          </div>
+          <div class="no-data" id="today-hunt-message" style="display:none"></div>
         </div>
         <div class="settings-section" id="diag-section-analytics">
           <h3>Analytics</h3>
