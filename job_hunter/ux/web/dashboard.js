@@ -16,6 +16,7 @@ let candidateData = { items: [], counts: { active: 0, discarded: 0, total: 0 }, 
 let candidatePage = 1;
 let candidateScope = 'active';
 let selectedCandidateIds = new Set();
+let activeCandidateId = null;
 let settingsLoaded = false;
 let cfgRevision = null;
 let cfgRawRevision = null;
@@ -447,7 +448,10 @@ document.getElementById('app-tbody').addEventListener('change', (e) => {
 
 document.getElementById('unprocessed-tbody').addEventListener('click', (e) => {
   const deleteBtn = e.target.closest('[data-delete-id]');
-  if (deleteBtn) deleteUnprocessed(Number(deleteBtn.dataset.deleteId));
+  if (deleteBtn) { deleteUnprocessed(Number(deleteBtn.dataset.deleteId)); return; }
+  if (e.target.closest('.candidate-checkbox') || e.target.closest('a')) return;
+  const row = e.target.closest('tr[data-id]');
+  if (row) openCandidateDetail(Number(row.dataset.id));
 });
 
 document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
@@ -464,6 +468,8 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['find-jobs-btn', findJobs],
   ['app-bulk-delete-btn', bulkDeleteApplications],
   ['dp-close-btn', closeDetail],
+  ['cdp-close-btn', closeCandidateDetail],
+  ['cdp-delete-btn', deleteCandidateDetail],
   ['dp-save-status-btn', saveStatus],
   ['dp-copy-artifact', copyArtifact],
   ['dp-open-artifact', openArtifact],
@@ -726,7 +732,7 @@ function renderCandidates() {
     renderCandidatePager();
     return;
   }
-  tbody.innerHTML = jobs.map((job, i) => `<tr>
+  tbody.innerHTML = jobs.map((job, i) => `<tr data-id="${job.id}">
       <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''}>` : i + 1}</td>
       <td class="td-company">${esc(job.company || '—')}</td>
       <td class="td-title">${job.url ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
@@ -794,6 +800,44 @@ async function deleteUnprocessed(id) {
   try {
     const result = await window.pywebview.api.delete_unprocessed(id);
     if (!result.ok) { alert('Delete failed: ' + result.error); return; }
+    loadUnprocessed();
+  } catch(e) {
+    reportFailure('Candidate could not be deleted.');
+  }
+}
+
+// ── Candidate preview panel — click a row to see it and open/delete without leaving the app ──
+function openCandidateDetail(id) {
+  const job = (candidateData.items || []).find(j => j.id === id);
+  if (!job) return;
+  activeCandidateId = id;
+  document.getElementById('candidate-detail-panel').classList.add('open');
+  document.getElementById('cdp-title').textContent = `${job.title || '—'} @ ${job.company || '—'}`;
+  const chips = [];
+  if (job.location) chips.push(`<span class="meta-chip">📍 ${esc(job.location)}</span>`);
+  if (job.date) chips.push(`<span class="meta-chip">${esc(job.date)}</span>`);
+  document.getElementById('cdp-meta').innerHTML = chips.join('');
+  const linkEl = document.getElementById('cdp-link');
+  if (job.url) {
+    linkEl.href = safeUrl(job.url);
+    linkEl.style.display = '';
+  } else {
+    linkEl.style.display = 'none';
+  }
+}
+
+function closeCandidateDetail() {
+  activeCandidateId = null;
+  document.getElementById('candidate-detail-panel').classList.remove('open');
+}
+
+async function deleteCandidateDetail() {
+  if (activeCandidateId == null) return;
+  if (!confirm('Delete this candidate from the database? This cannot be undone.')) return;
+  try {
+    const result = await window.pywebview.api.delete_unprocessed(activeCandidateId);
+    if (!result.ok) { alert('Delete failed: ' + result.error); return; }
+    closeCandidateDetail();
     loadUnprocessed();
   } catch(e) {
     reportFailure('Candidate could not be deleted.');

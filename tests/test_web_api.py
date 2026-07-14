@@ -1766,6 +1766,22 @@ def test_dashboard_candidate_bulk_discard_uses_one_batch_call_not_promise_all() 
     assert "Promise.all(ids.map(id => window.pywebview.api.discard_unprocessed(" not in html
 
 
+def test_dashboard_candidates_have_click_to_preview_panel() -> None:
+    """Clicking a candidate row must open a side panel (same pattern as the Applications
+    detail panel) with an external-open link and a delete button — not an in-app iframe
+    (CSP + third-party frame-ancestors headers make that unreliable)."""
+    html = _dashboard_source()
+
+    assert 'id="candidate-detail-panel"' in html
+    assert 'id="cdp-link"' in html
+    assert 'id="cdp-delete-btn"' in html
+    assert "function openCandidateDetail" in html
+    assert "function closeCandidateDetail" in html
+    assert "function deleteCandidateDetail" in html
+    assert "delete_unprocessed" in html
+    assert 'data-id="${job.id}"' in html
+
+
 # ---------------------------------------------------------------------------
 # Shared catalog browse (opt-in allowlist)
 # ---------------------------------------------------------------------------
