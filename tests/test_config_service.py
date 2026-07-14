@@ -76,6 +76,17 @@ def test_validate_job_hunter_yaml_accepts_valid_config(tmp_path: Path) -> None:
     assert service.validate_job_hunter_yaml(_VALID_CONFIG, tmp_path) == []
 
 
+def test_validate_job_hunter_yaml_accepts_linkedin_enabled_block(tmp_path: Path) -> None:
+    """Regression: the schema never declared `linkedin` as an allowed top-level key,
+    even though it's fully supported (LINKEDIN_DEFAULTS, linkedin_enabled(), and
+    removed_keys.py's own enforcement all treat `linkedin: {enabled: bool}` as current,
+    not removed) — any real workspace using it failed `job-hunter doctor`'s schema check."""
+    _copy_schema(tmp_path)
+    data = {**_VALID_CONFIG, "linkedin": {"enabled": False}}
+
+    assert service.validate_job_hunter_yaml(data, tmp_path) == []
+
+
 def test_validate_job_hunter_yaml_rejects_removed_keys(tmp_path: Path) -> None:
     _copy_schema(tmp_path)
     data = dict(_VALID_CONFIG)

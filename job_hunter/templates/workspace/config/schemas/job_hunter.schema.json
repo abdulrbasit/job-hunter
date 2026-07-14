@@ -122,6 +122,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "linkedin": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"}
+      },
+      "additionalProperties": false
     }
   }
 }
