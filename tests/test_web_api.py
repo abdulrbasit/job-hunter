@@ -1172,6 +1172,19 @@ def test_get_user_name_extracts_from_resume_tex(tmp_path: Path, monkeypatch) -> 
     assert name == "Alex Rivera"
 
 
+def test_dashboard_renders_markdown_artifacts_instead_of_raw_source() -> None:
+    """Regression: cover letter/evaluation/research/outreach/interview artifacts are
+    LLM-authored .md files and were previously dumped as raw markdown source in a <pre>
+    — they must be rendered as formatted HTML, with the raw text kept only for Copy."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "function renderMarkdown" in js
+    assert "function mdInline" in js
+    assert "artifact-markdown" in js
+    assert "activeArtifactRawText" in js
+    assert "'artifact-text'" not in js  # old raw-<pre> class must be gone, not just unused
+
+
 def test_dashboard_contains_artifact_workspace_controls() -> None:
     html = _dashboard_source()
 

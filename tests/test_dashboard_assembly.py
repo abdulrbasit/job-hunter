@@ -112,6 +112,9 @@ def test_dashboard_shell_declares_csp_with_no_remote_sources() -> None:
     assert "script-src 'self'" in shell
     assert "script-src 'self' 'unsafe-inline'" not in shell
     assert "connect-src 'none'" in shell
+    # frame-src must allow blob: — the PDF artifact preview loads a blob: object URL into
+    # an <iframe>, which default-src 'self' alone does not cover for framing.
+    assert "frame-src 'self' blob:" in shell
 
 
 def test_dashboard_html_has_no_inline_event_handler_attributes() -> None:

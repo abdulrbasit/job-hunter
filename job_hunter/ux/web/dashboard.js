@@ -932,12 +932,109 @@ function clearArtifactPreview() {
     artifactObjectUrl = null;
   }
   activeArtifact = null;
+  activeArtifactRawText = '';
   document.querySelectorAll('.artifact-tab').forEach(button => button.classList.remove('active'));
   document.getElementById('dp-artifact-title').textContent = 'Select an artifact';
   document.getElementById('dp-copy-artifact').style.display = 'none';
   document.getElementById('dp-open-artifact').style.display = 'none';
   document.getElementById('dp-artifact-body').innerHTML = '<div class="artifact-empty">Available job files appear here.</div>';
 }
+
+// ── Markdown rendering — job artifacts (cover letter, evaluation, research, outreach,
+// interview prep) are LLM-authored .md files; show them formatted, not as raw source. ──
+function mdInline(escapedText) {
+  let out = escapedText;
+  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  out = out.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  out = out.replace(/\*([^*\s][^*]*)\*/g, '<em>$1</em>');
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return out;
+}
+
+function renderMarkdown(raw) {
+  const lines = String(raw || '').replace(/\r\n/g, '\n').split('\n');
+  const html = [];
+  let paragraph = [];
+  let listType = null; // 'ul' | 'ol'
+  let listItems = [];
+  let inCode = false;
+  let codeLines = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      html.push(`<p>${mdInline(esc(paragraph.join(' ')))}</p>`);
+      paragraph = [];
+    }
+  };
+  const flushList = () => {
+    if (listType) {
+      const items = listItems.map(item => `<li>${mdInline(esc(item))}</li>`).join('');
+      html.push(`<${listType}>${items}</${listType}>`);
+      listType = null;
+      listItems = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      if (inCode) {
+        html.push(`<pre class="md-code"><code>${esc(codeLines.join('\n'))}</code></pre>`);
+        codeLines = [];
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) { codeLines.push(line); continue; }
+    if (!line.trim()) { flushParagraph(); flushList(); continue; }
+
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      flushParagraph(); flushList();
+      const level = heading[1].length;
+      html.push(`<h${level}>${mdInline(esc(heading[2]))}</h${level}>`);
+      continue;
+    }
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      flushParagraph(); flushList();
+      html.push('<hr>');
+      continue;
+    }
+    const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+    if (bullet) {
+      flushParagraph();
+      if (listType !== 'ul') { flushList(); listType = 'ul'; }
+      listItems.push(bullet[1]);
+      continue;
+    }
+    const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (numbered) {
+      flushParagraph();
+      if (listType !== 'ol') { flushList(); listType = 'ol'; }
+      listItems.push(numbered[1]);
+      continue;
+    }
+    const quote = line.match(/^>\s?(.*)$/);
+    if (quote) {
+      flushParagraph(); flushList();
+      html.push(`<blockquote>${mdInline(esc(quote[1]))}</blockquote>`);
+      continue;
+    }
+    flushList();
+    paragraph.push(line.trim());
+  }
+  flushParagraph();
+  flushList();
+  if (inCode && codeLines.length) html.push(`<pre class="md-code"><code>${esc(codeLines.join('\n'))}</code></pre>`);
+
+  return html.join('\n') || '<p>Empty file.</p>';
+}
+
+let activeArtifactRawText = '';
 
 async function selectArtifact(key) {
   if (!activeSlug) return;
@@ -958,13 +1055,13 @@ async function selectArtifact(key) {
       document.getElementById('dp-artifact-body').innerHTML = `<iframe class="artifact-pdf" title="${esc(result.filename)}"></iframe>`;
       document.querySelector('.artifact-pdf').src = artifactObjectUrl;
     } else {
-      const pre = document.createElement('pre');
-      pre.className = 'artifact-text';
-      pre.id = 'dp-artifact-text';
-      pre.textContent = result.content || '';
+      activeArtifactRawText = result.content || '';
+      const div = document.createElement('div');
+      div.className = 'artifact-markdown';
+      div.innerHTML = renderMarkdown(activeArtifactRawText);
       const body = document.getElementById('dp-artifact-body');
       body.innerHTML = '';
-      body.appendChild(pre);
+      body.appendChild(div);
       document.getElementById('dp-copy-artifact').style.display = '';
     }
   } catch(e) {
@@ -973,13 +1070,12 @@ async function selectArtifact(key) {
 }
 
 async function copyArtifact() {
-  const text = document.getElementById('dp-artifact-text');
-  if (!text) return;
+  if (!activeArtifactRawText) return;
   try {
-    await navigator.clipboard.writeText(text.textContent);
+    await navigator.clipboard.writeText(activeArtifactRawText);
   } catch(_) {
     const area = document.createElement('textarea');
-    area.value = text.textContent;
+    area.value = activeArtifactRawText;
     document.body.appendChild(area);
     area.select();
     document.execCommand('copy');
