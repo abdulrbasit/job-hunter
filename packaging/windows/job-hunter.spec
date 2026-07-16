@@ -23,8 +23,8 @@ datas = [
     (str(root / "job_hunter" / "ux" / "web" / "dashboard.html"), "job_hunter/ux/web"),
     (str(root / "job_hunter" / "ux" / "web" / "dashboard.css"), "job_hunter/ux/web"),
     (str(root / "job_hunter" / "ux" / "web" / "dashboard.js"), "job_hunter/ux/web"),
-    (str(root / "job_hunter" / "config" / "countries.json"), "job_hunter/config"),
-    (str(root / "job_hunter" / "config" / "filters.json"), "job_hunter/config"),
+    (str(root / "job_hunter" / "catalog" / "countries.json"), "job_hunter/catalog"),
+    (str(root / "job_hunter" / "catalog" / "filters.json"), "job_hunter/catalog"),
     (str(root / "job_hunter" / "catalog" / "companies.json"), "job_hunter/catalog"),
     *tree(root / "job_hunter" / "templates", "job_hunter/templates"),
 ]

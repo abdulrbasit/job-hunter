@@ -1,7 +1,9 @@
 """Loaders for package-owned reference catalogs: countries.json and filters.json.
 
 Read-only, versioned JSON shipped with the package (not user-editable, unlike
-config/job_hunter.yml). Validated through the existing Pydantic dependency
+config/job_hunter.yml). All bundled reference databases live in
+job_hunter/catalog/ (companies.json, countries.json, filters.json — future
+databases go there too). Validated through the existing Pydantic dependency
 (see job_hunter/models.py for the same pattern) rather than a new schema tool.
 """
 
@@ -67,13 +69,13 @@ class _FiltersFile(BaseModel):
 
 @lru_cache(maxsize=1)
 def load_countries() -> list[CountryEntry]:
-    raw = resources.files("job_hunter.config").joinpath("countries.json").read_text(encoding="utf-8")
+    raw = resources.files("job_hunter.catalog").joinpath("countries.json").read_text(encoding="utf-8")
     return _CountriesFile.model_validate_json(raw).countries
 
 
 @lru_cache(maxsize=1)
 def load_filters() -> _FiltersFile:
-    raw = resources.files("job_hunter.config").joinpath("filters.json").read_text(encoding="utf-8")
+    raw = resources.files("job_hunter.catalog").joinpath("filters.json").read_text(encoding="utf-8")
     return _FiltersFile.model_validate_json(raw)
 
 

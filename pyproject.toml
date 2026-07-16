@@ -84,8 +84,7 @@ include = ["job_hunter", "job_hunter.*"]
 ]
 "job_hunter.linkedin" = ["defaults.yml"]
 "job_hunter.ux.web" = ["*.html", "*.css", "*.js"]
-"job_hunter.config" = ["countries.json", "filters.json"]
-"job_hunter.catalog" = ["companies.json"]
+"job_hunter.catalog" = ["companies.json", "countries.json", "filters.json"]
 
 [tool.setuptools.exclude-package-data]
 "job_hunter.templates" = [

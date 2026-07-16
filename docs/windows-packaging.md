@@ -47,7 +47,7 @@ blocker requires it.
 ## Re-verified after the GUI-first rewrite (dashboard split, catalogs, diagnostics)
 
 Rebuilt from the updated spec (now also bundling `dashboard.css`/`dashboard.js`,
-`config/countries.json`, `config/filters.json`, and `catalog/companies.json` —
+`catalog/countries.json`, `catalog/filters.json`, and `catalog/companies.json` —
 none of which existed at the time of the first spike) and re-ran the frozen exe:
 
 - Build: successful (`uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/windows/job-hunter.spec`)
