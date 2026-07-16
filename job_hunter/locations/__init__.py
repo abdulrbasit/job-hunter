@@ -131,7 +131,7 @@ def location_to_config(location: Location) -> dict[str, str]:
     return data
 
 
-def location_from_region(region: dict[str, Any], *, allow_legacy: bool = True) -> Location:  # noqa: C901
+def location_from_region(region: dict[str, Any]) -> Location:  # noqa: C901
     if region.get("scope"):
         scope = LocationScope(str(region.get("scope")))
         if scope == LocationScope.REMOTE_GLOBAL:
@@ -146,8 +146,6 @@ def location_from_region(region: dict[str, Any], *, allow_legacy: bool = True) -
         if bundled is None:
             raise ValueError(f"Unknown city id {city_id!r} for {country}")
         return Location(country=country, scope=scope, city=bundled)
-    if not allow_legacy:
-        raise ValueError("legacy location string is not allowed")
     raw = region.get("location")
     country = str(region.get("country") or "")
     text = str(raw or "").strip()
@@ -209,7 +207,7 @@ def legacy_location_warnings(config: dict[str, Any]) -> list[str]:
             continue
         legacy = not region.get("scope")
         try:
-            location_from_region(region, allow_legacy=legacy)
+            location_from_region(region)
         except ValueError as exc:
             result.append(f"region {name!r} cannot resolve a package location: {exc}")
         else:
@@ -282,19 +280,26 @@ def location_matches_any(candidates: list[Location], allowed: list[Location]) ->
     return bool(candidates) and any(_matches(candidate, target) for candidate in candidates for target in allowed)
 
 
-def job_matches_enabled_locations(job: dict[str, Any], allowed: list[Location]) -> bool:
+def canonical_locations_for_job(job: dict[str, Any], country_hint: str = "") -> list[Location]:
     canonical = job.get("canonical_locations") or []
     candidates = (
         [Location.model_validate(item) for item in canonical]
         if canonical
-        else canonicalize_runtime_location(str(job.get("location") or ""))
+        else canonicalize_runtime_location(str(job.get("location") or ""), country_hint)
     )
     restrictions = job.get("location_restrictions") or []
     if restrictions:
         remote_prefix = "Remote " if "remote" in str(job.get("location") or "").casefold() else ""
         candidates = [
-            item for value in restrictions for item in canonicalize_runtime_location(f"{remote_prefix}{value}")
+            item
+            for value in restrictions
+            for item in canonicalize_runtime_location(f"{remote_prefix}{value}", country_hint)
         ] or candidates
+    return candidates
+
+
+def job_matches_enabled_locations(job: dict[str, Any], allowed: list[Location]) -> bool:
+    candidates = canonical_locations_for_job(job)
     return location_matches_any(candidates, allowed)
 
 

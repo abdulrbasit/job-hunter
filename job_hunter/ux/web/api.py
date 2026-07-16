@@ -896,15 +896,6 @@ class DashAPI:
         code = country.strip().upper()
         return {"ok": True, "country": code, "cities": [{"id": city.id, "name": city.name} for city in cities(code)]}
 
-    def canonicalize_location(self, country: str, city: str, scope: str) -> dict[str, Any]:
-        from job_hunter.config.locations import location_to_config, resolve_config_location
-
-        try:
-            location = resolve_config_location(country, city, scope)
-        except ValueError as exc:
-            return {"ok": False, "error": str(exc)}
-        return {"ok": True, "location": location_to_config(location)}
-
     def save_job_hunter_config_form(self, form: dict[str, Any], revision: str) -> dict[str, Any]:
         import yaml
 

@@ -20,7 +20,7 @@ from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.config.locations import (
-    canonicalize_runtime_location,
+    canonical_locations_for_job,
     enabled_locations,
     location_from_region,
     location_matches_any,
@@ -162,15 +162,7 @@ def scrape_with_stats(
                 reject("excluded_by_search_lang", region_key)
                 continue
             hinted_country = location_from_region(region_config).country if region_config else ""
-            canonical_locations = canonicalize_runtime_location(jp.location, hinted_country)
-            if jp.location_restrictions:
-                remote_prefix = "Remote " if "remote" in jp.location.casefold() else ""
-                restricted = [
-                    item
-                    for value in jp.location_restrictions
-                    for item in canonicalize_runtime_location(f"{remote_prefix}{value}", hinted_country)
-                ]
-                canonical_locations = restricted or canonical_locations
+            canonical_locations = canonical_locations_for_job(jp.model_dump(), hinted_country)
             if not location_matches_any(canonical_locations, allowed_locations):
                 reject("location_not_enabled", region_key)
                 continue
