@@ -132,7 +132,8 @@ class BoundFilter:
     _contains: re.Pattern[str] | None = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        normalized = tuple(self._normalize(value) for value in self.values)
+        expanded = _expanded_values(self.definition, list(self.values))
+        normalized = tuple(self._normalize(value) for value in expanded)
         object.__setattr__(self, "_exact", frozenset(filter(None, normalized)))
         pattern = "|".join(rf"\b{re.escape(value)}\b" for value in normalized if value)
         object.__setattr__(self, "_contains", re.compile(pattern, re.IGNORECASE) if pattern else None)
@@ -150,26 +151,24 @@ class BoundFilter:
 @dataclass(frozen=True)
 class FilterSet:
     bound: dict[str, BoundFilter]
-    choices: dict[str, tuple[str, ...]]
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> FilterSet:
         canonical = canonicalize_filter_config(config).get("filters") or {}
-        choices = {name: tuple(canonical.get(name, [])) for name in FILTER_TYPES if canonical.get(name)}
         return cls(
             {
-                name: BoundFilter(definition, _expanded_values(definition, list(choices[name])))
+                name: BoundFilter(definition, tuple(canonical[name]))
                 for name, definition in FILTER_TYPES.items()
-                if name in choices
-            },
-            choices,
+                if canonical.get(name)
+            }
         )
 
     def names(self) -> list[str]:
         return sorted(self.bound)
 
     def values(self, name: str) -> list[str]:
-        return list(self.choices.get(name, ()))
+        match = self.bound.get(name)
+        return list(match.values) if match else []
 
     def matches(self, name: str, text: str) -> bool:
         match = self.bound.get(name)

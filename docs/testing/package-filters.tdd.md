@@ -36,3 +36,11 @@
 - Source and wheel builds: passed.
 - Workspace template synchronization: clean.
 - Root `config/job_hunter.yml`: unchanged.
+
+## Phase 2 validation
+
+- Simplification: removed the duplicate `FilterSet.choices` representation;
+  bound filters retain user choices and expand package taxonomy terms internally.
+- Full suite: 1,468 passed; coverage: 86.55%.
+- Focused filter/policy/agent checks: 65 passed.
+- Ruff format, Ruff lint, and `ty check`: passed.
