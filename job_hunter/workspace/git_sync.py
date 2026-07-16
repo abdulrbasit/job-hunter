@@ -10,10 +10,16 @@ this is the same trust boundary as workspace/safety.py's git status calls.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+# rebase --continue shells out to `git commit`, which opens an editor unless one is
+# disabled — fine on a dev machine with GIT_EDITOR set, but this module runs unattended
+# (see module docstring) and must not depend on that being set in the environment.
+_GIT_ENV = {**os.environ, "GIT_EDITOR": "true"}
 
 # Durable, git-tracked run artifacts — every path a `sync` commit or a `finalize-run`
 # commit is allowed to stage. Canonical home for this list: cli/_run_artifacts.py's
@@ -30,7 +36,7 @@ FINALIZE_PATHS = (
 
 
 def _run_git(args: list[str], root: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
+    return subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False, env=_GIT_ENV)
 
 
 def _current_branch(root: Path) -> str:

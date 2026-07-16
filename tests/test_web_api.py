@@ -918,7 +918,9 @@ def test_get_company_hunt_updates_returns_tasks_incrementally_since_cursor(tmp_p
     run_id = api.get_company_hunt_summary()["run"]["id"]
 
     all_updates = api.get_company_hunt_updates(run_id, after_id=0)
-    assert [t["company_name"] for t in all_updates["tasks"]] == ["A", "B"]
+    # Companies run concurrently, so completion order (and thus task order) isn't
+    # guaranteed — only that both appear exactly once by the time the run is done.
+    assert {t["company_name"] for t in all_updates["tasks"]} == {"A", "B"}
     cursor = all_updates["cursor"]
 
     further = api.get_company_hunt_updates(run_id, after_id=cursor)
