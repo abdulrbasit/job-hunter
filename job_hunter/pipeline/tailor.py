@@ -8,6 +8,7 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 from job_hunter.config.loader import get_config
+from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.jd_fetcher import fetch_jd, jd_from_text
 from job_hunter.tracking.processed_urls import load_processed
@@ -31,7 +32,7 @@ def _load_search_rules() -> tuple[list[str], list[str]]:
     """Return configured accepted job titles and excluded title terms."""
     data = get_config("job_hunter")
     title_filters = data.get("job_titles", [])
-    excluded_title_terms = (data.get("exclusions", {}) or {}).get("title_terms", [])
+    excluded_title_terms = resolve_title_exclusions(data)
     return title_filters, excluded_title_terms
 
 

@@ -10,7 +10,7 @@ that, checked for pre-cutoff removed keys by
 ## Top-level keys
 
 All seven are required: `mode`, `profile`, `job_titles`, `regions`,
-`exclusions`, `scoring`, `llm`.
+`filters`, `scoring`, `llm`.
 
 ### `mode`
 
@@ -48,11 +48,27 @@ A map of region name → region config. At least one region is required.
 Country-specific sources (e.g. Arbeitsagentur for `DE`) only run for
 matching regions. Global/remote sources run regardless of country.
 
-### `exclusions`
+### `filters`
 
-All four are optional arrays of strings: `companies`, `title_terms`,
-`languages`, `industries`. Applied during screening
-(`job_hunter/pipeline/screening.py`), before scoring.
+Standardized filter groups live here so `job_hunter.yml` remains the only
+user-facing config file. Four groups ship by default: `languages` (allowlist),
+`excluded_titles`, `excluded_companies`, and `excluded_industries`. New groups
+use the same shape and are discovered automatically:
+
+```yaml
+filters:
+  excluded_companies:
+    description: "Companies excluded from results"
+    entries:
+      - value: "Recruiter Corp"
+        note: "recruiter spam"
+```
+
+Every entry requires `value`; `note` and `match` (`exact`, `contains`, or
+`regex`) are optional. Dashboard users only enter values and notes. Omitted
+match mode applies automatic exact, word-boundary contains, and safe regex
+matching. Detected languages absent from the `languages` allowlist are rejected
+before scoring.
 
 ### `scoring`
 
@@ -93,8 +109,7 @@ configured, that one step is skipped and the rest of the batch continues.
 Loading a workspace that still has one of these raises immediately with
 migration guidance, instead of silently ignoring it:
 
-- Top-level: `about_me`, `sources`, `secrets`, `tailoring`, `cover_letter`
-- `exclusions.*`: `senior_flags`, `stale_indicators`, `url_patterns`, `language_indicators`
+- Top-level: `about_me`, `sources`, `secrets`, `tailoring`, `cover_letter`, `exclusions`
 - `scoring.prompt_context`
 - `linkedin.*` (any key other than `linkedin.enabled`)
 
@@ -104,8 +119,8 @@ migration guidance, instead of silently ignoring it:
    default in the bundled template's `config/job_hunter.yml`.
 2. Read it via `job_hunter.config.loader` — don't reach into raw YAML dicts
    elsewhere.
-3. `config/job_hunter.yml` is fully user-owned; `job-hunter update` never
-   rewrites an existing one. Existing users only pick up the new key
+3. `config/job_hunter.yml` is fully user-owned; updates only rewrite it for an
+   explicit, backed-up one-time migration. Existing users only pick up a new key
    automatically if it falls under a runtime-merged default section (`llm`,
    `linkedin`, `tailoring`, `cover_letter`, `scoring.prompt_context` — see
    `get_job_hunter_config()`). Anything else needs the user to add it by
@@ -120,7 +135,8 @@ prompt internals, and fixed secret env-var names live in code, not config
 ## Dashboard editing and Undo
 
 `job-hunter dash` opens the native web dashboard. Settings provides a guided
-form, Advanced YAML, and the career-context editor. Saves validate the raw
+form with a generic Filters editor, Advanced YAML, and the career-context
+editor. Saves validate the raw
 user file, use a revision token to reject stale edits, and never write merged
 runtime defaults back into YAML. Undo restores the exact previous bytes for
 the most recent save. Validation errors do not replace the current file.

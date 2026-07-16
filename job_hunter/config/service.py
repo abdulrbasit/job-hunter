@@ -25,6 +25,7 @@ import yaml
 
 from job_hunter.config.loader import get_job_hunter_config
 from job_hunter.config.removed_keys import reject_removed_user_config
+from job_hunter.models import FilterConfig
 
 MAX_CAREER_CONTEXT_BYTES = 512 * 1024
 
@@ -90,6 +91,17 @@ def validate_job_hunter_yaml(data: Any, root: Path) -> list[str]:
             errors.append(exc.message)
         except ImportError:
             pass
+    filter_schema_path = root / "config" / "schemas" / "filter.schema.json"
+    for name, filter_data in (data.get("filters") or {}).items():
+        try:
+            FilterConfig.model_validate(filter_data)
+            if filter_schema_path.exists():
+                import jsonschema
+
+                schema = json.loads(filter_schema_path.read_text(encoding="utf-8"))
+                jsonschema.validate(instance=filter_data, schema=schema)
+        except Exception as exc:
+            errors.append(f"filters.{name}: {exc}")
     return errors
 
 
@@ -266,7 +278,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
     """
     profile = data.get("profile") or {}
-    exclusions = data.get("exclusions") or {}
+    filters = data.get("filters") or {}
     scoring = data.get("scoring") or {}
     llm = data.get("llm") or {}
     return {
@@ -281,12 +293,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
         "job_titles": list(data.get("job_titles") or []),
         "career_stage": data.get("career_stage", "custom"),
         "regions": deepcopy(data.get("regions") or {}),
-        "exclusions": {
-            "companies": list(exclusions.get("companies") or []),
-            "title_terms": list(exclusions.get("title_terms") or []),
-            "languages": list(exclusions.get("languages") or []),
-            "industries": list(exclusions.get("industries") or []),
-        },
+        "filters": deepcopy(filters),
         "scoring": {
             "min_fit_score": scoring.get("min_fit_score", 70),
             "max_years_experience_required": scoring.get("max_years_experience_required"),
@@ -347,13 +354,7 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
         merged["career_stage"] = form["career_stage"]
     merged["regions"] = form.get("regions") or {}
 
-    form_exclusions = form.get("exclusions") or {}
-    exclusions: dict[str, Any] = {}
-    for key in ("companies", "title_terms", "languages", "industries"):
-        values = [str(v).strip() for v in (form_exclusions.get(key) or []) if str(v).strip()]
-        if values:
-            exclusions[key] = values
-    merged["exclusions"] = exclusions
+    merged["filters"] = deepcopy(form.get("filters") or {})
     merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
 
     llm = dict(merged.get("llm") or {})
@@ -391,13 +392,14 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     regions["primary"] = primary
     merged["regions"] = regions
 
-    exclusions = dict(merged.get("exclusions") or {})
     industries = [str(i).strip() for i in (prefs.get("excluded_industries") or []) if str(i).strip()]
-    if industries:
-        exclusions["industries"] = industries
-    else:
-        exclusions.pop("industries", None)
-    merged["exclusions"] = exclusions
+    filters = dict(merged.get("filters") or {})
+    industry_filter = dict(
+        filters.get("excluded_industries") or {"description": "Industries excluded from results", "entries": []}
+    )
+    industry_filter["entries"] = [{"value": value} for value in industries]
+    filters["excluded_industries"] = industry_filter
+    merged["filters"] = filters
 
     return merged
 

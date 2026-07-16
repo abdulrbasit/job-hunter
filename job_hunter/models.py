@@ -73,6 +73,25 @@ class Company(BaseModel):
     ats: str = ""
 
 
+class FilterEntryConfig(BaseModel):
+    """One user-managed filter entry stored in config/job_hunter.yml."""
+
+    model_config = {"extra": "forbid"}
+
+    value: str = Field(min_length=1)
+    match: Literal["exact", "contains", "regex"] | None = None
+    note: str = ""
+
+
+class FilterConfig(BaseModel):
+    """Standard shape shared by every named filter group."""
+
+    model_config = {"extra": "forbid"}
+
+    description: str
+    entries: list[FilterEntryConfig] = Field(default_factory=list)
+
+
 class SearchParams(BaseModel):
     """Input contract for every JobSourceAdapter.fetch() call."""
 

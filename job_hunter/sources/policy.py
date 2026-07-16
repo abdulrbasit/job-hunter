@@ -14,6 +14,7 @@ from job_hunter.config.defaults import (
     LANGUAGE_INDICATORS,
     STALE_INDICATORS,
 )
+from job_hunter.config.filter_registry import FilterRegistry
 from job_hunter.config.locations import (
     COUNTRY_NAME_TO_CODE,
     RESTRICTION_PHRASES,
@@ -350,6 +351,11 @@ def _looks_like_remote_city_region(region_config: dict) -> bool:
 @dataclass(frozen=True)
 class JobPolicy:
     config: dict
+    filters: FilterRegistry | None = None
+
+    def __post_init__(self) -> None:
+        if self.filters is None:
+            object.__setattr__(self, "filters", FilterRegistry.from_config(self.config))
 
     @property
     def exclusions(self) -> dict:
@@ -361,11 +367,13 @@ class JobPolicy:
 
     @property
     def excluded_companies(self) -> list[str]:
-        return [str(company) for company in self.exclusions.get("companies", []) or []]
+        filter_file = self.filters.file("excluded_companies") if self.filters else None
+        return filter_file.values if filter_file else []
 
     @property
     def excluded_industries(self) -> list[str]:
-        return [str(industry) for industry in self.exclusions.get("industries", []) or []]
+        filter_file = self.filters.file("excluded_industries") if self.filters else None
+        return filter_file.values if filter_file else []
 
     @property
     def excluded_languages(self) -> list[str]:
@@ -391,12 +399,12 @@ class JobPolicy:
         return any(indicator in combined for indicator in STALE_INDICATORS)
 
     def is_excluded_company(self, company: str) -> bool:
-        company_norm = normalize_company_name(company)
-        return bool(company_norm) and any(normalize_company_name(e) == company_norm for e in self.excluded_companies)
+        filter_file = self.filters.file("excluded_companies") if self.filters else None
+        return bool(filter_file and filter_file.matches(company, normalize_company=True))
 
     def is_excluded_industry(self, snippet: str) -> bool:
-        text = snippet.lower()
-        return any(re.search(r"\b" + re.escape(kw) + r"\b", text) for kw in self.excluded_industries)
+        filter_file = self.filters.file("excluded_industries") if self.filters else None
+        return bool(filter_file and filter_file.matches(snippet))
 
     def is_contract_posting(self, job: dict) -> bool:
         """True for fixed-term/contract postings — checks the structured employment_type
@@ -552,10 +560,12 @@ class JobPolicy:
 
     def excluded_by_search_lang(self, title: str, snippet: str, search_lang: str) -> bool:
         """Return True if job's language is not in the search_lang allow-list."""
-        allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}
-        if not allowed_codes or "*" in allowed_codes:
-            return False
-        allowed_names = {_LANG_CODE_TO_NAME[c] for c in allowed_codes if c in _LANG_CODE_TO_NAME}
+        allowed_names = set(self.filters.allowed_languages) if self.filters else set()
+        if not allowed_names:
+            allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}
+            if not allowed_codes or "*" in allowed_codes:
+                return False
+            allowed_names = {_LANG_CODE_TO_NAME[c] for c in allowed_codes if c in _LANG_CODE_TO_NAME}
         if not allowed_names:
             return False
         text = (title + " " + snippet).lower()

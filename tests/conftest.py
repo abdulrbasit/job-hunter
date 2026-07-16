@@ -56,11 +56,20 @@ config_dir.mkdir(parents=True)
             country: DE
             search_lang: en
             location: Berlin
-        exclusions:
-          companies: []
-          title_terms: []
-          languages: []
-          industries: []
+        filters:
+          languages:
+            description: Hunt languages
+            entries:
+              - value: english
+          excluded_titles:
+            description: Excluded titles
+            entries: []
+          excluded_companies:
+            description: Excluded companies
+            entries: []
+          excluded_industries:
+            description: Excluded industries
+            entries: []
         scoring:
           min_fit_score: 70
           batch_size: 15

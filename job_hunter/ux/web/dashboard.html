@@ -390,14 +390,10 @@
           <button class="btn" type="button" id="add-region-btn">+ Add region</button>
         </div>
 
-        <div class="settings-section" id="settings-section-exclusions">
-          <h3>Exclusions</h3>
-          <div class="settings-grid">
-            <div class="settings-field"><label for="cfg-excl-companies">Companies (one per line)</label><textarea id="cfg-excl-companies"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-titles">Title terms (one per line)</label><textarea id="cfg-excl-titles"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-languages">Languages (one per line)</label><textarea id="cfg-excl-languages"></textarea></div>
-            <div class="settings-field"><label for="cfg-excl-industries">Industries (one per line)</label><textarea id="cfg-excl-industries"></textarea></div>
-          </div>
+        <div class="settings-section" id="settings-section-filters">
+          <h3>Filters</h3>
+          <p class="settings-help">Languages are an allowlist. Other groups exclude matching results. Matching is automatic; add values and optional notes.</p>
+          <div id="cfg-filter-groups"></div>
         </div>
 
         <div class="settings-section" id="settings-section-scoring">

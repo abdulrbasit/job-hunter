@@ -98,11 +98,19 @@ regions:
     location: "Berlin"
     description: "Primary region"
 
-exclusions:
-  title_terms: [intern, internship, junior]
-  languages: []
-  companies: []
-  industries: []
+filters:
+  languages:
+    description: Languages allowed during hunts
+    entries: [{value: english}]
+  excluded_titles:
+    description: Title terms excluded from results
+    entries: [{value: intern}, {value: internship}, {value: junior}]
+  excluded_companies:
+    description: Companies excluded from results
+    entries: []
+  excluded_industries:
+    description: Industries excluded from results
+    entries: []
 
 scoring:
   min_fit_score: 70
@@ -121,7 +129,7 @@ llm:
 - `default_provider` — which LLM API `.env`/GitHub Secrets must supply a key for.
 - `max_workers` — how many jobs the pipeline scores/tailors at once. Higher
   is faster but hits provider rate limits sooner.
-- `job_titles`, `regions`, `exclusions` — same shape as agent mode.
+- `job_titles`, `regions`, `filters` — same shape as agent mode.
 - `scoring.min_fit_score` — the cutoff for tailoring a job (0-100).
 
 Run `job-hunter doctor` after any edit — it validates the file and reports
@@ -206,7 +214,7 @@ Lower `llm.max_workers`, or set a `llm.rate_limits.<role>.requests_per_minute`
 value in config.
 
 **No jobs found**
-Confirm a region is `enabled: true`, and job titles/exclusions aren't too narrow.
+Confirm a region is `enabled: true`, and job titles/filters aren't too narrow.
 
 **PDF compile fails**
 The workflow's PDF step needs LaTeX in the runner image. Check the failed

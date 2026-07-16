@@ -9,7 +9,7 @@ Two gates in the pipeline:
   apply_pre_enrichment_quality_gate — caps volume before expensive HTTP JD fetches
   apply_pre_scoring_quality_gate    — ranks + caps before LLM scoring calls
 
-Scoring folds in config.exclusions.title_terms (the same deterministic title
+Scoring folds in configured excluded-title filters (the same deterministic title
 exclusion JobPolicy and the source adapters apply) as a *ranking signal only*
 so quality/rejection reasons show up in _quality_reasons — one excluded term
 scores -5 against a -10 threshold and does not by itself reject the job here;
@@ -93,10 +93,12 @@ def score_quality_signals(job: dict[str, Any], config: dict[str, Any]) -> dict[s
             score += weights["snippet_negative"]
             reasons.append(f"snippet:-{term}")
 
-    # Deterministic title exclusion (config.exclusions.title_terms) — same source of
+    # Deterministic title exclusion — same source of
     # truth as JobPolicy, applied word-order-independently via has_excluded_title_term.
     job_title = str(job.get("title") or "")
-    for term in (config.get("exclusions", {}) or {}).get("title_terms", []) or []:
+    from job_hunter.config.reference_data import resolve_title_exclusions
+
+    for term in resolve_title_exclusions(config):
         if has_excluded_title_term(job_title, [term]):
             score += weights["title_negative"]
             reasons.append(f"title:excluded:{term}")

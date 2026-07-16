@@ -31,7 +31,7 @@ def _write_minimal_repo(root: Path) -> None:
                 },
                 "job_titles": [],
                 "regions": {},
-                "exclusions": {},
+                "filters": {},
                 "sources": {},
                 "scoring": {"min_fit_score": 70},
                 "linkedin": {"enabled": False},
@@ -71,6 +71,21 @@ def test_onboarding_status_reports_missing_items(tmp_path: Path, monkeypatch) ->
     assert "api_keys" not in payload["missing"]
 
 
+def test_doctor_migrates_legacy_exclusions_once(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    path = tmp_path / "config" / "job_hunter.yml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data.pop("filters", None)
+    data["exclusions"] = {"companies": ["Acme"], "languages": ["german"]}
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    doctor(tmp_path)
+    migrated = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert "exclusions" not in migrated
+    assert migrated["filters"]["excluded_companies"]["entries"] == [{"value": "Acme"}]
+
+
 def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: Path, monkeypatch) -> None:
     _write_minimal_repo(tmp_path)
     (tmp_path / "config" / "job_hunter.yml").write_text(
@@ -83,7 +98,7 @@ def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: P
                 },
                 "job_titles": ["Product Manager"],
                 "regions": {"berlin": {"enabled": True, "location": "Berlin", "country": "DE"}},
-                "exclusions": {},
+                "filters": {},
                 "sources": {},
                 "scoring": {"min_fit_score": 70},
                 "linkedin": {"enabled": False},
@@ -143,7 +158,7 @@ def test_onboarding_checklist_all_done_when_repo_is_ready(tmp_path: Path) -> Non
                 },
                 "job_titles": ["Product Manager"],
                 "regions": {"berlin": {"enabled": True, "location": "Berlin", "country": "DE"}},
-                "exclusions": {},
+                "filters": {},
                 "sources": {},
                 "scoring": {"min_fit_score": 70},
                 "linkedin": {"enabled": False},

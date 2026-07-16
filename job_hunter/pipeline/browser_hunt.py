@@ -146,7 +146,9 @@ def run(  # noqa: C901
         return 1
 
     titles = config.get("job_titles", [])
-    exclusions = (config.get("exclusions") or {}).get("title_terms", [])
+    from job_hunter.config.reference_data import resolve_title_exclusions
+
+    exclusions = resolve_title_exclusions(config)
     enabled_companies = effective_companies(config, companies_config)
 
     if not enabled_companies:

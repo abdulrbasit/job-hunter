@@ -12,6 +12,9 @@ Product updates may replace system-owned files. They must never overwrite user d
 | `.env` | API keys and secrets |
 
 `config/schemas/` is system-owned. The values inside `config/*.yml` are yours.
+The only automated rewrite allowed is an explicit one-time migration. It saves
+the exact original bytes under `outputs/state/config_backups/` before replacing
+the config and never discards legacy values.
 
 ## System Layer — replaced by updates
 
@@ -33,10 +36,9 @@ Product updates may replace system-owned files. They must never overwrite user d
 1. **Workspace assets** — controlled by `_UPDATE_ASSETS` in `job_hunter/workspace/assets.py`:
    - Non-YAML files (for example `README.md` and `SETUP.md`): always replaced.
    - `config/career_pages.yml` and `config/job_hunter.yml` are both user-owned: update only
-     creates them if missing (for pre-existing workspaces that never had them). If either file
-     already exists, update never reads or rewrites it — no merging of any kind.
-     `job-hunter doctor` schema-validates `config/job_hunter.yml` and tells you what to add by
-     hand if a release ever introduces a new required key.
+     creates them if missing. Normal asset updates never replace an existing config.
+     `job-hunter update` and `job-hunter doctor` may run versioned, idempotent migrations
+     with an exact backup. Doctor then schema-validates `config/job_hunter.yml`.
 2. **Skills** — replaces `.claude/skills/` and the mirrored agent CLI trees.
 3. **Workflows** — replaces `.github/`. Your cron schedule in `find-jobs.yml` is preserved.
 

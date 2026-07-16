@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-_TOP_LEVEL_REMOVED = ("about_me", "sources", "secrets", "tailoring", "cover_letter")
+_TOP_LEVEL_REMOVED = ("about_me", "sources", "secrets", "tailoring", "cover_letter", "exclusions")
 _EXCLUSIONS_REMOVED = ("senior_flags", "stale_indicators", "url_patterns", "language_indicators")
 
 
@@ -32,4 +32,9 @@ def reject_removed_user_config(data: dict[str, Any]) -> None:
 
     if found:
         joined = ", ".join(found)
-        raise ValueError(f"Removed job_hunter.yml key(s): {joined}. Update to the v1 compact config shape.")
+        guidance = (
+            " Run `job-hunter doctor` or `job-hunter update` to migrate exclusions into filters."
+            if "exclusions" in found
+            else " Update to the v1 compact config shape."
+        )
+        raise ValueError(f"Removed job_hunter.yml key(s): {joined}.{guidance}")

@@ -18,7 +18,7 @@ _VALID_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "exclusions": {},
+    "filters": {},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic"},
 }
@@ -109,6 +109,18 @@ def test_validate_job_hunter_yaml_rejects_schema_violation(tmp_path: Path) -> No
 
 def test_validate_job_hunter_yaml_rejects_non_mapping(tmp_path: Path) -> None:
     assert service.validate_job_hunter_yaml(["not", "a", "mapping"], tmp_path) == ["config must be a YAML mapping"]
+
+
+def test_validate_job_hunter_yaml_rejects_invalid_filter_entry(tmp_path: Path) -> None:
+    _copy_schema(tmp_path)
+    data = {
+        **_VALID_CONFIG,
+        "filters": {"companies": {"description": "x", "entries": [{"value": "Acme", "match": "fuzzy"}]}},
+    }
+
+    errors = service.validate_job_hunter_yaml(data, tmp_path)
+
+    assert any("filters.companies" in error for error in errors)
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +556,12 @@ _ONBOARDING_BASE_CONFIG = {
     "mode": "agent",
     "job_titles": ["Old Title"],
     "regions": {"primary": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "exclusions": {"title_terms": ["intern"]},
+    "filters": {
+        "excluded_titles": {
+            "description": "Excluded titles",
+            "entries": [{"value": "intern"}],
+        }
+    },
     "scoring": {"min_fit_score": 70, "batch_size": 15},
 }
 
@@ -567,13 +584,13 @@ def test_apply_onboarding_prefs_updates_titles_stage_and_primary_region() -> Non
     assert merged["regions"]["primary"]["search_lang"] == "en"
 
 
-def test_apply_onboarding_prefs_leaves_scoring_and_other_exclusions_untouched() -> None:
+def test_apply_onboarding_prefs_leaves_scoring_and_other_filters_untouched() -> None:
     prefs = {"job_titles": ["New Title"]}
 
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
     assert merged["scoring"] == _ONBOARDING_BASE_CONFIG["scoring"]
-    assert merged["exclusions"]["title_terms"] == ["intern"]
+    assert merged["filters"]["excluded_titles"]["entries"] == [{"value": "intern"}]
 
 
 def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
@@ -581,8 +598,11 @@ def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
 
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
-    assert merged["exclusions"]["industries"] == ["Finance", "Retail"]
-    assert merged["exclusions"]["title_terms"] == ["intern"]
+    assert merged["filters"]["excluded_industries"]["entries"] == [
+        {"value": "Finance"},
+        {"value": "Retail"},
+    ]
+    assert merged["filters"]["excluded_titles"]["entries"] == [{"value": "intern"}]
 
 
 def test_apply_onboarding_prefs_preserves_other_regions() -> None:
@@ -699,7 +719,16 @@ _FULL_CONFIG = {
     },
     "job_titles": ["Product Manager", "Staff PM"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin", "primary": True}},
-    "exclusions": {"companies": ["Acme"], "title_terms": ["intern"]},
+    "filters": {
+        "excluded_companies": {
+            "description": "Excluded companies",
+            "entries": [{"value": "Acme"}],
+        },
+        "excluded_titles": {
+            "description": "Excluded titles",
+            "entries": [{"value": "intern"}],
+        },
+    },
     "scoring": {
         "min_fit_score": 70,
         "max_years_experience_required": 10,
@@ -726,7 +755,7 @@ def test_config_to_form_projects_guided_fields() -> None:
     assert form["profile"]["latex_class"] == "altacv"
     assert form["job_titles"] == ["Product Manager", "Staff PM"]
     assert form["regions"] == _FULL_CONFIG["regions"]
-    assert form["exclusions"]["companies"] == ["Acme"]
+    assert form["filters"]["excluded_companies"]["entries"] == [{"value": "Acme"}]
     assert form["scoring"]["min_fit_score"] == 70
     assert form["scoring"]["strategic_overrides"] == [{"company": "Stripe", "min_score_override": 50}]
     assert form["llm_default_provider"] == "anthropic"
@@ -734,7 +763,7 @@ def test_config_to_form_projects_guided_fields() -> None:
 
 
 def test_config_to_form_fills_blanks_for_missing_optional_fields() -> None:
-    minimal = {"mode": "agent", "profile": {}, "job_titles": [], "regions": {}, "exclusions": {}, "scoring": {}}
+    minimal = {"mode": "agent", "profile": {}, "job_titles": [], "regions": {}, "filters": {}, "scoring": {}}
 
     form = service.config_to_form(minimal)
 

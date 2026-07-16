@@ -207,7 +207,7 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
                 "mode": "agent",
                 "job_titles": [],
                 "regions": {"primary": {"enabled": True, "country": "DE", "location": "Your City"}},
-                "exclusions": {},
+                "filters": {},
                 "scoring": {"min_fit_score": 70, "batch_size": 15},
                 "llm": {"default_provider": "anthropic"},
             }
@@ -243,7 +243,7 @@ def test_get_onboarding_prompt_returns_copyable_text(tmp_path: Path) -> None:
                 "mode": "agent",
                 "job_titles": ["Product Manager"],
                 "regions": {},
-                "exclusions": {},
+                "filters": {},
                 "scoring": {"min_fit_score": 70, "batch_size": 15},
                 "llm": {"default_provider": "anthropic"},
             }
@@ -1268,7 +1268,7 @@ _SETTINGS_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "exclusions": {},
+    "filters": {},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic", "providers": {"scoring": "anthropic"}},
 }
@@ -1290,6 +1290,15 @@ def test_get_job_hunter_config_form_returns_guided_fields_and_revision(tmp_path:
     assert "providers" not in result["data"]["form"]
     assert result["data"]["revision"]
     json.dumps(result)
+
+
+def test_dashboard_uses_generic_one_file_filter_editor() -> None:
+    html = _dashboard_source()
+
+    assert 'id="cfg-filter-groups"' in html
+    assert "renderFilterGroups" in html
+    assert "collectFilterGroups" in html
+    assert "cfg-excl-companies" not in html
 
 
 def test_save_job_hunter_config_form_updates_job_titles_and_preserves_advanced_llm(tmp_path: Path) -> None:

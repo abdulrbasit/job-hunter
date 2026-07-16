@@ -536,8 +536,7 @@ document.getElementById('catalog-industry-filter').addEventListener('change', ()
 });
 [
   'cfg-resume-tex', 'cfg-story-bank', 'cfg-career-context-path', 'cfg-latex-class',
-  'cfg-profile-image', 'cfg-job-titles', 'cfg-excl-companies', 'cfg-excl-titles',
-  'cfg-excl-languages', 'cfg-excl-industries', 'cfg-min-fit-score', 'cfg-max-years',
+  'cfg-profile-image', 'cfg-job-titles', 'cfg-min-fit-score', 'cfg-max-years',
   'cfg-batch-size',
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', markConfigDirty);
@@ -1720,10 +1719,7 @@ function renderGuidedForm(form) {
   document.getElementById('cfg-latex-class').value = form.profile.latex_class || '';
   document.getElementById('cfg-profile-image').value = form.profile.profile_image || '';
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
-  document.getElementById('cfg-excl-companies').value = (form.exclusions.companies || []).join('\n');
-  document.getElementById('cfg-excl-titles').value = (form.exclusions.title_terms || []).join('\n');
-  document.getElementById('cfg-excl-languages').value = (form.exclusions.languages || []).join('\n');
-  document.getElementById('cfg-excl-industries').value = (form.exclusions.industries || []).join('\n');
+  renderFilterGroups(form.filters || {});
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -1735,6 +1731,61 @@ function renderGuidedForm(form) {
   document.getElementById('cfg-overrides-rows').innerHTML = '';
   (form.scoring.strategic_overrides || []).forEach(o => addOverrideRow(o));
   loadingGuidedForm = false;
+}
+
+function addFilterEntryRow(group, entry = {}) {
+  const row = document.createElement('div');
+  row.className = 'settings-row filter-entry-row';
+  row.dataset.match = entry.match || '';
+  row.innerHTML = `
+    <div class="settings-field"><label>Value</label><input type="text" class="filter-value" value="${esc(entry.value || '')}"></div>
+    <div class="settings-field"><label>Note (optional)</label><input type="text" class="filter-note" value="${esc(entry.note || '')}"></div>
+    <button class="btn btn-danger filter-remove" type="button">Remove</button>
+  `;
+  row.addEventListener('input', markConfigDirty);
+  row.querySelector('.filter-remove').addEventListener('click', () => { row.remove(); markConfigDirty(); });
+  group.querySelector('.filter-entry-rows').appendChild(row);
+}
+
+function renderFilterGroups(filters) {
+  const container = document.getElementById('cfg-filter-groups');
+  container.innerHTML = '';
+  Object.entries(filters).forEach(([name, filter]) => {
+    const group = document.createElement('div');
+    group.className = 'filter-group';
+    group.dataset.name = name;
+    group.dataset.description = filter.description || '';
+    group.innerHTML = `
+      <h4>${esc(name.replaceAll('_', ' '))}</h4>
+      <div class="settings-help">${esc(filter.description || '')}</div>
+      <div class="filter-entry-rows"></div>
+      <button class="btn filter-add" type="button">+ Add entry</button>
+    `;
+    container.appendChild(group);
+    (filter.entries || []).forEach(entry => addFilterEntryRow(group, entry));
+    group.querySelector('.filter-add').addEventListener('click', () => { addFilterEntryRow(group); markConfigDirty(); });
+  });
+}
+
+function collectFilterGroups() {
+  const filters = {};
+  document.querySelectorAll('#cfg-filter-groups .filter-group').forEach(group => {
+    const entries = [];
+    group.querySelectorAll('.filter-entry-row').forEach(row => {
+      const value = row.querySelector('.filter-value').value.trim();
+      if (!value) return;
+      const entry = { value };
+      const note = row.querySelector('.filter-note').value.trim();
+      if (note) entry.note = note;
+      if (row.dataset.match) entry.match = row.dataset.match;
+      entries.push(entry);
+    });
+    filters[group.dataset.name] = {
+      description: group.dataset.description || '',
+      entries,
+    };
+  });
+  return filters;
 }
 
 function markConfigDirty() {
@@ -1829,12 +1880,7 @@ function collectGuidedForm() {
     },
     job_titles: splitLines('cfg-job-titles'),
     regions,
-    exclusions: {
-      companies: splitLines('cfg-excl-companies'),
-      title_terms: splitLines('cfg-excl-titles'),
-      languages: splitLines('cfg-excl-languages'),
-      industries: splitLines('cfg-excl-industries'),
-    },
+    filters: collectFilterGroups(),
     scoring: {
       min_fit_score: Number(document.getElementById('cfg-min-fit-score').value || 0),
       max_years_experience_required: maxYears === '' ? null : Number(maxYears),

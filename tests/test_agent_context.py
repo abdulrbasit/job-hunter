@@ -218,7 +218,14 @@ def test_candidate_queue_non_default_root_still_applies_exclusions(tmp_path: Pat
 
     _write_yaml(
         tmp_path / "config" / "job_hunter.yml",
-        {"exclusions": {"companies": ["BlockedCo"]}},
+        {
+            "filters": {
+                "excluded_companies": {
+                    "description": "Excluded companies",
+                    "entries": [{"value": "BlockedCo"}],
+                }
+            }
+        },
     )
     insert_jobs(
         tmp_path,
@@ -318,11 +325,20 @@ def test_screen_candidate_batch_filters_exclusions_and_duplicates(
         {
             "job_titles": ["Product Manager"],
             "regions": {"berlin": {"location": "Berlin"}},
-            "exclusions": {
-                "companies": ["Delivery Hero"],
-                "title_terms": ["trainee"],
-                "industries": ["lottery"],
-                "languages": ["german"],
+            "filters": {
+                "languages": {"description": "Hunt languages", "entries": [{"value": "english"}]},
+                "excluded_companies": {
+                    "description": "Excluded companies",
+                    "entries": [{"value": "Delivery Hero"}],
+                },
+                "excluded_titles": {
+                    "description": "Excluded titles",
+                    "entries": [{"value": "trainee"}],
+                },
+                "excluded_industries": {
+                    "description": "Excluded industries",
+                    "entries": [{"value": "lottery"}],
+                },
             },
         },
     )
@@ -376,7 +392,12 @@ def test_screen_candidate_batch_defers_industry_judgment(tmp_path: Path) -> None
         tmp_path / "config" / "job_hunter.yml",
         {
             "job_titles": ["Product Manager"],
-            "exclusions": {"industries": ["banking", "crypto"]},
+            "filters": {
+                "excluded_industries": {
+                    "description": "Excluded industries",
+                    "entries": [{"value": "banking"}, {"value": "crypto"}],
+                }
+            },
         },
     )
     batch = {

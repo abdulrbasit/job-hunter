@@ -34,13 +34,20 @@ regions:
   #   country: "SG"
   #   location: "Singapore"
 
-exclusions:
-  companies: []
-  # Example: companies: ["Staffing Agency Inc", "Recruiter Co"]
-  title_terms: []
-  # Example (on top of your career_stage's own exclude list): title_terms: ["contract to hire"]
-  languages: []
-  industries: []
+filters:
+  languages:
+    description: "Languages allowed during hunts"
+    entries:
+      - value: english
+  excluded_titles:
+    description: "Title terms excluded from results"
+    entries: []
+  excluded_companies:
+    description: "Companies excluded from results"
+    entries: []
+  excluded_industries:
+    description: "Industries excluded from results"
+    entries: []
 
 scoring:
   min_fit_score: 70

@@ -23,6 +23,9 @@ def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, An
 
 
 def doctor(root: Path) -> dict[str, Any]:
+    from job_hunter.config.migrations import migrate_legacy_exclusions
+
+    migrate_legacy_exclusions(root)
     checks: list[dict[str, Any]] = []
     job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
     mode = str(job_hunter_config.get("mode") or "agent")

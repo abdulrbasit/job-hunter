@@ -31,21 +31,29 @@ regions:
   #   country: "SG"
   #   location: "Singapore"
 
-exclusions:
-  companies: []
-  title_terms:
-    - intern
-    - internship
-    - trainee
-    - working student
-    - werkstudent
-    - junior
-    - principal
-    - expert
-    - chief product
+filters:
   languages:
-    - german
-  industries: []
+    description: "Languages allowed during hunts"
+    entries:
+      - value: english
+  excluded_titles:
+    description: "Title terms excluded from results"
+    entries:
+      - value: intern
+      - value: internship
+      - value: trainee
+      - value: working student
+      - value: werkstudent
+      - value: junior
+      - value: principal
+      - value: expert
+      - value: chief product
+  excluded_companies:
+    description: "Companies excluded from results"
+    entries: []
+  excluded_industries:
+    description: "Industries excluded from results"
+    entries: []
 
 scoring:
   min_fit_score: 70

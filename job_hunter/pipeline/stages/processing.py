@@ -23,6 +23,7 @@ from job_hunter.pipeline.stages.scoring import score_and_filter_jobs, strategic_
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.pipeline.stages.validation import validate
 from job_hunter.pipeline.tailorer import tailor
+from job_hunter.sources.policy import JobPolicy
 from job_hunter.tracking.applications import upsert_application_from_job
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def process_jobs(
             api_config=api_config,
             url_checker=url_checker or UrlLivenessCache().is_alive,
             max_years_bypass_companies=strategic_override_companies(scoring_config),
-            excluded_industries=(scoring_config.get("exclusions", {}) or {}).get("industries", []),
+            excluded_industries=JobPolicy(scoring_config).excluded_industries,
         )
         for job in rejected:
             logger.info(

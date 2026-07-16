@@ -21,7 +21,7 @@ tailor-links, or tailor-raw modes.
 |---|---|
 | `agent_context/` | Bounded context objects consumed by agent skills |
 | `cli/` | Command parsing, output, and service composition |
-| `config/` | YAML loading, defaults, secrets, schemas, and workspace paths |
+| `config/` | YAML loading, typed filter registry, migrations, secrets, schemas, and workspace paths |
 | `core/` | Small cross-package utilities |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
 | `llm/` | Provider routing, typed requests/responses, prompts, and token accounting |
@@ -53,7 +53,7 @@ Hunt flow:
 
 1. Resolve region and discover postings through `sources/orchestrator.py`.
 2. Deduplicate, enrich descriptions, and reject closed listings.
-3. Screen objective exclusions and apply the quality gate (rank/cap before LLM scoring).
+3. Screen objective filters and apply the quality gate (rank/cap before LLM scoring).
 4. Validate, score, research, tailor, write cover letters, and compile PDFs.
 5. Persist job/application state, generated artifacts, README summaries, and
    telemetry.
@@ -64,7 +64,7 @@ skills continue the same lifecycle through hidden CLI contracts under
 
 ## Data and state
 
-- `config/job_hunter.yml`: user-owned deterministic settings.
+- `config/job_hunter.yml`: user-owned deterministic settings, including standardized filter groups.
 - `profile/`: user-owned resume, career context, and story evidence.
 - `outputs/state/jobs.db`: canonical job and application state.
 - `outputs/state/metrics.db`: pipeline and token telemetry.

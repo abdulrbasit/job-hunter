@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Job Hunter filter group",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["description", "entries"],
+  "properties": {
+    "description": {"type": "string"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value"],
+        "properties": {
+          "value": {"type": "string", "minLength": 1},
+          "match": {"type": "string", "enum": ["exact", "contains", "regex"]},
+          "note": {"type": "string"}
+        }
+      }
+    }
+  }
+}

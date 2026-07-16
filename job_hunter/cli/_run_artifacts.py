@@ -207,7 +207,9 @@ def expand_listing_candidate(url: str, company: str, location: str, title: str) 
 
     search_config = get_config("job_hunter")
     title_filters = search_config.get("job_titles", [])
-    excluded_terms = (search_config.get("exclusions", {}) or {}).get("title_terms", [])
+    from job_hunter.config.reference_data import resolve_title_exclusions
+
+    excluded_terms = resolve_title_exclusions(search_config)
     try:
         jobs = fetch_playwright_career_jobs(
             {"name": company or "Unknown Company", "career_url": url, "location": location},

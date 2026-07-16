@@ -132,10 +132,11 @@ def test_english_passes_when_multiple_languages_configured() -> None:
 
 
 def test_excluded_company_matches_suffix_and_case_variants() -> None:
-    policy = JobPolicy({"exclusions": {"companies": ["Delivery Hero", "Auto1 Group"]}})
+    policy = JobPolicy({"exclusions": {"companies": ["Delivery Hero", "Auto1", r"^Spam\s+Co$", "Invalid["]}})
 
     assert policy.is_excluded_company("Delivery Hero SE")
     assert policy.is_excluded_company("AUTO1 Group")
+    assert policy.is_excluded_company("Spam Co")
     assert not policy.is_excluded_company("Hero Digital")
 
 

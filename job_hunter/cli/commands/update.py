@@ -95,6 +95,12 @@ def update(
 
     root = Path(workspace)
 
+    from job_hunter.config.migrations import migrate_legacy_exclusions
+
+    migration = migrate_legacy_exclusions(root)
+    if migration.migrated:
+        typer.echo(f"[ok] {migration.message}")
+
     if not yes:
         try:
             dirty = dirty_system_paths(root)

@@ -11,6 +11,7 @@ from job_hunter.agent_context.candidates import candidate_from_queue
 from job_hunter.agent_context.stories import match_stories, story_index
 from job_hunter.config.reference_data import resolve_max_years_experience
 from job_hunter.core.utils import read_yaml
+from job_hunter.sources.policy import JobPolicy
 from job_hunter.writing.rules import universal_score_decision_rules
 
 
@@ -45,7 +46,7 @@ def _profile_context(root: Path) -> dict[str, Any]:
             "max_years_experience_required": resolve_max_years_experience(config),
             "strategic_overrides": scoring.get("strategic_overrides", []),
         },
-        "excluded_industries": list(config.get("exclusions", {}).get("industries", []) or []),
+        "excluded_industries": JobPolicy(config).excluded_industries,
         "target_titles": config.get("job_titles", []),
         "career_context": _clip(career_context, 2000),
         "resume_tex": _clip(resume_tex, 6000),

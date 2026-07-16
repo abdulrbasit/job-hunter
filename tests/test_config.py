@@ -85,7 +85,7 @@ def test_removed_config_keys_are_rejected(data: dict, expected_key: str) -> None
         reject_removed_user_config(data)
 
     # Task 3: error message must show migration guidance, not just name the key.
-    assert "v1 compact config shape" in str(exc_info.value)
+    assert "v1 compact config shape" in str(exc_info.value) or "job-hunter doctor" in str(exc_info.value)
 
 
 def test_removed_config_keys_accepts_current_shape() -> None:
@@ -94,7 +94,7 @@ def test_removed_config_keys_accepts_current_shape() -> None:
     reject_removed_user_config(
         {
             "mode": "agent",
-            "exclusions": {"companies": [], "title_terms": []},
+            "filters": {},
             "scoring": {"min_fit_score": 70, "batch_size": 15},
             "linkedin": {"enabled": False},
         }
