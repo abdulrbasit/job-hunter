@@ -5,9 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from job_hunter.catalog.loader import CompanyEntry
 from job_hunter.models import JobPosting
+from job_hunter.sources import ats_slugs
 from job_hunter.sources.ats_apis import fetch_platform_jobs
-from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
+from job_hunter.sources.ats_slugs import (
+    catalog_slugs,
+    harvest_slugs,
+    load_slug_store,
+    query_ats_by_slugs,
+    update_slug_store,
+)
 
 # ---------------------------------------------------------------------------
 # harvest_slugs
@@ -199,3 +207,105 @@ class TestQueryAtsBySlugs:
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
             results = query_ats_by_slugs({"greenhouse": ["acme"]}, self._titles, self._regions, self._excluded)
         assert results[0]["source"] == "ats_slug/greenhouse"
+
+    def test_fetches_every_slug_once_and_aggregates(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_fetch(platform: str, slug: str, _timeout: int) -> list[dict]:
+            calls.append((platform, slug))
+            return [
+                {
+                    "title": "Product Manager",
+                    "url": f"https://example.com/{platform}/{slug}/1",
+                    "location": "",
+                    "snippet": "",
+                }
+            ]
+
+        store = {"greenhouse": ["a", "b"], "lever": ["c"]}
+        with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", side_effect=fake_fetch):
+            results = query_ats_by_slugs(store, self._titles, self._regions, self._excluded)
+
+        assert sorted(calls) == [("greenhouse", "a"), ("greenhouse", "b"), ("lever", "c")]
+        assert len(results) == 3
+
+
+# ---------------------------------------------------------------------------
+# catalog_slugs
+# ---------------------------------------------------------------------------
+
+
+def _company(
+    career_url: str,
+    *,
+    countries: list[str] | None = None,
+    remote: list[str] | None = None,
+    industries: list[str] | None = None,
+) -> CompanyEntry:
+    return CompanyEntry(
+        id="acme",
+        name="Acme",
+        career_url=career_url,
+        country_codes=countries or ["US"],
+        remote_country_codes=remote or [],
+        industry_ids=industries or [],
+        verified_at="2026-01-01",
+    )
+
+
+_NO_REGIONS: dict = {"regions": {}}
+_DE_ONLY: dict = {"regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}}}
+
+
+class TestCatalogSlugs:
+    def test_extracts_slug_from_ats_career_url(self, monkeypatch) -> None:
+        monkeypatch.setattr(ats_slugs, "load_companies", lambda: [_company("https://boards.greenhouse.io/Acme")])
+        assert catalog_slugs(_NO_REGIONS) == {"greenhouse": {"acme"}}
+
+    def test_skips_platform_without_public_fetcher(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            ats_slugs,
+            "load_companies",
+            lambda: [_company("https://acme.wd5.myworkdayjobs.com/External")],
+        )
+        assert catalog_slugs(_NO_REGIONS) == {}
+
+    def test_skips_non_ats_career_url(self, monkeypatch) -> None:
+        monkeypatch.setattr(ats_slugs, "load_companies", lambda: [_company("https://acme.com/careers")])
+        assert catalog_slugs(_NO_REGIONS) == {}
+
+    def test_region_filter_excludes_other_countries(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            ats_slugs,
+            "load_companies",
+            lambda: [_company("https://boards.greenhouse.io/acme", countries=["US"])],
+        )
+        assert catalog_slugs(_DE_ONLY) == {}
+
+    def test_region_filter_includes_remote_country_match(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            ats_slugs,
+            "load_companies",
+            lambda: [_company("https://boards.greenhouse.io/acme", countries=["US"], remote=["DE"])],
+        )
+        assert catalog_slugs(_DE_ONLY) == {"greenhouse": {"acme"}}
+
+    def test_no_enabled_regions_includes_all(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            ats_slugs,
+            "load_companies",
+            lambda: [_company("https://jobs.lever.co/acme", countries=["JP"])],
+        )
+        assert catalog_slugs(_NO_REGIONS) == {"lever": {"acme"}}
+
+    def test_industry_exclusion_drops_company(self, monkeypatch) -> None:
+        from job_hunter.config.reference_data import load_filters
+
+        industry = load_filters().industries[0]
+        monkeypatch.setattr(
+            ats_slugs,
+            "load_companies",
+            lambda: [_company("https://boards.greenhouse.io/acme", industries=[industry.id])],
+        )
+        config = {"regions": {}, "exclusions": {"industries": [industry.label]}}
+        assert catalog_slugs(config) == {}

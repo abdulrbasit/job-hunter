@@ -22,7 +22,13 @@ from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
-from job_hunter.sources.ats_slugs import harvest_slugs, load_slug_store, query_ats_by_slugs, update_slug_store
+from job_hunter.sources.ats_slugs import (
+    catalog_slugs,
+    harvest_slugs,
+    load_slug_store,
+    query_ats_by_slugs,
+    update_slug_store,
+)
 from job_hunter.sources.policy import JobPolicy, derive_country_code, normalize_employment_type
 from job_hunter.sources.search import canonicalize_url
 from job_hunter.sources.search.preflight import probe_search_providers
@@ -229,12 +235,16 @@ def scrape_with_stats(
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
 
-    # Step 2: Harvest slugs from board results, persist, query ATS APIs directly (no keys needed)
+    # Step 2: Harvest slugs from board results, persist, query ATS APIs directly (no keys needed).
+    # Catalog slugs are unioned in at query time only — never persisted — so region and
+    # industry filters apply fresh each run.
     if include_ats_slug and depth != "fast":
         try:
             new_slugs = harvest_slugs(results)
             update_slug_store(_WORKSPACE_ROOT, new_slugs)
             slug_store = load_slug_store(_WORKSPACE_ROOT)
+            for platform, slugs in catalog_slugs(config).items():
+                slug_store[platform] = sorted(set(slug_store.get(platform, [])) | slugs)
             slug_jobs = query_ats_by_slugs(slug_store, job_titles, regions, excluded_title_terms)
             _add_unique([JobPosting.model_validate(j) for j in slug_jobs], "ats_slug")
         except Exception as exc:

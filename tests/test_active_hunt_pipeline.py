@@ -240,6 +240,38 @@ def test_ats_discovery_jobs_counted_under_source_region_not_unknown(monkeypatch)
     assert stats.accepted_by_region.get("berlin") == 1
 
 
+def test_ats_slug_step_unions_catalog_slugs_with_harvested_store(monkeypatch) -> None:
+    """Step 2 must query harvested + catalog slugs, without persisting catalog slugs."""
+    config = {
+        "job_titles": ["Product Manager"],
+        "exclusions": {"companies": [], "title_terms": [], "industries": [], "languages": []},
+        "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
+        "search": {},
+    }
+    captured: dict = {}
+    persisted: list = []
+
+    monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
+    monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
+    monkeypatch.setattr(orchestrator, "harvest_slugs", lambda _results: {})
+    monkeypatch.setattr(orchestrator, "update_slug_store", lambda _ws, slugs: persisted.append(slugs))
+    monkeypatch.setattr(orchestrator, "load_slug_store", lambda _ws: {"greenhouse": ["harvested"]})
+    monkeypatch.setattr(orchestrator, "catalog_slugs", lambda _config: {"greenhouse": {"cataloged"}})
+
+    def fake_query(slug_store, _titles, _regions, _excluded):
+        captured["store"] = slug_store
+        return []
+
+    monkeypatch.setattr(orchestrator, "query_ats_by_slugs", fake_query)
+
+    orchestrator.scrape_with_stats(depth="standard", include_boards=False, include_ats_discovery=False)
+
+    assert captured["store"] == {"greenhouse": ["cataloged", "harvested"]}
+    assert persisted == [{}]
+
+
 def test_deep_depth_passes_larger_max_results_than_standard() -> None:
     """_params_for_region only raises max_results for depth='deep' — the
     adaptive/deep-attempt signal paged adapters use to fetch more pages."""

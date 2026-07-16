@@ -8,10 +8,12 @@ all cached slugs — no search engine API keys required.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
 
+from job_hunter.catalog.loader import load_companies
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting
@@ -33,6 +35,29 @@ def harvest_slugs(jobs: list[JobPosting | dict]) -> dict[str, set[str]]:
         if detected:
             platform, slug = detected
             result.setdefault(platform, set()).add(slug.lower())
+    return result
+
+
+def catalog_slugs(config: dict) -> dict[str, set[str]]:
+    """ATS slugs from the bundled company catalog, filtered to the user's enabled
+    regions and industry exclusions; platforms with a public list API only."""
+    from job_hunter.catalog.merge import _enabled_country_codes, _excluded_industry_ids
+    from job_hunter.sources.ats_apis import _FETCHERS
+
+    enabled_countries = _enabled_country_codes(config)
+    excluded = _excluded_industry_ids((config.get("exclusions", {}) or {}).get("industries", []) or [])
+    result: dict[str, set[str]] = {}
+    for company in load_companies():
+        if excluded and set(company.industry_ids) & excluded:
+            continue
+        if (
+            enabled_countries
+            and not (set(company.country_codes) | set(company.remote_country_codes)) & enabled_countries
+        ):
+            continue
+        detected = detect_ats(company.career_url)
+        if detected and detected[0] in _FETCHERS:
+            result.setdefault(detected[0], set()).add(detected[1].lower())
     return result
 
 
@@ -89,34 +114,38 @@ def query_ats_by_slugs(
     results: list[dict] = []
     seen: set[str] = set()
 
-    for platform, slugs in slug_store.items():
-        for slug in slugs:
-            jobs = fetch_platform_jobs(platform, slug, ATS_DISCOVERY_API_TIMEOUT)
-            company = slug.replace("-", " ").replace("_", " ").title()
-            for j in jobs:
-                title = j.get("title", "")
-                url = j.get("url", "")
-                if not title or not url or url in seen:
-                    continue
-                if not title_matches(title, title_filters, excluded_title_terms):
-                    continue
-                loc = j.get("location", "")
-                if loc and locations and not any(location_matches(loc, lf) for lf in locations):
-                    continue
-                seen.add(url)
-                results.append(
-                    {
-                        "title": title,
-                        "company": company,
-                        "url": url,
-                        "location": loc,
-                        "snippet": j.get("snippet", ""),
-                        "source": f"ats_slug/{platform}",
-                        "region": region_key,
-                        "posted_date_text": "",
-                        "search_query": f"{title} @ {region_key}",
-                    }
-                )
+    pairs = [(platform, slug) for platform, slugs in slug_store.items() for slug in slugs]
+    if not pairs:
+        return []
+    with ThreadPoolExecutor(max_workers=min(16, len(pairs))) as pool:
+        fetched = list(pool.map(lambda p: fetch_platform_jobs(p[0], p[1], ATS_DISCOVERY_API_TIMEOUT), pairs))
+
+    for (platform, slug), jobs in zip(pairs, fetched, strict=True):
+        company = slug.replace("-", " ").replace("_", " ").title()
+        for j in jobs:
+            title = j.get("title", "")
+            url = j.get("url", "")
+            if not title or not url or url in seen:
+                continue
+            if not title_matches(title, title_filters, excluded_title_terms):
+                continue
+            loc = j.get("location", "")
+            if loc and locations and not any(location_matches(loc, lf) for lf in locations):
+                continue
+            seen.add(url)
+            results.append(
+                {
+                    "title": title,
+                    "company": company,
+                    "url": url,
+                    "location": loc,
+                    "snippet": j.get("snippet", ""),
+                    "source": f"ats_slug/{platform}",
+                    "region": region_key,
+                    "posted_date_text": "",
+                    "search_query": f"{title} @ {region_key}",
+                }
+            )
 
     logger.info("[ats_slugs] Direct ATS query returned %d jobs", len(results))
     return results
