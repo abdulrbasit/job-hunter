@@ -95,12 +95,6 @@ def update(
 
     root = Path(workspace)
 
-    from job_hunter.config.migrations import migrate_legacy_exclusions
-
-    migration = migrate_legacy_exclusions(root)
-    if migration.migrated:
-        typer.echo(f"[ok] {migration.message}")
-
     if not yes:
         try:
             dirty = dirty_system_paths(root)
@@ -121,6 +115,11 @@ def update(
         _echo_workflows_result(run_update_workflows(root), root)
         return
 
+    from job_hunter.config.migrations import migrate_legacy_exclusions
+
+    migration = migrate_legacy_exclusions(root)
+    if migration.migrated:
+        typer.echo(f"[ok] {migration.message}")
     written = update_workspace_assets(root)
     typer.echo(f"[ok] Updated {len(written)} workspace asset(s)")
     _echo_skills_result(run_update_skills(root), root)

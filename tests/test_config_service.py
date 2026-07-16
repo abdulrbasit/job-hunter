@@ -30,12 +30,11 @@ def _write_config(root: Path, data: dict) -> None:
 
 
 def _copy_schema(root: Path) -> None:
-    real_schema = (Path(__file__).parents[1] / "config" / "schemas" / "job_hunter.schema.json").read_text(
-        encoding="utf-8"
-    )
     schema_dir = root / "config" / "schemas"
     schema_dir.mkdir(parents=True, exist_ok=True)
-    (schema_dir / "job_hunter.schema.json").write_text(real_schema, encoding="utf-8")
+    source_dir = Path(__file__).parents[1] / "config" / "schemas"
+    for name in ("job_hunter.schema.json", "filter.schema.json"):
+        (schema_dir / name).write_text((source_dir / name).read_text(encoding="utf-8"), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

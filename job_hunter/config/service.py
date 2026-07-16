@@ -25,7 +25,6 @@ import yaml
 
 from job_hunter.config.loader import get_job_hunter_config
 from job_hunter.config.removed_keys import reject_removed_user_config
-from job_hunter.models import FilterConfig
 
 MAX_CAREER_CONTEXT_BYTES = 512 * 1024
 
@@ -94,7 +93,6 @@ def validate_job_hunter_yaml(data: Any, root: Path) -> list[str]:
     filter_schema_path = root / "config" / "schemas" / "filter.schema.json"
     for name, filter_data in (data.get("filters") or {}).items():
         try:
-            FilterConfig.model_validate(filter_data)
             if filter_schema_path.exists():
                 import jsonschema
 
@@ -274,7 +272,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     """Project the guided-editable subset of job_hunter.yml into a plain JSON-safe dict.
 
     Covers every top-level key the schema allows (mode/profile/job_titles/regions/
-    exclusions/scoring) except llm, where only default_provider is guided-editable —
+    filters/scoring) except llm, where only default_provider is guided-editable —
     providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
     """
     profile = data.get("profile") or {}
@@ -369,8 +367,8 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     """Apply the compact Get-Started search-setup fields onto existing job_hunter.yml data.
 
     Touches only mode, career_stage, job_titles, the "primary" region, and
-    exclusions.industries — leaves scoring, llm, other regions, and other
-    exclusion categories untouched (those stay Advanced-editor-only).
+    excluded-industry filter — leaves scoring, llm, other regions, and other
+    filter groups untouched.
     """
     merged = deepcopy(data)
     if prefs.get("mode"):

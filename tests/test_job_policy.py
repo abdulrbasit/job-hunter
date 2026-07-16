@@ -3,136 +3,47 @@ from __future__ import annotations
 from job_hunter.sources.policy import JobPolicy
 
 
-def _policy(excluded_languages: list[str]) -> JobPolicy:
-    return JobPolicy({"exclusions": {"languages": excluded_languages}})
+def _language_policy(*allowed: str) -> JobPolicy:
+    return JobPolicy(
+        {
+            "filters": {
+                "languages": {
+                    "description": "Hunt languages",
+                    "entries": [{"value": value} for value in allowed],
+                }
+            }
+        }
+    )
 
 
-GERMAN_INDICATORS = [
-    "wir suchen",
-    "wir freuen uns",
-    "jetzt bewerben",
-    "ihre aufgaben",
-    "ihr profil",
-    "deine aufgaben",
-    "dein profil",
-    "was wir bieten",
-]
+def test_language_allowlist_rejects_detected_unlisted_language() -> None:
+    policy = _language_policy("english")
 
-ITALIAN_INDICATORS = [
-    "siamo alla ricerca",
-    "la tua candidatura",
-    "invia candidatura",
-    "le tue responsabilita",
-    "cosa offriamo",
-    "requisiti richiesti",
-]
-
-GERMAN_HEURISTIC_TEXT = (
-    "Wir suchen eine erfahrene Person, die mit uns zusammen das Team aufbauen wird. "
-    "Die Person sollte die Erfahrung und das Wissen mitbringen, das wir brauchen. "
-    "Wenn du dich angesprochen fuehls, freuen wir uns auf deine Bewerbung. "
-    "Deine Aufgaben sind klar definiert und du wirst eine wichtige Rolle spielen."
-)
-
-ENGLISH_BERLIN_TEXT = (
-    "We are looking for a product manager to join our growing team in Berlin. "
-    "You will own the roadmap and work closely with engineering and design. "
-    "The ideal candidate has 3+ years of product experience in a fast-paced environment. "
-    "We value strong communication skills and a data-driven approach to decision making."
-)
+    assert policy.excluded_by_search_lang("PM", "Wir suchen einen erfahrenen Produktmanager.", "en")
 
 
-# ---------------------------------------------------------------------------
-# excluded_languages: [german] — indicators
-# ---------------------------------------------------------------------------
+def test_language_allowlist_accepts_listed_language() -> None:
+    policy = _language_policy("english", "german")
 
-
-def test_german_indicator_phrase_is_excluded() -> None:
-    policy = _policy(["german"])
-    assert policy.is_excluded_language("Product Manager", "Wir suchen einen erfahrenen Product Manager.")
-
-
-def test_german_posting_with_multiple_indicators_is_excluded() -> None:
-    policy = _policy(["german"])
-    snippet = "Ihre Aufgaben: Produktmanagement. Ihr Profil: 3+ Jahre Erfahrung. Jetzt bewerben!"
-    assert policy.is_excluded_language("Senior PM", snippet)
-
-
-# ---------------------------------------------------------------------------
-# excluded_languages: [german] — statistical heuristic (no indicators match)
-# ---------------------------------------------------------------------------
-
-
-def test_german_heuristic_catches_text_without_indicator_phrase() -> None:
-    policy = _policy(["german"])
-    assert policy.is_excluded_language("Produktmanager", GERMAN_HEURISTIC_TEXT)
-
-
-# ---------------------------------------------------------------------------
-# excluded_languages: [german] — English posting in Berlin must pass
-# ---------------------------------------------------------------------------
-
-
-def test_english_berlin_posting_passes_german_filter() -> None:
-    policy = _policy(["german"])
-    assert not policy.is_excluded_language("Product Manager", ENGLISH_BERLIN_TEXT)
-
-
-# ---------------------------------------------------------------------------
-# excluded_languages: [italian] — indicators only (no heuristic for non-German)
-# ---------------------------------------------------------------------------
-
-
-def test_italian_indicator_phrase_is_excluded() -> None:
-    policy = _policy(["italian"])
-    snippet = "Siamo alla ricerca di un product manager con esperienza."
-    assert policy.is_excluded_language("Product Manager", snippet)
-
-
-def test_italian_text_without_matching_indicators_passes() -> None:
-    policy = _policy(["italian"])
-    snippet = "Cerchiamo un prodotto manager con molta esperienza nel settore tecnologico."
-    assert not policy.is_excluded_language("Product Manager", snippet)
-
-
-# ---------------------------------------------------------------------------
-# empty excluded_languages — all postings pass
-# ---------------------------------------------------------------------------
-
-
-def test_empty_excluded_languages_passes_german_text() -> None:
-    policy = _policy([])
-    assert not policy.is_excluded_language("Product Manager", GERMAN_HEURISTIC_TEXT)
-
-
-def test_empty_excluded_languages_passes_italian_text() -> None:
-    policy = _policy([])
-    snippet = "Siamo alla ricerca di un product manager."
-    assert not policy.is_excluded_language("Product Manager", snippet)
-
-
-# ---------------------------------------------------------------------------
-# multiple excluded languages
-# ---------------------------------------------------------------------------
-
-
-def test_german_excluded_when_multiple_languages_configured() -> None:
-    policy = _policy(["german", "italian"])
-    assert policy.is_excluded_language("PM", "Wir suchen einen erfahrenen Produktmanager.")
-
-
-def test_italian_excluded_when_multiple_languages_configured() -> None:
-    policy = _policy(["german", "italian"])
-    assert policy.is_excluded_language("PM", "Siamo alla ricerca di un product manager con esperienza.")
-
-
-def test_english_passes_when_multiple_languages_configured() -> None:
-    policy = _policy(["german", "italian"])
-    assert not policy.is_excluded_language("Product Manager", ENGLISH_BERLIN_TEXT)
+    assert not policy.excluded_by_search_lang("PM", "Wir suchen einen erfahrenen Produktmanager.", "en")
 
 
 def test_excluded_company_matches_suffix_and_case_variants() -> None:
-    policy = JobPolicy({"exclusions": {"companies": ["Delivery Hero", "Auto1", r"^Spam\s+Co$", "Invalid["]}})
+    policy = JobPolicy(
+        {
+            "filters": {
+                "excluded_companies": {
+                    "description": "Excluded companies",
+                    "entries": [
+                        {"value": "Delivery Hero"},
+                        {"value": "Auto1"},
+                        {"value": r"^Spam\s+Co$"},
+                        {"value": "Invalid["},
+                    ],
+                }
+            }
+        }
+    )
 
     assert policy.is_excluded_company("Delivery Hero SE")
     assert policy.is_excluded_company("AUTO1 Group")

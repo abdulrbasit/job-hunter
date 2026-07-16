@@ -52,67 +52,6 @@ CONTRACT_PHRASES: frozenset[str] = frozenset(
     }
 )
 
-_GERMAN_WORD_RE = re.compile(r"[a-z\u00e4\u00f6\u00fc\u00df]+", re.IGNORECASE)
-_GERMAN_MIN_WORDS = 18
-_GERMAN_MIN_HITS = 6
-_GERMAN_MIN_UNIQUE_HITS = 4
-_GERMAN_LANGUAGE_MARKERS = {
-    "als",
-    "auf",
-    "aus",
-    "bei",
-    "das",
-    "dein",
-    "deine",
-    "deinem",
-    "deinen",
-    "deiner",
-    "dem",
-    "den",
-    "der",
-    "des",
-    "dich",
-    "die",
-    "du",
-    "ein",
-    "eine",
-    "einem",
-    "einen",
-    "einer",
-    "f\u00fcr",
-    "fuer",
-    "ihre",
-    "ihren",
-    "ihr",
-    "im",
-    "ist",
-    "mit",
-    "nicht",
-    "oder",
-    "sich",
-    "sind",
-    "sowie",
-    "und",
-    "uns",
-    "unser",
-    "unsere",
-    "von",
-    "wir",
-    "zu",
-    "zum",
-    "zur",
-}
-
-
-def _looks_like_german_text(text: str) -> bool:
-    words = _GERMAN_WORD_RE.findall(text.lower())
-    if len(words) < _GERMAN_MIN_WORDS:
-        return False
-
-    hits = [word for word in words if word in _GERMAN_LANGUAGE_MARKERS]
-    return len(hits) >= _GERMAN_MIN_HITS and len(set(hits)) >= _GERMAN_MIN_UNIQUE_HITS
-
-
 _LANG_CODE_TO_NAME: dict[str, str] = {
     "en": "english",
     "de": "german",
@@ -358,10 +297,6 @@ class JobPolicy:
             object.__setattr__(self, "filters", FilterRegistry.from_config(self.config))
 
     @property
-    def exclusions(self) -> dict:
-        return self.config.get("exclusions", {}) or {}
-
-    @property
     def excluded_title_terms(self) -> list[str]:
         return resolve_title_exclusions(self.config)
 
@@ -374,10 +309,6 @@ class JobPolicy:
     def excluded_industries(self) -> list[str]:
         filter_file = self.filters.file("excluded_industries") if self.filters else None
         return filter_file.values if filter_file else []
-
-    @property
-    def excluded_languages(self) -> list[str]:
-        return [str(language).strip().lower() for language in self.exclusions.get("languages", []) or []]
 
     def is_valid_job_url(self, url: str) -> bool:
         parsed = urlparse(url)
@@ -430,31 +361,6 @@ class JobPolicy:
             return "stale_date"
         return "current"
 
-    def is_german(self, title: str, snippet: str) -> bool:
-        return self.is_excluded_language(title, snippet, language="german")
-
-    def is_excluded_language(self, title: str, snippet: str, *, language: str | None = None) -> bool:
-        excluded_languages = [language for language in self.excluded_languages if language]
-        if language:
-            if language.lower() not in excluded_languages:
-                return False
-            languages = [language.lower()]
-        else:
-            languages = excluded_languages
-        if not languages:
-            return False
-
-        combined = (title + " " + snippet).lower()
-        for lang in languages:
-            indicators = [
-                str(value).strip().lower() for value in LANGUAGE_INDICATORS.get(lang, ()) if str(value).strip()
-            ]
-            if indicators and any(indicator in combined for indicator in indicators):
-                return True
-            if lang == "german" and _looks_like_german_text(combined):
-                return True
-        return False
-
     def accepts_job_content(self, job: dict, title_filters: list[str]) -> bool:
         return self.rejection_reason(job, title_filters) == ""
 
@@ -476,9 +382,6 @@ class JobPolicy:
         if self.is_stale_posting(title, snippet):
             logger.info("[skip] Stale/closed posting: %s", title[:60])
             return "stale_content"
-        if self.is_excluded_language(title, snippet):
-            logger.info("[skip] Excluded-language posting: %s", title[:60])
-            return "excluded_language"
         if self.is_contract_posting(job):
             logger.info("[skip] Contract/fixed-term posting: %s", title[:60])
             return "contract_role"

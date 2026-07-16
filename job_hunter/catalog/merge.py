@@ -24,7 +24,7 @@ def _enabled_country_codes(job_hunter_config: dict[str, Any]) -> set[str]:
 
 
 def _excluded_industry_ids(user_terms: list[str]) -> set[str]:
-    """Expand user exclusions.industries strings to known industry IDs via id/label/alias match.
+    """Expand excluded-industry values to known IDs via id/label/alias match.
 
     Unknown strings (no matching industry) simply expand to nothing here — they
     never matched catalog companies anyway, since companies are tagged by ID.

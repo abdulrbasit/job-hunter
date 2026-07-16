@@ -8,13 +8,6 @@ from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.sources.policy import JobPolicy
 
 
-def _requires_excluded_language(title_lower: str, excluded_langs: list[str]) -> bool:
-    for lang in excluded_langs:
-        if f"{lang} speaking" in title_lower or f"fluent in {lang}" in title_lower or f"{lang} speaker" in title_lower:
-            return True
-    return False
-
-
 def _screen_job(
     job: dict[str, Any],
     policy: JobPolicy,
@@ -29,9 +22,6 @@ def _screen_job(
     reason = policy.rejection_reason(job, title_filters)
     if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
         reason = "excluded_title"
-    if not reason and _requires_excluded_language(title.lower(), policy.excluded_languages):
-        reason = "requires_language"
-
     region = str(job.get("region") or "")
     region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
 
