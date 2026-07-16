@@ -14,7 +14,6 @@ from pathlib import Path
 import requests
 
 from job_hunter.config.loader import ROOT, get_api_config, get_timeout
-from job_hunter.core.api_budget import reserve_api_call
 from job_hunter.core.utils import strip_html, title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources._dates import truncate_date_text
@@ -74,9 +73,6 @@ class JobicySource(JobSourceAdapter):
 
         raw_jobs = _read_cache(geo)
         if raw_jobs is None:
-            if not reserve_api_call("jobicy"):
-                return []
-
             api_params: dict = {"count": 100, "geo": geo}
 
             logger.info("[jobicy] fetching feed geo=%s", geo)

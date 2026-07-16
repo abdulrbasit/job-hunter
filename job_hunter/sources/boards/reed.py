@@ -18,11 +18,6 @@ import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.config.secrets import REED_API_KEY
-from job_hunter.core.api_budget import (
-    is_api_quota_exhausted,
-    mark_api_exhausted,
-    reserve_api_call,
-)
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
@@ -92,9 +87,6 @@ class ReedSource(JobSourceAdapter):
                 base_params["distancefromLocation"] = 15
 
             for page in range(1, max_pages + 1):
-                if not reserve_api_call("reed"):
-                    break
-
                 req_params = {**base_params, "resultsToSkip": (page - 1) * results_wanted}
                 try:
                     resp = requests.get(
@@ -106,9 +98,6 @@ class ReedSource(JobSourceAdapter):
                     resp.raise_for_status()
                     data = resp.json().get("results", [])
                 except Exception as exc:
-                    if is_api_quota_exhausted(exc):
-                        mark_api_exhausted("reed", exc=exc)
-                        return jobs
                     if terminal_http_status(exc):
                         logger.warning("[reed] stopping after terminal HTTP error: %s", exc)
                         return jobs

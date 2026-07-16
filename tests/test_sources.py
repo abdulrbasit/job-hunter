@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from conftest import mk_params
 
-from job_hunter.core import api_budget, utils
+from job_hunter.core import utils
 from job_hunter.sources import (
     jd_fetcher,
     search,
@@ -115,7 +115,6 @@ def test_jobicy_maps_de_region_to_geo_slug(monkeypatch: pytest.MonkeyPatch) -> N
         "get_api_config",
         lambda: {"http": {"job_boards": {"jobicy": {"enabled": True}}}},
     )
-    monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _provider: True)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
     monkeypatch.setattr(jobicy_source, "_read_cache", lambda _geo: None)
     monkeypatch.setattr(jobicy_source, "_write_cache", lambda _geo, _jobs: None)
@@ -158,7 +157,6 @@ def test_jobicy_skips_invalid_iso_geo(monkeypatch: pytest.MonkeyPatch) -> None:
         "get_api_config",
         lambda: {"http": {"job_boards": {"jobicy": {"enabled": True}}}},
     )
-    monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _provider: True)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
 
     jobs = jobicy_source.JobicySource().fetch(
@@ -233,47 +231,6 @@ def test_detect_ats_for_direct_scrapers() -> None:
     assert detect_ats("https://example.com/careers") is None
 
 
-def test_adzuna_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(adzuna_source, "reserve_api_call", lambda _provider: False)
-    monkeypatch.setattr(
-        adzuna_source.requests,
-        "get",
-        lambda *args, **kwargs: pytest.fail("HTTP should not run"),
-    )
-    monkeypatch.setattr(
-        adzuna_source,
-        "get_api_config",
-        lambda: {
-            "http": {
-                "job_boards": {"adzuna": {"enabled": True, "results_per_page": 50}},
-                "jd_fetcher": {"max_description_chars": 4000},
-            }
-        },
-    )
-
-    src = adzuna_source.AdzunaSource.__new__(adzuna_source.AdzunaSource)
-    src._app_id = "app"
-    src._api_key = "key"
-    jobs = src.fetch(mk_params(["Product Manager"], {"primary": {"country": "DE", "location": "Berlin"}}))
-
-    assert jobs == []
-
-
-@pytest.mark.parametrize("status_code", [402, 432])
-def test_search_provider_quota_error_disables_provider_for_run(
-    monkeypatch: pytest.MonkeyPatch,
-    status_code: int,
-) -> None:
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
-    provider = FakeProvider(exc=_quota_error(status_code))
-
-    router = search.SearchRouter(providers=[provider])
-
-    assert router.search("product manager", {"country": "DE"}, count=1) == []
-    assert provider.name in _router_mod._PROVIDER_STATE.run_disabled
-    assert provider.calls == 1
-
-
 def test_plain_429_search_error_uses_transient_failure_counter() -> None:
     provider = FakeProvider(exc=_quota_error(429, text="Too Many Requests"))
     search._reset_provider_failure(provider.name)
@@ -285,8 +242,7 @@ def test_plain_429_search_error_uses_transient_failure_counter() -> None:
     search._reset_provider_failure(provider.name)
 
 
-def test_adzuna_quota_error_disables_provider_for_month(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(api_budget, "ROOT", tmp_path)
+def test_adzuna_terminal_http_error_stops_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         adzuna_source,
         "get_api_config",
@@ -306,14 +262,11 @@ def test_adzuna_quota_error_disables_provider_for_month(tmp_path, monkeypatch: p
     monkeypatch.setattr(adzuna_source.requests, "get", fake_get)
     regions = {"primary": {"country": "DE", "location": "Berlin"}}
 
-    def _make_src():
-        src = adzuna_source.AdzunaSource.__new__(adzuna_source.AdzunaSource)
-        src._app_id = "app"
-        src._api_key = "key"
-        return src
+    src = adzuna_source.AdzunaSource.__new__(adzuna_source.AdzunaSource)
+    src._app_id = "app"
+    src._api_key = "key"
 
-    assert _make_src().fetch(mk_params(["Product Manager"], regions)) == []
-    assert _make_src().fetch(mk_params(["Product Manager"], regions)) == []
+    assert src.fetch(mk_params(["Product Manager", "Product Owner"], regions)) == []
     assert calls["count"] == 1
 
 
@@ -978,24 +931,16 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
 
     monkeypatch.setattr(
         _ats_mod,
-        "get_api_config",
+        "_search_config",
         lambda: {
-            "http": {
-                "search_providers": {
-                    "order": ["searxng"],
-                    "ats_discovery": {
-                        "enabled": True,
-                        "sources": ["greenhouse"],
-                        "results_per_query": 10,
-                        "max_queries_per_region": 1,
-                    },
-                },
-                "ats_scraper": {"detail_timeout_seconds": 8},
+            "ats_discovery": {
+                "enabled": True,
+                "sources": ["greenhouse"],
+                "results_per_query": 10,
+                "max_queries_per_region": 1,
             }
         },
     )
-    # Ensure local API budget state doesn't affect this test
-    monkeypatch.setattr(api_budget, "ROOT", tmp_path)
     monkeypatch.setattr(_ats_mod, "SearchRouter", lambda *_args, **_kwargs: Router())
     monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
@@ -1081,14 +1026,6 @@ def test_search_router_health_successful_provider_in_providers_used() -> None:
 
     assert len(results) == 1
     assert "fake_no_key" in health.providers_used
-
-
-def test_is_provider_exhausted_for_month_returns_true_after_mark(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from job_hunter.core import api_budget as ab
-
-    monkeypatch.setattr(ab, "ROOT", tmp_path)
-    ab.mark_api_exhausted("sourcex")
-    assert ab.is_provider_exhausted_for_month("sourcex") is True
 
 
 def test_later_provider_runs_when_earlier_providers_exhausted(

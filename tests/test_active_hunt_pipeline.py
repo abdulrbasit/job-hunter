@@ -316,7 +316,6 @@ def test_jobicy_fetches_once_and_filters_all_titles(monkeypatch) -> None:
     }
     get = MagicMock(return_value=response)
     monkeypatch.setattr(jobicy_source, "get_api_config", lambda: {"http": {"job_boards": {"jobicy": {}}}})
-    monkeypatch.setattr(jobicy_source, "reserve_api_call", lambda _source: True)
     monkeypatch.setattr(jobicy_source.requests, "get", get)
     monkeypatch.setattr(jobicy_source, "_read_cache", lambda _geo: None)
     monkeypatch.setattr(jobicy_source, "_write_cache", lambda _geo, _jobs: None)

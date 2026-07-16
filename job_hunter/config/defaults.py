@@ -438,11 +438,6 @@ HTTP_DEFAULTS: dict[str, Any] = {
         "careerjet": {"enabled": True, "affid": ""},
         "jobspy": {"enabled": True, "hours_old": 72},
     },
-    "api_budgets": {
-        "enabled": True,
-        "state_path": "outputs/state/api_usage.json",
-        "monthly_limits": {},
-    },
 }
 
 

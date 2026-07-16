@@ -534,7 +534,7 @@ def test_searxng_provider_uses_shared_search_provider_timeout(monkeypatch) -> No
 
 
 class ExhaustedProvider(search.SearchProvider):
-    """Simulates a provider whose quota is exhausted (reserve_api_call returns False)."""
+    """Simulates a provider that is pre-marked run-disabled."""
 
     name = "exhausted_provider"
 
@@ -586,52 +586,6 @@ def test_router_skips_exhausted_provider_and_continues_to_next(monkeypatch) -> N
     assert exhausted.calls == 0, "exhausted provider must not be called"
     assert good.calls == 1
     assert len(results) == 1
-
-
-def test_router_quota_exhaustion_exception_does_not_suppress_next_provider(monkeypatch) -> None:
-    """A quota-exhaustion exception resets the failure counter and continues to the next provider."""
-    search._PROVIDER_STATE.failures.clear()
-
-    class QuotaProvider(search.SearchProvider):
-        name = "quota_provider"
-        calls = 0
-
-        def search(self, query, region_config, count=10) -> Never:
-            self.calls += 1
-
-            class FakeResp:
-                status_code = 402
-                reason = "Payment Required"
-                text = "quota exceeded"
-
-            exc = Exception("quota exceeded")
-            exc.response = FakeResp()
-            raise exc
-
-    quota = QuotaProvider()
-    good = GoodProvider()
-
-    # Treat any exception from quota_provider as quota-exhausted
-
-    monkeypatch.setattr(
-        _router_mod,
-        "is_api_quota_exhausted",
-        lambda exc: getattr(getattr(exc, "response", None), "status_code", None) == 402,
-    )
-    monkeypatch.setattr(
-        search.SearchRouter,
-        "_is_exhausted",
-        lambda self, provider: False,  # not pre-exhausted; let the exception path trigger
-    )
-
-    router = search.SearchRouter(providers=[quota, good])
-    results = router.search("query", {}, count=5)
-
-    assert quota.calls == 1
-    assert good.calls == 1
-    assert len(results) == 1
-    # Failure counter for quota_provider must be 0 (reset after quota exc, not incremented)
-    assert search._PROVIDER_STATE.failures.get("quota_provider", 0) == 0
 
 
 def test_router_no_key_provider_skipped_silently() -> None:
@@ -707,7 +661,6 @@ def test_discover_ats_jobs_by_search_returns_empty_when_exhausted(monkeypatch, c
         "_search_config",
         lambda: {"ats_discovery": {"enabled": True}},
     )
-    monkeypatch.setattr(_ats_mod, "get_api_config", lambda: {})
 
     with caplog.at_level(logging.INFO, logger=_ats_mod.logger.name):
         result = search.discover_ats_jobs_by_search(

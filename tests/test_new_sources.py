@@ -78,7 +78,6 @@ class TestJobicySource:
                 "job_hunter.sources.boards.jobicy.get_api_config",
                 return_value=_JOBICY_CFG,
             ),
-            patch("job_hunter.sources.boards.jobicy.reserve_api_call", return_value=True),
             patch("job_hunter.sources.boards.jobicy.requests.get", get_mock),
             patch("job_hunter.sources.boards.jobicy._read_cache", return_value=None),
             patch("job_hunter.sources.boards.jobicy._write_cache"),
@@ -97,7 +96,6 @@ class TestJobicySource:
                 "job_hunter.sources.boards.jobicy.get_api_config",
                 return_value=_JOBICY_CFG,
             ),
-            patch("job_hunter.sources.boards.jobicy.reserve_api_call", return_value=True),
             patch("job_hunter.sources.boards.jobicy.requests.get", get_mock),
         ):
             jobs = JobicySource().fetch(
@@ -841,7 +839,6 @@ class TestReedSource:
         page_data = {"results": [_REED_JOB(1)]}
         with (
             patch("job_hunter.sources.boards.reed.get_api_config", return_value=config),
-            patch("job_hunter.sources.boards.reed.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.reed.requests.get",
                 return_value=_make_response(json_data=page_data),
@@ -876,7 +873,6 @@ class TestAdzunaSource:
         page_data = {"results": [_ADZUNA_JOB(1)]}
         with (
             patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
-            patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.adzuna.requests.get",
                 return_value=_make_response(json_data=page_data),
@@ -898,7 +894,6 @@ class TestAdzunaSource:
 
         with (
             patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
-            patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.adzuna.requests.get",
                 return_value=_make_response(json_data=page_data),
@@ -909,7 +904,6 @@ class TestAdzunaSource:
 
         with (
             patch("job_hunter.sources.boards.adzuna.get_api_config", return_value=config),
-            patch("job_hunter.sources.boards.adzuna.reserve_api_call", return_value=True),
             patch(
                 "job_hunter.sources.boards.adzuna.requests.get",
                 return_value=_make_response(json_data=page_data),

@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 
 import requests
 
-from job_hunter.config.loader import get_api_config
 from job_hunter.config.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import title_matches
@@ -527,8 +526,7 @@ def discover_ats_jobs_by_search(
     if not config.get("enabled", True):
         return []
 
-    api_config = get_api_config()
-    if all_providers_exhausted(api_config):
+    if all_providers_exhausted():
         logger.info("[search-discovery] skipped: all providers exhausted")
         return []
 

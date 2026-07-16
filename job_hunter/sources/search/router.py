@@ -7,7 +7,6 @@ import threading
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from job_hunter.core.api_budget import is_api_quota_exhausted
 from job_hunter.sources.search.providers import (
     SearchProvider,
     SearxngProvider,
@@ -35,10 +34,6 @@ class ProviderState:
 
     def set_run_disabled(self, disabled: set[str]) -> None:
         self.run_disabled = {p.lower() for p in disabled}
-
-    def add_run_disabled(self, provider_name: str) -> None:
-        with self.failures_lock:
-            self.run_disabled.add(provider_name.lower())
 
     def failure_count(self, name: str) -> int:
         with self.failures_lock:
@@ -84,7 +79,7 @@ def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
     return [available[name] for name in provider_names if name in available]
 
 
-def all_providers_exhausted(api_config: dict | None = None) -> bool:  # noqa: ARG001
+def all_providers_exhausted() -> bool:
     """Return True when all ATS-discovery providers are unavailable this run."""
     registry = _provider_registry()
     result = all(
@@ -141,7 +136,7 @@ class SearchRouter:
 
     @staticmethod
     def _is_exhausted(provider: SearchProvider) -> bool:
-        """Return True when the provider was disabled by the pre-flight probe or failed mid-run."""
+        """Return True when the provider was disabled by the pre-flight probe."""
         return provider.name.lower() in _PROVIDER_STATE.run_disabled
 
     def _search_core(
@@ -188,15 +183,6 @@ class SearchRouter:
                     health.providers_used.add(pname)
                     break
             except Exception as exc:
-                if is_api_quota_exhausted(exc):
-                    _PROVIDER_STATE.add_run_disabled(provider.name)
-                    _reset_provider_failure(provider.name)
-                    health.exhausted_providers.add(pname)
-                    logger.warning(
-                        "[search] %s quota exhausted mid-run; disabling for this run",
-                        provider.name,
-                    )
-                    continue
                 failures = _PROVIDER_STATE.record_failure(provider.name)
                 health.transient_failures.add(pname)
                 logger.warning(

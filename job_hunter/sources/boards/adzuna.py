@@ -20,11 +20,6 @@ import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
 from job_hunter.config.secrets import ADZUNA_API_KEY, ADZUNA_APP_ID
-from job_hunter.core.api_budget import (
-    is_api_quota_exhausted,
-    mark_api_exhausted,
-    reserve_api_call,
-)
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting, SearchParams
 from job_hunter.sources.base import JobSourceAdapter
@@ -128,18 +123,12 @@ class AdzunaSource(JobSourceAdapter):
                 req_params["where"] = location
 
             for page in range(1, max_pages + 1):
-                if not reserve_api_call("adzuna"):
-                    break
-
                 url = _BASE_URL.format(country=country, page=page)
                 try:
                     resp = requests.get(url, params=req_params, timeout=_TIMEOUT)
                     resp.raise_for_status()
                     data = resp.json().get("results", [])
                 except Exception as exc:
-                    if is_api_quota_exhausted(exc):
-                        mark_api_exhausted("adzuna", exc=exc)
-                        return jobs
                     if terminal_http_status(exc):
                         logger.warning("[adzuna] terminal HTTP failure; disabling for this run: %s", exc)
                         return jobs

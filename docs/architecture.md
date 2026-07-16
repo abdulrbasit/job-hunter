@@ -22,7 +22,7 @@ tailor-links, or tailor-raw modes.
 | `agent_context/` | Bounded context objects consumed by agent skills |
 | `cli/` | Command parsing, output, and service composition |
 | `config/` | YAML loading, defaults, secrets, schemas, and workspace paths |
-| `core/` | Small cross-package utilities and HTTP API budgeting |
+| `core/` | Small cross-package utilities |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
 | `llm/` | Provider routing, typed requests/responses, prompts, and token accounting |
 | `metrics/` | Pipeline history and normalized agent/API telemetry |

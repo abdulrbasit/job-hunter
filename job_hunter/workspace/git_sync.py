@@ -24,7 +24,6 @@ FINALIZE_PATHS = (
     "profile",
     "outputs/jobs",
     "outputs/linkedin",
-    "outputs/state/api_usage.json",
     "outputs/state/dev_token_metrics.json",
     "outputs/state/jobs.db",
 )
