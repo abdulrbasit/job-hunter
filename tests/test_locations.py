@@ -16,7 +16,7 @@ from job_hunter.config.locations import (
     location_matches_any,
     resolve_config_location,
 )
-from job_hunter.models import JobPosting, LocationScope
+from job_hunter.models import JobPosting, Location, LocationScope
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources import orchestrator
 from job_hunter.ux.web.api import DashAPI
@@ -191,7 +191,7 @@ def test_orchestrator_rejects_disabled_city_and_skips_unsupported_country_source
         "job_titles": ["Product Manager"],
         "regions": {"berlin": _city_region("DE", "geonames:2950159")},
     }
-    calls: list[str] = []
+    calls: list[tuple[str, Location | None]] = []
 
     class GermanySource:
         source_name = "germany"
@@ -200,8 +200,8 @@ def test_orchestrator_rejects_disabled_city_and_skips_unsupported_country_source
         def supports_country(self, country: str) -> bool:
             return country == "DE"
 
-        def fetch(self, _params):
-            calls.append("germany")
+        def fetch(self, params):
+            calls.append(("germany", params.canonical_location))
             return [
                 JobPosting(title="Product Manager", company="A", url="https://example.com/jobs/a", location="Berlin"),
                 JobPosting(
@@ -216,8 +216,8 @@ def test_orchestrator_rejects_disabled_city_and_skips_unsupported_country_source
         def supports_country(self, country: str) -> bool:
             return country == "US"
 
-        def fetch(self, _params):
-            calls.append("us-only")
+        def fetch(self, params):
+            calls.append(("us-only", params.canonical_location))
             return []
 
     monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
@@ -227,7 +227,9 @@ def test_orchestrator_rejects_disabled_city_and_skips_unsupported_country_source
 
     jobs, stats = orchestrator.scrape_with_stats(depth="fast")
 
-    assert calls == ["germany"]
+    assert calls[0][0] == "germany"
+    assert calls[0][1] is not None
+    assert calls[0][1].id == "city:DE:geonames:2950159"
     assert [job.company for job in jobs] == ["A"]
     assert stats.rejected["location_not_enabled"] == 1
 

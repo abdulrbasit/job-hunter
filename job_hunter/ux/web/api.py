@@ -886,12 +886,12 @@ class DashAPI:
         return {"ok": True, "data": {"form": form, "revision": raw["revision"]}, "errors": [], "warnings": []}
 
     def get_location_countries(self) -> dict[str, Any]:
-        from job_hunter.config.locations import countries
+        from job_hunter.locations import countries
 
         return {"ok": True, "countries": countries()}
 
     def get_location_cities(self, country: str) -> dict[str, Any]:
-        from job_hunter.config.locations import cities
+        from job_hunter.locations import cities
 
         code = country.strip().upper()
         return {"ok": True, "country": code, "cities": [{"id": city.id, "name": city.name} for city in cities(code)]}

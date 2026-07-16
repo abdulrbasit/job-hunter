@@ -10,7 +10,6 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from job_hunter.config.filter_registry import FilterRegistry
-from job_hunter.config.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.builtin_filters import (
     CONTRACT_PHRASES,
@@ -24,6 +23,7 @@ from job_hunter.core.builtin_filters import (
     US_ONLY_PHRASES,
 )
 from job_hunter.core.utils import title_is_allowed
+from job_hunter.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.models import JobPosting
 from job_hunter.sources.search import canonicalize_url
 
@@ -403,7 +403,7 @@ class JobPolicy:
         return False
 
     def _allowed_country_codes(self) -> set[str]:
-        from job_hunter.config.locations import enabled_locations
+        from job_hunter.locations import enabled_locations
 
         canonical = {location.country for location in enabled_locations(self.config) if location.country}
         if canonical:

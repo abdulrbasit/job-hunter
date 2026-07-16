@@ -42,7 +42,7 @@ def catalog_slugs(config: dict) -> dict[str, set[str]]:
     """ATS slugs from the bundled company catalog, filtered to the user's enabled
     regions and industry exclusions; platforms with a public list API only."""
     from job_hunter.catalog.merge import _excluded_industry_ids, company_matches_enabled_locations
-    from job_hunter.config.locations import enabled_locations
+    from job_hunter.locations import enabled_locations
     from job_hunter.sources.ats_apis import _FETCHERS
 
     allowed_locations = enabled_locations(config)
@@ -110,7 +110,7 @@ def query_ats_by_slugs(
     if not slug_store:
         return []
 
-    from job_hunter.config.locations import location_from_region
+    from job_hunter.locations import location_from_region
 
     locations = []
     for config in regions.values():

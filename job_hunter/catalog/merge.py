@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from job_hunter.catalog.loader import CompanyEntry, load_companies
-from job_hunter.config.locations import canonicalize_runtime_location, enabled_locations, location_matches_any
 from job_hunter.config.reference_data import load_filters
-from job_hunter.models import Location, LocationScope
+from job_hunter.locations import canonicalize_runtime_location, enabled_locations, location_matches_any
+from job_hunter.models import Location
 
 
 def _normalize_url(url: str) -> str:
@@ -47,15 +47,7 @@ def _is_eligible(
 
 
 def company_matches_enabled_locations(company: CompanyEntry, allowed_locations: list[Location]) -> bool:
-    candidates: list[Location] = []
-    for city_name in company.city_tags:
-        for country in company.country_codes:
-            candidates.extend(canonicalize_runtime_location(city_name, country))
-    candidates.extend(Location(country=code, scope=LocationScope.COUNTRY) for code in company.country_codes)
-    candidates.extend(
-        Location(country=code, scope=LocationScope.REMOTE_COUNTRY) for code in company.remote_country_codes
-    )
-    return location_matches_any(candidates, allowed_locations)
+    return location_matches_any(company.location_evidence(), allowed_locations)
 
 
 def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: dict[str, Any]) -> list[dict[str, Any]]:

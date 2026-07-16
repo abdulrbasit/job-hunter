@@ -129,7 +129,7 @@ def jobicy_geo_slug(region_config: dict[str, Any]) -> str:
     """Map ISO country codes to Jobicy's documented geo slugs."""
     country = str(region_config.get("country") or "").strip().upper()
     if not country:
-        from job_hunter.config.locations import location_from_region
+        from job_hunter.locations import location_from_region
 
         country = location_from_region(region_config).country
     slug = _JOBICY_GEO_BY_ISO.get(country, "")

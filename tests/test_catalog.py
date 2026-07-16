@@ -6,7 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from job_hunter.catalog import effective_companies, load_companies
-from job_hunter.catalog.loader import _CompaniesFile
+from job_hunter.catalog.loader import CompanyEntry, _CompaniesFile
+from job_hunter.models import Location, LocationScope
 
 # ---------------------------------------------------------------------------
 # Catalog loading — count, uniqueness, URL shape, metadata
@@ -201,3 +202,25 @@ def test_effective_companies_disabled_custom_entry_is_excluded() -> None:
     result = effective_companies(_NO_REGION_CONFIG, career_pages)
 
     assert not any(c.get("name") == "Custom Co" for c in result)
+
+
+def test_company_entry_exposes_typed_location_evidence() -> None:
+    company = CompanyEntry(
+        id="berlin-company",
+        name="Berlin Company",
+        career_url="https://example.com/careers",
+        country_codes=["DE"],
+        city_tags=["Berlin"],
+        industry_ids=["software_it"],
+        remote_country_codes=["DE"],
+        verified_at="2026-07-16",
+    )
+
+    evidence = company.location_evidence()
+
+    assert all(isinstance(location, Location) for location in evidence)
+    assert {location.scope for location in evidence} == {
+        LocationScope.CITY,
+        LocationScope.COUNTRY,
+        LocationScope.REMOTE_COUNTRY,
+    }

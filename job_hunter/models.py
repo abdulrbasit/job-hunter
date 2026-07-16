@@ -143,6 +143,7 @@ class SearchParams(BaseModel):
     """Input contract for every JobSourceAdapter.fetch() call."""
 
     region_key: str
+    canonical_location: Location | None = None
     country: str
     location: str
     search_lang: str

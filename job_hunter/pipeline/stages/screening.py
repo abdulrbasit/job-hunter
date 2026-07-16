@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from job_hunter.config.locations import enabled_locations, job_matches_enabled_locations
 from job_hunter.core.utils import has_excluded_title_term
+from job_hunter.locations import enabled_locations, job_matches_enabled_locations
 from job_hunter.sources.policy import JobPolicy
 
 

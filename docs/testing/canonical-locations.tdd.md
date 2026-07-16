@@ -1,4 +1,4 @@
-# Canonical locations — Phase 1 TDD evidence
+# Canonical locations — TDD evidence
 
 ## Source and journeys
 
@@ -18,6 +18,12 @@ read compatibility, and country-scoped dashboard payloads.
   80% threshold. One five-second thread join timed out only under coverage
   overhead; the timeout was widened for that test and its instrumented rerun
   passed.
+- Phase 3 RED: a source adapter test failed because `SearchParams` did not yet
+  expose canonical location context; the catalog contract test failed before
+  typed company evidence existed.
+- Phase 3 GREEN: source parameters now carry `Location`, browser-hunt jobs gain
+  canonical evidence before screening, and catalog company matching consumes
+  typed evidence through the shared matcher.
 
 ## Test specification
 

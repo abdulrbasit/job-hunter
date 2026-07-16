@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from job_hunter.config.reference_data import country_codes as _valid_country_codes
 from job_hunter.config.reference_data import load_filters
+from job_hunter.models import Location, LocationScope
 
 
 class CompanyEntry(BaseModel):
@@ -38,6 +39,22 @@ class CompanyEntry(BaseModel):
         if not value:
             raise ValueError("country_codes must not be empty")
         return value
+
+    def location_evidence(self) -> list[Location]:
+        """Return exact canonical evidence used by the company location gate."""
+        from job_hunter.locations import canonicalize_runtime_location
+
+        evidence = [
+            location
+            for city_name in self.city_tags
+            for country in self.country_codes
+            for location in canonicalize_runtime_location(city_name, country)
+        ]
+        evidence.extend(Location(country=code, scope=LocationScope.COUNTRY) for code in self.country_codes)
+        evidence.extend(
+            Location(country=code, scope=LocationScope.REMOTE_COUNTRY) for code in self.remote_country_codes
+        )
+        return evidence
 
 
 class _CompaniesFile(BaseModel):

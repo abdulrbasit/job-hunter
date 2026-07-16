@@ -19,14 +19,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
-from job_hunter.config.locations import (
+from job_hunter.config.reference_data import resolve_title_exclusions
+from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
+from job_hunter.locations import (
     canonical_locations_for_job,
     enabled_locations,
     location_from_region,
     location_matches_any,
 )
-from job_hunter.config.reference_data import resolve_title_exclusions
-from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.sources.ats_slugs import (
     catalog_slugs,
@@ -74,6 +74,7 @@ def _params_for_region(
     )
     return SearchParams(
         region_key=region_key,
+        canonical_location=canonical,
         country=canonical.country,
         location=query_location,
         search_lang=region_config.get("search_lang", "en"),

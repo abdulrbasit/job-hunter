@@ -8,9 +8,9 @@ from urllib.parse import urlparse
 
 import requests
 
-from job_hunter.config.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import title_matches
+from job_hunter.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.sources._jd_ats_parsers import (
     breezy_job_ref,
     personio_job_ref,
@@ -79,7 +79,7 @@ def _location_query_terms(region_config: dict, location: str) -> list[str]:
     from job_hunter.sources.policy import _EUROPE_COUNTRY_CODES, _MIDDLE_EAST_COUNTRY_CODES
 
     terms: list[str] = []
-    from job_hunter.config.locations import location_from_region
+    from job_hunter.locations import location_from_region
 
     canonical = location_from_region(region_config) if region_config else None
     city = canonical.city.name if canonical and canonical.city is not None else str(location or "").strip()
@@ -479,7 +479,7 @@ def _discover_region(
     ats_detail_timeout: int = ATS_DISCOVERY_API_TIMEOUT,
 ) -> list[dict]:
     """Run ATS discovery for a single region. Used by tests and discover_ats_jobs_by_search."""
-    from job_hunter.config.locations import location_from_region
+    from job_hunter.locations import location_from_region
 
     canonical = location_from_region(region_config)
     location = canonical.city.name if canonical.city is not None else canonical.country or "Remote"
@@ -547,7 +547,7 @@ def discover_ats_jobs_by_search(
 
     for region_name, region_config in regions.items():
         region_queries = 0
-        from job_hunter.config.locations import location_from_region
+        from job_hunter.locations import location_from_region
 
         canonical = location_from_region(region_config)
         location = canonical.city.name if canonical.city is not None else canonical.country or "Remote"

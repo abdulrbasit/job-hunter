@@ -26,6 +26,7 @@ import yaml
 
 from job_hunter.catalog.merge import effective_companies
 from job_hunter.config.loader import ROOT
+from job_hunter.locations import canonical_locations_for_job
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.career_pages import extract_career_page_jobs
 from job_hunter.sources.career_pages._rendering import ensure_chromium_installed, extract_playwright_jobs_batch
@@ -195,7 +196,11 @@ def run(  # noqa: C901
         if duration > COMPANY_DEADLINE_SECONDS:
             finish_failed(task, "took too long to respond", duration)
             return
-        scoped_jobs = [{**job, "location": job.get("location") or task["location"]} for job in jobs]
+        scoped_jobs = []
+        for job in jobs:
+            scoped = {**job, "location": job.get("location") or task["location"]}
+            scoped["canonical_locations"] = [item.model_dump() for item in canonical_locations_for_job(scoped)]
+            scoped_jobs.append(scoped)
         kept, rejected = screen_jobs_by_rules(scoped_jobs, config)
         if rejected:
             logger.info(

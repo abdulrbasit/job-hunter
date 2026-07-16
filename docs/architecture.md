@@ -52,7 +52,9 @@ accounting, dispatches a mode, processes jobs, and persists metrics.
 
 Hunt flow:
 
-1. Resolve region and discover postings through `sources/orchestrator.py`.
+1. Resolve each enabled region to a typed `Location`, pass it to adapters as
+   `SearchParams.canonical_location`, and discover postings through
+   `sources/orchestrator.py`.
 2. Deduplicate, enrich descriptions, and reject closed listings.
 3. Screen objective filters and apply the quality gate (rank/cap before LLM scoring).
 4. Validate, score, research, tailor, write cover letters, and compile PDFs.
@@ -81,6 +83,16 @@ flowing through scrape/score/gate stages, e.g. `PipelineRunContext`,
 external JSON, YAML, SQLite, and generated-artifact serialization
 boundaries. Narrowing those remaining dict boundaries to typed models is
 future cleanup, not something this pass claims to have finished.
+
+Location ownership follows the same boundaries. `config/locations.py` is the
+explicit compatibility surface for config loading and migration; runtime
+sources, pipeline screening, catalog matching, and dashboard reference-data
+endpoints use `job_hunter.locations` directly. Source adapters receive a typed
+canonical search location. Orchestrator results and browser-hunt extraction
+attach canonical location evidence before the defense-in-depth screening gate,
+and catalog companies expose typed `Location` evidence. Fuzzy aliases are
+therefore confined to config-time resolution; runtime gates compare canonical
+IDs and scopes.
 
 ## Shared writing policy
 
