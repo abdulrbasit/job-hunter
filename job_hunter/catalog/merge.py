@@ -6,7 +6,7 @@ from typing import Any
 
 from job_hunter.catalog.loader import CompanyEntry, load_companies
 from job_hunter.config.reference_data import load_filters
-from job_hunter.locations import canonicalize_runtime_location, enabled_locations, location_matches_any
+from job_hunter.locations import enabled_locations, job_matches_enabled_locations, location_matches_any
 from job_hunter.models import Location
 
 
@@ -91,8 +91,7 @@ def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: di
     for custom in custom_companies:
         if custom.get("enabled", True) is False:
             continue
-        custom_locations = canonicalize_runtime_location(str(custom.get("location") or ""))
-        if not location_matches_any(custom_locations, allowed_locations):
+        if not job_matches_enabled_locations({"location": str(custom.get("location") or "")}, allowed_locations):
             continue
         effective.append(
             {

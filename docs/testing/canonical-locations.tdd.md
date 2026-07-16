@@ -41,7 +41,9 @@ read compatibility, and country-scoped dashboard payloads.
 
 ## Remaining work
 
-Phase 4 will measure and optimize cold imports, per-country loads, lookup/gate
-throughput, and dashboard payload sizes. Existing `career_pages.yml` retirement
-belongs to its separate ownership migration; this phase does not add or migrate
-company config.
+Phase 4 added RED tests for enabled-country-only resource loading and bounded,
+searchable dashboard city responses. Both are GREEN. Benchmark methodology and
+before/after results are recorded in
+[canonical-locations.md](../benchmarks/canonical-locations.md). Existing
+`career_pages.yml` retirement belongs to its separate ownership migration; this
+work does not add or migrate company config.

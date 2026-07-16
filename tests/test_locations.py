@@ -12,6 +12,7 @@ from job_hunter.config.loader import get_job_hunter_config_for_root
 from job_hunter.config.locations import (
     canonicalize_runtime_location,
     enabled_locations,
+    job_matches_enabled_locations,
     legacy_location_warnings,
     location_matches_any,
     resolve_config_location,
@@ -63,6 +64,21 @@ def test_munich_and_berlin_scopes_do_not_match_stuttgart() -> None:
     assert location_matches_any(canonicalize_runtime_location("Berlin, Germany"), allowed)
     assert location_matches_any(canonicalize_runtime_location("Munich, Germany"), allowed)
     assert not location_matches_any(canonicalize_runtime_location("Stuttgart, Germany"), allowed)
+
+
+def test_raw_job_gate_loads_only_enabled_country_city_data() -> None:
+    import job_hunter.locations as location_data
+
+    allowed = [resolve_config_location("DE", "Berlin"), resolve_config_location("DE", "Munich")]
+    location_data.cities.cache_clear()
+    location_data._city_index.cache_clear()
+    location_data._city_id_index.cache_clear()
+    location_data._canonicalize_runtime_location.cache_clear()
+    location_data._global_city_index.cache_clear()
+
+    assert job_matches_enabled_locations({"location": "Berlin"}, allowed)
+    assert location_data.cities.cache_info().currsize == 1
+    assert location_data._global_city_index.cache_info().currsize == 0
 
 
 def test_country_and_remote_scope_semantics() -> None:
@@ -170,6 +186,14 @@ def test_dashboard_serves_all_countries_and_only_requested_country_cities(tmp_pa
     assert cities_payload["country"] == "DE"
     assert any(city["id"] == "geonames:2950159" for city in cities_payload["cities"])
     assert all(set(city) == {"id", "name"} for city in cities_payload["cities"])
+    assert len(cities_payload["cities"]) <= 250
+    assert cities_payload["total"] > len(cities_payload["cities"])
+
+    filtered = api.get_location_cities("DE", "Siershahn")
+    assert filtered["cities"] == [{"id": "geonames:2832332", "name": "Siershahn"}]
+
+    selected = api.get_location_cities("DE", selected_id="geonames:2832332")
+    assert {city["id"] for city in selected["cities"]} >= {"geonames:2832332"}
 
 
 def test_dashboard_detects_legacy_region_as_active_package_city(tmp_path: Path) -> None:

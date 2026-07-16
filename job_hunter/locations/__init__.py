@@ -69,17 +69,34 @@ def _city_index(country: str) -> dict[str, CanonicalCity]:
     return index
 
 
+@cache
+def _city_id_index(country: str) -> dict[str, CanonicalCity]:
+    return {city.id: city for city in cities(country)}
+
+
+def city_by_id(country: str, city_id: str) -> CanonicalCity | None:
+    return _city_id_index(country.strip().upper()).get(city_id)
+
+
+def city_by_name_exact(country: str, name: str) -> CanonicalCity | None:
+    return _city_index(country.strip().upper()).get(normalize_location_name(name))
+
+
 @lru_cache(maxsize=1)
-def _global_city_index() -> dict[str, CanonicalCity]:
-    # Phase 1 keeps this direct. Phase 4 measures and replaces global eager work
-    # with enabled-country loading if it is material.
-    index: dict[str, CanonicalCity] = {}
+def _global_city_index() -> dict[str, tuple[str, CanonicalCity]]:
+    index: dict[str, tuple[str, CanonicalCity]] = {}
     for code in _countries()[0]:
         for alias, city in _city_index(code).items():
             current = index.get(alias)
-            if current is None or city.population > current.population:
-                index[alias] = city
+            if current is None or city.population > current[1].population:
+                index[alias] = (code, city)
     return index
+
+
+@cache
+def _country_codes_in_text(normalized: str) -> tuple[str, ...]:
+    padded = f" {normalized} "
+    return tuple(sorted({code for alias, code in _countries()[1].items() if alias and f" {alias} " in padded}))
 
 
 def _validate_country(country: str) -> str:
@@ -142,7 +159,7 @@ def location_from_region(region: dict[str, Any]) -> Location:  # noqa: C901
         city_id = str(region.get("city_id") or "")
         if not city_id:
             raise ValueError("city scope requires city_id")
-        bundled = next((item for item in cities(country) if item.id == city_id), None)
+        bundled = _city_id_index(country).get(city_id)
         if bundled is None:
             raise ValueError(f"Unknown city id {city_id!r} for {country}")
         return Location(country=country, scope=scope, city=bundled)
@@ -216,68 +233,86 @@ def legacy_location_warnings(config: dict[str, Any]) -> list[str]:
     return result
 
 
-def canonicalize_runtime_location(value: str, country_hint: str = "") -> list[Location]:  # noqa: C901
-    """Resolve source text using exact aliases only; never fuzzy-match jobs."""
+@cache
+def _canonicalize_runtime_location(value: str, country_hint: str) -> tuple[Location, ...]:  # noqa: C901
     text = str(value or "").strip()
     if not text:
-        return []
+        return ()
     normalized = normalize_location_name(text)
-    country_codes = {
-        code
-        for alias, code in _countries()[1].items()
-        if alias and re.search(rf"(?:^|\s){re.escape(alias)}(?:$|\s)", normalized)
-    }
+    country_codes = set(_country_codes_in_text(normalized))
     if country_hint:
         country_codes.add(_validate_country(country_hint))
     if _REMOTE.search(text):
         if country_codes:
-            return [Location(country=code, scope=LocationScope.REMOTE_COUNTRY) for code in sorted(country_codes)]
-        return [Location(scope=LocationScope.REMOTE_GLOBAL)]
+            return tuple(Location(country=code, scope=LocationScope.REMOTE_COUNTRY) for code in sorted(country_codes))
+        return (Location(scope=LocationScope.REMOTE_GLOBAL),)
 
     segments = [normalize_location_name(part) for part in _SPLIT.split(text) if normalize_location_name(part)]
+    country_aliases = set(_countries()[1])
+    if segments and all(segment in country_aliases for segment in segments):
+        return tuple(Location(country=code, scope=LocationScope.COUNTRY) for code in sorted(country_codes))
+
     found: dict[str, Location] = {}
-    indexes = [_city_index(code) for code in sorted(country_codes)] if country_codes else [_global_city_index()]
-    for segment in segments:
-        for index in indexes:
-            city = index.get(segment)
-            if city is None:
-                continue
-            code = next((item for item in country_codes if city in cities(item)), "")
-            if not code:
-                for candidate_code in _countries()[0]:
-                    if _city_index(candidate_code).get(segment) == city:
-                        code = candidate_code
-                        break
-            if code:
+    if country_codes:
+        indexes = [(code, _city_index(code)) for code in sorted(country_codes)]
+        for segment in segments:
+            for code, index in indexes:
+                city = index.get(segment)
+                if city is None:
+                    continue
+                location = Location(country=code, scope=LocationScope.CITY, city=city)
+                found[location.id] = location
+    else:
+        index = _global_city_index()
+        for segment in segments:
+            match = index.get(segment)
+            if match is not None:
+                code, city = match
                 location = Location(country=code, scope=LocationScope.CITY, city=city)
                 found[location.id] = location
     if found:
-        return list(found.values())
-    country_aliases = set(_countries()[1])
+        return tuple(found.values())
     if any(segment not in country_aliases for segment in segments):
-        return []
-    return [Location(country=code, scope=LocationScope.COUNTRY) for code in sorted(country_codes)]
+        return ()
+    return tuple(Location(country=code, scope=LocationScope.COUNTRY) for code in sorted(country_codes))
 
 
-def _matches(candidate: Location, allowed: Location) -> bool:
-    if allowed.scope == LocationScope.REMOTE_GLOBAL:
-        return candidate.scope == LocationScope.REMOTE_GLOBAL
-    if candidate.country != allowed.country:
-        return False
-    if allowed.scope == LocationScope.COUNTRY:
-        return candidate.scope in {LocationScope.CITY, LocationScope.COUNTRY, LocationScope.REMOTE_COUNTRY}
-    if allowed.scope == LocationScope.REMOTE_COUNTRY:
-        return candidate.scope == LocationScope.REMOTE_COUNTRY
-    return (
-        candidate.scope == LocationScope.CITY
-        and candidate.city is not None
-        and allowed.city is not None
-        and candidate.city.id == allowed.city.id
-    )
+def canonicalize_runtime_location(value: str, country_hint: str = "") -> list[Location]:
+    """Resolve source text using exact aliases only; never fuzzy-match jobs."""
+    return list(_canonicalize_runtime_location(str(value or "").strip(), country_hint.strip().upper()))
+
+
+@cache
+def _allowed_index(
+    keys: tuple[tuple[str, str, str], ...],
+) -> tuple[bool, frozenset[str], frozenset[str], frozenset[tuple[str, str]]]:
+    global_remote = any(scope == LocationScope.REMOTE_GLOBAL.value for scope, _, _ in keys)
+    countries = frozenset(country for scope, country, _ in keys if scope == LocationScope.COUNTRY.value)
+    remote_countries = frozenset(country for scope, country, _ in keys if scope == LocationScope.REMOTE_COUNTRY.value)
+    city_ids = frozenset((country, city_id) for scope, country, city_id in keys if scope == LocationScope.CITY.value)
+    return global_remote, countries, remote_countries, city_ids
 
 
 def location_matches_any(candidates: list[Location], allowed: list[Location]) -> bool:
-    return bool(candidates) and any(_matches(candidate, target) for candidate in candidates for target in allowed)
+    if not candidates:
+        return False
+    keys = tuple(sorted((item.scope.value, item.country, item.city.id if item.city else "") for item in allowed))
+    global_remote, countries, remote_countries, city_ids = _allowed_index(keys)
+    for candidate in candidates:
+        if candidate.scope == LocationScope.REMOTE_GLOBAL:
+            if global_remote:
+                return True
+        elif candidate.country in countries:
+            return True
+        elif candidate.scope == LocationScope.REMOTE_COUNTRY and candidate.country in remote_countries:
+            return True
+        elif (
+            candidate.scope == LocationScope.CITY
+            and candidate.city is not None
+            and (candidate.country, candidate.city.id) in city_ids
+        ):
+            return True
+    return False
 
 
 def canonical_locations_for_job(job: dict[str, Any], country_hint: str = "") -> list[Location]:
@@ -299,7 +334,21 @@ def canonical_locations_for_job(job: dict[str, Any], country_hint: str = "") -> 
 
 
 def job_matches_enabled_locations(job: dict[str, Any], allowed: list[Location]) -> bool:
-    candidates = canonical_locations_for_job(job)
+    if (
+        job.get("canonical_locations")
+        or job.get("location_restrictions")
+        or _REMOTE.search(str(job.get("location") or ""))
+    ):
+        candidates = canonical_locations_for_job(job)
+    else:
+        country_hints = sorted({item.country for item in allowed if item.country})
+        candidates = [candidate for country in country_hints for candidate in canonical_locations_for_job(job, country)]
+        if not country_hints:
+            candidates = canonical_locations_for_job(job)
+        if not _country_codes_in_text(normalize_location_name(str(job.get("location") or ""))):
+            candidate_countries = {item.country for item in candidates if item.country}
+            if len(candidate_countries) > 1:
+                candidates = []
     return location_matches_any(candidates, allowed)
 
 

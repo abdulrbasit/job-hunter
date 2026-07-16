@@ -1743,7 +1743,8 @@ async function renderGuidedForm(form) {
   gsCountry.innerHTML = countryOptions(primaryLocation.country || '');
   document.getElementById('gs-search-scope').value = primaryLocation.scope || 'city';
   await loadOnboardingCities(primaryLocation.city_id || '');
-  gsCountry.onchange = () => loadOnboardingCities();
+  gsCountry.onchange = () => { document.getElementById('gs-search-city-query').value = ''; loadOnboardingCities(); };
+  document.getElementById('gs-search-city-query').oninput = () => loadOnboardingCities(document.getElementById('gs-search-location').value);
   for (const [key, region] of Object.entries(form.regions || {})) await addRegionRow(key, region);
   renderActiveLocations();
 
@@ -1754,7 +1755,8 @@ async function renderGuidedForm(form) {
 
 async function loadOnboardingCities(selectedId = '') {
   const country = document.getElementById('gs-search-country').value;
-  const payload = country ? await window.pywebview.api.get_location_cities(country) : {cities: []};
+  const query = document.getElementById('gs-search-city-query').value.trim();
+  const payload = country ? await window.pywebview.api.get_location_cities(country, query, selectedId) : {cities: []};
   const select = document.getElementById('gs-search-location');
   select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
@@ -1836,7 +1838,8 @@ function renderActiveLocations() {
 
 async function loadCitiesForRow(row, selectedId = '') {
   const country = row.querySelector('.region-country').value;
-  const payload = country ? await window.pywebview.api.get_location_cities(country) : {cities: []};
+  const query = row.querySelector('.region-city-query').value.trim();
+  const payload = country ? await window.pywebview.api.get_location_cities(country, query, selectedId) : {cities: []};
   const select = row.querySelector('.region-city');
   select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
@@ -1853,6 +1856,7 @@ async function addRegionRow(key = '', region = {}) {
     <div class="settings-row-checkbox"><input type="checkbox" class="region-primary" ${region.primary ? 'checked' : ''}> Primary</div>
     <div class="settings-field"><label>Scope</label><select class="region-scope"><option value="city" ${loc.scope === 'city' ? 'selected' : ''}>City</option><option value="country" ${loc.scope === 'country' ? 'selected' : ''}>Country</option><option value="remote_country" ${loc.scope === 'remote_country' ? 'selected' : ''}>Remote in country</option><option value="remote_global" ${loc.scope === 'remote_global' ? 'selected' : ''}>Global remote</option></select></div>
     <div class="settings-field"><label>Country</label><select class="region-country">${countryOptions(loc.country || '')}</select></div>
+    <div class="settings-field"><label>Find city</label><input type="search" class="region-city-query" placeholder="Type a city name"></div>
     <div class="settings-field"><label>City</label><select class="region-city"></select></div>
     <div class="settings-field"><label>Search lang</label><input type="text" class="region-search-lang" value="${esc(region.search_lang || '')}"></div>
     <div class="settings-field"><label>Description</label><input type="text" class="region-description" value="${esc(region.description || '')}"></div>
@@ -1863,7 +1867,8 @@ async function addRegionRow(key = '', region = {}) {
   row.querySelector(`[data-remove-row="${rowId}"]`).addEventListener('click', () => { row.remove(); markConfigDirty(); });
   document.getElementById('cfg-regions-rows').appendChild(row);
   await loadCitiesForRow(row, loc.city_id || '');
-  row.querySelector('.region-country').addEventListener('change', () => loadCitiesForRow(row));
+  row.querySelector('.region-country').addEventListener('change', () => { row.querySelector('.region-city-query').value = ''; loadCitiesForRow(row); });
+  row.querySelector('.region-city-query').addEventListener('input', () => loadCitiesForRow(row, row.querySelector('.region-city').value));
   markConfigDirty();
 }
 

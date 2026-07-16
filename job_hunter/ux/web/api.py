@@ -890,11 +890,31 @@ class DashAPI:
 
         return {"ok": True, "countries": countries()}
 
-    def get_location_cities(self, country: str) -> dict[str, Any]:
-        from job_hunter.locations import cities
+    def get_location_cities(
+        self, country: str, query: str = "", selected_id: str = "", limit: int = 250
+    ) -> dict[str, Any]:
+        from job_hunter.locations import cities, city_by_id, city_by_name_exact, normalize_location_name
 
         code = country.strip().upper()
-        return {"ok": True, "country": code, "cities": [{"id": city.id, "name": city.name} for city in cities(code)]}
+        all_cities = cities(code)
+        needle = normalize_location_name(query)
+        exact = city_by_name_exact(code, query) if needle else None
+        matches = (
+            [exact]
+            if exact is not None
+            else [city for city in all_cities if not needle or needle in normalize_location_name(city.name)]
+        )
+        page_size = max(20, min(int(limit), 500))
+        page = list(matches[:page_size])
+        selected = city_by_id(code, selected_id)
+        if selected is not None and all(city.id != selected.id for city in page):
+            page.append(selected)
+        return {
+            "ok": True,
+            "country": code,
+            "cities": [{"id": city.id, "name": city.name} for city in page],
+            "total": len(matches),
+        }
 
     def save_job_hunter_config_form(self, form: dict[str, Any], revision: str) -> dict[str, Any]:
         import yaml
