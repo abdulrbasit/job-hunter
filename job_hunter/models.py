@@ -79,7 +79,6 @@ class FilterEntryConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     value: str = Field(min_length=1)
-    match: Literal["exact", "contains", "regex"] | None = None
     note: str = ""
 
 

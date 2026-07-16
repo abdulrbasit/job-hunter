@@ -1736,7 +1736,6 @@ function renderGuidedForm(form) {
 function addFilterEntryRow(group, entry = {}) {
   const row = document.createElement('div');
   row.className = 'settings-row filter-entry-row';
-  row.dataset.match = entry.match || '';
   row.innerHTML = `
     <div class="settings-field"><label>Value</label><input type="text" class="filter-value" value="${esc(entry.value || '')}"></div>
     <div class="settings-field"><label>Note (optional)</label><input type="text" class="filter-note" value="${esc(entry.note || '')}"></div>
@@ -1777,7 +1776,6 @@ function collectFilterGroups() {
       const entry = { value };
       const note = row.querySelector('.filter-note').value.trim();
       if (note) entry.note = note;
-      if (row.dataset.match) entry.match = row.dataset.match;
       entries.push(entry);
     });
     filters[group.dataset.name] = {

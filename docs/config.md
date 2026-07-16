@@ -64,11 +64,10 @@ filters:
         note: "recruiter spam"
 ```
 
-Every entry requires `value`; `note` and `match` (`exact`, `contains`, or
-`regex`) are optional. Dashboard users only enter values and notes. Omitted
-match mode applies automatic exact, word-boundary contains, and safe regex
-matching. Detected languages absent from the `languages` allowlist are rejected
-before scoring.
+Every entry requires `value`; `note` is optional. Matching strategy is not a
+user setting: each value automatically supports normalized exact,
+word-boundary contains, and safe regex matching. Detected languages absent from
+the `languages` allowlist are rejected before scoring.
 
 User preferences belong in these filter groups. Product-owned listing-quality
 rulesâ€”such as stale-page phrases and non-listing URL patternsâ€”remain code-owned

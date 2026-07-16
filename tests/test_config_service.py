@@ -110,11 +110,11 @@ def test_validate_job_hunter_yaml_rejects_non_mapping(tmp_path: Path) -> None:
     assert service.validate_job_hunter_yaml(["not", "a", "mapping"], tmp_path) == ["config must be a YAML mapping"]
 
 
-def test_validate_job_hunter_yaml_rejects_invalid_filter_entry(tmp_path: Path) -> None:
+def test_validate_job_hunter_yaml_rejects_user_selected_match_mode(tmp_path: Path) -> None:
     _copy_schema(tmp_path)
     data = {
         **_VALID_CONFIG,
-        "filters": {"companies": {"description": "x", "entries": [{"value": "Acme", "match": "fuzzy"}]}},
+        "filters": {"companies": {"description": "x", "entries": [{"value": "Acme", "match": "exact"}]}},
     }
 
     errors = service.validate_job_hunter_yaml(data, tmp_path)

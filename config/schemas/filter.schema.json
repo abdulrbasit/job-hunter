@@ -14,7 +14,6 @@
         "required": ["value"],
         "properties": {
           "value": {"type": "string", "minLength": 1},
-          "match": {"type": "string", "enum": ["exact", "contains", "regex"]},
           "note": {"type": "string"}
         }
       }
