@@ -14,6 +14,9 @@ from importlib import resources
 
 from pydantic import BaseModel, ConfigDict
 
+from job_hunter.filters.catalog import load_filter_catalog
+from job_hunter.models import CareerStage, FilterCatalog
+
 
 class CountryEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -34,49 +37,15 @@ class _CountriesFile(BaseModel):
     countries: list[CountryEntry]
 
 
-class CareerStage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    prefer: list[str] = []
-    exclude: list[str] = []
-    max_years_experience: int | None = None
-
-
-class Industry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    label: str
-    aliases: list[str] = []
-
-
-class Language(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    indicators: list[str] = []
-    review_status: str
-
-
-class _FiltersFile(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    version: int
-    career_stages: dict[str, CareerStage]
-    employment_types: list[str]
-    industries: list[Industry]
-    languages: dict[str, Language]
-
-
 @lru_cache(maxsize=1)
 def load_countries() -> list[CountryEntry]:
-    raw = resources.files("job_hunter.catalog").joinpath("countries.json").read_text(encoding="utf-8")
+    raw = resources.files("job_hunter").joinpath("catalog", "countries.json").read_text(encoding="utf-8")
     return _CountriesFile.model_validate_json(raw).countries
 
 
-@lru_cache(maxsize=1)
-def load_filters() -> _FiltersFile:
-    raw = resources.files("job_hunter.catalog").joinpath("filters.json").read_text(encoding="utf-8")
-    return _FiltersFile.model_validate_json(raw)
+def load_filters() -> FilterCatalog:
+    """Compatibility name for the package-owned filter catalog loader."""
+    return load_filter_catalog()
 
 
 def country_codes() -> set[str]:

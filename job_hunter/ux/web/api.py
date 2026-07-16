@@ -1077,7 +1077,7 @@ class DashAPI:
     def get_catalog_industries(self) -> dict[str, Any]:
         """Industry list + company counts, for the Shared Catalog filter dropdown."""
         from job_hunter.catalog import load_companies
-        from job_hunter.config.reference_data import load_filters
+        from job_hunter.filters.catalog import load_filter_catalog
 
         companies = load_companies()
         counts: dict[str, int] = {}
@@ -1089,7 +1089,7 @@ class DashAPI:
                 counts[industry_id] = counts.get(industry_id, 0) + 1
         industries = [
             {"id": industry.id, "label": industry.label, "count": counts[industry.id]}
-            for industry in load_filters().industries
+            for industry in load_filter_catalog().industries
             if counts.get(industry.id)
         ]
         if uncategorized:

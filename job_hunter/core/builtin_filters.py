@@ -125,7 +125,7 @@ LANG_CODE_TO_NAME: dict[str, str] = {
 
 
 def _load_language_indicators() -> dict[str, tuple[str, ...]]:
-    raw = resources.files("job_hunter.catalog").joinpath("filters.json").read_text(encoding="utf-8")
+    raw = resources.files("job_hunter").joinpath("catalog", "filters.json").read_text(encoding="utf-8")
     languages = json.loads(raw)["languages"]
     return {name: tuple(data["indicators"]) for name, data in languages.items()}
 

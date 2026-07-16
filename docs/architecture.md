@@ -23,7 +23,7 @@ tailor-links, or tailor-raw modes.
 | `cli/` | Command parsing, output, and service composition |
 | `config/` | YAML loading, choice validation, migrations, secrets, schemas, and workspace paths |
 | `core/` | Cross-package utilities and package-owned built-in quality filters |
-| `filters/` | Package-owned filter types, taxonomy binding, normalization, and matching |
+| `filters/` | Package-owned filter resource loading, type binding, normalization, and matching |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
 | `locations/` | Package-owned country/city resources, canonical resolution, and scope matching |
 | `llm/` | Provider routing, typed requests/responses, prompts, and token accounting |
@@ -40,6 +40,8 @@ tailor-links, or tailor-raw modes.
 - `sources/` must not import `pipeline/`.
 - `pipeline/`, `tracking/`, and `agent_context/` must not depend on `ux/`.
 - `tracking/` must not depend on `agent_context/`.
+- `filters/` must not depend on `config/`; config binds user choices to the
+  lower-level package registry.
 - Shared helpers move inward to `core/`, `config/`, or `tracking/`; presentation
   and agent-specific helpers do not leak into lower layers.
 

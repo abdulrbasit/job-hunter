@@ -32,9 +32,9 @@ def _check_countries_resource() -> str:
 
 
 def _check_filters_resource() -> str:
-    from job_hunter.config.reference_data import load_filters
+    from job_hunter.filters.catalog import load_filter_catalog
 
-    filters = load_filters()
+    filters = load_filter_catalog()
     if not filters.career_stages:
         raise ValueError("no career stages loaded")
     return f"{len(filters.career_stages)} career stages, {len(filters.languages)} languages"

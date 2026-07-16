@@ -44,3 +44,13 @@
 - Full suite: 1,468 passed; coverage: 86.55%.
 - Focused filter/policy/agent checks: 65 passed.
 - Ruff format, Ruff lint, and `ty check`: passed.
+
+## Phase 3 validation
+
+- Architecture: filter catalog loading moved below config into
+  `job_hunter.filters.catalog`; config retains only a compatibility import.
+- Typed taxonomy contracts moved to `job_hunter.models`.
+- Added a dependency test forbidding `filters/` imports from `config/`.
+- Full suite: 1,469 passed; coverage: 86.56%.
+- Focused import/resource/boundary checks: 65 passed.
+- Ruff format, Ruff lint, and `ty check`: passed.

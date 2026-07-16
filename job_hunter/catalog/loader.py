@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from job_hunter.config.reference_data import country_codes as _valid_country_codes
-from job_hunter.config.reference_data import load_filters
+from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.models import Location, LocationScope
 
 
@@ -70,7 +70,7 @@ class _CompaniesFile(BaseModel):
         seen_ids: set[str] = set()
         seen_urls: set[str] = set()
         valid_countries = _valid_country_codes()
-        valid_industries = {industry.id for industry in load_filters().industries}
+        valid_industries = {industry.id for industry in load_filter_catalog().industries}
 
         for company in self.companies:
             if company.id in seen_ids:

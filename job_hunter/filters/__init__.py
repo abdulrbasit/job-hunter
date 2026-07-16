@@ -7,9 +7,9 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
-from job_hunter.config.reference_data import load_filters
 from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
 from job_hunter.core.utils import normalize_company_name
+from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.models import FilterMatchMode, FilterType
 
 FILTER_TYPES: dict[str, FilterType] = {
@@ -88,7 +88,7 @@ def filter_values(config: dict[str, Any], name: str) -> list[str]:
 
 def validate_filter_choices(config: dict[str, Any]) -> list[str]:
     filters = canonicalize_filter_config(config).get("filters") or {}
-    valid_industries = {industry.id for industry in load_filters().industries}
+    valid_industries = {industry.id for industry in load_filter_catalog().industries}
     invalid_industries = sorted(set(filters.get("excluded_industries", [])) - valid_industries)
     invalid_languages = sorted(set(filters.get("hunt_languages", [])) - set(LANG_CODE_TO_NAME))
     errors: list[str] = []
@@ -108,7 +108,7 @@ def filter_options() -> dict[str, Any]:
             seen_names.add(name)
     return {
         "types": [definition.model_dump(mode="json") for definition in FILTER_TYPES.values()],
-        "industries": [{"id": industry.id, "label": industry.label} for industry in load_filters().industries],
+        "industries": [{"id": industry.id, "label": industry.label} for industry in load_filter_catalog().industries],
         "languages": languages,
     }
 
@@ -118,7 +118,7 @@ def _expanded_values(definition: FilterType, values: list[str]) -> tuple[str, ..
         return tuple(values)
     selected = {value.casefold() for value in values}
     expanded: list[str] = []
-    for industry in load_filters().industries:
+    for industry in load_filter_catalog().industries:
         if industry.id.casefold() in selected:
             expanded.extend((industry.id, industry.label, *industry.aliases))
     return tuple(dict.fromkeys([*values, *expanded]))

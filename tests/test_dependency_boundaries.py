@@ -60,6 +60,11 @@ def test_ux_does_not_depend_on_cli() -> None:
     _assert_no_dependency(_PACKAGE_ROOT / "ux", "job_hunter.cli")
 
 
+def test_filters_do_not_depend_on_config() -> None:
+    """Package filter definitions and resources sit below user config loading."""
+    _assert_no_dependency(_PACKAGE_ROOT / "filters", "job_hunter.config")
+
+
 def test_banned_import_boundaries_stay_configured() -> None:
     """The AST checks above are one guard; ruff's TID251 banned-api list (docs/testing.md's
     'Known technical debt' section) is the other. Catch someone removing the ruff side only."""

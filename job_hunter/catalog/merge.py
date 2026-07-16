@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from job_hunter.catalog.loader import CompanyEntry, load_companies
-from job_hunter.config.reference_data import load_filters
+from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.locations import enabled_locations, job_matches_enabled_locations, location_matches_any
 from job_hunter.models import Location
 
@@ -20,7 +20,7 @@ def _excluded_industry_ids(user_terms: list[str]) -> set[str]:
     Unknown strings (no matching industry) simply expand to nothing here — they
     never matched catalog companies anyway, since companies are tagged by ID.
     """
-    industries = load_filters().industries
+    industries = load_filter_catalog().industries
     excluded: set[str] = set()
     for term in user_terms:
         needle = str(term).strip().lower()

@@ -139,6 +139,41 @@ class FilterType(BaseModel):
     taxonomy: str = ""
 
 
+class CareerStage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prefer: list[str] = Field(default_factory=list)
+    exclude: list[str] = Field(default_factory=list)
+    max_years_experience: int | None = None
+
+
+class Industry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    aliases: list[str] = Field(default_factory=list)
+
+
+class FilterLanguage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    indicators: list[str] = Field(default_factory=list)
+    review_status: str
+
+
+class FilterCatalog(BaseModel):
+    """Typed package-owned taxonomy backing user filter choices."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: int
+    career_stages: dict[str, CareerStage]
+    employment_types: list[str]
+    industries: list[Industry]
+    languages: dict[str, FilterLanguage]
+
+
 class SearchParams(BaseModel):
     """Input contract for every JobSourceAdapter.fetch() call."""
 
