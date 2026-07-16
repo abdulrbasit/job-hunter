@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-
 import pytest
 from conftest import mk_params
 
@@ -17,14 +15,9 @@ from job_hunter.sources.ats_urls import (
 )
 from job_hunter.sources.boards import adzuna as adzuna_source
 from job_hunter.sources.boards import jobicy as jobicy_source
-from job_hunter.sources.boards import jooble as jooble_source
-from job_hunter.sources.boards import jsearch as job_boards
 from job_hunter.sources.boards import reed as reed_source
 from job_hunter.sources.search import (
     ats_discovery as _ats_mod,
-)
-from job_hunter.sources.search import (
-    providers as _prov_mod,
 )
 from job_hunter.sources.search import (
     router as _router_mod,
@@ -52,6 +45,30 @@ class ErrorResponse:
         return self.payload
 
 
+class FakeProvider(search.SearchProvider):
+    """Injectable provider for router tests — no HTTP mocking needed."""
+
+    def __init__(self, name: str = "fakeprov", *, enabled: bool = True, results=None, exc: Exception | None = None):
+        self.name = name
+        self._enabled = enabled
+        self._results = results or []
+        self._exc = exc
+        self.calls = 0
+
+    def enabled(self) -> bool:
+        return self._enabled
+
+    def search(self, query: str, region_config: dict, count: int = 10):
+        self.calls += 1
+        if self._exc is not None:
+            raise self._exc
+        return self._results
+
+
+def _quota_error(status_code: int, text: str = "credits exhausted") -> Exception:
+    return search.requests.exceptions.HTTPError(response=ErrorResponse(status_code, text=text))
+
+
 def test_adzuna_source_init_uses_config_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adzuna_source, "ADZUNA_APP_ID", "config-app")
     monkeypatch.setattr(adzuna_source, "ADZUNA_API_KEY", "config-key")
@@ -60,12 +77,6 @@ def test_adzuna_source_init_uses_config_secrets(monkeypatch: pytest.MonkeyPatch)
 
     assert src._app_id == "config-app"
     assert src._api_key == "config-key"
-
-
-def test_jooble_source_init_uses_config_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(jooble_source, "JOOBLE_API_KEY", "config-key")
-
-    assert jooble_source.JoobleSource()._api_key == "config-key"
 
 
 def test_reed_source_init_uses_config_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -222,35 +233,6 @@ def test_detect_ats_for_direct_scrapers() -> None:
     assert detect_ats("https://example.com/careers") is None
 
 
-def test_jsearch_failure_counter_is_thread_safe() -> None:
-    job_boards._reset_jsearch_failures()
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        list(pool.map(lambda _: job_boards._record_jsearch_failure(), range(100)))
-    assert job_boards._jsearch_suppressed(100)
-    job_boards._reset_jsearch_failures()
-    assert not job_boards._jsearch_suppressed(100)
-
-
-def test_jsearch_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(job_boards, "reserve_api_call", lambda _provider: False)
-    monkeypatch.setattr(
-        job_boards.requests,
-        "get",
-        lambda *args, **kwargs: pytest.fail("HTTP should not run"),
-    )
-    monkeypatch.setattr(
-        job_boards,
-        "get_api_config",
-        lambda: {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": 1}}}},
-    )
-
-    src = job_boards.JSearchSource.__new__(job_boards.JSearchSource)
-    src._rapidapi_key = "key"
-    jobs = src.fetch(mk_params(["Product Manager"], {"primary": {"location": "Berlin"}}))
-
-    assert jobs == []
-
-
 def test_adzuna_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adzuna_source, "reserve_api_call", lambda _provider: False)
     monkeypatch.setattr(
@@ -277,88 +259,30 @@ def test_adzuna_budget_cap_skips_http(monkeypatch: pytest.MonkeyPatch) -> None:
     assert jobs == []
 
 
-@pytest.mark.parametrize(
-    "provider_cls,key_attr,http_attr,status_code,reason",
-    [
-        (
-            search.BraveProvider,
-            "BRAVE_API_KEY",
-            "get",
-            402,
-            "Payment Required",
-        ),
-        (search.TavilyProvider, "TAVILY_API_KEY", "post", 432, ""),
-    ],
-)
+@pytest.mark.parametrize("status_code", [402, 432])
 def test_search_provider_quota_error_disables_provider_for_run(
     monkeypatch: pytest.MonkeyPatch,
-    provider_cls,
-    key_attr: str,
-    http_attr: str,
     status_code: int,
-    reason: str,
 ) -> None:
-    monkeypatch.setattr(_prov_mod, key_attr, "key")
-    monkeypatch.setattr(_prov_mod, "_timeout", lambda _section: 15)
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
-    calls = {"count": 0}
+    provider = FakeProvider(exc=_quota_error(status_code))
 
-    def fail_once(*args, **kwargs):
-        calls["count"] += 1
-        return ErrorResponse(status_code, text="credits exhausted", reason=reason)
-
-    monkeypatch.setattr(search.requests, http_attr, fail_once)
-
-    router = search.SearchRouter(providers=[provider_cls()])
+    router = search.SearchRouter(providers=[provider])
 
     assert router.search("product manager", {"country": "DE"}, count=1) == []
-    provider_name = provider_cls().name.lower()
-    assert provider_name in _router_mod._PROVIDER_STATE.run_disabled
-    assert calls["count"] == 1
+    assert provider.name in _router_mod._PROVIDER_STATE.run_disabled
+    assert provider.calls == 1
 
 
-def test_plain_429_search_error_uses_transient_failure_counter(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(_prov_mod, "BRAVE_API_KEY", "key")
-    search._reset_provider_failure("brave")
+def test_plain_429_search_error_uses_transient_failure_counter() -> None:
+    provider = FakeProvider(exc=_quota_error(429, text="Too Many Requests"))
+    search._reset_provider_failure(provider.name)
 
-    monkeypatch.setattr(
-        search.requests,
-        "get",
-        lambda *args, **kwargs: ErrorResponse(429, text="Too Many Requests"),
-    )
-
-    router = search.SearchRouter(providers=[search.BraveProvider()])
+    router = search.SearchRouter(providers=[provider])
 
     assert router.search("product manager", {"country": "DE"}, count=1) == []
-    assert search._provider_failure_count("brave") == 1
-    search._reset_provider_failure("brave")
-
-
-def test_jsearch_quota_error_disables_provider_for_month(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(api_budget, "ROOT", tmp_path)
-    monkeypatch.setattr(
-        job_boards,
-        "get_api_config",
-        lambda: {"http": {"job_boards": {"jsearch": {"enabled": True, "num_pages": 1}}}},
-    )
-    calls = {"count": 0}
-
-    def fake_get(*args, **kwargs):
-        calls["count"] += 1
-        return ErrorResponse(429, text="Monthly quota exceeded")
-
-    monkeypatch.setattr(job_boards.requests, "get", fake_get)
-
-    def _make_src():
-        src = job_boards.JSearchSource.__new__(job_boards.JSearchSource)
-        src._rapidapi_key = "key"
-        return src
-
-    assert _make_src().fetch(mk_params(["Product Manager"], {"primary": {"location": "Berlin"}})) == []
-    assert _make_src().fetch(mk_params(["Product Manager"], {"primary": {"location": "Berlin"}})) == []
-    assert calls["count"] == 1
+    assert search._provider_failure_count(provider.name) == 1
+    search._reset_provider_failure(provider.name)
 
 
 def test_adzuna_quota_error_disables_provider_for_month(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -957,7 +881,7 @@ def test_greenhouse_discovery_enriches_generic_search_snippet(
                     url="https://boards.greenhouse.io/acme/jobs/123",
                     title="Jobs at Acme",
                     description="Current openings at Acme Create a Job Alert",
-                    source="Brave",
+                    source="SearXNG",
                 )
             ]
 
@@ -989,7 +913,7 @@ def test_greenhouse_discovery_enriches_generic_search_snippet(
     assert len(jobs) == 1
     assert jobs[0]["title"] == "Product Manager"
     assert "Own the roadmap" in jobs[0]["snippet"]
-    assert jobs[0]["source"] == "Brave ATS discovery: greenhouse API"
+    assert jobs[0]["source"] == "SearXNG ATS discovery: greenhouse API"
 
 
 def test_non_greenhouse_discovery_uses_direct_ats_enrichment(
@@ -1002,7 +926,7 @@ def test_non_greenhouse_discovery_uses_direct_ats_enrichment(
                     url="https://jobs.smartrecruiters.com/acme/123-product-manager",
                     title="Product Manager",
                     description="Short search summary",
-                    source="Brave",
+                    source="SearXNG",
                 )
             ]
 
@@ -1032,7 +956,7 @@ def test_non_greenhouse_discovery_uses_direct_ats_enrichment(
     )
 
     assert len(jobs) == 1
-    assert jobs[0]["source"] == "Brave ATS discovery: smartrecruiters API"
+    assert jobs[0]["source"] == "SearXNG ATS discovery: smartrecruiters API"
     assert "roadmap ownership" in jobs[0]["snippet"]
 
 
@@ -1048,7 +972,7 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
                     url=f"https://boards.greenhouse.io/acme/jobs/{job_id}",
                     title="Product Manager",
                     description="Responsibilities include product discovery.",
-                    source="Brave",
+                    source="SearXNG",
                 )
             ]
 
@@ -1058,7 +982,7 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
         lambda: {
             "http": {
                 "search_providers": {
-                    "order": ["brave"],
+                    "order": ["searxng"],
                     "ats_discovery": {
                         "enabled": True,
                         "sources": ["greenhouse"],
@@ -1072,7 +996,8 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
     )
     # Ensure local API budget state doesn't affect this test
     monkeypatch.setattr(api_budget, "ROOT", tmp_path)
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", lambda *_args, **_kwargs: Router())
+    monkeypatch.setattr(_ats_mod, "SearchRouter", lambda *_args, **_kwargs: Router())
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(_ats_mod, "_enrich_ats_discovery_job", lambda _url: None)
     monkeypatch.setattr(_ats_mod, "_ats_location_matches_policy", lambda *_args, **_kwargs: True)
 
@@ -1094,88 +1019,65 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
 # ---------------------------------------------------------------------------
 
 
-def _make_brave_router() -> search.SearchRouter:
-    """Return a SearchRouter wired with a single BraveProvider."""
-    return search.SearchRouter(providers=[search.BraveProvider()])
-
-
 def test_search_router_health_exhausted_provider_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An exhausted provider should appear in health.exhausted_providers."""
-    monkeypatch.setattr(_prov_mod, "BRAVE_API_KEY", "key")
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave"})
+    provider = FakeProvider(exc=AssertionError("Exhausted provider should not be called"))
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {provider.name})
 
-    monkeypatch.setattr(
-        search.requests,
-        "get",
-        lambda *args, **kwargs: pytest.fail("Exhausted provider should not make HTTP call"),
+    results, health = search.SearchRouter(providers=[provider]).search_with_health(
+        "product manager", {"country": "DE"}, count=1
     )
 
-    results, health = _make_brave_router().search_with_health("product manager", {"country": "DE"}, count=1)
-
     assert results == []
-    assert "brave" in health.exhausted_providers
-    assert "brave" not in health.transient_failures
+    assert provider.calls == 0
+    assert provider.name in health.exhausted_providers
+    assert provider.name not in health.transient_failures
 
 
-def test_search_router_health_no_key_provider_skipped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_search_router_health_no_key_provider_skipped() -> None:
     """A provider with no API key should appear in health.skipped_no_key."""
-    monkeypatch.setattr(_prov_mod, "BRAVE_API_KEY", "")
+    provider = FakeProvider(enabled=False)
 
-    results, health = _make_brave_router().search_with_health("product manager", {}, count=1)
+    results, health = search.SearchRouter(providers=[provider]).search_with_health("product manager", {}, count=1)
 
     assert results == []
-    assert "brave" in health.skipped_no_key
-    assert "brave" not in health.exhausted_providers
+    assert provider.calls == 0
+    assert provider.name in health.skipped_no_key
+    assert provider.name not in health.exhausted_providers
 
 
-def test_search_router_health_transient_failure_recorded(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_search_router_health_transient_failure_recorded() -> None:
     """A transient HTTP failure should appear in health.transient_failures."""
-    monkeypatch.setattr(_prov_mod, "BRAVE_API_KEY", "key")
-    search._reset_provider_failure("brave")
+    provider = FakeProvider(exc=_quota_error(500, text="Internal Server Error"))
+    search._reset_provider_failure(provider.name)
 
-    monkeypatch.setattr(
-        search.requests,
-        "get",
-        lambda *args, **kwargs: ErrorResponse(500, text="Internal Server Error"),
+    results, health = search.SearchRouter(providers=[provider]).search_with_health(
+        "product manager", {"country": "DE"}, count=1
     )
 
-    results, health = _make_brave_router().search_with_health("product manager", {"country": "DE"}, count=1)
-
     assert results == []
-    assert "brave" in health.transient_failures
-    assert "brave" not in health.exhausted_providers
-    search._reset_provider_failure("brave")
+    assert provider.name in health.transient_failures
+    assert provider.name not in health.exhausted_providers
+    search._reset_provider_failure(provider.name)
 
 
-def test_search_router_health_successful_provider_in_providers_used(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_search_router_health_successful_provider_in_providers_used() -> None:
     """A provider that returns results should appear in health.providers_used."""
+    provider = FakeProvider(
+        name="fake_no_key",
+        results=[
+            search.SearchResult(
+                url="https://example.com/job/1",
+                title="Product Manager",
+                description="Own the roadmap.",
+                source="fake",
+            )
+        ],
+    )
 
-    class FakeProvider(search.SearchProvider):
-        name = "fake_no_key"
-
-        def enabled(self) -> bool:
-            return True
-
-        def search(self, query, region_config, count=10):
-            return [
-                search.SearchResult(
-                    url="https://example.com/job/1",
-                    title="Product Manager",
-                    description="Own the roadmap.",
-                    source="fake",
-                )
-            ]
-
-    router = search.SearchRouter(providers=[FakeProvider()])
-    results, health = router.search_with_health("product manager", {}, count=1)
+    results, health = search.SearchRouter(providers=[provider]).search_with_health("product manager", {}, count=1)
 
     assert len(results) == 1
     assert "fake_no_key" in health.providers_used
@@ -1185,57 +1087,37 @@ def test_is_provider_exhausted_for_month_returns_true_after_mark(tmp_path, monke
     from job_hunter.core import api_budget as ab
 
     monkeypatch.setattr(ab, "ROOT", tmp_path)
-    ab.mark_api_exhausted("tavily")
-    assert ab.is_provider_exhausted_for_month("tavily") is True
+    ab.mark_api_exhausted("sourcex")
+    assert ab.is_provider_exhausted_for_month("sourcex") is True
 
 
-def test_deterministic_provider_runs_when_keyed_providers_exhausted(
+def test_later_provider_runs_when_earlier_providers_exhausted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Exhausted keyed providers are skipped; deterministic (no-key) providers still run.
-
-    We put the exhausted keyed providers BEFORE SearXNG in the router order so
-    the test verifies both that exhausted providers are skipped (no HTTP call)
-    and that SearXNG runs and returns results afterward.
-    """
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "tavily"})
-
-    searxng_calls: list[str] = []
-
-    class FakeSearxng(search.SearchProvider):
-        name = "searxng"
-
-        def enabled(self) -> bool:
-            return True
-
-        def search(self, query, region_config, count=10):
-            searxng_calls.append(query)
-            return [
-                search.SearchResult(
-                    url="https://jobs.lever.co/co/abc",
-                    title="Product Manager",
-                    description="Role.",
-                    source="SearXNG",
-                )
-            ]
-
-    monkeypatch.setattr(_prov_mod, "BRAVE_API_KEY", "key")
-    monkeypatch.setattr(_prov_mod, "TAVILY_API_KEY", "key")
-
-    # Order: brave (exhausted), tavily (exhausted), searxng (no key, deterministic)
-    router = search.SearchRouter(
-        providers=[
-            search.BraveProvider(),
-            search.TavilyProvider(),
-            FakeSearxng(),
-        ]
+    """Exhausted providers are skipped without a call; the next provider in order still runs."""
+    exhausted_a = FakeProvider(name="exhausted_a", exc=AssertionError("should not be called"))
+    exhausted_b = FakeProvider(name="exhausted_b", exc=AssertionError("should not be called"))
+    working = FakeProvider(
+        name="searxng",
+        results=[
+            search.SearchResult(
+                url="https://jobs.lever.co/co/abc",
+                title="Product Manager",
+                description="Role.",
+                source="SearXNG",
+            )
+        ],
     )
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"exhausted_a", "exhausted_b"})
+
+    router = search.SearchRouter(providers=[exhausted_a, exhausted_b, working])
     results, health = router.search_with_health("product manager", {}, count=5)
 
     assert len(results) == 1
-    assert len(searxng_calls) == 1
-    assert "brave" in health.exhausted_providers
-    assert "tavily" in health.exhausted_providers
+    assert working.calls == 1
+    assert exhausted_a.calls == 0
+    assert "exhausted_a" in health.exhausted_providers
+    assert "exhausted_b" in health.exhausted_providers
     assert "searxng" in health.providers_used
 
 
@@ -1385,7 +1267,7 @@ def test_all_providers_exhausted_returns_false_with_budget(
 ) -> None:
     """Returns False when an ATS discovery provider is available."""
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
-    monkeypatch.setattr(_sp.BraveProvider, "enabled", lambda self: True)
+    monkeypatch.setattr(_sp.SearxngProvider, "enabled", lambda self: True)
     _sp._PROVIDER_STATE.searxng_consecutive_zeros = 0
 
     result = _sp.all_providers_exhausted()
@@ -1398,7 +1280,7 @@ def test_all_providers_exhausted_returns_true_when_all_exhausted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Returns True when ATS discovery providers are unavailable."""
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "exa"})
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
     monkeypatch.setattr(_sp.SearxngProvider, "enabled", lambda self: False)
 
     result = _sp.all_providers_exhausted()

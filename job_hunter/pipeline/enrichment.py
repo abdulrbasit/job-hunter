@@ -75,11 +75,7 @@ def enrich_snippets(
     sparse = []
     skipped = 0
     for job in jobs:
-        needs_enrichment = (
-            not job.get("snippet")
-            or len(job.get("snippet", "")) < MIN_FULL_JD_SNIPPET_CHARS
-            or job.get("source", "").startswith("Brave")
-        )
+        needs_enrichment = not job.get("snippet") or len(job.get("snippet", "")) < MIN_FULL_JD_SNIPPET_CHARS
         if not needs_enrichment:
             continue
         if _should_skip_enrichment(job.get("url", "")):

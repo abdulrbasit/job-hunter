@@ -11,11 +11,7 @@ import logging
 import requests  # noqa: F401 — exposed so tests can patch search.requests.get/post
 
 from job_hunter.sources.search._constants import (
-    BRAVE_SUPPORTED_COUNTRIES,
-    BRAVE_URL,
-    EXA_URL,
     JOB_HINTS,
-    TAVILY_URL,
     TRACKING_QUERY_KEYS,
     TRACKING_QUERY_PREFIXES,
     USER_AGENT,
@@ -47,16 +43,12 @@ from job_hunter.sources.search.fetchers import (
     fetch_static_career_jobs,
 )
 from job_hunter.sources.search.providers import (
-    BraveProvider,
-    ExaProvider,
     SearchProvider,
     SearxngProvider,
-    TavilyProvider,
     _timeout,
 )
 from job_hunter.sources.search.router import (
     _PROVIDER_STATE,
-    ProviderSearchRouter,
     ProviderState,
     SearchRouter,
     SearchRouterHealth,
@@ -76,11 +68,7 @@ __all__ = [
     "_reset_provider_failure",
     "_timeout",
     "logger",
-    "BRAVE_SUPPORTED_COUNTRIES",
-    "BRAVE_URL",
-    "EXA_URL",
     "JOB_HINTS",
-    "TAVILY_URL",
     "TRACKING_QUERY_KEYS",
     "TRACKING_QUERY_PREFIXES",
     "USER_AGENT",
@@ -99,12 +87,8 @@ __all__ = [
     "extract_jobs_from_html",
     "fetch_playwright_career_jobs",
     "fetch_static_career_jobs",
-    "BraveProvider",
-    "ExaProvider",
     "SearchProvider",
     "SearxngProvider",
-    "TavilyProvider",
-    "ProviderSearchRouter",
     "SearchRouter",
     "all_providers_exhausted",
     "search_web",

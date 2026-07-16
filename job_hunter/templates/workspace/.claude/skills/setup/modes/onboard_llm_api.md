@@ -145,14 +145,13 @@ Tell the user:
 > **Local (for testing):**
 > 1. `cp .env.example .env`
 > 2. Open `.env` and fill in at minimum `ANTHROPIC_API_KEY` (or your chosen provider's key).
-> 3. Add optional job board keys (Adzuna, Reed, Jooble, Brave, etc.) for more results.
+> 3. Add optional free job board keys (Adzuna, Reed) for more results.
 >
 > **GitHub Actions (for scheduled runs):**
 > Go to your repository → Settings → Secrets and variables → Actions → New repository secret.
 > Add the same keys as secrets (exact names from `.env.example`):
 > - `ANTHROPIC_API_KEY` (required for scoring and tailoring)
-> - `BRAVE_API_KEY`, `TAVILY_API_KEY`, `EXA_API_KEY` (optional search)
-> - `ADZUNA_APP_ID`, `ADZUNA_API_KEY`, `JOOBLE_API_KEY`, `REED_API_KEY` (optional job boards)
+> - `ADZUNA_APP_ID`, `ADZUNA_API_KEY`, `REED_API_KEY` (optional job boards, free keys)
 >
 > **Enable the schedule:**
 > Open `.github/workflows/find-jobs.yml` and uncomment the `schedule:` and `- cron:` lines.

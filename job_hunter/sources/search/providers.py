@@ -5,14 +5,7 @@ from __future__ import annotations
 import requests
 
 from job_hunter.config.loader import get_api_config, get_timeout
-from job_hunter.config.secrets import BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY
-from job_hunter.sources.search._constants import (
-    BRAVE_SUPPORTED_COUNTRIES,
-    BRAVE_URL,
-    EXA_URL,
-    TAVILY_URL,
-    USER_AGENT,
-)
+from job_hunter.sources.search._constants import USER_AGENT
 from job_hunter.sources.search._result import SearchResult, normalize_web_results
 
 
@@ -72,75 +65,3 @@ class SearxngProvider(SearchProvider):
         raw = resp.json().get("results", [])[:count]
         results = normalize_web_results(raw, "SearXNG")
         return results
-
-
-class BraveProvider(SearchProvider):
-    name = "brave"
-
-    def enabled(self) -> bool:
-        return bool(BRAVE_API_KEY)
-
-    def search(self, query: str, region_config: dict, count: int = 10) -> list[SearchResult]:
-        params = {
-            "q": query,
-            "count": count,
-            "text_decorations": False,
-            "spellcheck": False,
-        }
-        if region_config.get("search_lang"):
-            params["search_lang"] = region_config["search_lang"]
-        country = str(region_config.get("country") or "").upper()
-        if country in BRAVE_SUPPORTED_COUNTRIES:
-            params["country"] = country
-        resp = requests.get(
-            BRAVE_URL,
-            headers={
-                "Accept": "application/json",
-                "Accept-Encoding": "gzip",
-                "X-Subscription-Token": BRAVE_API_KEY,
-            },
-            params=params,
-            timeout=_timeout("search_providers"),
-        )
-        resp.raise_for_status()
-        return normalize_web_results(resp.json().get("web", {}).get("results", []), "Brave")
-
-
-class TavilyProvider(SearchProvider):
-    name = "tavily"
-
-    def enabled(self) -> bool:
-        return bool(TAVILY_API_KEY)
-
-    def search(self, query: str, region_config: dict, count: int = 10) -> list[SearchResult]:
-        resp = requests.post(
-            TAVILY_URL,
-            json={"query": query, "max_results": count},
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {TAVILY_API_KEY}",
-            },
-            timeout=_timeout("search_providers"),
-        )
-        resp.raise_for_status()
-        return normalize_web_results(resp.json().get("results", []), "Tavily")
-
-
-class ExaProvider(SearchProvider):
-    name = "exa"
-
-    def enabled(self) -> bool:
-        return bool(EXA_API_KEY)
-
-    def search(self, query: str, region_config: dict, count: int = 10) -> list[SearchResult]:
-        resp = requests.post(
-            EXA_URL,
-            json={"query": query, "numResults": count, "contents": {"text": True}},
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": EXA_API_KEY,
-            },
-            timeout=_timeout("search_providers"),
-        )
-        resp.raise_for_status()
-        return normalize_web_results(resp.json().get("results", []), "Exa")

@@ -7,11 +7,6 @@ SECRET_ENV_VARS: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "google": "GOOGLE_API_KEY",
-    "brave": "BRAVE_API_KEY",
-    "tavily": "TAVILY_API_KEY",
-    "exa": "EXA_API_KEY",
-    "rapidapi": "RAPIDAPI_KEY",
-    "jooble": "JOOBLE_API_KEY",
     "adzuna_app_id": "ADZUNA_APP_ID",
     "adzuna_api_key": "ADZUNA_API_KEY",
     "reed": "REED_API_KEY",
@@ -60,7 +55,6 @@ JOB_BOARD_SOURCE_NAMES: tuple[str, ...] = (
     "jobicy",
     "remoteok",
     "weworkremotely",
-    "jooble",
     "himalayas",
     "adzuna",
     "reed",
@@ -72,7 +66,6 @@ JOB_BOARD_SOURCE_NAMES: tuple[str, ...] = (
     "hh",
     "arbeitsagentur",
     "arbeitnow",
-    "jsearch",
 )
 
 ATS_DISCOVERY_SOURCES: tuple[str, ...] = (
@@ -434,8 +427,7 @@ HTTP_DEFAULTS: dict[str, Any] = {
     "search_providers": {
         "timeout_seconds": 10,
         "max_consecutive_failures": 3,
-        "order": ["searxng", "brave"],
-        "ats_discovery_order": ["searxng", "brave", "exa"],
+        "order": ["searxng"],
         "searxng_base_url": "",
         "ats_discovery": {"enabled": True, "sources": list(ATS_DISCOVERY_SOURCES)},
     },

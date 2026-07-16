@@ -46,14 +46,9 @@ def get_secret(env_var: str | None, *, required: bool = True) -> str:
 
 
 _LAZY_SECRET_KEYS: dict[str, str] = {
-    "RAPIDAPI_KEY": "rapidapi",
     "ADZUNA_API_KEY": "adzuna_api_key",
     "ADZUNA_APP_ID": "adzuna_app_id",
-    "JOOBLE_API_KEY": "jooble",
     "REED_API_KEY": "reed",
-    "BRAVE_API_KEY": "brave",
-    "EXA_API_KEY": "exa",
-    "TAVILY_API_KEY": "tavily",
 }
 
 

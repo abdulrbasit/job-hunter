@@ -54,15 +54,10 @@ def _write_minimal_repo(root: Path) -> None:
 def test_onboarding_status_reports_missing_items(tmp_path: Path, monkeypatch) -> None:
     _write_minimal_repo(tmp_path)
     for key in (
-        "BRAVE_API_KEY",
-        "TAVILY_API_KEY",
-        "EXA_API_KEY",
         "SEARXNG_BASE_URL",
         "ADZUNA_APP_ID",
         "ADZUNA_API_KEY",
         "REED_API_KEY",
-        "RAPIDAPI_KEY",
-        "JOOBLE_API_KEY",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -78,7 +73,6 @@ def test_onboarding_status_reports_missing_items(tmp_path: Path, monkeypatch) ->
 
 def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: Path, monkeypatch) -> None:
     _write_minimal_repo(tmp_path)
-    monkeypatch.setenv("BRAVE_API_KEY", "test")
     (tmp_path / "config" / "job_hunter.yml").write_text(
         yaml.safe_dump(
             {

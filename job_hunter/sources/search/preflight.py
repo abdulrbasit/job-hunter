@@ -4,12 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from job_hunter.sources.search.providers import (
-    BraveProvider,
-    ExaProvider,
-    SearxngProvider,
-    TavilyProvider,
-)
+from job_hunter.sources.search.providers import SearxngProvider
 
 logger = logging.getLogger(__name__)
 _PROBE_QUERY = "software engineer"
@@ -17,7 +12,7 @@ _PROBE_QUERY = "software engineer"
 
 def probe_search_providers() -> set[str]:
     disabled: set[str] = set()
-    for provider in (SearxngProvider(), BraveProvider(), TavilyProvider(), ExaProvider()):
+    for provider in (SearxngProvider(),):
         if not provider.enabled():
             continue
         try:

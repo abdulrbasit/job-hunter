@@ -32,10 +32,8 @@ def _isolate_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
 
-# Must be set before any module is imported; config/loader.py reads API key constants at module level.
+# Placeholder key so tests never need a real secret; secrets resolve lazily.
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
-os.environ.setdefault("BRAVE_API_KEY", "test-brave-key")
-os.environ.setdefault("RAPIDAPI_KEY", "test-rapidapi-key")
 
 runtime_root = Path(tempfile.mkdtemp(prefix="job-hunter-test-root-"))
 os.environ.setdefault("CODEX_HOME", str(runtime_root / ".codex"))

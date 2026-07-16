@@ -47,8 +47,6 @@ def test_board_registry_has_exactly_the_expected_source_names() -> None:
         "jobicy",
         "jobspy",
         "jobstreet",
-        "jooble",
-        "jsearch",
         "mycareersfuture",
         "reed",
         "remoteok",
@@ -144,24 +142,16 @@ def test_job_board_timeout_uses_source_timeout_before_default() -> None:
         assert job_board_timeout("fallback") == 4
 
 
-def test_split_board_modules_are_registered_and_compatibly_exported() -> None:
-    """Split adapters own behavior; legacy module remains import-compatible."""
+def test_split_board_modules_are_registered_and_documented() -> None:
     from pathlib import Path
 
     from job_hunter.sources.boards.arbeitnow import ArbeitnowSource
-    from job_hunter.sources.boards.jsearch import JSearchSource
-    from job_hunter.sources.job_boards import ArbeitnowSource as CompatArbeitnowSource
-    from job_hunter.sources.job_boards import JSearchSource as CompatJSearchSource
 
     assert BOARD_REGISTRY["arbeitnow"] is ArbeitnowSource
-    assert BOARD_REGISTRY["jsearch"] is JSearchSource
-    assert CompatArbeitnowSource is ArbeitnowSource
-    assert CompatJSearchSource is JSearchSource
 
     root = Path(__file__).resolve().parents[1]
     doc = (root / "docs" / "sources.md").read_text(encoding="utf-8")
     assert "sources/boards/arbeitnow.py" in doc
-    assert "sources/boards/jsearch.py" in doc
 
 
 # ── Registry / defaults / docs consistency ────────────────────────────────────
@@ -180,19 +170,12 @@ def test_every_registry_source_has_code_owned_http_defaults() -> None:
 
 
 def test_every_source_is_disabled_by_enabled_false() -> None:
-    """Setting http.job_boards.<source>.enabled=false must disable every adapter.
-
-    jsearch is the one exception: is_enabled() gates on the RapidAPI key and
-    enabled=false is honored inside _fetch instead (covered by
-    test_fetch_returns_empty_when_disabled in test_job_boards.py).
-    """
+    """Setting http.job_boards.<source>.enabled=false must disable every adapter."""
     from contextlib import ExitStack
 
     import job_hunter.sources.source_config as source_config
 
     for source_name, adapter_type in BOARD_REGISTRY.items():
-        if source_name == "jsearch":
-            continue
         adapter = adapter_type()
         config = {"http": {"job_boards": {source_name: {"enabled": False}}}}
         module = inspect.getmodule(adapter_type)

@@ -147,12 +147,20 @@ def test_workspace_template_find_jobs_exports_job_board_secrets() -> None:
     assert env["ANTHROPIC_API_KEY"] == "${{ secrets.ANTHROPIC_API_KEY }}"
     assert env["OPENAI_API_KEY"] == "${{ secrets.OPENAI_API_KEY }}"
     assert env["GOOGLE_API_KEY"] == "${{ secrets.GOOGLE_API_KEY }}"
-    assert env["RAPIDAPI_KEY"] == "${{ secrets.RAPIDAPI_KEY }}"
     assert env["ADZUNA_APP_ID"] == "${{ secrets.ADZUNA_APP_ID }}"
     assert env["ADZUNA_API_KEY"] == "${{ secrets.ADZUNA_API_KEY }}"
     assert env["REED_API_KEY"] == "${{ secrets.REED_API_KEY }}"
-    assert env["JOOBLE_API_KEY"] == "${{ secrets.JOOBLE_API_KEY }}"
-    assert "FIRECRAWL_API_KEY" not in env
+    assert env["SEARXNG_BASE_URL"]
+    # Removed paid/free-tier sources must not creep back into the template.
+    for removed in (
+        "BRAVE_API_KEY",
+        "TAVILY_API_KEY",
+        "EXA_API_KEY",
+        "RAPIDAPI_KEY",
+        "JOOBLE_API_KEY",
+        "FIRECRAWL_API_KEY",
+    ):
+        assert removed not in env
 
 
 def test_python_import_package_is_job_hunter() -> None:

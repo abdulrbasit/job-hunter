@@ -11,19 +11,16 @@ Each adapter has a `tier`: `"free"` (no key needed) or `"api"` (needs a key).
 |---|---|---|
 | `arbeitnow`, `arbeitsagentur` | free | Arbeitsagentur is Germany-only |
 | `bayt`, `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
-| `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` |
-| `jooble` | api | Needs `JOOBLE_API_KEY` |
-| `reed` | api | UK only, needs `REED_API_KEY` |
-| `jsearch` | api | RapidAPI, needs `RAPIDAPI_KEY` |
+| `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` (free key) |
+| `reed` | api | UK only, needs `REED_API_KEY` (free key) |
 
 Every adapter implements `sources/base.py::JobSourceAdapter`: a
 `source_name`, `tier`, `is_enabled(api_config)`, and `_fetch(params)`.
 `fetch()` wraps `_fetch()` and never raises — one source failing does not
 stop the run.
 
-Each adapter lives in `sources/boards/<name>.py`, including
-`sources/boards/arbeitnow.py` and `sources/boards/jsearch.py`.
-`sources/job_boards.py` only preserves the former public import path.
+Each adapter lives in `sources/boards/<name>.py`, e.g.
+`sources/boards/arbeitnow.py`.
 
 `gulftalent` and `bayt` are the Middle East/Gulf sources (AE, SA, QA, KW, BH,
 OM). Other Middle East boards investigated but not implemented: NaukriGulf
@@ -54,9 +51,7 @@ rendered fetch would.
 | `gulftalent`, `bayt` | no-key | region-specific (Gulf/Middle East) | fragile HTML (anti-bot-protected; multi-strategy parsing, no rendering fallback) |
 | `careerjet` | optional free key (affiliate id) | global (90+ locales; skips countries without a Careerjet locale instead of falling back to en_GB) | structured API |
 | `adzuna` | optional free key | region-specific (per-country allowlist) | structured API |
-| `jooble` | optional free key | global | structured API |
 | `reed` | optional free key | region-specific (UK) | structured API |
-| `jsearch` | optional free key (RapidAPI, 200 req/mo free tier) | global | structured API |
 
 `jobspy`'s Google Jobs site needs `google_search_term` phrased as a natural-
 language query (`"<title> jobs near <location>"`) — python-jobspy's own docs
@@ -112,18 +107,11 @@ configured title literally contains the base phrase.
 
 ## Search providers (`job_hunter/sources/search/providers.py`)
 
-Plain web-search APIs, not LLM calls — used for company/career-URL
-discovery (`sources/search/discovery.py`) and ATS discovery (below) when
-regular job-board sources come up thin. Each needs its own API key:
-
-| Provider | Env var |
-|---|---|
-| Brave Search | `BRAVE_API_KEY` |
-| Tavily | `TAVILY_API_KEY` |
-| Exa | `EXA_API_KEY` |
-
-None of these are required — Job Hunter runs on the free job boards alone.
-Add keys incrementally as you find gaps in coverage.
+Plain web search, not LLM calls — used for company/career-URL discovery
+(`sources/search/discovery.py`) and ATS discovery (above) when regular
+job-board sources come up thin. The only provider is self-hosted SearXNG
+(keyless): set `SEARXNG_BASE_URL` to your instance. It is optional — Job
+Hunter runs on the free job boards and the ATS slug cache alone.
 
 ## Adding a new job board adapter
 

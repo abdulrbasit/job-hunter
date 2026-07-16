@@ -6,6 +6,7 @@ rather than as a confusing downstream symptom.
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from job_hunter.agent_context.batch import screen_candidate_batch
@@ -22,7 +23,8 @@ def _job(**overrides) -> dict:
         "url": "https://boards.greenhouse.io/acme/jobs/123",
         "location": "Berlin",
         "snippet": "Own the roadmap.",
-        "posted_date_text": "2026-06-01",
+        # Relative so the fixture never rots into stale_date territory.
+        "posted_date_text": (date.today() - timedelta(days=2)).isoformat(),
     }
     values.update(overrides)
     return values

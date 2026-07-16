@@ -324,14 +324,9 @@ class DashAPI:
         "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
         "GOOGLE_API_KEY",
-        "BRAVE_API_KEY",
-        "TAVILY_API_KEY",
-        "EXA_API_KEY",
-        "RAPIDAPI_KEY",
         "ADZUNA_APP_ID",
         "ADZUNA_API_KEY",
         "REED_API_KEY",
-        "JOOBLE_API_KEY",
     )
 
     def get_github_actions_guide(self) -> dict[str, Any]:

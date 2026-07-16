@@ -58,11 +58,10 @@ class StaticProvider(search.SearchProvider):
         ]
 
 
-def test_default_provider_orders_reserve_semantic_search_for_ats_discovery() -> None:
+def test_default_provider_order_is_searxng_only() -> None:
     config = HTTP_DEFAULTS["search_providers"]
 
-    assert config["order"] == ["searxng", "brave"]
-    assert config["ats_discovery_order"] == ["searxng", "brave", "exa"]
+    assert config["order"] == ["searxng"]
 
 
 def test_router_skips_provider_after_configured_consecutive_failures() -> None:
@@ -101,14 +100,14 @@ def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
 
     class FakeRouter:
-        def __init__(self, provider_order, **kwargs) -> None:
-            self.provider_order = provider_order
+        def __init__(self, **kwargs) -> None:
+            pass
 
         def search(self, query: str, region_config: dict, count: int = 10):
-            assert self.provider_order == ["searxng", "brave"]
             return StaticProvider().search(query, region_config, count=count)
 
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "SearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(
         _ats_mod,
         "_search_config",
@@ -125,7 +124,6 @@ def test_discover_ats_jobs_by_search_extracts_expanded_ats_shapes(monkeypatch) -
     jobs = search.discover_ats_jobs_by_search(
         ["Product Manager"],
         {"dublin": {"location": "Dublin"}},
-        provider_order=["searxng", "brave"],
     )
 
     assert len(jobs) == 1
@@ -140,13 +138,14 @@ def test_discover_ats_jobs_by_search_sets_region_for_bahrain(monkeypatch) -> Non
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
 
     class FakeRouter:
-        def __init__(self, provider_order, **kwargs) -> None:
+        def __init__(self, **kwargs) -> None:
             pass
 
         def search(self, query: str, region_config: dict, count: int = 10):
             return StaticProvider().search(query, region_config, count=count)
 
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "SearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(
         _ats_mod,
         "_search_config",
@@ -167,13 +166,14 @@ def test_discover_ats_jobs_by_search_sets_region_for_germany(monkeypatch) -> Non
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
 
     class FakeRouter:
-        def __init__(self, provider_order, **kwargs) -> None:
+        def __init__(self, **kwargs) -> None:
             pass
 
         def search(self, query: str, region_config: dict, count: int = 10):
             return StaticProvider().search(query, region_config, count=count)
 
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "SearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(
         _ats_mod,
         "_search_config",
@@ -195,14 +195,15 @@ def test_discover_ats_jobs_respects_query_caps(monkeypatch) -> None:
     queries = []
 
     class FakeRouter:
-        def __init__(self, provider_order, **kwargs) -> None:
-            self.provider_order = provider_order
+        def __init__(self, **kwargs) -> None:
+            pass
 
         def search(self, query: str, region_config: dict, count: int = 10):
             queries.append(query)
             return []
 
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "SearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(
         _ats_mod,
         "_search_config",
@@ -503,7 +504,7 @@ def test_discover_region_rejects_closed_postings(monkeypatch) -> None:
     assert jobs == []
 
 
-def test_brave_provider_uses_shared_search_provider_timeout(monkeypatch) -> None:
+def test_searxng_provider_uses_shared_search_provider_timeout(monkeypatch) -> None:
     sections = []
 
     class FakeResponse:
@@ -511,7 +512,7 @@ def test_brave_provider_uses_shared_search_provider_timeout(monkeypatch) -> None
             return None
 
         def json(self):
-            return {"web": {"results": []}}
+            return {"results": []}
 
     def fake_timeout(section: str) -> int:
         sections.append(section)
@@ -524,7 +525,8 @@ def test_brave_provider_uses_shared_search_provider_timeout(monkeypatch) -> None
     monkeypatch.setattr(_prov_mod, "_timeout", fake_timeout)
     monkeypatch.setattr(search.requests, "get", fake_get)
 
-    assert search.BraveProvider().search("query", {}, count=1) == []
+    provider = search.SearxngProvider({"searxng_base_url": "http://localhost:8080"})
+    assert provider.search("query", {}, count=1) == []
     assert sections == ["search_providers"]
 
 
@@ -673,7 +675,7 @@ def test_all_providers_exhausted_returns_false_with_budget(monkeypatch) -> None:
     """Returns False when an ATS discovery provider is available."""
     _reset_exhaustion_state()
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
-    monkeypatch.setattr(search.BraveProvider, "enabled", lambda self: True)
+    monkeypatch.setattr(search.SearxngProvider, "enabled", lambda self: True)
 
     result = search.all_providers_exhausted()
     assert result is False
@@ -684,7 +686,7 @@ def test_all_providers_exhausted_returns_false_with_budget(monkeypatch) -> None:
 def test_all_providers_exhausted_returns_true_when_all_exhausted(monkeypatch) -> None:
     """Returns True when ATS discovery providers are unavailable."""
     _reset_exhaustion_state()
-    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", {"brave", "exa"})
+    monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
     monkeypatch.setattr(search.SearxngProvider, "enabled", lambda self: False)
 
     result = search.all_providers_exhausted()
@@ -781,8 +783,8 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
     monkeypatch.setattr(_router_mod._PROVIDER_STATE, "run_disabled", set())
 
     class FakeRouter:
-        def __init__(self, provider_order, **kwargs) -> None:
-            self.provider_order = provider_order
+        def __init__(self, **kwargs) -> None:
+            pass
 
         def search(self, query: str, region_config: dict, count: int = 10):
             return [
@@ -794,7 +796,8 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
                 )
             ]
 
-    monkeypatch.setattr(_ats_mod, "ProviderSearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "SearchRouter", FakeRouter)
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
     monkeypatch.setattr(
         _ats_mod,
         "_search_config",
@@ -821,7 +824,6 @@ def test_discover_ats_jobs_enriches_generic_search_title(monkeypatch) -> None:
     jobs = search.discover_ats_jobs_by_search(
         ["Product Manager"],
         {"berlin": {"location": "Berlin"}},
-        provider_order=["searxng"],
     )
 
     assert len(jobs) == 1

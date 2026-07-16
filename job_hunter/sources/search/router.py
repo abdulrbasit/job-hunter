@@ -9,11 +9,8 @@ from typing import TYPE_CHECKING
 
 from job_hunter.core.api_budget import is_api_quota_exhausted
 from job_hunter.sources.search.providers import (
-    BraveProvider,
-    ExaProvider,
     SearchProvider,
     SearxngProvider,
-    TavilyProvider,
     _search_config,
 )
 
@@ -75,23 +72,11 @@ def _reset_provider_failure(name: str) -> None:
 
 
 def _provider_registry() -> dict[str, SearchProvider]:
-    return {
-        "searxng": SearxngProvider(),
-        "brave": BraveProvider(),
-        "tavily": TavilyProvider(),
-        "exa": ExaProvider(),
-    }
+    return {"searxng": SearxngProvider()}
 
 
 def _provider_order() -> list[str]:
-    # Keep general search on SearXNG → Brave so semantic-provider quotas are
-    # available to explicit callers. Users can override search_providers.order.
-    return list(_search_config().get("order") or ["searxng", "brave"])
-
-
-def _ats_discovery_provider_order() -> list[str]:
-    # Exa semantic search finds ATS job-board URLs well; include it after brave.
-    return list(_search_config().get("ats_discovery_order") or ["searxng", "brave", "exa"])
+    return list(_search_config().get("order") or ["searxng"])
 
 
 def _providers_from_order(provider_names: list[str]) -> list[SearchProvider]:
@@ -104,7 +89,7 @@ def all_providers_exhausted(api_config: dict | None = None) -> bool:  # noqa: AR
     registry = _provider_registry()
     result = all(
         name in _PROVIDER_STATE.run_disabled or not registry[name].enabled()
-        for name in _ats_discovery_provider_order()
+        for name in _provider_order()
         if name in registry
     )
 
@@ -238,19 +223,6 @@ class SearchRouter:
         return self._search_core(query, region_config, count)
 
 
-class ProviderSearchRouter(SearchRouter):
-    """Search router constrained to a caller-provided provider name order."""
-
-    def __init__(
-        self,
-        provider_names: list[str],
-        *,
-        disabled: set[str] | None = None,
-        allowed: set[str] | None = None,
-    ) -> None:
-        super().__init__(_providers_from_order(provider_names), disabled=disabled, allowed=allowed)
-
-
 def search_web(
     query: str,
     region_config: dict,
@@ -259,7 +231,7 @@ def search_web(
     disabled: set[str] | None = None,
     allowed: set[str] | None = None,
 ) -> list[dict]:
-    """Compatibility helper returning Brave-like dictionaries."""
+    """Compatibility helper returning plain result dictionaries."""
     return [
         {
             "url": result.url,

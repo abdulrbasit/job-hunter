@@ -20,12 +20,7 @@ __all__ = [
     "ROOT",
     "ADZUNA_API_KEY",
     "ADZUNA_APP_ID",
-    "BRAVE_API_KEY",
-    "EXA_API_KEY",
-    "JOOBLE_API_KEY",
-    "RAPIDAPI_KEY",
     "REED_API_KEY",
-    "TAVILY_API_KEY",
     "get_api_config",
     "get_config",
     "get_job_hunter_config",
@@ -43,12 +38,7 @@ _LAZY_SECRET_NAMES = frozenset(
     {
         "ADZUNA_API_KEY",
         "ADZUNA_APP_ID",
-        "BRAVE_API_KEY",
-        "EXA_API_KEY",
-        "JOOBLE_API_KEY",
-        "RAPIDAPI_KEY",
         "REED_API_KEY",
-        "TAVILY_API_KEY",
     }
 )
 

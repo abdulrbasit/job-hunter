@@ -21,8 +21,8 @@ class JobSourceAdapter(ABC):
 
     Tier controls which sources run per --depth level:
       "free"   — no API key required (Himalayas, Remotive, etc.)
-      "api"    — keyed API (Adzuna, Reed, Jooble, RapidAPI/JSearch)
-      "search" — paid web-search providers (Brave, Tavily, Exa, ATS discovery)
+      "api"    — free-key API (Adzuna, Reed)
+      "search" — web search via self-hosted SearXNG (ATS discovery)
       "browser"— Playwright rendering (career pages, JS-gated sites)
     """
 

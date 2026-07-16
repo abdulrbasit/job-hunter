@@ -22,8 +22,7 @@ from job_hunter.sources.ats_urls import ats_discovery_sites, company_name_from_u
 from job_hunter.sources.search._result import SearchResult
 from job_hunter.sources.search._url_utils import canonicalize_url
 from job_hunter.sources.search.router import (
-    ProviderSearchRouter,
-    _ats_discovery_provider_order,
+    SearchRouter,
     _search_config,
     all_providers_exhausted,
 )
@@ -516,7 +515,6 @@ def discover_ats_jobs_by_search(
     regions: dict[str, dict],
     excluded_title_terms: list[str] | None = None,
     *,
-    provider_order: list[str] | None = None,
     ats_discovery_config: dict | None = None,
     disabled: set[str] | None = None,
 ) -> list[dict]:
@@ -538,7 +536,7 @@ def discover_ats_jobs_by_search(
     max_queries_per_region = int(config.get("max_queries_per_region", 0) or 0)
     max_total_queries = int(config.get("max_total_queries", 0) or 0)
     sources = config.get("sources") or list(_ATS_DISCOVERY_SITES)
-    router = ProviderSearchRouter(provider_order or _ats_discovery_provider_order(), disabled=disabled)
+    router = SearchRouter(disabled=disabled)
     jobs: list[dict] = []
     seen: set[str] = set()
     total_queries = 0

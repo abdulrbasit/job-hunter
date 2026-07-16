@@ -12,7 +12,6 @@ from job_hunter.sources.boards.gulftalent import GulfTalentSource
 from job_hunter.sources.boards.jobbank import JobBankSource
 from job_hunter.sources.boards.jobicy import JobicySource
 from job_hunter.sources.boards.jobstreet import JobStreetSource
-from job_hunter.sources.boards.jooble import JoobleSource
 from job_hunter.sources.boards.mycareersfuture import MyCareersFutureSource
 from job_hunter.sources.boards.reed import ReedSource
 from job_hunter.sources.boards.remoteok import RemoteOKSource
@@ -244,22 +243,6 @@ _WWR_RSS_WITH_REGION = b"""<?xml version="1.0" encoding="UTF-8"?>
     </item>
   </channel>
 </rss>"""
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Jooble
-# ═══════════════════════════════════════════════════════════════════════════
-
-_JOOBLE_CFG = {"http": {"job_boards": {"jooble": {"enabled": True, "timeout_seconds": 10}}}}
-
-_JOOBLE_JOB = {
-    "title": "Software Engineer",
-    "company": "JoobleCo",
-    "link": "https://jooble.org/1",
-    "updated": "2026-06-01",
-    "location": "Berlin",
-    "snippet": "A great role.",
-}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -937,39 +920,6 @@ class TestAdzunaSource:
 
         assert standard_calls == 1
         assert deep_calls > standard_calls
-
-
-class TestJoobleSource:
-    def test_name(self) -> None:
-        src = JoobleSource.__new__(JoobleSource)
-        src._api_key = "test-key"
-        assert src.source_name == "jooble"
-
-    def test_is_enabled_false_when_disabled(self) -> None:
-        src = JoobleSource.__new__(JoobleSource)
-        src._api_key = "test-key"
-        disabled = {"http": {"job_boards": {"jooble": {"enabled": False}}}}
-        with patch("job_hunter.sources.boards.jooble.get_api_config", return_value=disabled):
-            assert src.is_enabled(disabled) is False
-
-    def test_fetch_returns_job_postings(self) -> None:
-        src = JoobleSource.__new__(JoobleSource)
-        src._api_key = "test-key"
-        with (
-            patch(
-                "job_hunter.sources.boards.jooble.get_api_config",
-                return_value=_JOOBLE_CFG,
-            ),
-            patch("job_hunter.sources.boards.jooble.reserve_api_call", return_value=True),
-            patch(
-                "job_hunter.sources.boards.jooble.requests.post",
-                return_value=_make_response(json_data={"jobs": [_JOOBLE_JOB]}),
-            ),
-        ):
-            jobs = src.fetch(mk_params(["Software Engineer"], _REGIONS))
-        assert len(jobs) >= 1
-        assert isinstance(jobs[0], JobPosting)
-        assert jobs[0].source == "Jooble"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

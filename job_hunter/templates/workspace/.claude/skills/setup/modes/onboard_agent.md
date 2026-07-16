@@ -140,7 +140,7 @@ Tell the user:
 >
 > To enable optional features (job board APIs for more results):
 > 1. `cp .env.example .env`
-> 2. Open `.env` and add any keys you have (Adzuna, Reed, Jooble, Brave, etc.).
+> 2. Open `.env` and add any keys you have (Adzuna, Reed).
 > 3. Leave unused keys blank — sources without keys are skipped silently.
 >
 > No LLM API key is needed for the core workflow.

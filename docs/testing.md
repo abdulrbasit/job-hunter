@@ -28,9 +28,9 @@ Mock the HTTP layer (`requests`/`httpx`/`playwright` calls) with
 
 `conftest.py` also, at import time (before any test module loads):
 
-- Sets placeholder `ANTHROPIC_API_KEY`/`BRAVE_API_KEY`/`RAPIDAPI_KEY` env
-  vars — `job_hunter/config/secrets.py` reads these lazily at module level,
-  so tests never need a real key.
+- Sets a placeholder `ANTHROPIC_API_KEY` env var —
+  `job_hunter/config/secrets.py` resolves secrets lazily, so tests never
+  need a real key.
 - Builds an isolated temp workspace (`runtime_root`) with a minimal valid
   `config/job_hunter.yml` and empty profile files, and points
   `JOB_HUNTER_ROOT` at it — so `repo_path()` resolves to a throwaway

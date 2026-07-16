@@ -15,9 +15,6 @@ import pytest
 from job_hunter.models import SearchParams
 from job_hunter.sources.boards import BOARD_REGISTRY
 
-# jsearch gates on RapidAPI key presence (an instance secret), not a
-# job_boards.<name>.enabled config flag — it has no api_config-driven toggle to test.
-_NO_CONFIG_TOGGLE = {"jsearch"}
 # careerjet additionally requires a configured affiliate id, so it is not
 # enabled-by-default even with an otherwise-empty api_config.
 _NOT_ENABLED_BY_DEFAULT = {"careerjet"}
@@ -40,7 +37,7 @@ def test_fetch_never_raises_even_when_fetch_impl_blows_up(name, cls) -> None:
         assert adapter.fetch(_params()) == []
 
 
-@pytest.mark.parametrize("name,cls", sorted((n, c) for n, c in BOARD_REGISTRY.items() if n not in _NO_CONFIG_TOGGLE))
+@pytest.mark.parametrize("name,cls", sorted(BOARD_REGISTRY.items()))
 def test_is_enabled_respects_supplied_api_config(name, cls) -> None:
     adapter = cls()
     disabled = {"http": {"job_boards": {name: {"enabled": False}}}}
@@ -49,7 +46,7 @@ def test_is_enabled_respects_supplied_api_config(name, cls) -> None:
 
 @pytest.mark.parametrize(
     "name,cls",
-    sorted((n, c) for n, c in BOARD_REGISTRY.items() if n not in _NO_CONFIG_TOGGLE | _NOT_ENABLED_BY_DEFAULT),
+    sorted((n, c) for n, c in BOARD_REGISTRY.items() if n not in _NOT_ENABLED_BY_DEFAULT),
 )
 def test_is_enabled_defaults_true_when_config_says_nothing(name, cls) -> None:
     adapter = cls()
