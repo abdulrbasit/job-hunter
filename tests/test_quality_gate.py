@@ -232,7 +232,7 @@ def test_company_hunt_jobs_with_no_region_tag_are_still_location_screened():
 
     assert kept == []
     assert len(rejected) == 1
-    assert rejected[0]["_rejection_reason"] == "incompatible_location_metadata"
+    assert rejected[0]["_rejection_reason"] == "location_not_enabled"
 
 
 def test_company_hunt_jobs_matching_a_configured_country_are_kept():

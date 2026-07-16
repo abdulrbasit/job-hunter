@@ -386,6 +386,7 @@
 
         <div class="settings-section" id="settings-section-regions">
           <h3>Regions</h3>
+          <div id="cfg-active-locations" class="meta-chips"></div>
           <div id="cfg-regions-rows"></div>
           <button class="btn" type="button" id="add-region-btn">+ Add region</button>
         </div>
@@ -505,8 +506,9 @@
                 <option value="custom">custom</option>
               </select>
             </div>
-            <div class="settings-field"><label for="gs-search-country">Country (ISO2)</label><input type="text" id="gs-search-country" maxlength="2"></div>
-            <div class="settings-field"><label for="gs-search-location">Location</label><input type="text" id="gs-search-location"></div>
+            <div class="settings-field"><label for="gs-search-scope">Scope</label><select id="gs-search-scope"><option value="city">City</option><option value="country">Country</option><option value="remote_country">Remote in country</option><option value="remote_global">Global remote</option></select></div>
+            <div class="settings-field"><label for="gs-search-country">Country</label><select id="gs-search-country"></select></div>
+            <div class="settings-field"><label for="gs-search-location">City</label><select id="gs-search-location"></select></div>
             <div class="settings-field"><label for="gs-search-lang">Search lang</label><input type="text" id="gs-search-lang"></div>
           </div>
           <div class="settings-grid">

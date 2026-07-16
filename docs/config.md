@@ -1,6 +1,9 @@
 # Config Reference
 
-`config/job_hunter.yml` holds every deterministic, user-editable setting.
+`config/job_hunter.yml` is the canonical search config. It holds user choices
+as references into package-owned catalogs; bundled countries,
+cities, aliases, filters, and matching logic live under `job_hunter/` and ship
+in the wheel.
 It is validated against `config/schemas/job_hunter.schema.json`
 (`additionalProperties: false` — unknown keys are rejected) and, before
 that, checked for pre-cutoff removed keys by
@@ -40,13 +43,31 @@ A map of region name → region config. At least one region is required.
 |---|---|---|
 | `enabled` | yes | Whether this region is searched |
 | `country` | yes | Two-letter country code (e.g. `DE`, `US`) |
-| `location` | yes | City or area name passed to sources |
+| `scope` | yes | `city`, `country`, `remote_country`, or `remote_global` |
+| `city_id` | for `city` | Package-owned canonical city ID |
 | `primary` | no | Marks the default region for `--region primary` |
 | `search_lang` | no | Language code for search-provider queries |
 | `description` | no | Free text, shown in `doctor`/dashboard output |
 
-Country-specific sources (e.g. Arbeitsagentur for `DE`) only run for
-matching regions. Global/remote sources run regardless of country.
+Example city reference:
+
+```yaml
+regions:
+  berlin:
+    enabled: true
+    primary: true
+    country: DE
+    scope: city
+    city_id: "geonames:2950159"
+    search_lang: en
+```
+
+The package owns all names and aliases for that ID. Legacy `location: Berlin`
+values resolve in memory and emit a doctor warning, but loading and
+`job-hunter update` never rewrite the user's file. Country-specific sources
+(for example Arbeitsagentur for `DE`) run only for enabled matching scopes.
+Remote/global sources are skipped unless an enabled scope can accept them.
+Unknown runtime location evidence fails closed.
 
 ### `filters`
 
@@ -123,9 +144,9 @@ migration guidance, instead of silently ignoring it:
    default in the bundled template's `config/job_hunter.yml`.
 2. Read it via `job_hunter.config.loader` — don't reach into raw YAML dicts
    elsewhere.
-3. `config/job_hunter.yml` is fully user-owned; updates only rewrite it for an
-   explicit, backed-up one-time migration. Existing users only pick up a new key
-   automatically if it falls under a runtime-merged default section (`llm`,
+3. `config/job_hunter.yml` is fully user-owned; updates never rewrite it.
+   Existing users only pick up a new key automatically if it falls under a
+   runtime-merged default section (`llm`,
    `linkedin`, `tailoring`, `cover_letter`, `scoring.prompt_context` — see
    `get_job_hunter_config()`). Anything else needs the user to add it by
    hand; `job-hunter doctor` flags what's missing against the schema.
@@ -145,7 +166,7 @@ user file, use a revision token to reject stale edits, and never write merged
 runtime defaults back into YAML. Undo restores the exact previous bytes for
 the most recent save. Validation errors do not replace the current file.
 
-Companies manages `config/career_pages.yml`, including enabled state, bulk
-enable/disable, and bulk delete. Existing entries without `enabled` remain
-enabled. URLs must use HTTP(S), and duplicate names or normalized URLs are
-rejected before disk writes.
+Location dropdowns read package resources through the dashboard API. Bootstrap
+returns countries and current active selections; cities are fetched only for
+the selected country. Existing legacy company configuration remains readable
+during its planned retirement into the single config/store ownership model.

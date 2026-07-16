@@ -35,16 +35,20 @@
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "required": ["enabled", "country", "location"],
+        "required": ["enabled", "country"],
         "properties": {
           "enabled": {"type": "boolean"},
           "primary": {"type": "boolean"},
-          "country": {"type": "string", "minLength": 2, "maxLength": 2},
+          "country": {"type": "string", "minLength": 0, "maxLength": 2},
+          "scope": {"enum": ["city", "country", "remote_country", "remote_global"]},
+          "city_id": {"type": "string", "minLength": 1},
           "search_lang": {"type": "string"},
           "location": {"type": "string"},
           "description": {"type": "string"}
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [{"required": ["scope"]}, {"required": ["location"]}],
+        "allOf": [{"if": {"properties": {"scope": {"const": "city"}}, "required": ["scope"]}, "then": {"required": ["city_id"]}}]
       }
     },
     "filters": {

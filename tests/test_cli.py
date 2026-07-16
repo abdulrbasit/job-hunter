@@ -728,7 +728,11 @@ def test_region_lookup_command_prints_country_code() -> None:
     result = run_cli("internal", "region-lookup", "--city", "Munich")
 
     assert result.returncode == 0
-    assert json.loads(result.stdout) == {"city": "Munich", "country": "DE"}
+    assert json.loads(result.stdout) == {
+        "city": "Munich",
+        "country": "DE",
+        "location": {"country": "DE", "scope": "city", "city_id": "geonames:2867714"},
+    }
 
 
 def test_derive_finalize_message_matches_finalize_skill_precedence() -> None:

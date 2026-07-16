@@ -232,7 +232,10 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
     on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
     assert on_disk["career_stage"] == "early_career"
     assert on_disk["job_titles"] == ["Associate PM"]
-    assert on_disk["regions"]["primary"]["location"] == "Munich"
+    assert on_disk["regions"]["primary"]["country"] == "DE"
+    assert on_disk["regions"]["primary"]["scope"] == "city"
+    assert on_disk["regions"]["primary"]["city_id"] == "geonames:2867714"
+    assert "location" not in on_disk["regions"]["primary"]
 
 
 def test_get_onboarding_prompt_returns_copyable_text(tmp_path: Path) -> None:
@@ -816,9 +819,13 @@ def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch
 def _write_career_hunt_config(root: Path, companies: list[dict]) -> None:
     (root / "config").mkdir(parents=True, exist_ok=True)
     (root / "config" / "job_hunter.yml").write_text(
-        yaml.safe_dump({"job_titles": ["Product Manager"], "exclusions": {}}), encoding="utf-8"
+        yaml.safe_dump(
+            {"job_titles": ["Product Manager"], "regions": {"de": {"enabled": True, "country": "DE"}}, "exclusions": {}}
+        ),
+        encoding="utf-8",
     )
-    (root / "config" / "career_pages.yml").write_text(yaml.safe_dump({"companies": companies}), encoding="utf-8")
+    located = [{**company, "location": company.get("location") or "Germany"} for company in companies]
+    (root / "config" / "career_pages.yml").write_text(yaml.safe_dump({"companies": located}), encoding="utf-8")
 
 
 def test_run_company_hunt_starts_worker_and_persists_summary(tmp_path: Path, monkeypatch) -> None:
@@ -828,7 +835,12 @@ def test_run_company_hunt_starts_worker_and_persists_summary(tmp_path: Path, mon
     monkeypatch.setattr(
         "job_hunter.pipeline.browser_hunt.extract_career_page_jobs",
         lambda company, titles, exclusions: [
-            {"title": titles[0], "company": company["name"], "url": "https://acme.example.com/jobs/1"}
+            {
+                "title": titles[0],
+                "company": company["name"],
+                "url": "https://acme.example.com/jobs/1",
+                "location": "Germany",
+            }
         ],
     )
     api = DashAPI(tmp_path)
@@ -884,13 +896,20 @@ def test_get_company_hunt_summary_message_reports_partial_failures(tmp_path: Pat
     def fake_extract(company, titles, exclusions):
         if company["name"] == "C":
             raise ConnectionError("couldn't connect")
-        return [{"title": titles[0], "company": company["name"], "url": f"https://example.com/{company['name']}"}]
+        return [
+            {
+                "title": titles[0],
+                "company": company["name"],
+                "url": f"https://example.com/{company['name']}",
+                "location": "Germany",
+            }
+        ]
 
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.extract_career_page_jobs", fake_extract)
     api = DashAPI(tmp_path)
 
     api.run_company_hunt()
-    api._hunt_thread.join(timeout=5)
+    api._hunt_thread.join(timeout=30)
 
     summary = api.get_company_hunt_summary()
     assert summary["message"] == "2 of 3 companies checked (1 couldn't be reached). 2 new candidates found."

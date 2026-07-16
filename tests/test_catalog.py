@@ -142,28 +142,27 @@ def test_effective_companies_matches_enabled_region() -> None:
     assert "google" not in ids  # US-only, DE region not matched even though allow-listed
 
 
-def test_effective_companies_with_no_regions_and_full_allowlist_returns_all_catalog_companies() -> None:
+def test_effective_companies_with_no_regions_rejects_all_catalog_companies() -> None:
     all_ids = [c.id for c in load_companies()]
     career_pages = {"companies": [], "catalog": {"enabled_company_ids": all_ids}}
 
     result = effective_companies(_NO_REGION_CONFIG, career_pages)
 
-    assert len([c for c in result if c["source"] == "catalog"]) == len(load_companies())
+    assert not [c for c in result if c["source"] == "catalog"]
 
 
-def test_effective_companies_no_catalog_block_returns_only_custom() -> None:
+def test_effective_companies_custom_without_location_is_rejected() -> None:
     career_pages = {"companies": [{"name": "Custom Co", "career_url": "https://custom.example/careers"}]}
 
     result = effective_companies(_DE_CONFIG, career_pages)
 
-    assert len(result) == 1
-    assert result[0]["source"] == "custom"
+    assert result == []
 
 
 def test_effective_companies_custom_entry_wins_on_duplicate_url() -> None:
     sap_url = next(c.career_url for c in load_companies() if c.id == "sap")
     career_pages = {
-        "companies": [{"name": "SAP (custom override)", "career_url": sap_url}],
+        "companies": [{"name": "SAP (custom override)", "career_url": sap_url, "location": "Germany"}],
         "catalog": {"enabled_company_ids": ["sap"]},
     }
 

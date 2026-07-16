@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from job_hunter.config.locations import enabled_locations, job_matches_enabled_locations
 from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.sources.policy import JobPolicy
 
@@ -14,6 +15,7 @@ def _screen_job(
     regions: dict[str, Any],
     industries: list[str],
     title_filters: list[str],
+    allowed_locations: list[Any] | None = None,
 ) -> tuple[str, list[str]]:
     title = str(job.get("title") or "")
     snippet = str(job.get("snippet") or "")
@@ -24,6 +26,12 @@ def _screen_job(
         reason = "excluded_title"
     region = str(job.get("region") or "")
     region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
+
+    if not reason and policy.is_excluded_industry(snippet_lower):
+        reason = "excluded_industry"
+
+    if not reason and allowed_locations is not None and not job_matches_enabled_locations(job, allowed_locations):
+        reason = "location_not_enabled"
 
     if not reason and policy.has_incompatible_location_metadata(job, region_config):
         reason = "incompatible_location_metadata"
@@ -44,9 +52,6 @@ def _screen_job(
         if policy.excluded_by_search_lang(title, snippet, search_lang):
             reason = "excluded_by_search_lang"
 
-    if not reason and policy.is_excluded_industry(snippet_lower):
-        reason = "excluded_industry"
-
     signals = [] if reason else [term for term in industries if term in snippet_lower]
     return reason, signals
 
@@ -58,13 +63,14 @@ def screen_jobs_by_rules(
     """Remove objective failures and preserve semantic questions as signals."""
     policy = JobPolicy(config)
     regions = config.get("regions", {}) or {}
+    allowed_locations = enabled_locations(config) if "regions" in config else None
     industries = [str(term).lower() for term in policy.excluded_industries]
     title_filters = [str(term) for term in config.get("job_titles", []) or []]
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, signals = _screen_job(job, policy, regions, industries, title_filters)
+        reason, signals = _screen_job(job, policy, regions, industries, title_filters, allowed_locations)
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
         else:

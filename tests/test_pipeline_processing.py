@@ -379,8 +379,8 @@ def test_finalize_processed_batch_one_bad_upsert_does_not_abort_the_rest() -> No
 def test_excluded_title_jobs_never_reach_llm_scoring() -> None:
     """Objective screening runs before the quality gate and before scoring, so
     an excluded-title job must never appear in score_and_filter_jobs input."""
-    good = _match(0)["job"]
-    excluded = {**_match(1)["job"], "title": "Staff Product Manager"}
+    good = {**_match(0)["job"], "location": "Berlin, Germany"}
+    excluded = {**_match(1)["job"], "title": "Staff Product Manager", "location": "Berlin, Germany"}
     scored_inputs: list[list[dict]] = []
 
     def fake_score(jobs, config):
@@ -397,7 +397,11 @@ def test_excluded_title_jobs_never_reach_llm_scoring() -> None:
             skip_score=False,
             max_years=4,
             api_config={},
-            scoring_config={"scoring": {}, "exclusions": {"title_terms": ["staff"]}, "regions": {}},
+            scoring_config={
+                "scoring": {},
+                "exclusions": {"title_terms": ["staff"]},
+                "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+            },
         )
 
     assert len(scored_inputs) == 1

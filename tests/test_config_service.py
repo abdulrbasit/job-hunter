@@ -579,7 +579,9 @@ def test_apply_onboarding_prefs_updates_titles_stage_and_primary_region() -> Non
     assert merged["career_stage"] == "leadership"
     assert merged["job_titles"] == ["Director of Product"]
     assert merged["regions"]["primary"]["country"] == "US"
-    assert merged["regions"]["primary"]["location"] == "New York"
+    assert merged["regions"]["primary"]["scope"] == "city"
+    assert merged["regions"]["primary"]["city_id"] == "geonames:5128581"
+    assert "location" not in merged["regions"]["primary"]
     assert merged["regions"]["primary"]["search_lang"] == "en"
 
 

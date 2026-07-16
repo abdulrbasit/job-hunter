@@ -195,7 +195,8 @@ def run(  # noqa: C901
         if duration > COMPANY_DEADLINE_SECONDS:
             finish_failed(task, "took too long to respond", duration)
             return
-        kept, rejected = screen_jobs_by_rules(jobs, config)
+        scoped_jobs = [{**job, "location": job.get("location") or task["location"]} for job in jobs]
+        kept, rejected = screen_jobs_by_rules(scoped_jobs, config)
         if rejected:
             logger.info(
                 "[browser-hunt] %s: %d jobs excluded by policy before insert",

@@ -28,6 +28,15 @@ def doctor(root: Path) -> dict[str, Any]:
     migrate_legacy_exclusions(root)
     checks: list[dict[str, Any]] = []
     job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
+    from job_hunter.config.locations import legacy_location_warnings
+
+    location_warnings = legacy_location_warnings(job_hunter_config)
+    forbidden_location_paths = [
+        root / "config" / "locations",
+        root / "config" / "location_data",
+        root / "config" / "locations.yml",
+        root / "config" / "locations.json",
+    ]
     mode = str(job_hunter_config.get("mode") or "agent")
     checks.append(
         _check(
@@ -35,6 +44,14 @@ def doctor(root: Path) -> dict[str, Any]:
             sys.version_info >= (3, 12),
             f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             "Install Python 3.12 or newer.",
+        )
+    )
+    checks.append(
+        _check(
+            "package_owned_locations",
+            not any(path.exists() for path in forbidden_location_paths),
+            "location catalogs load from job_hunter package resources",
+            "Remove workspace location datasets; reinstall the package to restore bundled data.",
         )
     )
     checks.append(
@@ -111,7 +128,7 @@ def doctor(root: Path) -> dict[str, Any]:
         "checks": checks,
         "onboardingNeeded": onboarding["onboardingNeeded"],
         "missing": onboarding["missing"],
-        "warnings": onboarding["warnings"] + telemetry_warnings,
+        "warnings": onboarding["warnings"] + location_warnings + telemetry_warnings,
         "onboarding": onboarding,
     }
 

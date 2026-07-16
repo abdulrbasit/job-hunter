@@ -381,10 +381,18 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     primary = dict(regions.get("primary") or {})
     primary["enabled"] = True
     primary["primary"] = True
-    if prefs.get("country"):
-        primary["country"] = str(prefs["country"]).strip().upper()
-    if prefs.get("location"):
-        primary["location"] = str(prefs["location"])
+    location = prefs.get("location")
+    if isinstance(location, dict):
+        for key in ("country", "scope", "city_id"):
+            if key in location:
+                primary[key] = location[key]
+        primary.pop("location", None)
+    elif prefs.get("country") or location:
+        from job_hunter.config.locations import location_to_config, resolve_config_location
+
+        country = str(prefs.get("country") or "").strip().upper()
+        primary.update(location_to_config(resolve_config_location(country, str(location or ""))))
+        primary.pop("location", None)
     if prefs.get("search_lang"):
         primary["search_lang"] = str(prefs["search_lang"])
     regions["primary"] = primary

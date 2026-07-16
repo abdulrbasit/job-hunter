@@ -878,8 +878,32 @@ class DashAPI:
             parsed = yaml.safe_load(raw["data"]) or {}
         except yaml.YAMLError as exc:
             return {"ok": False, "data": None, "errors": [f"Invalid YAML on disk: {exc}"], "warnings": []}
+        if isinstance(parsed, dict):
+            from job_hunter.config.locations import canonicalize_config_regions
+
+            parsed = canonicalize_config_regions(parsed)
         form = service.config_to_form(parsed) if isinstance(parsed, dict) else service.config_to_form({})
         return {"ok": True, "data": {"form": form, "revision": raw["revision"]}, "errors": [], "warnings": []}
+
+    def get_location_countries(self) -> dict[str, Any]:
+        from job_hunter.config.locations import countries
+
+        return {"ok": True, "countries": countries()}
+
+    def get_location_cities(self, country: str) -> dict[str, Any]:
+        from job_hunter.config.locations import cities
+
+        code = country.strip().upper()
+        return {"ok": True, "country": code, "cities": [{"id": city.id, "name": city.name} for city in cities(code)]}
+
+    def canonicalize_location(self, country: str, city: str, scope: str) -> dict[str, Any]:
+        from job_hunter.config.locations import location_to_config, resolve_config_location
+
+        try:
+            location = resolve_config_location(country, city, scope)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "location": location_to_config(location)}
 
     def save_job_hunter_config_form(self, form: dict[str, Any], revision: str) -> dict[str, Any]:
         import yaml

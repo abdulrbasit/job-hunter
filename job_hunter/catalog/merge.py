@@ -5,22 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from job_hunter.catalog.loader import CompanyEntry, load_companies
+from job_hunter.config.locations import canonicalize_runtime_location, enabled_locations, location_matches_any
 from job_hunter.config.reference_data import load_filters
+from job_hunter.models import Location, LocationScope
 
 
 def _normalize_url(url: str) -> str:
     return url.rstrip("/").lower()
-
-
-def _enabled_country_codes(job_hunter_config: dict[str, Any]) -> set[str]:
-    regions = job_hunter_config.get("regions", {}) or {}
-    codes: set[str] = set()
-    for region in regions.values() if isinstance(regions, dict) else []:
-        if isinstance(region, dict) and region.get("enabled", True):
-            country = str(region.get("country") or "").strip().upper()
-            if country:
-                codes.add(country)
-    return codes
 
 
 def _excluded_industry_ids(user_terms: list[str]) -> set[str]:
@@ -44,7 +35,7 @@ def _excluded_industry_ids(user_terms: list[str]) -> set[str]:
 
 def _is_eligible(
     company: CompanyEntry,
-    enabled_countries: set[str],
+    allowed_locations: list[Location],
     excluded_industry_ids: set[str],
     enabled_ids: set[str],
 ) -> bool:
@@ -52,11 +43,19 @@ def _is_eligible(
         return False
     if excluded_industry_ids and set(company.industry_ids) & excluded_industry_ids:
         return False
-    if not enabled_countries:
-        return True
-    return bool(set(company.country_codes) & enabled_countries) or bool(
-        set(company.remote_country_codes) & enabled_countries
+    return company_matches_enabled_locations(company, allowed_locations)
+
+
+def company_matches_enabled_locations(company: CompanyEntry, allowed_locations: list[Location]) -> bool:
+    candidates: list[Location] = []
+    for city_name in company.city_tags:
+        for country in company.country_codes:
+            candidates.extend(canonicalize_runtime_location(city_name, country))
+    candidates.extend(Location(country=code, scope=LocationScope.COUNTRY) for code in company.country_codes)
+    candidates.extend(
+        Location(country=code, scope=LocationScope.REMOTE_COUNTRY) for code in company.remote_country_codes
     )
+    return location_matches_any(candidates, allowed_locations)
 
 
 def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -78,12 +77,12 @@ def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: di
 
     industry_filter = FilterRegistry.from_config(job_hunter_config).file("excluded_industries")
     excluded_industry_ids = _excluded_industry_ids(industry_filter.values if industry_filter else [])
-    enabled_countries = _enabled_country_codes(job_hunter_config)
+    allowed_locations = enabled_locations(job_hunter_config)
 
     effective: list[dict[str, Any]] = []
     if enabled_ids:
         for company in load_companies():
-            if not _is_eligible(company, enabled_countries, excluded_industry_ids, enabled_ids):
+            if not _is_eligible(company, allowed_locations, excluded_industry_ids, enabled_ids):
                 continue
             if _normalize_url(company.career_url) in custom_urls:
                 continue
@@ -99,6 +98,9 @@ def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: di
 
     for custom in custom_companies:
         if custom.get("enabled", True) is False:
+            continue
+        custom_locations = canonicalize_runtime_location(str(custom.get("location") or ""))
+        if not location_matches_any(custom_locations, allowed_locations):
             continue
         effective.append(
             {

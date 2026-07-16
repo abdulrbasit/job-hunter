@@ -127,6 +127,8 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
 
     assert (workspace / "config" / "job_hunter.yml").exists()
     assert (workspace / "config" / "career_pages.yml").exists()
+    assert not (workspace / "config" / "locations").exists()
+    assert not (workspace / "config" / "location_data").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
     assert (workspace / ".github" / "searxng" / "settings.yml").exists()
     assert (workspace / ".claude" / "skills" / "setup" / "SKILL.md").exists()

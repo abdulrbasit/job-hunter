@@ -254,13 +254,13 @@ def _company(
 
 
 _NO_REGIONS: dict = {"regions": {}}
-_DE_ONLY: dict = {"regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}}}
+_DE_ONLY: dict = {"regions": {"germany": {"enabled": True, "country": "DE"}}}
 
 
 class TestCatalogSlugs:
     def test_extracts_slug_from_ats_career_url(self, monkeypatch) -> None:
         monkeypatch.setattr(ats_slugs, "load_companies", lambda: [_company("https://boards.greenhouse.io/Acme")])
-        assert catalog_slugs(_NO_REGIONS) == {"greenhouse": {"acme"}}
+        assert catalog_slugs(_NO_REGIONS) == {}
 
     def test_skips_platform_without_public_fetcher(self, monkeypatch) -> None:
         monkeypatch.setattr(
@@ -296,7 +296,7 @@ class TestCatalogSlugs:
             "load_companies",
             lambda: [_company("https://jobs.lever.co/acme", countries=["JP"])],
         )
-        assert catalog_slugs(_NO_REGIONS) == {"lever": {"acme"}}
+        assert catalog_slugs(_NO_REGIONS) == {}
 
     def test_industry_exclusion_drops_company(self, monkeypatch) -> None:
         from job_hunter.config.reference_data import load_filters

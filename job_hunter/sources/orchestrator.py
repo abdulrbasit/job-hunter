@@ -19,6 +19,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
+from job_hunter.config.locations import (
+    canonicalize_runtime_location,
+    enabled_locations,
+    location_from_region,
+    location_matches_any,
+)
 from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
@@ -60,10 +66,16 @@ def _params_for_region(
     *,
     max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
 ) -> SearchParams:
+    canonical = location_from_region(region_config)
+    query_location = (
+        canonical.city.name
+        if canonical.city is not None
+        else ("Remote" if "remote" in canonical.scope.value else canonical.country)
+    )
     return SearchParams(
         region_key=region_key,
-        country=region_config.get("country", ""),
-        location=region_config.get("location", ""),
+        country=canonical.country,
+        location=query_location,
         search_lang=region_config.get("search_lang", "en"),
         job_titles=job_titles,
         max_results=max_results,
@@ -104,6 +116,7 @@ def scrape_with_stats(
     seen_urls: set[str] = set()
     cached_urls = load_cached_candidate_urls()
     policy = JobPolicy(config)
+    allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
 
@@ -148,11 +161,25 @@ def scrape_with_stats(
             if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
                 reject("excluded_by_search_lang", region_key)
                 continue
+            hinted_country = location_from_region(region_config).country if region_config else ""
+            canonical_locations = canonicalize_runtime_location(jp.location, hinted_country)
+            if jp.location_restrictions:
+                remote_prefix = "Remote " if "remote" in jp.location.casefold() else ""
+                restricted = [
+                    item
+                    for value in jp.location_restrictions
+                    for item in canonicalize_runtime_location(f"{remote_prefix}{value}", hinted_country)
+                ]
+                canonical_locations = restricted or canonical_locations
+            if not location_matches_any(canonical_locations, allowed_locations):
+                reject("location_not_enabled", region_key)
+                continue
             effective_region_config = region_config or regions.get(jp.region, {})
-            if policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_config):
+            legacy_policy = not effective_region_config.get("scope")
+            if legacy_policy and policy.has_incompatible_location_metadata(jp.model_dump(), effective_region_config):
                 reject("incompatible_location_metadata", region_key)
                 continue
-            if policy.has_wrong_location(jp.model_dump(), effective_region_config):
+            if legacy_policy and policy.has_wrong_location(jp.model_dump(), effective_region_config):
                 reject("wrong_location", region_key)
                 continue
             if not effective_region_config and policy.has_incompatible_location_for_global_feed(jp.model_dump()):
@@ -165,6 +192,7 @@ def scrape_with_stats(
                         "posting_date_status": policy.posting_date_status(jp.posted_date_text),
                         "employment_type": normalize_employment_type(jp.employment_type),
                         "country_code": derive_country_code(jp.location),
+                        "canonical_locations": canonical_locations,
                     }
                 )
             )
@@ -180,7 +208,10 @@ def scrape_with_stats(
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
     regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
 
-    if global_adapters and region is None:
+    remote_allowed = any(
+        location.scope.value in {"country", "remote_country", "remote_global"} for location in allowed_locations
+    )
+    if global_adapters and region is None and remote_allowed:
         global_params = SearchParams(
             region_key="global_remote",
             country="",
@@ -200,7 +231,7 @@ def scrape_with_stats(
                 except Exception as exc:
                     stats.failed_sources.append(source)
                     logger.warning("[orchestrator] %s raised: %s", source, exc)
-    elif global_adapters:
+    elif global_adapters and remote_allowed:
         for region_key, region_config in regions.items():
             params = _params_for_region(
                 region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
@@ -223,8 +254,13 @@ def scrape_with_stats(
             params = _params_for_region(
                 region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
             )
-            with ThreadPoolExecutor(max_workers=min(len(regional_adapters), 8)) as pool:
-                futures = {pool.submit(a.fetch, params): a.source_name for a in regional_adapters}
+            eligible_adapters = [
+                adapter
+                for adapter in regional_adapters
+                if not hasattr(adapter, "supports_country") or adapter.supports_country(params.country)
+            ]
+            with ThreadPoolExecutor(max_workers=min(len(eligible_adapters), 8) or 1) as pool:
+                futures = {pool.submit(a.fetch, params): a.source_name for a in eligible_adapters}
                 for future in as_completed(futures):
                     source = futures[future]
                     try:

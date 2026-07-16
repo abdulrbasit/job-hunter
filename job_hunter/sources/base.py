@@ -28,6 +28,7 @@ class JobSourceAdapter(ABC):
 
     tier: str = "free"  # override per adapter; used by --depth filtering
     global_feed: bool = False
+    supported_countries: frozenset[str] = frozenset()
 
     @property
     @abstractmethod
@@ -37,6 +38,9 @@ class JobSourceAdapter(ABC):
     def is_enabled(self, api_config: dict) -> bool:
         """Return True by default; sources may override to check config flags."""
         return True
+
+    def supports_country(self, country: str) -> bool:
+        return not self.supported_countries or country.upper() in self.supported_countries
 
     @abstractmethod
     def _fetch(self, params: SearchParams) -> list[JobPosting]:

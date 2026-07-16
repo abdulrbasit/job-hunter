@@ -128,8 +128,7 @@ def test_global_feed_is_fetched_once_for_all_regions(monkeypatch) -> None:
         "job_titles": ["Product Manager"],
         "exclusions": {"companies": [], "title_terms": [], "industries": [], "languages": []},
         "regions": {
-            "berlin": {"enabled": True, "country": "DE", "location": "Berlin"},
-            "dublin": {"enabled": True, "country": "IE", "location": "Dublin"},
+            "global": {"enabled": True, "country": "", "scope": "remote_global"},
         },
         "search": {},
     }
@@ -161,7 +160,7 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
         "job_titles": ["Product Manager"],
         "exclusions": {"companies": [], "title_terms": [], "industries": [], "languages": []},
         "regions": {
-            "berlin": {"enabled": True, "country": "DE", "location": "Berlin", "search_lang": "en"},
+            "berlin": {"enabled": True, "country": "DE", "location": "Remote", "search_lang": "en"},
         },
         "search": {},
     }

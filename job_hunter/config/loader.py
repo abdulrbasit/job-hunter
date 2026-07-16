@@ -52,6 +52,9 @@ def _build_job_hunter_config(root: Path) -> dict[str, Any]:
         "cover_letter": COVER_LETTER_DEFAULTS,
     }
     merged = deep_merge(defaults, data)
+    from job_hunter.config.locations import canonicalize_config_regions
+
+    merged = canonicalize_config_regions(merged, warn_legacy=True)
     scoring = merged.setdefault("scoring", {})
     scoring["prompt_context"] = SCORING_PROMPT_CONTEXT
     return merged

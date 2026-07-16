@@ -371,9 +371,11 @@ def region_lookup(
     city: str = typer.Option(..., "--city"),
 ) -> None:
     """Look up the ISO 3166-1 alpha-2 country code for a city or country name."""
-    from job_hunter.config.locations import country_code_for_city
+    from job_hunter.config.locations import country_code_for_city, location_to_config, resolve_config_location
 
-    typer.echo(json.dumps({"city": city, "country": country_code_for_city(city)}))
+    country = country_code_for_city(city)
+    location = location_to_config(resolve_config_location(country, city)) if country else None
+    typer.echo(json.dumps({"city": city, "country": country, "location": location}))
 
 
 @internal_app.command(name="compile-profile")

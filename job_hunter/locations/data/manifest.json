@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "source": "GeoNames cities15000; cities500 for Germany",
+  "license": "CC BY 4.0",
+  "source_url": "https://download.geonames.org/export/dump/",
+  "archives": {
+    "cities15000.zip": "3a61700e0cb7c62ed6f39472600112d98283e0761791ec1383febad749eb711e",
+    "cities500.zip": "cb18ab4df05cd3cc2a435d4ad1a6eb3a6a086912812ebe41c1763d48b6a03440"
+  },
+  "countries_with_cities": 244,
+  "city_count": 44738
+}

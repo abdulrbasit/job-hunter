@@ -37,6 +37,8 @@ def _location(item: dict[str, Any]) -> str:
 
 
 class ArbeitsagenturSource(JobSourceAdapter):
+    supported_countries = frozenset({"DE"})
+
     @property
     def source_name(self) -> str:
         return "arbeitsagentur"

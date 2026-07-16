@@ -27,6 +27,7 @@ let loadingGuidedForm = false;
 let loadingRaw = false;
 let loadingCareerContext = false;
 let regionRowSeq = 0;
+let locationCountries = [];
 let overrideRowSeq = 0;
 let companiesLoaded = false;
 let companiesData = [];
@@ -1546,12 +1547,18 @@ async function saveSearchSetup() {
     msg.style.color = '#f85149';
     return;
   }
+  const scope = document.getElementById('gs-search-scope').value;
+  const country = scope === 'remote_global' ? '' : document.getElementById('gs-search-country').value;
+  const citySelect = document.getElementById('gs-search-location');
+  const location = {country, scope};
+  if (scope === 'city') {
+    location.city_id = citySelect.value;
+  }
   const prefs = {
     mode: document.getElementById('gs-search-mode').value,
     career_stage: document.getElementById('gs-career-stage').value,
     job_titles: document.getElementById('gs-search-job-titles').value.split('\n').map(s => s.trim()).filter(Boolean),
-    country: document.getElementById('gs-search-country').value,
-    location: document.getElementById('gs-search-location').value,
+    location,
     search_lang: document.getElementById('gs-search-lang').value,
     excluded_industries: document.getElementById('gs-search-excl-industries').value.split('\n').map(s => s.trim()).filter(Boolean),
   };
@@ -1710,7 +1717,7 @@ async function copySecretValue(event) {
   setTimeout(() => { btn.textContent = original; }, 1500);
 }
 
-function renderGuidedForm(form) {
+async function renderGuidedForm(form) {
   loadingGuidedForm = true;
   document.getElementById('cfg-mode').value = form.mode || 'agent';
   document.getElementById('cfg-resume-tex').value = form.profile.resume_tex || '';
@@ -1726,11 +1733,30 @@ function renderGuidedForm(form) {
   document.getElementById('cfg-llm-provider').value = form.llm_default_provider || 'anthropic';
 
   document.getElementById('cfg-regions-rows').innerHTML = '';
-  Object.entries(form.regions || {}).forEach(([key, region]) => addRegionRow(key, region));
+  if (!locationCountries.length) {
+    const payload = await window.pywebview.api.get_location_countries();
+    locationCountries = payload.countries || [];
+  }
+  const primary = Object.values(form.regions || {}).find(r => r.primary) || Object.values(form.regions || {})[0] || {};
+  const primaryLocation = primary.scope ? primary : {country: primary.country || '', scope: primary.location === 'Remote' ? 'remote_country' : 'city'};
+  const gsCountry = document.getElementById('gs-search-country');
+  gsCountry.innerHTML = countryOptions(primaryLocation.country || '');
+  document.getElementById('gs-search-scope').value = primaryLocation.scope || 'city';
+  await loadOnboardingCities(primaryLocation.city_id || '');
+  gsCountry.onchange = () => loadOnboardingCities();
+  for (const [key, region] of Object.entries(form.regions || {})) await addRegionRow(key, region);
+  renderActiveLocations();
 
   document.getElementById('cfg-overrides-rows').innerHTML = '';
   (form.scoring.strategic_overrides || []).forEach(o => addOverrideRow(o));
   loadingGuidedForm = false;
+}
+
+async function loadOnboardingCities(selectedId = '') {
+  const country = document.getElementById('gs-search-country').value;
+  const payload = country ? await window.pywebview.api.get_location_cities(country) : {cities: []};
+  const select = document.getElementById('gs-search-location');
+  select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 
 function addFilterEntryRow(group, entry = {}) {
@@ -1792,8 +1818,32 @@ function markConfigDirty() {
   updateDirtyFlag('guided');
 }
 
-function addRegionRow(key = '', region = {}) {
+function countryOptions(selected = '') {
+  return locationCountries.map(c => `<option value="${esc(c.code)}" ${c.code === selected ? 'selected' : ''}>${esc(c.name)} (${esc(c.code)})</option>`).join('');
+}
+
+function renderActiveLocations() {
+  const chips = [...document.querySelectorAll('#cfg-regions-rows .settings-row')].filter(row => row.querySelector('.region-enabled').checked).map(row => {
+    const key = row.querySelector('.region-key').value;
+    const scope = row.querySelector('.region-scope').value;
+    const country = row.querySelector('.region-country').value;
+    const city = row.querySelector('.region-city').selectedOptions[0]?.text || '';
+    const label = scope === 'city' ? `${city}, ${country}` : scope === 'remote_global' ? 'Global remote' : `${scope.replaceAll('_', ' ')}: ${country}`;
+    return `<span class="meta-chip">${esc(key)} · ${esc(label)}</span>`;
+  });
+  document.getElementById('cfg-active-locations').innerHTML = chips.join('');
+}
+
+async function loadCitiesForRow(row, selectedId = '') {
+  const country = row.querySelector('.region-country').value;
+  const payload = country ? await window.pywebview.api.get_location_cities(country) : {cities: []};
+  const select = row.querySelector('.region-city');
+  select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+
+async function addRegionRow(key = '', region = {}) {
   const rowId = `region-row-${regionRowSeq++}`;
+  const loc = region.scope ? region : {country: region.country || '', scope: region.location === 'Remote' ? 'remote_country' : 'city'};
   const row = document.createElement('div');
   row.className = 'settings-row';
   row.id = rowId;
@@ -1801,8 +1851,9 @@ function addRegionRow(key = '', region = {}) {
     <div class="settings-field"><label>Key</label><input type="text" class="region-key" value="${esc(key)}"></div>
     <div class="settings-row-checkbox"><input type="checkbox" class="region-enabled" ${region.enabled !== false ? 'checked' : ''}> Enabled</div>
     <div class="settings-row-checkbox"><input type="checkbox" class="region-primary" ${region.primary ? 'checked' : ''}> Primary</div>
-    <div class="settings-field"><label>Country (ISO2)</label><input type="text" class="region-country" maxlength="2" value="${esc(region.country || '')}"></div>
-    <div class="settings-field"><label>Location</label><input type="text" class="region-location" value="${esc(region.location || '')}"></div>
+    <div class="settings-field"><label>Scope</label><select class="region-scope"><option value="city" ${loc.scope === 'city' ? 'selected' : ''}>City</option><option value="country" ${loc.scope === 'country' ? 'selected' : ''}>Country</option><option value="remote_country" ${loc.scope === 'remote_country' ? 'selected' : ''}>Remote in country</option><option value="remote_global" ${loc.scope === 'remote_global' ? 'selected' : ''}>Global remote</option></select></div>
+    <div class="settings-field"><label>Country</label><select class="region-country">${countryOptions(loc.country || '')}</select></div>
+    <div class="settings-field"><label>City</label><select class="region-city"></select></div>
     <div class="settings-field"><label>Search lang</label><input type="text" class="region-search-lang" value="${esc(region.search_lang || '')}"></div>
     <div class="settings-field"><label>Description</label><input type="text" class="region-description" value="${esc(region.description || '')}"></div>
     <button class="btn btn-danger" type="button" data-remove-row="${rowId}">Remove</button>
@@ -1811,6 +1862,8 @@ function addRegionRow(key = '', region = {}) {
   row.addEventListener('change', markConfigDirty);
   row.querySelector(`[data-remove-row="${rowId}"]`).addEventListener('click', () => { row.remove(); markConfigDirty(); });
   document.getElementById('cfg-regions-rows').appendChild(row);
+  await loadCitiesForRow(row, loc.city_id || '');
+  row.querySelector('.region-country').addEventListener('change', () => loadCitiesForRow(row));
   markConfigDirty();
 }
 
@@ -1838,12 +1891,16 @@ function collectGuidedForm() {
   document.querySelectorAll('#cfg-regions-rows .settings-row').forEach(row => {
     const key = row.querySelector('.region-key').value.trim();
     if (!key) return;
+    const scope = row.querySelector('.region-scope').value;
+    const country = scope === 'remote_global' ? '' : row.querySelector('.region-country').value;
+    const citySelect = row.querySelector('.region-city');
     const entry = {
       enabled: row.querySelector('.region-enabled').checked,
       primary: row.querySelector('.region-primary').checked,
-      country: row.querySelector('.region-country').value.trim(),
-      location: row.querySelector('.region-location').value.trim(),
+      country,
+      scope,
     };
+    if (scope === 'city') entry.city_id = citySelect.value;
     const searchLang = row.querySelector('.region-search-lang').value.trim();
     const description = row.querySelector('.region-description').value.trim();
     if (searchLang) entry.search_lang = searchLang;
@@ -1894,7 +1951,7 @@ async function loadGuidedConfig() {
     const result = await window.pywebview.api.get_job_hunter_config_form();
     if (!result.ok) { showSettingsErrors(result.errors); return; }
     cfgRevision = result.data.revision;
-    renderGuidedForm(result.data.form);
+    await renderGuidedForm(result.data.form);
     cfgDirty = false;
     updateDirtyFlag('guided');
   } catch(e) {

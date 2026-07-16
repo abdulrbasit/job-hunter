@@ -13,20 +13,25 @@ from job_hunter.tracking import company_hunts
 from job_hunter.tracking.repository import get_discovered_jobs
 
 
-def _write_config(root: Path, companies: list[dict], exclusions: dict | None = None) -> None:
+def _write_config(root: Path, companies: list[object], exclusions: dict | None = None) -> None:
     config = root / "config"
     config.mkdir()
     (config / "job_hunter.yml").write_text(
         yaml.safe_dump(
             {
                 "job_titles": ["Product Manager"],
+                "regions": {"de": {"enabled": True, "country": "DE"}},
                 "exclusions": exclusions or {"title_terms": ["intern"]},
             }
         ),
         encoding="utf-8",
     )
+    normalized = [
+        {**company, "location": company.get("location") or "Germany"} if isinstance(company, dict) else company
+        for company in companies
+    ]
     (config / "career_pages.yml").write_text(
-        yaml.safe_dump({"companies": companies}),
+        yaml.safe_dump({"companies": normalized}),
         encoding="utf-8",
     )
 
@@ -250,6 +255,44 @@ def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypat
     assert browser_hunt.run() == 0
     jobs = get_discovered_jobs(tmp_path)
     assert [job["company"] for job in jobs] == ["Kept Corp"]
+
+
+def test_browser_hunt_rejects_extracted_job_outside_enabled_city(tmp_path: Path, monkeypatch) -> None:
+    companies = [{"name": "Berlin Corp", "career_url": "https://berlin.example/jobs", "location": "Berlin"}]
+    _write_config(tmp_path, companies)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "job_titles": ["Product Manager"],
+                "regions": {
+                    "berlin": {
+                        "enabled": True,
+                        "country": "DE",
+                        "scope": "city",
+                        "city_id": "geonames:2950159",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
+    monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
+    monkeypatch.setattr(
+        browser_hunt,
+        "extract_career_page_jobs",
+        lambda _company, titles, _exclusions: [
+            {
+                "title": titles[0],
+                "company": "Berlin Corp",
+                "url": "https://berlin.example/jobs/stuttgart",
+                "location": "Stuttgart, Germany",
+            }
+        ],
+    )
+
+    assert browser_hunt.run() == 0
+    assert get_discovered_jobs(tmp_path) == []
 
 
 # ---------------------------------------------------------------------------

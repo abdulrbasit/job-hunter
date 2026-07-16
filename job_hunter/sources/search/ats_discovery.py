@@ -79,11 +79,14 @@ def _location_query_terms(region_config: dict, location: str) -> list[str]:
     from job_hunter.sources.policy import _EUROPE_COUNTRY_CODES, _MIDDLE_EAST_COUNTRY_CODES
 
     terms: list[str] = []
-    city = str((region_config or {}).get("location") or location or "").strip()
+    from job_hunter.config.locations import location_from_region
+
+    canonical = location_from_region(region_config) if region_config else None
+    city = canonical.city.name if canonical and canonical.city is not None else str(location or "").strip()
     if city:
         terms.append(city)
 
-    country_code = str((region_config or {}).get("country") or "").strip().upper()
+    country_code = canonical.country if canonical else ""
     country_name = _CODE_TO_COUNTRY_NAME.get(country_code, "")
     if country_name and country_name.lower() != city.lower():
         terms.append(country_name)
@@ -476,7 +479,10 @@ def _discover_region(
     ats_detail_timeout: int = ATS_DISCOVERY_API_TIMEOUT,
 ) -> list[dict]:
     """Run ATS discovery for a single region. Used by tests and discover_ats_jobs_by_search."""
-    location = region_config.get("location") or region_name
+    from job_hunter.config.locations import location_from_region
+
+    canonical = location_from_region(region_config)
+    location = canonical.city.name if canonical.city is not None else canonical.country or "Remote"
     jobs: list[dict] = []
     seen: set[str] = set()
     region_queries = 0
@@ -541,7 +547,10 @@ def discover_ats_jobs_by_search(
 
     for region_name, region_config in regions.items():
         region_queries = 0
-        location = region_config.get("location") or region_name
+        from job_hunter.config.locations import location_from_region
+
+        canonical = location_from_region(region_config)
+        location = canonical.city.name if canonical.city is not None else canonical.country or "Remote"
         for title in title_filters:
             for source in sources:
                 if source not in _ATS_DISCOVERY_SITES:

@@ -41,10 +41,11 @@ def harvest_slugs(jobs: list[JobPosting | dict]) -> dict[str, set[str]]:
 def catalog_slugs(config: dict) -> dict[str, set[str]]:
     """ATS slugs from the bundled company catalog, filtered to the user's enabled
     regions and industry exclusions; platforms with a public list API only."""
-    from job_hunter.catalog.merge import _enabled_country_codes, _excluded_industry_ids
+    from job_hunter.catalog.merge import _excluded_industry_ids, company_matches_enabled_locations
+    from job_hunter.config.locations import enabled_locations
     from job_hunter.sources.ats_apis import _FETCHERS
 
-    enabled_countries = _enabled_country_codes(config)
+    allowed_locations = enabled_locations(config)
     from job_hunter.config.filter_registry import FilterRegistry
 
     industry_filter = FilterRegistry.from_config(config).file("excluded_industries")
@@ -53,10 +54,7 @@ def catalog_slugs(config: dict) -> dict[str, set[str]]:
     for company in load_companies():
         if excluded and set(company.industry_ids) & excluded:
             continue
-        if (
-            enabled_countries
-            and not (set(company.country_codes) | set(company.remote_country_codes)) & enabled_countries
-        ):
+        if not company_matches_enabled_locations(company, allowed_locations):
             continue
         detected = detect_ats(company.career_url)
         if detected and detected[0] in _FETCHERS:
@@ -112,7 +110,12 @@ def query_ats_by_slugs(
     if not slug_store:
         return []
 
-    locations = [config.get("location", "") for config in regions.values() if config.get("location")]
+    from job_hunter.config.locations import location_from_region
+
+    locations = []
+    for config in regions.values():
+        location = location_from_region(config)
+        locations.append(location.city.name if location.city is not None else location.country)
     region_key = next(iter(regions), "")
     results: list[dict] = []
     seen: set[str] = set()

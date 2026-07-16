@@ -403,6 +403,11 @@ class JobPolicy:
         return False
 
     def _allowed_country_codes(self) -> set[str]:
+        from job_hunter.config.locations import enabled_locations
+
+        canonical = {location.country for location in enabled_locations(self.config) if location.country}
+        if canonical:
+            return canonical
         regions = self.config.get("regions", {}) or {}
         codes: set[str] = set()
         for region_config in regions.values() if isinstance(regions, dict) else []:

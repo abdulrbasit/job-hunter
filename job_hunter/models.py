@@ -12,6 +12,7 @@ types at the boundaries that already do.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
@@ -34,6 +35,52 @@ class StoryBlock:
 # ---------------------------------------------------------------------------
 
 
+class LocationScope(StrEnum):
+    CITY = "city"
+    COUNTRY = "country"
+    REMOTE_COUNTRY = "remote_country"
+    REMOTE_GLOBAL = "remote_global"
+
+
+class CanonicalCity(BaseModel):
+    """Stable city identity from package-owned bundled data."""
+
+    id: str
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+    population: int = 0
+
+
+class Location(BaseModel):
+    """Canonical geographic scope used by config, sources, and pipeline gates."""
+
+    country: str = ""
+    scope: LocationScope
+    city: CanonicalCity | None = None
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> Location:
+        self.country = self.country.strip().upper()
+        if self.scope == LocationScope.REMOTE_GLOBAL:
+            if self.country or self.city is not None:
+                raise ValueError("remote_global cannot include a country or city")
+        elif len(self.country) != 2:
+            raise ValueError("country must be an ISO alpha-2 code")
+        if self.scope == LocationScope.CITY and self.city is None:
+            raise ValueError("city scope requires a city")
+        if self.scope != LocationScope.CITY and self.city is not None:
+            raise ValueError("only city scope can include a city")
+        return self
+
+    @property
+    def id(self) -> str:
+        if self.scope == LocationScope.REMOTE_GLOBAL:
+            return "remote:global"
+        if self.scope == LocationScope.CITY and self.city is not None:
+            return f"city:{self.country}:{self.city.id}"
+        return f"{self.scope.value}:{self.country}"
+
+
 class JobPosting(BaseModel):
     """Canonical job record. Produced by sources, consumed by pipeline stages."""
 
@@ -42,6 +89,7 @@ class JobPosting(BaseModel):
     url: str
     location: str = ""
     country_code: str = ""
+    canonical_locations: list[Location] = Field(default_factory=list)
     snippet: str = ""
     source: str = ""
     posted_date_text: str = ""

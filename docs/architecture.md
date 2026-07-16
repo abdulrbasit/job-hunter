@@ -24,6 +24,7 @@ tailor-links, or tailor-raw modes.
 | `config/` | YAML loading, typed filter registry, migrations, secrets, schemas, and workspace paths |
 | `core/` | Cross-package utilities and package-owned built-in quality filters |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
+| `locations/` | Package-owned country/city resources, canonical resolution, and scope matching |
 | `llm/` | Provider routing, typed requests/responses, prompts, and token accounting |
 | `metrics/` | Pipeline history and normalized agent/API telemetry |
 | `pipeline/` | Hunt/tailor orchestration and processing stages |
@@ -64,7 +65,8 @@ skills continue the same lifecycle through hidden CLI contracts under
 
 ## Data and state
 
-- `config/job_hunter.yml`: user-owned deterministic settings, including standardized filter groups.
+- `config/job_hunter.yml`: sole user-owned config; choices reference package-owned catalogs.
+- `job_hunter/locations/data/`: read-only canonical city resources shipped in the wheel.
 - `profile/`: user-owned resume, career context, and story evidence.
 - `outputs/state/jobs.db`: canonical job and application state.
 - `outputs/state/metrics.db`: pipeline and token telemetry.
