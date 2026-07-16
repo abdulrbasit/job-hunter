@@ -54,3 +54,17 @@
 - Full suite: 1,469 passed; coverage: 86.56%.
 - Focused import/resource/boundary checks: 65 passed.
 - Ruff format, Ruff lint, and `ty check`: passed.
+
+## Phase 4 benchmark
+
+- Median construction time for 1,000 identical filter sets fell from 108.74 ms
+  to 19.79 ms (81.8% lower).
+- Immutable bound matchers are cached by package type and scalar choices.
+- Exact filters use their compiled `frozenset` without building an unused regex.
+- Match throughput and cold import were already fast and remained effectively
+  unchanged; see `docs/benchmarks/package-filters.md`.
+- Final suite: 1,471 passed; coverage: 86.57%.
+- Focused filter/policy/agent/boundary checks: 74 passed.
+- Doctor reports `package_owned_filters` and rejects obsolete workspace filter
+  directories/schemas; its filter-ownership check passes in this repository.
+- Ruff format, Ruff lint, and `ty check`: passed.

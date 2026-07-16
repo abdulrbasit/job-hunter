@@ -261,6 +261,19 @@ def test_agent_mode_does_not_require_docker(tmp_path: Path, monkeypatch) -> None
     assert "optional" in docker["detail"].lower()
 
 
+def test_doctor_rejects_workspace_owned_filter_definitions(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    filters_dir = tmp_path / "config" / "filters"
+    filters_dir.mkdir()
+    (filters_dir / "excluded_titles.yml").write_text("- intern\n", encoding="utf-8")
+
+    payload = doctor(tmp_path)
+    check = next(check for check in payload["checks"] if check["name"] == "package_owned_filters")
+
+    assert check["ok"] is False
+    assert "job-hunter update" in check["fix"]
+
+
 def test_doctor_reports_playwright_chromium_check(tmp_path: Path, monkeypatch) -> None:
     _write_minimal_repo(tmp_path)
     monkeypatch.setattr("job_hunter.ux.health.is_chromium_installed", lambda: False)

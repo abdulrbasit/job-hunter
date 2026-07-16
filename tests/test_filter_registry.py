@@ -74,3 +74,14 @@ def test_unknown_filter_types_are_not_discovered_from_user_config() -> None:
     filters = FilterSet.from_config({"filters": {"future_filter": ["value"]}})
 
     assert filters.names() == []
+
+
+def test_identical_choices_reuse_compiled_matchers() -> None:
+    config = {"filters": {"excluded_titles": ["intern"], "hunt_languages": ["en"]}}
+
+    first = FilterSet.from_config(config)
+    second = FilterSet.from_config(config)
+
+    assert first.bound["excluded_titles"] is second.bound["excluded_titles"]
+    assert first.bound["hunt_languages"] is second.bound["hunt_languages"]
+    assert first.bound["hunt_languages"]._contains is None

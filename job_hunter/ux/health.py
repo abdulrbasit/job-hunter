@@ -37,6 +37,12 @@ def doctor(root: Path) -> dict[str, Any]:
         root / "config" / "locations.yml",
         root / "config" / "locations.json",
     ]
+    forbidden_filter_paths = [
+        root / "config" / "filters",
+        root / "config" / "filters.yml",
+        root / "config" / "filters.json",
+        root / "config" / "schemas" / "filter.schema.json",
+    ]
     mode = str(job_hunter_config.get("mode") or "agent")
     checks.append(
         _check(
@@ -52,6 +58,14 @@ def doctor(root: Path) -> dict[str, Any]:
             not any(path.exists() for path in forbidden_location_paths),
             "location catalogs load from job_hunter package resources",
             "Remove workspace location datasets; reinstall the package to restore bundled data.",
+        )
+    )
+    checks.append(
+        _check(
+            "package_owned_filters",
+            not any(path.exists() for path in forbidden_filter_paths),
+            "filter definitions and taxonomies load from job_hunter package resources",
+            "Run job-hunter update to fold obsolete filter files into config/job_hunter.yml.",
         )
     )
     checks.append(

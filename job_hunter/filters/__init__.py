@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
@@ -135,7 +136,11 @@ class BoundFilter:
         expanded = _expanded_values(self.definition, list(self.values))
         normalized = tuple(self._normalize(value) for value in expanded)
         object.__setattr__(self, "_exact", frozenset(filter(None, normalized)))
-        pattern = "|".join(rf"\b{re.escape(value)}\b" for value in normalized if value)
+        pattern = (
+            "|".join(rf"\b{re.escape(value)}\b" for value in normalized if value)
+            if self.definition.mode != FilterMatchMode.EXACT
+            else ""
+        )
         object.__setattr__(self, "_contains", re.compile(pattern, re.IGNORECASE) if pattern else None)
 
     def _normalize(self, value: str) -> str:
@@ -148,6 +153,12 @@ class BoundFilter:
         return bool(normalized in self._exact or (self._contains and self._contains.search(normalized)))
 
 
+@lru_cache(maxsize=256)
+def _bind_filter(name: str, values: tuple[str, ...]) -> BoundFilter:
+    """Compile one immutable matcher per package type and user choice tuple."""
+    return BoundFilter(FILTER_TYPES[name], values)
+
+
 @dataclass(frozen=True)
 class FilterSet:
     bound: dict[str, BoundFilter]
@@ -155,13 +166,7 @@ class FilterSet:
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> FilterSet:
         canonical = canonicalize_filter_config(config).get("filters") or {}
-        return cls(
-            {
-                name: BoundFilter(definition, tuple(canonical[name]))
-                for name, definition in FILTER_TYPES.items()
-                if canonical.get(name)
-            }
-        )
+        return cls({name: _bind_filter(name, tuple(canonical[name])) for name in FILTER_TYPES if canonical.get(name)})
 
     def names(self) -> list[str]:
         return sorted(self.bound)
