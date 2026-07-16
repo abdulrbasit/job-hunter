@@ -2,126 +2,75 @@ from __future__ import annotations
 
 import re
 
-from job_hunter.config.filter_registry import FilterRegistry
+from job_hunter.filters import FILTER_TYPES, FilterSet, canonicalize_filter_config
+from job_hunter.models import FilterMatchMode
 
 
-def test_registry_discovers_typed_filter_groups() -> None:
-    registry = FilterRegistry.from_config(
+def test_package_registry_defines_known_filter_types_and_modes() -> None:
+    assert set(FILTER_TYPES) == {
+        "excluded_companies",
+        "excluded_titles",
+        "excluded_industries",
+        "hunt_languages",
+    }
+    assert FILTER_TYPES["excluded_companies"].mode == FilterMatchMode.CONTAINS
+    assert FILTER_TYPES["excluded_titles"].mode == FilterMatchMode.CONTAINS
+    assert FILTER_TYPES["excluded_industries"].mode == FilterMatchMode.CONTAINS
+    assert FILTER_TYPES["hunt_languages"].mode == FilterMatchMode.EXACT
+
+
+def test_scalar_choices_bind_to_package_matching_logic() -> None:
+    filters = FilterSet.from_config(
         {
             "filters": {
-                "excluded_companies": {
-                    "description": "Blocked employers",
-                    "entries": [
-                        {"value": "Acme"},
-                        {"value": "Recruiter", "note": "spam"},
-                    ],
-                },
-                "future_filter": {"description": "Future", "entries": []},
+                "excluded_companies": ["Delivery Hero", "Auto1"],
+                "excluded_titles": ["intern"],
+                "excluded_industries": ["aerospace_defense"],
+                "hunt_languages": ["en", "de"],
             }
         }
     )
 
-    assert registry.names() == ["excluded_companies", "future_filter"]
-    assert registry.file("excluded_companies").entries[1].note == "spam"
+    assert filters.matches("excluded_companies", "Delivery Hero SE")
+    assert filters.matches("excluded_companies", "AUTO1 Group")
+    assert not filters.matches("excluded_companies", "Hero Digital")
+    assert filters.matches("excluded_titles", "Product Management Intern")
+    assert filters.matches("excluded_industries", "Defense aviation systems")
+    assert filters.allowed_languages == frozenset({"english", "german"})
 
 
-def test_company_entries_choose_matching_strategy_automatically() -> None:
-    registry = FilterRegistry.from_config(
-        {
-            "filters": {
-                "excluded_companies": {
-                    "description": "Blocked employers",
-                    "entries": [
-                        {"value": "Delivery Hero"},
-                        {"value": "Auto1"},
-                        {"value": r"^Spam\s+Co$"},
-                        {"value": "Invalid["},
-                    ],
-                }
-            }
+def test_legacy_nested_groups_canonicalize_in_memory_without_mutating_input() -> None:
+    config = {
+        "filters": {
+            "languages": {"description": "Allowed", "entries": [{"value": "english"}]},
+            "excluded_companies": {
+                "description": "Blocked",
+                "entries": [{"value": "Acme", "note": "spam"}],
+            },
         }
-    )
+    }
 
-    filters = registry.file("excluded_companies")
-    assert filters.matches("Delivery Hero SE", normalize_company=True)
-    assert filters.matches("AUTO1 Group", normalize_company=True)
-    assert filters.matches("Spam Co", normalize_company=True)
-    assert not filters.matches("Hero Digital", normalize_company=True)
+    canonical = canonicalize_filter_config(config)
 
-
-def test_language_allowlist_excludes_detected_unlisted_language() -> None:
-    registry = FilterRegistry.from_config(
-        {
-            "filters": {
-                "languages": {
-                    "description": "Hunt languages",
-                    "entries": [{"value": "english"}],
-                }
-            }
-        }
-    )
-
-    assert registry.allowed_languages == frozenset({"english"})
+    assert canonical["filters"] == {
+        "excluded_companies": ["Acme"],
+        "hunt_languages": ["en"],
+    }
+    assert isinstance(config["filters"]["excluded_companies"], dict)
 
 
-def test_matchers_are_precompiled_and_exact_values_are_frozen(monkeypatch) -> None:
-    registry = FilterRegistry.from_config(
-        {
-            "filters": {
-                "bulk": {
-                    "description": "Large filter",
-                    "entries": [
-                        {"value": "Exact employer"},
-                        {"value": "staffing agency"},
-                        {"value": r"^Spam\s+Co$"},
-                    ],
-                }
-            }
-        }
-    )
-    filters = registry.file("bulk")
-    assert isinstance(filters._exact_values, frozenset)
+def test_matchers_do_not_compile_during_matching(monkeypatch) -> None:
+    filters = FilterSet.from_config({"filters": {"excluded_companies": ["Acme"], "excluded_titles": ["intern"]}})
 
     def fail_compile(*args, **kwargs):
         raise AssertionError("matching must not compile regexes")
 
     monkeypatch.setattr(re, "compile", fail_compile)
-    assert filters.matches("Exact employer")
-    assert filters.matches("A staffing agency role")
-    assert filters.matches("Spam Co")
+    assert filters.matches("excluded_companies", "Acme GmbH")
+    assert filters.matches("excluded_titles", "Product Intern")
 
 
-def test_large_filter_set_matches_without_per_entry_scans() -> None:
-    registry = FilterRegistry.from_config(
-        {
-            "filters": {
-                "bulk": {
-                    "description": "Large filter",
-                    "entries": [{"value": f"blocked company {index}"} for index in range(2_000)],
-                }
-            }
-        }
-    )
+def test_unknown_filter_types_are_not_discovered_from_user_config() -> None:
+    filters = FilterSet.from_config({"filters": {"future_filter": ["value"]}})
 
-    filters = registry.file("bulk")
-    assert filters.matches("blocked company 1999")
-    assert not filters.matches("unrelated employer and role text")
-
-
-def test_capture_group_regexes_keep_independent_group_numbering() -> None:
-    registry = FilterRegistry.from_config(
-        {
-            "filters": {
-                "regexes": {
-                    "description": "Advanced regexes",
-                    "entries": [
-                        {"value": r"(foo)\1"},
-                        {"value": r"(bar)\1"},
-                    ],
-                }
-            }
-        }
-    )
-
-    filters = registry.file("regexes")
-    assert filters.matches("barbar")
+    assert filters.names() == []

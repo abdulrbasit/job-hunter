@@ -103,10 +103,9 @@ _NO_CAP_SENTINEL = 999
 
 def resolve_title_exclusions(config: dict) -> list[str]:
     """User filter terms unioned with active career_stage's reviewed hard excludes."""
-    from job_hunter.config.filter_registry import FilterRegistry
+    from job_hunter.filters import filter_values
 
-    filter_file = FilterRegistry.from_config(config).file("excluded_titles")
-    user_terms = filter_file.values if filter_file else []
+    user_terms = filter_values(config, "excluded_titles")
     stage_terms = career_stage(str(config.get("career_stage") or "custom")).exclude
     return list(dict.fromkeys([*user_terms, *stage_terms]))
 

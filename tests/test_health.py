@@ -83,7 +83,7 @@ def test_doctor_migrates_legacy_exclusions_once(tmp_path: Path) -> None:
     migrated = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     assert "exclusions" not in migrated
-    assert migrated["filters"]["excluded_companies"]["entries"] == [{"value": "Acme"}]
+    assert migrated["filters"]["excluded_companies"] == ["Acme"]
 
 
 def test_onboarding_status_passes_when_required_user_files_are_ready(tmp_path: Path, monkeypatch) -> None:

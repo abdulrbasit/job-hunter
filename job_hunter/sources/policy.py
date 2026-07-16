@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from job_hunter.config.filter_registry import FilterRegistry
 from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.builtin_filters import (
     CONTRACT_PHRASES,
@@ -23,6 +22,7 @@ from job_hunter.core.builtin_filters import (
     US_ONLY_PHRASES,
 )
 from job_hunter.core.utils import title_is_allowed
+from job_hunter.filters import FilterSet
 from job_hunter.locations import COUNTRY_NAME_TO_CODE
 from job_hunter.models import JobPosting
 from job_hunter.sources.search import canonicalize_url
@@ -213,11 +213,11 @@ def _looks_like_remote_city_region(region_config: dict) -> bool:
 @dataclass(frozen=True)
 class JobPolicy:
     config: dict
-    filters: FilterRegistry | None = None
+    filters: FilterSet | None = None
 
     def __post_init__(self) -> None:
         if self.filters is None:
-            object.__setattr__(self, "filters", FilterRegistry.from_config(self.config))
+            object.__setattr__(self, "filters", FilterSet.from_config(self.config))
 
     @property
     def excluded_title_terms(self) -> list[str]:
@@ -225,13 +225,11 @@ class JobPolicy:
 
     @property
     def excluded_companies(self) -> list[str]:
-        filter_file = self.filters.file("excluded_companies") if self.filters else None
-        return filter_file.values if filter_file else []
+        return self.filters.values("excluded_companies") if self.filters else []
 
     @property
     def excluded_industries(self) -> list[str]:
-        filter_file = self.filters.file("excluded_industries") if self.filters else None
-        return filter_file.values if filter_file else []
+        return self.filters.values("excluded_industries") if self.filters else []
 
     def is_valid_job_url(self, url: str) -> bool:
         parsed = urlparse(url)
@@ -253,12 +251,10 @@ class JobPolicy:
         return any(indicator in combined for indicator in STALE_INDICATORS)
 
     def is_excluded_company(self, company: str) -> bool:
-        filter_file = self.filters.file("excluded_companies") if self.filters else None
-        return bool(filter_file and filter_file.matches(company, normalize_company=True))
+        return bool(self.filters and self.filters.matches("excluded_companies", company))
 
     def is_excluded_industry(self, snippet: str) -> bool:
-        filter_file = self.filters.file("excluded_industries") if self.filters else None
-        return bool(filter_file and filter_file.matches(snippet))
+        return bool(self.filters and self.filters.matches("excluded_industries", snippet))
 
     def is_contract_posting(self, job: dict) -> bool:
         """True for fixed-term/contract postings — checks the structured employment_type

@@ -59,8 +59,9 @@ def test_workspace_template_config_is_valid_yaml() -> None:
     assert config["profile"]["resume_tex"] == "profile/resume_double_column.tex"
     assert "career_context" in config["profile"]
     assert config["job_titles"] == []
-    assert config["filters"]["excluded_titles"]["entries"] == []
-    assert config["filters"]["languages"]["entries"] == [{"value": "english"}]
+    assert config["filters"]["excluded_titles"] == []
+    assert config["filters"]["hunt_languages"] == ["en"]
+    assert "config/schemas/filter.schema.json" not in files
     assert "linkedin" not in config
     assert "tailoring" not in config
     assert "cover_letter" not in config

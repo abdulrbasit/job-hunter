@@ -890,6 +890,11 @@ class DashAPI:
 
         return {"ok": True, "countries": countries()}
 
+    def get_filter_options(self) -> dict[str, Any]:
+        from job_hunter.filters import filter_options
+
+        return {"ok": True, **filter_options()}
+
     def get_location_cities(
         self, country: str, query: str = "", selected_id: str = "", limit: int = 250
     ) -> dict[str, Any]:

@@ -1814,6 +1814,20 @@ def test_dashboard_candidates_have_no_preview_panel() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_get_filter_options_uses_package_taxonomies() -> None:
+    result = DashAPI(Path("unused")).get_filter_options()
+
+    assert result["ok"] is True
+    assert {item["name"] for item in result["types"]} == {
+        "excluded_companies",
+        "excluded_titles",
+        "excluded_industries",
+        "hunt_languages",
+    }
+    assert any(item["id"] == "aerospace_defense" for item in result["industries"])
+    assert any(item == {"code": "en", "name": "English"} for item in result["languages"])
+
+
 def test_get_catalog_industries_returns_only_industries_present_in_catalog() -> None:
     result = DashAPI(Path("unused")).get_catalog_industries()
 

@@ -28,6 +28,7 @@ let loadingRaw = false;
 let loadingCareerContext = false;
 let regionRowSeq = 0;
 let locationCountries = [];
+let filterOptions = null;
 let overrideRowSeq = 0;
 let companiesLoaded = false;
 let companiesData = [];
@@ -1560,7 +1561,7 @@ async function saveSearchSetup() {
     job_titles: document.getElementById('gs-search-job-titles').value.split('\n').map(s => s.trim()).filter(Boolean),
     location,
     search_lang: document.getElementById('gs-search-lang').value,
-    excluded_industries: document.getElementById('gs-search-excl-industries').value.split('\n').map(s => s.trim()).filter(Boolean),
+    excluded_industries: [...document.getElementById('gs-search-excl-industries').selectedOptions].map(option => option.value),
   };
   const result = await window.pywebview.api.save_onboarding_preferences(prefs, bootstrap.data.config_revision);
   if (result.ok) {
@@ -1726,7 +1727,11 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-latex-class').value = form.profile.latex_class || '';
   document.getElementById('cfg-profile-image').value = form.profile.profile_image || '';
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
+  if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
+  const onboardingIndustries = document.getElementById('gs-search-excl-industries');
+  const excludedIndustries = new Set((form.filters || {}).excluded_industries || []);
+  onboardingIndustries.innerHTML = (filterOptions.industries || []).map(industry => `<option value="${esc(industry.id)}" ${excludedIndustries.has(industry.id) ? 'selected' : ''}>${esc(industry.label)}</option>`).join('');
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -1761,55 +1766,34 @@ async function loadOnboardingCities(selectedId = '') {
   select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 
-function addFilterEntryRow(group, entry = {}) {
-  const row = document.createElement('div');
-  row.className = 'settings-row filter-entry-row';
-  row.innerHTML = `
-    <div class="settings-field"><label>Value</label><input type="text" class="filter-value" value="${esc(entry.value || '')}"></div>
-    <div class="settings-field"><label>Note (optional)</label><input type="text" class="filter-note" value="${esc(entry.note || '')}"></div>
-    <button class="btn btn-danger filter-remove" type="button">Remove</button>
-  `;
-  row.addEventListener('input', markConfigDirty);
-  row.querySelector('.filter-remove').addEventListener('click', () => { row.remove(); markConfigDirty(); });
-  group.querySelector('.filter-entry-rows').appendChild(row);
-}
-
 function renderFilterGroups(filters) {
   const container = document.getElementById('cfg-filter-groups');
   container.innerHTML = '';
-  Object.entries(filters).forEach(([name, filter]) => {
+  (filterOptions.types || []).forEach(definition => {
+    const name = definition.name;
+    const values = new Set(filters[name] || []);
     const group = document.createElement('div');
     group.className = 'filter-group';
     group.dataset.name = name;
-    group.dataset.description = filter.description || '';
-    group.innerHTML = `
-      <h4>${esc(name.replaceAll('_', ' '))}</h4>
-      <div class="settings-help">${esc(filter.description || '')}</div>
-      <div class="filter-entry-rows"></div>
-      <button class="btn filter-add" type="button">+ Add entry</button>
-    `;
+    const options = name === 'excluded_industries' ? (filterOptions.industries || []).map(item => ({value: item.id, label: item.label}))
+      : name === 'hunt_languages' ? (filterOptions.languages || []).map(item => ({value: item.code, label: `${item.name} (${item.code})`})) : null;
+    const editor = options
+      ? `<select class="filter-values" multiple>${options.map(item => `<option value="${esc(item.value)}" ${values.has(item.value) ? 'selected' : ''}>${esc(item.label)}</option>`).join('')}</select>`
+      : `<textarea class="filter-values" placeholder="One value per line">${esc([...values].join('\n'))}</textarea>`;
+    group.innerHTML = `<h4>${esc(name.replaceAll('_', ' '))}</h4><div class="settings-help">${esc(definition.description)}</div><div class="settings-field">${editor}</div>`;
     container.appendChild(group);
-    (filter.entries || []).forEach(entry => addFilterEntryRow(group, entry));
-    group.querySelector('.filter-add').addEventListener('click', () => { addFilterEntryRow(group); markConfigDirty(); });
+    group.querySelector('.filter-values').addEventListener('change', markConfigDirty);
+    group.querySelector('.filter-values').addEventListener('input', markConfigDirty);
   });
 }
 
 function collectFilterGroups() {
   const filters = {};
   document.querySelectorAll('#cfg-filter-groups .filter-group').forEach(group => {
-    const entries = [];
-    group.querySelectorAll('.filter-entry-row').forEach(row => {
-      const value = row.querySelector('.filter-value').value.trim();
-      if (!value) return;
-      const entry = { value };
-      const note = row.querySelector('.filter-note').value.trim();
-      if (note) entry.note = note;
-      entries.push(entry);
-    });
-    filters[group.dataset.name] = {
-      description: group.dataset.description || '',
-      entries,
-    };
+    const editor = group.querySelector('.filter-values');
+    filters[group.dataset.name] = editor.tagName === 'SELECT'
+      ? [...editor.selectedOptions].map(option => option.value)
+      : editor.value.split('\n').map(value => value.trim()).filter(Boolean);
   });
   return filters;
 }

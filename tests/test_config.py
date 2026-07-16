@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 from job_hunter.config.schema import check
+from job_hunter.filters import canonicalize_filter_config
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -38,7 +39,9 @@ def test_single_config_validates_against_schema() -> None:
         pytest.skip("jsonschema not installed")
 
     schema = json.loads((ROOT / "config" / "schemas" / "job_hunter.schema.json").read_text(encoding="utf-8"))
-    config = yaml.safe_load((ROOT / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    config = canonicalize_filter_config(
+        yaml.safe_load((ROOT / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    )
     jsonschema.validate(instance=config, schema=schema)
 
 
@@ -49,7 +52,9 @@ def test_batch_size_is_required_by_schema() -> None:
         pytest.skip("jsonschema not installed")
 
     schema = json.loads((ROOT / "config" / "schemas" / "job_hunter.schema.json").read_text(encoding="utf-8"))
-    config = yaml.safe_load((ROOT / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    config = canonicalize_filter_config(
+        yaml.safe_load((ROOT / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    )
     stale = dict(config)
     stale["scoring"] = dict(config["scoring"])
     stale["scoring"].pop("batch_size")
@@ -74,6 +79,7 @@ def test_config_check_validates_required_keys() -> None:
         ({"exclusions": {"stale_indicators": []}}, "exclusions.stale_indicators"),
         ({"exclusions": {"url_patterns": []}}, "exclusions.url_patterns"),
         ({"exclusions": {"language_indicators": []}}, "exclusions.language_indicators"),
+        ({"filters": {"excluded_languages": ["de"]}}, "filters.excluded_languages"),
         ({"scoring": {"prompt_context": "stale"}}, "scoring.prompt_context"),
         ({"linkedin": {"enabled": True, "tone": "casual"}}, "linkedin.tone"),
     ],
@@ -85,7 +91,10 @@ def test_removed_config_keys_are_rejected(data: dict, expected_key: str) -> None
         reject_removed_user_config(data)
 
     # Task 3: error message must show migration guidance, not just name the key.
-    assert "v1 compact config shape" in str(exc_info.value) or "job-hunter doctor" in str(exc_info.value)
+    assert any(
+        guidance in str(exc_info.value)
+        for guidance in ("v1 compact config shape", "job-hunter doctor", "filters.hunt_languages")
+    )
 
 
 def test_removed_config_keys_accepts_current_shape() -> None:

@@ -16,7 +16,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 @dataclass(frozen=True)
@@ -121,22 +121,22 @@ class Company(BaseModel):
     ats: str = ""
 
 
-class FilterEntryConfig(BaseModel):
-    """One user-managed filter entry stored in config/job_hunter.yml."""
-
-    model_config = {"extra": "forbid"}
-
-    value: str = Field(min_length=1)
-    note: str = ""
+class FilterMatchMode(StrEnum):
+    EXACT = "exact"
+    CONTAINS = "contains"
+    REGEX = "regex"
 
 
-class FilterConfig(BaseModel):
-    """Standard shape shared by every named filter group."""
+class FilterType(BaseModel):
+    """Package-owned definition bound to scalar choices from job_hunter.yml."""
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(frozen=True)
 
+    name: str
     description: str
-    entries: list[FilterEntryConfig] = Field(default_factory=list)
+    mode: FilterMatchMode
+    normalize_company: bool = False
+    taxonomy: str = ""
 
 
 class SearchParams(BaseModel):

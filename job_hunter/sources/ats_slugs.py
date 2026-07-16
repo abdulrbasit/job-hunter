@@ -46,10 +46,9 @@ def catalog_slugs(config: dict) -> dict[str, set[str]]:
     from job_hunter.sources.ats_apis import _FETCHERS
 
     allowed_locations = enabled_locations(config)
-    from job_hunter.config.filter_registry import FilterRegistry
+    from job_hunter.filters import filter_values
 
-    industry_filter = FilterRegistry.from_config(config).file("excluded_industries")
-    excluded = _excluded_industry_ids(industry_filter.values if industry_filter else [])
+    excluded = _excluded_industry_ids(filter_values(config, "excluded_industries"))
     result: dict[str, set[str]] = {}
     for company in load_companies():
         if excluded and set(company.industry_ids) & excluded:

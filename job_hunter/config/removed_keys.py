@@ -11,6 +11,7 @@ from typing import Any
 
 _TOP_LEVEL_REMOVED = ("about_me", "sources", "secrets", "tailoring", "cover_letter", "exclusions")
 _EXCLUSIONS_REMOVED = ("senior_flags", "stale_indicators", "url_patterns", "language_indicators")
+_FILTERS_REMOVED = ("excluded_languages",)
 
 
 def reject_removed_user_config(data: dict[str, Any]) -> None:
@@ -21,6 +22,11 @@ def reject_removed_user_config(data: dict[str, Any]) -> None:
     for key in _EXCLUSIONS_REMOVED:
         if key in exclusions:
             found.append(f"exclusions.{key}")
+
+    filters = data.get("filters", {}) or {}
+    for key in _FILTERS_REMOVED:
+        if key in filters:
+            found.append(f"filters.{key}")
 
     scoring = data.get("scoring", {}) or {}
     if "prompt_context" in scoring:
@@ -35,6 +41,8 @@ def reject_removed_user_config(data: dict[str, Any]) -> None:
         guidance = (
             " Run `job-hunter doctor` or `job-hunter update` to migrate exclusions into filters."
             if "exclusions" in found
+            else " Use filters.hunt_languages as the allowlist."
+            if "filters.excluded_languages" in found
             else " Update to the v1 compact config shape."
         )
         raise ValueError(f"Removed job_hunter.yml key(s): {joined}.{guidance}")

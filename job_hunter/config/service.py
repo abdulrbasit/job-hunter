@@ -79,27 +79,26 @@ def validate_job_hunter_yaml(data: Any, root: Path) -> list[str]:
     except ValueError as exc:
         errors.append(str(exc))
 
+    from job_hunter.filters import FILTER_TYPES, canonicalize_filter_config, validate_filter_choices
+
+    raw_filters = data.get("filters") or {}
+    if isinstance(raw_filters, dict):
+        unknown = sorted(set(raw_filters) - set(FILTER_TYPES) - {"languages"})
+        if unknown:
+            errors.append(f"Unknown filter type(s): {', '.join(unknown)}")
+    canonical = canonicalize_filter_config(data)
+    errors.extend(validate_filter_choices(data))
     schema_path = root / "config" / "schemas" / "job_hunter.schema.json"
     if schema_path.exists():
         try:
             import jsonschema
 
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
-            jsonschema.validate(instance=data, schema=schema)
+            jsonschema.validate(instance=canonical, schema=schema)
         except jsonschema.ValidationError as exc:
             errors.append(exc.message)
         except ImportError:
             pass
-    filter_schema_path = root / "config" / "schemas" / "filter.schema.json"
-    for name, filter_data in (data.get("filters") or {}).items():
-        try:
-            if filter_schema_path.exists():
-                import jsonschema
-
-                schema = json.loads(filter_schema_path.read_text(encoding="utf-8"))
-                jsonschema.validate(instance=filter_data, schema=schema)
-        except Exception as exc:
-            errors.append(f"filters.{name}: {exc}")
     return errors
 
 
@@ -276,7 +275,9 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
     """
     profile = data.get("profile") or {}
-    filters = data.get("filters") or {}
+    from job_hunter.filters import canonicalize_filter_config
+
+    filters = canonicalize_filter_config(data).get("filters") or {}
     scoring = data.get("scoring") or {}
     llm = data.get("llm") or {}
     return {
@@ -400,11 +401,7 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
 
     industries = [str(i).strip() for i in (prefs.get("excluded_industries") or []) if str(i).strip()]
     filters = dict(merged.get("filters") or {})
-    industry_filter = dict(
-        filters.get("excluded_industries") or {"description": "Industries excluded from results", "entries": []}
-    )
-    industry_filter["entries"] = [{"value": value} for value in industries]
-    filters["excluded_industries"] = industry_filter
+    filters["excluded_industries"] = industries
     merged["filters"] = filters
 
     return merged

@@ -9,16 +9,14 @@ from job_hunter.agent_context._types import MAX_JD_CHARS
 from job_hunter.agent_context._utils import _clip, _prefer_compiled, _read_json_or_yaml, _root
 from job_hunter.agent_context.candidates import candidate_from_queue
 from job_hunter.agent_context.stories import match_stories, story_index
-from job_hunter.config.filter_registry import FilterRegistry
 from job_hunter.config.reference_data import resolve_max_years_experience
 from job_hunter.core.utils import read_yaml
+from job_hunter.filters import filter_values
 from job_hunter.writing.rules import universal_score_decision_rules
 
 
 def _profile_context(root: Path) -> dict[str, Any]:
     config = read_yaml(root / "config" / "job_hunter.yml")
-    filters = FilterRegistry.from_config(config)
-    industry_filter = filters.file("excluded_industries")
     scoring = config.get("scoring", {})
     profile = config.get("profile", {})
     configured_context = Path(profile.get("career_context", "profile/career_context.md"))
@@ -48,7 +46,7 @@ def _profile_context(root: Path) -> dict[str, Any]:
             "max_years_experience_required": resolve_max_years_experience(config),
             "strategic_overrides": scoring.get("strategic_overrides", []),
         },
-        "excluded_industries": industry_filter.values if industry_filter else [],
+        "excluded_industries": filter_values(config, "excluded_industries"),
         "target_titles": config.get("job_titles", []),
         "career_context": _clip(career_context, 2000),
         "resume_tex": _clip(resume_tex, 6000),

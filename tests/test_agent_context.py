@@ -706,7 +706,7 @@ def test_score_context_full_is_bounded_and_includes_story_index(tmp_path: Path) 
         {
             "scoring": {"min_fit_score": 70, "max_years_experience_required": 5},
             "job_titles": ["Product Manager"],
-            "exclusions": {"industries": ["defense"]},
+            "filters": {"excluded_industries": ["aerospace_defense"]},
             "profile": {
                 "resume_tex": "profile/resume_double_column.tex",
                 "story_bank": "profile/story_bank.md",
@@ -748,7 +748,7 @@ Situation: relevant verified work.
     assert payload["profile"]["career_context"] == "Prefers concise cover letters."
     assert "Verified resume evidence." in payload["profile"]["resume_tex"]
     assert payload["profile"]["target_titles"] == ["Product Manager"]
-    assert payload["profile"]["excluded_industries"] == ["defense"]
+    assert payload["profile"]["excluded_industries"] == ["aerospace_defense"]
     assert payload["story_index"][0]["id"] == "ST-01"
     assert payload["matched_stories"] == []
     assert "APPLY" in " ".join(payload["decision_rules"])

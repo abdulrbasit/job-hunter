@@ -14,6 +14,9 @@ Product updates may replace system-owned files. They must never overwrite user d
 `config/schemas/` is system-owned. Updates never replace user choices.
 Deterministic location catalogs and matching logic are package resources under
 `job_hunter/`; they are not copied into a workspace config directory.
+Filter definitions, matching logic, industries, and languages are package
+resources too. `config/job_hunter.yml` stores only selected scalar values; no
+per-filter files or per-filter schemas are created in a workspace.
 
 ## System Layer — replaced by updates
 

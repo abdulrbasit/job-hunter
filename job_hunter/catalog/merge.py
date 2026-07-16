@@ -65,10 +65,9 @@ def effective_companies(job_hunter_config: dict[str, Any], career_pages_data: di
     custom_companies = [c for c in career_pages_data.get("companies", []) or [] if isinstance(c, dict)]
     custom_urls = {_normalize_url(str(c.get("career_url") or "")) for c in custom_companies}
 
-    from job_hunter.config.filter_registry import FilterRegistry
+    from job_hunter.filters import filter_values
 
-    industry_filter = FilterRegistry.from_config(job_hunter_config).file("excluded_industries")
-    excluded_industry_ids = _excluded_industry_ids(industry_filter.values if industry_filter else [])
+    excluded_industry_ids = _excluded_industry_ids(filter_values(job_hunter_config, "excluded_industries"))
     allowed_locations = enabled_locations(job_hunter_config)
 
     effective: list[dict[str, Any]] = []

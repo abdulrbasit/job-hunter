@@ -99,18 +99,10 @@ regions:
     description: "Primary region"
 
 filters:
-  languages:
-    description: Languages allowed during hunts
-    entries: [{value: english}]
-  excluded_titles:
-    description: Title terms excluded from results
-    entries: [{value: intern}, {value: internship}, {value: junior}]
-  excluded_companies:
-    description: Companies excluded from results
-    entries: []
-  excluded_industries:
-    description: Industries excluded from results
-    entries: []
+  hunt_languages: [en]
+  excluded_titles: [intern, internship, junior]
+  excluded_companies: []
+  excluded_industries: []
 
 scoring:
   min_fit_score: 70

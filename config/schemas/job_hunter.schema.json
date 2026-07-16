@@ -53,7 +53,13 @@
     },
     "filters": {
       "type": "object",
-      "additionalProperties": {"type": "object"}
+      "properties": {
+        "excluded_companies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "excluded_titles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "excluded_industries": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "hunt_languages": {"type": "array", "items": {"type": "string", "pattern": "^[a-z]{2}$"}, "uniqueItems": true}
+      },
+      "additionalProperties": false
     },
     "scoring": {
       "type": "object",

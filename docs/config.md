@@ -71,24 +71,24 @@ Unknown runtime location evidence fails closed.
 
 ### `filters`
 
-Standardized filter groups live here so `job_hunter.yml` remains the only
-user-facing config file. Four groups ship by default: `languages` (allowlist),
-`excluded_titles`, `excluded_companies`, and `excluded_industries`. New groups
-use the same shape and are discovered automatically:
+Filter choices are plain scalar lists. Available filter types, descriptions,
+matching modes, normalization, and taxonomy expansion are package-owned in
+`job_hunter.filters`; user config cannot define new types or matching logic.
 
 ```yaml
 filters:
-  excluded_companies:
-    description: "Companies excluded from results"
-    entries:
-      - value: "Recruiter Corp"
-        note: "recruiter spam"
+  hunt_languages: [en, de]
+  excluded_titles: [intern, trainee]
+  excluded_companies: ["Recruiter Corp"]
+  excluded_industries: [aerospace_defense]
 ```
 
-Every entry requires `value`; `note` is optional. Matching strategy is not a
-user setting: each value automatically supports normalized exact,
-word-boundary contains, and safe regex matching. Detected languages absent from
-the `languages` allowlist are rejected before scoring.
+`hunt_languages` is an allowlist of ISO language codes; there is no
+`excluded_languages` list. `excluded_industries` contains IDs from the bundled
+industry taxonomy. Dashboard controls read both taxonomies from package
+resources. New package options become selectable without changing existing
+user config. Legacy `{description, entries}` groups load in memory for
+compatibility, but explicit saves write scalar lists.
 
 User preferences belong in these filter groups. Product-owned listing-quality
 rulesâ€”such as stale-page phrases and non-listing URL patternsâ€”remain code-owned

@@ -4,16 +4,8 @@ from job_hunter.sources.policy import JobPolicy
 
 
 def _language_policy(*allowed: str) -> JobPolicy:
-    return JobPolicy(
-        {
-            "filters": {
-                "languages": {
-                    "description": "Hunt languages",
-                    "entries": [{"value": value} for value in allowed],
-                }
-            }
-        }
-    )
+    name_to_code = {"english": "en", "german": "de"}
+    return JobPolicy({"filters": {"hunt_languages": [name_to_code[value] for value in allowed]}})
 
 
 def test_language_allowlist_rejects_detected_unlisted_language() -> None:
@@ -29,21 +21,7 @@ def test_language_allowlist_accepts_listed_language() -> None:
 
 
 def test_excluded_company_matches_suffix_and_case_variants() -> None:
-    policy = JobPolicy(
-        {
-            "filters": {
-                "excluded_companies": {
-                    "description": "Excluded companies",
-                    "entries": [
-                        {"value": "Delivery Hero"},
-                        {"value": "Auto1"},
-                        {"value": r"^Spam\s+Co$"},
-                        {"value": "Invalid["},
-                    ],
-                }
-            }
-        }
-    )
+    policy = JobPolicy({"filters": {"excluded_companies": ["Delivery Hero", "Auto1", "Spam Co"]}})
 
     assert policy.is_excluded_company("Delivery Hero SE")
     assert policy.is_excluded_company("AUTO1 Group")

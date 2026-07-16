@@ -21,8 +21,9 @@ tailor-links, or tailor-raw modes.
 |---|---|
 | `agent_context/` | Bounded context objects consumed by agent skills |
 | `cli/` | Command parsing, output, and service composition |
-| `config/` | YAML loading, typed filter registry, migrations, secrets, schemas, and workspace paths |
+| `config/` | YAML loading, choice validation, migrations, secrets, schemas, and workspace paths |
 | `core/` | Cross-package utilities and package-owned built-in quality filters |
+| `filters/` | Package-owned filter types, taxonomy binding, normalization, and matching |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
 | `locations/` | Package-owned country/city resources, canonical resolution, and scope matching |
 | `llm/` | Provider routing, typed requests/responses, prompts, and token accounting |
