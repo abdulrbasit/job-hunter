@@ -16,8 +16,8 @@ from job_hunter.agent_context._utils import (
     _read_json_or_yaml,
     _root,
 )
+from job_hunter.core.utils import normalize_company_name
 from job_hunter.pipeline.enrichment import classify_jd_snippet
-from job_hunter.sources.policy import normalize_company_name
 from job_hunter.sources.search import canonicalize_url
 
 # ---------------------------------------------------------------------------

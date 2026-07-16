@@ -9,84 +9,25 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from job_hunter.config.defaults import (
-    EXCLUDED_LISTING_URL_PATTERNS,
-    LANGUAGE_INDICATORS,
-    STALE_INDICATORS,
-)
 from job_hunter.config.filter_registry import FilterRegistry
-from job_hunter.config.locations import (
-    COUNTRY_NAME_TO_CODE,
+from job_hunter.config.locations import COUNTRY_NAME_TO_CODE
+from job_hunter.config.reference_data import resolve_title_exclusions
+from job_hunter.core.builtin_filters import (
+    CONTRACT_PHRASES,
+    EXCLUDED_LISTING_URL_PATTERNS,
+    LANG_CODE_TO_NAME,
+    LANGUAGE_INDICATORS,
+    LISTING_ONLY_PATHS,
+    MAX_POSTING_AGE_DAYS,
     RESTRICTION_PHRASES,
+    STALE_INDICATORS,
     US_ONLY_PHRASES,
 )
-from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.models import JobPosting
 from job_hunter.sources.search import canonicalize_url
 
 logger = logging.getLogger(__name__)
-MAX_POSTING_AGE_DAYS = 45
-
-_LISTING_ONLY_PATHS = {
-    "/jobs",
-    "/careers",
-    "/positions",
-    "/openings",
-    "/vacancies",
-    "/work-with-us",
-    "/join-us",
-}
-
-# Snippet phrases that explicitly mark a fixed-term/contract posting — fallback for sources
-# that don't populate the structured employment_type field.
-CONTRACT_PHRASES: frozenset[str] = frozenset(
-    {
-        "employment type: contract",
-        "employment type : contract",
-        "this is a contract role",
-        "this is a contract position",
-        "contract-only",
-        "contractors only",
-        "fixed-term contract",
-    }
-)
-
-_LANG_CODE_TO_NAME: dict[str, str] = {
-    "en": "english",
-    "de": "german",
-    "fr": "french",
-    "it": "italian",
-    "es": "spanish",
-    "pt": "portuguese",
-    "br": "portuguese",
-    "nl": "dutch",
-    "pl": "polish",
-    "ru": "russian",
-    "cs": "czech",
-    "sk": "slovak",
-    "hu": "hungarian",
-    "ro": "romanian",
-    "sv": "swedish",
-    "da": "danish",
-    "no": "norwegian",
-    "fi": "finnish",
-    "el": "greek",
-    "tr": "turkish",
-    "ar": "arabic",
-    "he": "hebrew",
-    "zh": "chinese",
-    "ja": "japanese",
-    "ko": "korean",
-    "hi": "hindi",
-    "id": "indonesian",
-    "ms": "indonesian",
-    "th": "thai",
-    "vi": "vietnamese",
-    "uk": "ukrainian",
-    "ca": "catalan",
-}
-
 _COUNTRY_ALIAS_TO_CODE: dict[str, str] = {
     **COUNTRY_NAME_TO_CODE,
     "uk": "GB",
@@ -161,17 +102,6 @@ _MIDDLE_EAST_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"middle east", "
 _EMEA_LOCATION_RESTRICTIONS: frozenset[str] = frozenset({"emea"})
 _REMOTE_ONLY_LOCATIONS: frozenset[str] = frozenset({"", "remote"})
 
-_CORPORATE_SUFFIX_RE = re.compile(
-    r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
-    re.IGNORECASE,
-)
-# Job-board noise appended to company names by some scrapers, stripped before normalization.
-_COMPANY_NOISE_SUFFIX_RE = re.compile(
-    r"\s+(linkedin jobs|on linkedin|linkedin|careers|job board)$",
-    re.IGNORECASE,
-)
-
-
 _EMPLOYMENT_TYPE_CANONICAL: dict[str, str] = {
     "full_time": "full_time",
     "full-time": "full_time",
@@ -211,13 +141,6 @@ def derive_country_code(location: str) -> str:
     """Return best-guess ISO alpha-2 country code from raw location string. Empty if none found."""
     codes = _codes_from_location_text(location)
     return next(iter(codes), "")
-
-
-def normalize_company_name(company: str) -> str:
-    company = _COMPANY_NOISE_SUFFIX_RE.sub("", company or "")
-    normalized = _CORPORATE_SUFFIX_RE.sub("", company)
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower())
-    return " ".join(normalized.split())
 
 
 def _norm_location_text(value: object) -> str:
@@ -316,7 +239,7 @@ class JobPolicy:
 
         if not path:
             return False
-        if path in _LISTING_ONLY_PATHS:
+        if path in LISTING_ONLY_PATHS:
             return False
 
         segments = [s for s in path.split("/") if s]
@@ -468,7 +391,7 @@ class JobPolicy:
             allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}
             if not allowed_codes or "*" in allowed_codes:
                 return False
-            allowed_names = {_LANG_CODE_TO_NAME[c] for c in allowed_codes if c in _LANG_CODE_TO_NAME}
+            allowed_names = {LANG_CODE_TO_NAME[c] for c in allowed_codes if c in LANG_CODE_TO_NAME}
         if not allowed_names:
             return False
         text = (title + " " + snippet).lower()

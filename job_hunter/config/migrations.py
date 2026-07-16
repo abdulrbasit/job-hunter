@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from job_hunter.config.defaults import LANGUAGE_INDICATORS
+from job_hunter.core.builtin_filters import LANGUAGE_INDICATORS
 
 _FILTER_MAP = {
     "companies": ("excluded_companies", "Companies excluded from results"),

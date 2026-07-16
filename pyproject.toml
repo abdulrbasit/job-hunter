@@ -149,6 +149,8 @@ ignore = ["E501", "S101"]
 # TID251: cli/ is the composition root; its own submodules import job_hunter.cli (app, internal_app),
 # and CLI commands call ux/ services (job_hunter.ux is banned everywhere except cli/ and ux/ itself).
 "job_hunter/cli/**" = ["TID251"]
+# Distribution launchers are composition entry points, equivalent to the console script.
+"packaging/*/job_hunter_entry.py" = ["TID251"]
 # TID251: pipeline/ submodules import job_hunter.pipeline internally.
 "job_hunter/pipeline/**" = ["TID251"]
 # TID251: ux/ submodules import job_hunter.ux internally. ux/web/api.py also calls

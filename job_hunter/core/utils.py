@@ -103,3 +103,21 @@ def url_is_alive(url: str, timeout: int = 10) -> bool:
     from job_hunter.core.url_liveness import url_is_alive as _url_is_alive
 
     return _url_is_alive(url, timeout)
+
+
+_CORPORATE_SUFFIX_RE = re.compile(
+    r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
+    re.IGNORECASE,
+)
+_COMPANY_NOISE_SUFFIX_RE = re.compile(
+    r"\s+(linkedin jobs|on linkedin|linkedin|careers|job board)$",
+    re.IGNORECASE,
+)
+
+
+def normalize_company_name(company: str) -> str:
+    """Normalize employer names for stable comparison across source suffixes."""
+    company = _COMPANY_NOISE_SUFFIX_RE.sub("", company or "")
+    normalized = _CORPORATE_SUFFIX_RE.sub("", company)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower())
+    return " ".join(normalized.split())

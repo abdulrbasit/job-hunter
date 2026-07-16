@@ -70,6 +70,11 @@ match mode applies automatic exact, word-boundary contains, and safe regex
 matching. Detected languages absent from the `languages` allowlist are rejected
 before scoring.
 
+User preferences belong in these filter groups. Product-owned listing-quality
+rulesâ€”such as stale-page phrases and non-listing URL patternsâ€”remain code-owned
+in `job_hunter/core/builtin_filters.py`, their single canonical location shared
+by discovery and screening without crossing package boundaries.
+
 ### `scoring`
 
 | Key | Required | Purpose |

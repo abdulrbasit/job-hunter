@@ -6,53 +6,9 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
+from job_hunter.core.utils import normalize_company_name
 from job_hunter.models import FilterConfig, FilterEntryConfig
-
-_LANG_CODE_TO_NAME = {
-    "en": "english",
-    "de": "german",
-    "fr": "french",
-    "it": "italian",
-    "es": "spanish",
-    "pt": "portuguese",
-    "br": "portuguese",
-    "nl": "dutch",
-    "pl": "polish",
-    "ru": "russian",
-    "cs": "czech",
-    "sk": "slovak",
-    "hu": "hungarian",
-    "ro": "romanian",
-    "sv": "swedish",
-    "da": "danish",
-    "no": "norwegian",
-    "fi": "finnish",
-    "el": "greek",
-    "tr": "turkish",
-    "ar": "arabic",
-    "he": "hebrew",
-    "zh": "chinese",
-    "ja": "japanese",
-    "ko": "korean",
-    "hi": "hindi",
-    "id": "indonesian",
-    "ms": "indonesian",
-    "th": "thai",
-    "vi": "vietnamese",
-    "uk": "ukrainian",
-    "ca": "catalan",
-}
-
-_CORPORATE_SUFFIX_RE = re.compile(
-    r"\b(gmbh|ag|inc|inc\.|ltd|ltd\.|llc|plc|se|sa|s\.a\.|corp|corp\.|corporation|group)\b",
-    re.IGNORECASE,
-)
-
-
-def _normalize_company(value: str) -> str:
-    normalized = _CORPORATE_SUFFIX_RE.sub("", value)
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower())
-    return " ".join(normalized.split())
 
 
 @dataclass(frozen=True)
@@ -68,8 +24,8 @@ class FilterFile:
     def matches(self, text: str, *, normalize_company: bool = False) -> bool:
         for entry in self.entries:
             if entry.match in (None, "exact"):
-                left = _normalize_company(text) if normalize_company else text.casefold()
-                right = _normalize_company(entry.value) if normalize_company else entry.value.casefold()
+                left = normalize_company_name(text) if normalize_company else text.casefold()
+                right = normalize_company_name(entry.value) if normalize_company else entry.value.casefold()
                 if left and left == right:
                     return True
             if entry.match in (None, "contains") and re.search(
@@ -129,4 +85,4 @@ class FilterRegistry:
         file = self.file("languages")
         if not file:
             return frozenset()
-        return frozenset(_LANG_CODE_TO_NAME.get(value.casefold(), value.casefold()) for value in file.values)
+        return frozenset(LANG_CODE_TO_NAME.get(value.casefold(), value.casefold()) for value in file.values)
