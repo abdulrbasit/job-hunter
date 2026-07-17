@@ -10,6 +10,7 @@ from job_hunter.catalog.loader import CompanyEntry
 from job_hunter.catalog.merge import company_matches_enabled_locations
 from job_hunter.config.loader import get_job_hunter_config_for_root
 from job_hunter.config.locations import (
+    canonicalize_config_regions,
     canonicalize_runtime_location,
     enabled_locations,
     job_matches_enabled_locations,
@@ -146,6 +147,23 @@ def test_legacy_region_is_canonicalized_in_memory_and_warns(tmp_path: Path) -> N
     assert loaded["regions"]["berlin"]["city_id"] == "geonames:2950159"
     assert any("legacy free-text" in str(item.message) for item in caught)
     assert isinstance(yaml.safe_load(path.read_text(encoding="utf-8"))["regions"]["berlin"]["location"], str)
+
+
+def test_legacy_remote_and_country_regions_infer_non_city_scopes() -> None:
+    config = {
+        "regions": {
+            "remote_germany": {"enabled": True, "country": "DE", "location": "remote Germany"},
+            "qatar": {"enabled": True, "country": "QA", "location": "Qatar"},
+            "bahrain": {"enabled": True, "country": "BH", "location": "Bahrain"},
+        }
+    }
+
+    canonical = canonicalize_config_regions(config)
+
+    assert canonical["regions"]["remote_germany"]["scope"] == "remote_country"
+    assert canonical["regions"]["qatar"]["scope"] == "country"
+    assert canonical["regions"]["bahrain"]["scope"] == "country"
+    assert all("city_id" not in region for region in canonical["regions"].values())
 
 
 def test_doctor_location_warning_only_reports_legacy_regions() -> None:

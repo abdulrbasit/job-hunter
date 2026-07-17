@@ -1810,50 +1810,101 @@ function countryOptions(selected = '') {
 
 function renderActiveLocations() {
   const chips = [...document.querySelectorAll('#cfg-regions-rows .settings-row')].filter(row => row.querySelector('.region-enabled').checked).map(row => {
-    const key = row.querySelector('.region-key').value;
-    const scope = row.querySelector('.region-scope').value;
-    const country = row.querySelector('.region-country').value;
-    const city = row.querySelector('.region-city').selectedOptions[0]?.text || '';
-    const label = scope === 'city' ? `${city}, ${country}` : scope === 'remote_global' ? 'Global remote' : `${scope.replaceAll('_', ' ')}: ${country}`;
-    return `<span class="meta-chip">${esc(key)} · ${esc(label)}</span>`;
+    return `<span class="meta-chip">${esc(row.querySelector('.region-summary').textContent)}</span>`;
   });
   document.getElementById('cfg-active-locations').innerHTML = chips.join('');
 }
 
+function syncRegionRow(row) {
+  const scope = row.querySelector('.region-scope').value;
+  const countrySelect = row.querySelector('.region-country');
+  const countryLabel = countrySelect.selectedOptions[0]?.text?.replace(/\s*\([A-Z]{2}\)$/, '') || 'Choose country';
+  const cityInput = row.querySelector('.region-city-input');
+  row.querySelector('.region-country-field').hidden = scope === 'remote_global';
+  row.querySelector('.region-city-field').hidden = scope !== 'city';
+  cityInput.required = scope === 'city';
+  if (scope !== 'city') cityInput.setCustomValidity('');
+  const label = scope === 'city' ? (cityInput.value ? `${cityInput.value}, ${countryLabel}` : `Choose city in ${countryLabel}`)
+    : scope === 'country' ? countryLabel
+    : scope === 'remote_country' ? `Remote · ${countryLabel}` : 'Global remote';
+  row.querySelector('.region-summary').textContent = label;
+  renderActiveLocations();
+}
+
 async function loadCitiesForRow(row, selectedId = '') {
   const country = row.querySelector('.region-country').value;
-  const query = row.querySelector('.region-city-query').value.trim();
+  const input = row.querySelector('.region-city-input');
+  const query = input.value.trim();
+  const requestId = String(Number(row.dataset.cityRequest || 0) + 1);
+  row.dataset.cityRequest = requestId;
   const payload = country ? await window.pywebview.api.get_location_cities(country, query, selectedId) : {cities: []};
-  const select = row.querySelector('.region-city');
-  select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  if (row.dataset.cityRequest !== requestId) return;
+  const cities = payload.cities || [];
+  row.querySelector('.region-city-options').innerHTML = cities.map(c => `<option value="${esc(c.name)}"></option>`).join('');
+  const selected = cities.find(c => c.id === selectedId) || cities.find(c => c.name.localeCompare(input.value, undefined, {sensitivity: 'accent'}) === 0);
+  if (selectedId && selected) input.value = selected.name;
+  input.dataset.cityId = selected?.id || '';
+  input.setCustomValidity(input.value && !selected ? 'Choose a city from the suggestions.' : '');
+  syncRegionRow(row);
 }
 
 async function addRegionRow(key = '', region = {}) {
   const rowId = `region-row-${regionRowSeq++}`;
   const loc = region.scope ? region : {country: region.country || '', scope: region.location === 'Remote' ? 'remote_country' : 'city'};
   const row = document.createElement('div');
-  row.className = 'settings-row';
+  row.className = 'settings-row region-card';
   row.id = rowId;
   row.innerHTML = `
-    <div class="settings-field"><label>Key</label><input type="text" class="region-key" value="${esc(key)}"></div>
-    <div class="settings-row-checkbox"><input type="checkbox" class="region-enabled" ${region.enabled !== false ? 'checked' : ''}> Enabled</div>
-    <div class="settings-row-checkbox"><input type="checkbox" class="region-primary" ${region.primary ? 'checked' : ''}> Primary</div>
-    <div class="settings-field"><label>Scope</label><select class="region-scope"><option value="city" ${loc.scope === 'city' ? 'selected' : ''}>City</option><option value="country" ${loc.scope === 'country' ? 'selected' : ''}>Country</option><option value="remote_country" ${loc.scope === 'remote_country' ? 'selected' : ''}>Remote in country</option><option value="remote_global" ${loc.scope === 'remote_global' ? 'selected' : ''}>Global remote</option></select></div>
-    <div class="settings-field"><label>Country</label><select class="region-country">${countryOptions(loc.country || '')}</select></div>
-    <div class="settings-field"><label>Find city</label><input type="search" class="region-city-query" placeholder="Type a city name"></div>
-    <div class="settings-field"><label>City</label><select class="region-city"></select></div>
-    <div class="settings-field"><label>Search lang</label><input type="text" class="region-search-lang" value="${esc(region.search_lang || '')}"></div>
-    <div class="settings-field"><label>Description</label><input type="text" class="region-description" value="${esc(region.description || '')}"></div>
-    <button class="btn btn-danger" type="button" data-remove-row="${rowId}">Remove</button>
+    <div class="region-card-header">
+      <strong class="region-summary"></strong>
+      <label class="settings-row-checkbox"><input type="checkbox" class="region-enabled" ${region.enabled !== false ? 'checked' : ''}> Enabled</label>
+      <label class="settings-row-checkbox"><input type="radio" name="primary-region" class="region-primary" ${region.primary ? 'checked' : ''}> Primary</label>
+      <button class="btn btn-danger" type="button" data-remove-row="${rowId}">Remove</button>
+    </div>
+    <div class="region-card-fields">
+      <div class="settings-field"><label>Type</label><select class="region-scope"><option value="city" ${loc.scope === 'city' ? 'selected' : ''}>Specific city</option><option value="country" ${loc.scope === 'country' ? 'selected' : ''}>Whole country</option><option value="remote_country" ${loc.scope === 'remote_country' ? 'selected' : ''}>Remote in country</option><option value="remote_global" ${loc.scope === 'remote_global' ? 'selected' : ''}>Global remote</option></select></div>
+      <div class="settings-field region-country-field"><label>Country</label><select class="region-country">${countryOptions(loc.country || '')}</select></div>
+      <div class="settings-field region-city-field"><label>City</label><input type="search" class="region-city-input" list="${rowId}-cities" placeholder="Start typing a city"><datalist id="${rowId}-cities" class="region-city-options"></datalist></div>
+    </div>
+    <details class="region-advanced">
+      <summary>Advanced</summary>
+      <div class="region-advanced-grid">
+        <div class="settings-field"><label>Config key</label><input type="text" class="region-key" value="${esc(key)}"></div>
+        <div class="settings-field"><label>Search language</label><input type="text" class="region-search-lang" value="${esc(region.search_lang || 'en')}"></div>
+        <div class="settings-field"><label>Description</label><input type="text" class="region-description" value="${esc(region.description || '')}"></div>
+      </div>
+    </details>
   `;
-  row.addEventListener('input', markConfigDirty);
-  row.addEventListener('change', markConfigDirty);
-  row.querySelector(`[data-remove-row="${rowId}"]`).addEventListener('click', () => { row.remove(); markConfigDirty(); });
+  row.addEventListener('input', () => { markConfigDirty(); syncRegionRow(row); });
+  row.addEventListener('change', () => { markConfigDirty(); syncRegionRow(row); });
+  row.querySelector(`[data-remove-row="${rowId}"]`).addEventListener('click', () => { row.remove(); markConfigDirty(); renderActiveLocations(); });
   document.getElementById('cfg-regions-rows').appendChild(row);
-  await loadCitiesForRow(row, loc.city_id || '');
-  row.querySelector('.region-country').addEventListener('change', () => { row.querySelector('.region-city-query').value = ''; loadCitiesForRow(row); });
-  row.querySelector('.region-city-query').addEventListener('input', () => loadCitiesForRow(row, row.querySelector('.region-city').value));
+  const cityInput = row.querySelector('.region-city-input');
+  row.querySelector('.region-country').addEventListener('change', () => { cityInput.value = ''; cityInput.dataset.cityId = ''; loadCitiesForRow(row); });
+  cityInput.addEventListener('input', () => { cityInput.dataset.cityId = ''; loadCitiesForRow(row); });
+  row.querySelector('.region-scope').addEventListener('change', () => {
+    if (row.querySelector('.region-scope').value === 'city' && !cityInput.dataset.cityId) loadCitiesForRow(row);
+  });
+  if (loc.scope === 'city') await loadCitiesForRow(row, loc.city_id || '');
+  else syncRegionRow(row);
   markConfigDirty();
+}
+
+function defaultRegionKey(row) {
+  const scope = row.querySelector('.region-scope').value;
+  const base = scope === 'remote_global' ? 'global_remote'
+    : scope === 'remote_country' ? `remote_${row.querySelector('.region-country').value}`
+    : scope === 'city' ? row.querySelector('.region-city-input').value : row.querySelector('.region-country').value;
+  return base.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'region';
+}
+
+function validateRegionRows() {
+  for (const row of document.querySelectorAll('#cfg-regions-rows .settings-row')) {
+    if (row.querySelector('.region-scope').value === 'city' && !row.querySelector('.region-city-input').dataset.cityId) {
+      return `Choose a city from the suggestions for ${row.querySelector('.region-summary').textContent}.`;
+    }
+  }
+  return '';
 }
 
 function addOverrideRow(override = {}) {
@@ -1878,18 +1929,18 @@ function addOverrideRow(override = {}) {
 function collectGuidedForm() {
   const regions = {};
   document.querySelectorAll('#cfg-regions-rows .settings-row').forEach(row => {
-    const key = row.querySelector('.region-key').value.trim();
-    if (!key) return;
+    let key = row.querySelector('.region-key').value.trim() || defaultRegionKey(row);
+    for (let suffix = 2; regions[key]; suffix += 1) key = `${defaultRegionKey(row)}_${suffix}`;
     const scope = row.querySelector('.region-scope').value;
     const country = scope === 'remote_global' ? '' : row.querySelector('.region-country').value;
-    const citySelect = row.querySelector('.region-city');
+    const cityInput = row.querySelector('.region-city-input');
     const entry = {
       enabled: row.querySelector('.region-enabled').checked,
       primary: row.querySelector('.region-primary').checked,
       country,
       scope,
     };
-    if (scope === 'city') entry.city_id = citySelect.value;
+    if (scope === 'city') entry.city_id = cityInput.dataset.cityId || '';
     const searchLang = row.querySelector('.region-search-lang').value.trim();
     const description = row.querySelector('.region-description').value.trim();
     if (searchLang) entry.search_lang = searchLang;
@@ -1952,6 +2003,8 @@ async function saveGuidedConfig() {
   const btn = document.getElementById('settings-save-guided');
   const msg = document.getElementById('settings-guided-msg');
   clearSettingsMessages();
+  const regionError = validateRegionRows();
+  if (regionError) { showSettingsErrors([regionError]); return; }
   btn.disabled = true;
   try {
     const form = collectGuidedForm();

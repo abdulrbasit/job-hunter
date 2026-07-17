@@ -69,6 +69,11 @@ values resolve in memory and emit a doctor warning, but loading and
 Remote/global sources are skipped unless an enabled scope can accept them.
 Unknown runtime location evidence fails closed.
 
+Dashboard region cards expose only Type, Country, and City by default. City is
+one searchable package-backed field; config key, search language, and
+description remain available under Advanced. Legacy country names and remote
+phrases are inferred before rendering, so they do not appear as empty cities.
+
 ### `filters`
 
 Filter choices are plain scalar lists. Available filter types, descriptions,

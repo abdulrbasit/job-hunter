@@ -170,6 +170,9 @@ def location_from_region(region: dict[str, Any]) -> Location:  # noqa: C901
         return resolve_config_location(country, scope=LocationScope.COUNTRY)
     if normalize_location_name(text) == "remote":
         return resolve_config_location(country, scope=LocationScope.REMOTE_COUNTRY)
+    exact = canonicalize_runtime_location(text, country)
+    if len(exact) == 1 and exact[0].scope != LocationScope.CITY:
+        return exact[0]
     if not country:
         matches = canonicalize_runtime_location(text)
         if matches:

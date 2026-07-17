@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import sqlite3
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -1311,6 +1312,33 @@ def test_get_job_hunter_config_form_returns_guided_fields_and_revision(tmp_path:
     json.dumps(result)
 
 
+def test_guided_form_round_trips_legacy_remote_country_and_city_regions(tmp_path: Path) -> None:
+    config = deepcopy(_SETTINGS_CONFIG)
+    config["regions"] = {
+        "berlin": {"enabled": True, "country": "DE", "location": "Berlin"},
+        "remote_germany": {"enabled": True, "country": "DE", "location": "remote Germany"},
+        "qatar": {"enabled": True, "country": "QA", "location": "Qatar"},
+        "bahrain": {"enabled": True, "country": "BH", "location": "Bahrain"},
+    }
+    config["exclusions"] = {"companies": ["Acme"], "title_terms": ["intern"], "languages": ["german"]}
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    loaded = api.get_job_hunter_config_form()
+    result = api.save_job_hunter_config_form(loaded["data"]["form"], loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    saved = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert saved["regions"]["berlin"]["city_id"] == "geonames:2950159"
+    assert saved["regions"]["remote_germany"]["scope"] == "remote_country"
+    assert saved["regions"]["qatar"]["scope"] == "country"
+    assert saved["regions"]["bahrain"]["scope"] == "country"
+    assert "exclusions" not in saved
+    assert saved["filters"]["excluded_companies"] == ["Acme"]
+    assert saved["filters"]["excluded_titles"] == ["intern"]
+
+
 def test_dashboard_uses_generic_one_file_filter_editor() -> None:
     html = _dashboard_source()
 
@@ -1459,6 +1487,22 @@ def test_dashboard_contains_settings_nav_and_panels() -> None:
     assert "save_job_hunter_config_raw" in html
     assert "get_career_context" in html
     assert "save_career_context" in html
+
+
+def test_region_editor_keeps_only_location_choices_visible_by_default() -> None:
+    html = _dashboard_source()
+    region_markup = html.split("async function addRegionRow", 1)[1].split("function addOverrideRow", 1)[0]
+
+    assert 'class="region-card-header"' in region_markup
+    assert 'class="region-card-fields"' in region_markup
+    assert '<details class="region-advanced">' in region_markup
+    assert 'class="region-city-input"' in region_markup
+    assert 'class="region-city-options"' in region_markup
+    assert 'class="region-primary"' in region_markup and 'type="radio"' in region_markup
+    assert 'class="region-city-query"' not in region_markup
+    assert '<select class="region-city"' not in region_markup
+    assert "function syncRegionRow" in html
+    assert "Choose a city from the suggestions" in html
 
 
 def test_dashboard_contains_diagnostics_tab_with_doctor_and_analytics() -> None:
