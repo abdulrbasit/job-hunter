@@ -146,6 +146,8 @@ def ensure_seeded(root: Path) -> bool:
 
 def sync_user_targets(root: Path, targets: list[dict[str, Any]]) -> None:
     """Replace all source='user' rows with a mirror of config/job_hunter.yml's companies.targets."""
+    from job_hunter.locations import city_by_name_exact
+
     now = _now()
     rows = []
     for target in targets:
@@ -158,8 +160,6 @@ def sync_user_targets(root: Path, targets: list[dict[str, Any]]) -> None:
             continue
         city = str(target.get("city") or "").strip() or None
         if city:
-            from job_hunter.locations import city_by_name_exact
-
             resolved = city_by_name_exact(country, city)
             city = resolved.id if resolved else None
         industry = str(target.get("industry") or "").strip() or "other"
