@@ -374,6 +374,7 @@
             </select>
           </div>
         </div>
+        <span id="anchor-settings-section-mode" style="display:none"></span>
 
         <div class="settings-section" id="settings-section-profile">
           <h3>Profile</h3>
@@ -392,7 +393,14 @@
             <label for="cfg-job-titles">One title per line</label>
             <textarea id="cfg-job-titles"></textarea>
           </div>
+          <div class="settings-field">
+            <label for="cfg-job-title-add">Add a common title</label>
+            <input type="text" id="cfg-job-title-add" list="cfg-job-title-suggestions" placeholder="Start typing…" autocomplete="off">
+            <datalist id="cfg-job-title-suggestions"></datalist>
+            <button class="btn" type="button" id="cfg-job-title-add-btn">Add</button>
+          </div>
         </div>
+        <span id="anchor-settings-section-job_titles" style="display:none"></span>
 
         <div class="settings-section" id="settings-section-regions">
           <h3>Regions</h3>
@@ -400,12 +408,14 @@
           <div id="cfg-regions-rows"></div>
           <button class="btn" type="button" id="add-region-btn">+ Add region</button>
         </div>
+        <span id="anchor-settings-section-regions" style="display:none"></span>
 
         <div class="settings-section" id="settings-section-filters">
           <h3>Filters</h3>
           <p class="settings-help">Languages are an allowlist. Other groups exclude matching results. Matching is automatic; add values and optional notes.</p>
           <div id="cfg-filter-groups"></div>
         </div>
+        <span id="anchor-settings-section-filters" style="display:none"></span>
 
         <div class="settings-section" id="settings-section-scoring">
           <h3>Scoring</h3>
@@ -468,6 +478,22 @@
           <h3>Setup Health Check</h3>
           <ul class="onboarding-checklist" id="diag-checklist"><li class="no-data">Loading…</li></ul>
         </div>
+        <div class="settings-section" id="diag-section-maintenance">
+          <h3>Workspace Maintenance</h3>
+          <div class="settings-actions">
+            <button class="btn" type="button" id="diag-remove-legacy-btn">Remove legacy location/filter files</button>
+            <span class="save-msg" id="diag-remove-legacy-msg"></span>
+          </div>
+          <div class="settings-actions">
+            <button class="btn" type="button" id="diag-install-chromium-btn">Install Chromium</button>
+            <span class="save-msg" id="diag-install-chromium-msg"></span>
+          </div>
+          <div class="settings-actions">
+            <button class="btn" type="button" id="diag-update-workspace-btn">Update workspace</button>
+            <span class="save-msg" id="diag-update-workspace-msg"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">Update refreshes bundled skills, workflows, and config schema. Your profile and config values are never touched.</span>
+        </div>
         <div class="settings-section" id="diag-section-manual-run">
           <h3>Manual Local Run</h3>
           <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Hunting normally runs on GitHub Actions' schedule — you shouldn't need this. Use it only to test config changes or run a one-off search from this machine.</span>
@@ -498,51 +524,110 @@
         <ul class="onboarding-checklist" id="gs-checklist"><li class="no-data">Loading…</li></ul>
       </div>
 
-      <div class="settings-section" id="gs-section-search-setup">
-          <h3>Quick Search Setup</h3>
-          <div class="settings-grid">
-            <div class="settings-field"><label for="gs-search-mode">Execution mode</label>
-              <select id="gs-search-mode">
-                <option value="agent">agent</option>
-                <option value="llm-api">llm-api</option>
-              </select>
+      <div class="settings-section" id="gs-section-wizard">
+        <h3>Setup Wizard</h3>
+        <div id="gs-wizard-steps" class="wizard-steps"></div>
+
+        <div id="gs-wizard-body">
+          <div class="wizard-step" id="gs-step-basics" data-step="basics">
+            <p class="settings-help">Execution mode and job titles.</p>
+            <div id="gs-mount-basics"></div>
+          </div>
+
+          <div class="wizard-step" id="gs-step-region" data-step="region">
+            <p class="settings-help">Where you're searching.</p>
+            <div id="gs-mount-region"></div>
+          </div>
+
+          <div class="wizard-step" id="gs-step-filters" data-step="filters">
+            <p class="settings-help">Languages, experience levels, and exclusions.</p>
+            <div id="gs-mount-filters"></div>
+          </div>
+
+          <div class="wizard-step" id="gs-step-career" data-step="career">
+            <p class="settings-help">Career context, story bank, and your base resume are written by an LLM, not a form — pick whichever path fits how you work.</p>
+
+            <div class="career-artifact" data-artifact="career_context">
+              <h4>Career Context <span class="career-status" data-status="career_context">…</span></h4>
+              <div class="career-path">
+                <strong>Have Claude Code or Codex?</strong>
+                <button class="btn" type="button" data-copy-command="/setup context">Copy command</button>
+                <span class="settings-help">Paste it into your agent chat and follow the interview.</span>
+              </div>
+              <div class="career-path">
+                <strong>Only have a browser chatbot (ChatGPT, Claude.ai, etc.)?</strong>
+                <ol class="wizard-chatbot-steps">
+                  <li>Copy the prompt</li>
+                  <li>Paste it into your chatbot and have the conversation</li>
+                  <li>Copy the chatbot's final reply</li>
+                  <li>Paste it below and Import</li>
+                </ol>
+                <button class="btn" type="button" data-copy-prompt="career_context">Copy prompt</button>
+                <textarea class="settings-textarea" data-reply="career_context" placeholder="Paste the chatbot's final reply here…"></textarea>
+                <button class="btn btn-primary" type="button" data-import="career_context">Import</button>
+                <span class="save-msg" data-msg="career_context"></span>
+              </div>
             </div>
-            <div class="settings-field"><label for="gs-experience-levels">Experience levels</label>
-              <select id="gs-experience-levels" multiple></select>
+
+            <div class="career-artifact" data-artifact="story_bank">
+              <h4>Story Bank <span class="career-status" data-status="story_bank">…</span></h4>
+              <div class="career-path">
+                <strong>Have Claude Code or Codex?</strong>
+                <button class="btn" type="button" data-copy-command="/setup stories">Copy command</button>
+                <span class="settings-help">Paste it into your agent chat with your raw notes.</span>
+              </div>
+              <div class="career-path">
+                <strong>Only have a browser chatbot?</strong>
+                <ol class="wizard-chatbot-steps">
+                  <li>Copy the prompt</li>
+                  <li>Paste it into your chatbot and have the conversation</li>
+                  <li>Copy the chatbot's final reply</li>
+                  <li>Paste it below and Import</li>
+                </ol>
+                <button class="btn" type="button" data-copy-prompt="story_bank">Copy prompt</button>
+                <textarea class="settings-textarea" data-reply="story_bank" placeholder="Paste the chatbot's final reply here…"></textarea>
+                <button class="btn btn-primary" type="button" data-import="story_bank">Import</button>
+                <span class="save-msg" data-msg="story_bank"></span>
+              </div>
             </div>
-            <div class="settings-field"><label for="gs-search-scope">Scope</label><select id="gs-search-scope"><option value="city">City</option><option value="country">Country</option><option value="remote_country">Remote in country</option><option value="remote_global">Global remote</option></select></div>
-            <div class="settings-field"><label for="gs-search-country">Country</label><select id="gs-search-country"></select></div>
-            <div class="settings-field"><label for="gs-search-city-query">Find city</label><input type="search" id="gs-search-city-query" placeholder="Type a city name"></div>
-            <div class="settings-field"><label for="gs-search-location">City</label><select id="gs-search-location"></select></div>
-            <div class="settings-field"><label for="gs-search-lang">Search lang</label><input type="text" id="gs-search-lang"></div>
+
+            <div class="career-artifact" data-artifact="base_resume">
+              <h4>Base Resume <span class="career-status" data-status="base_resume">…</span></h4>
+              <p class="settings-help" data-resume-gate>Finish career context and story bank first — the resume is built from them.</p>
+              <div class="career-path" data-resume-paths hidden>
+                <strong>Have Claude Code or Codex?</strong>
+                <button class="btn" type="button" data-copy-command="/setup resume">Copy command</button>
+                <span class="settings-help">Paste it into your agent chat.</span>
+              </div>
+              <div class="career-path" data-resume-paths hidden>
+                <strong>Only have a browser chatbot?</strong>
+                <ol class="wizard-chatbot-steps">
+                  <li>Copy the prompt</li>
+                  <li>Paste it into your chatbot and have the conversation</li>
+                  <li>Copy the chatbot's final reply</li>
+                  <li>Paste it below and Import</li>
+                </ol>
+                <button class="btn" type="button" data-copy-prompt="base_resume">Copy prompt</button>
+                <textarea class="settings-textarea" data-reply="base_resume" placeholder="Paste the chatbot's final reply here…"></textarea>
+                <button class="btn btn-primary" type="button" data-import="base_resume">Import</button>
+                <span class="save-msg" data-msg="base_resume"></span>
+              </div>
+            </div>
           </div>
-          <div class="settings-grid">
-            <div class="settings-field"><label for="gs-search-job-titles">Job titles (one per line)</label><textarea id="gs-search-job-titles"></textarea></div>
-            <div class="settings-field"><label for="gs-search-excl-industries">Exclude industries</label><select id="gs-search-excl-industries" multiple></select></div>
+
+          <div class="wizard-step" id="gs-step-done" data-step="done">
+            <h4>You're set up</h4>
+            <p class="settings-help">Run your first hunt from Applications whenever you're ready.</p>
+            <button class="btn btn-primary" type="button" id="gs-wizard-go-hunt-btn">Go find jobs</button>
           </div>
-          <div class="settings-actions">
-            <button class="btn btn-primary" type="button" id="save-search-setup-btn">Save search setup</button>
-            <span class="save-msg" id="gs-search-msg"></span>
-          </div>
-          <span style="font-size:12px;color:var(--text-muted)">Sets mode, experience levels, job titles, and your primary region in one step. Advanced fields (scoring, exclusions, LLM provider/model) stay in the Guided tab.</span>
         </div>
 
-        <div class="settings-section" id="gs-section-chatbot-import">
-          <h3>Import from Any Chatbot</h3>
-          <div class="settings-actions">
-            <button class="btn" type="button" id="copy-onboarding-prompt-btn">Copy setup prompt</button>
-            <span style="font-size:12px;color:var(--text-muted)">Paste into any chatbot (ChatGPT, Claude, Gemini) along with your resume/background, then paste its reply below.</span>
-          </div>
-          <div class="settings-field">
-            <label for="gs-chatbot-response">Chatbot's reply</label>
-            <textarea class="settings-textarea" id="gs-chatbot-response" placeholder="Paste the chatbot's full reply here…"></textarea>
-          </div>
-          <div class="settings-actions">
-            <button class="btn btn-primary" type="button" id="import-chatbot-bundle-btn">Import</button>
-            <span class="save-msg" id="gs-import-msg"></span>
-          </div>
-          <span style="font-size:12px;color:var(--text-muted)">Overwrites career context, story bank, and resume source from the reply — validated before anything is written, with an automatic backup.</span>
+        <div class="settings-actions">
+          <button class="btn" type="button" id="gs-wizard-back-btn">Back</button>
+          <button class="btn btn-primary" type="button" id="gs-wizard-next-btn">Next</button>
+          <span class="save-msg" id="gs-wizard-msg"></span>
         </div>
+      </div>
 
         <div class="settings-section" id="gs-section-career">
           <h3>Quick Career Context Fill</h3>

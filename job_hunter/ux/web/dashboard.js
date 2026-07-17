@@ -120,8 +120,9 @@ async function initAll() {
     const name = await window.pywebview.api.get_user_name();
     if (name) document.getElementById('sidebar-name').textContent = name;
   } catch(_) {}
-  const setup = await loadOnboarding();
-  if (setupIncomplete(setup)) {
+  await loadOnboarding();
+  const bootstrap = await window.pywebview.api.get_bootstrap();
+  if (setupIncomplete(bootstrap)) {
     document.querySelector('.nav-btn[data-view="get-started"]').click();
   }
   await loadApplicationStreak();
@@ -129,12 +130,11 @@ async function initAll() {
   runSync({ silent: true }); // auto-sync on open — merge is lossless by construction, safe unattended
 }
 
-// Schedule and permissions are optional polish — they never force the Get Started landing.
-const OPTIONAL_SETUP_IDS = new Set(['workflow_schedule', 'outputs_writable']);
-
-function setupIncomplete(checklist) {
-  if (!checklist || !checklist.ok) return false;
-  return (checklist.items || []).some(item => !item.done && !OPTIONAL_SETUP_IDS.has(item.id));
+// Only the fields a first hunt actually needs gate the Get Started landing — story bank,
+// GitHub schedule, and similar polish items never force it (see readiness.py's blocking/non_blocking split).
+function setupIncomplete(bootstrap) {
+  if (!bootstrap || !bootstrap.ok) return false;
+  return Object.values(bootstrap.data.readiness.blocking).some(done => !done);
 }
 
 async function loadApplicationStreak() {
@@ -300,6 +300,86 @@ async function loadDiagnosticsChecklist() {
   }
 }
 
+// ── Job title autocomplete — suggestions only, free text is always accepted ──
+const debouncedLoadJobTitleSuggestions = debounce(async () => {
+  const query = document.getElementById('cfg-job-title-add').value.trim();
+  const result = await window.pywebview.api.get_job_title_suggestions(query);
+  const list = document.getElementById('cfg-job-title-suggestions');
+  list.innerHTML = (result.ok ? result.data.titles : []).map(t => `<option value="${esc(t)}"></option>`).join('');
+}, 200);
+
+document.getElementById('cfg-job-title-add').addEventListener('input', debouncedLoadJobTitleSuggestions);
+
+function addJobTitleFromSuggestion() {
+  const input = document.getElementById('cfg-job-title-add');
+  const value = input.value.trim();
+  if (!value) return;
+  const textarea = document.getElementById('cfg-job-titles');
+  const existing = textarea.value.split('\n').map(v => v.trim()).filter(Boolean);
+  if (!existing.includes(value)) existing.push(value);
+  textarea.value = existing.join('\n');
+  input.value = '';
+  markConfigDirty();
+}
+
+// ── Workspace maintenance (Diagnostics one-click fixes) ──
+async function removeLegacyLocationOrFilterFiles() {
+  const msg = document.getElementById('diag-remove-legacy-msg');
+  const result = await window.pywebview.api.remove_legacy_location_or_filter_files();
+  if (!result.ok) { msg.textContent = 'Could not remove legacy files.'; msg.style.color = '#f85149'; return; }
+  msg.textContent = result.data.removed.length ? `✓ Removed ${result.data.removed.length} file(s)` : 'Nothing to remove.';
+  msg.style.color = '#56d364';
+  loadDiagnosticsChecklist();
+}
+
+let chromiumPolling = false;
+
+async function startChromiumInstall() {
+  const msg = document.getElementById('diag-install-chromium-msg');
+  const btn = document.getElementById('diag-install-chromium-btn');
+  const result = await window.pywebview.api.start_chromium_install();
+  if (!result.ok) { msg.textContent = result.error || 'Could not start the install.'; msg.style.color = '#f85149'; return; }
+  btn.disabled = true;
+  msg.textContent = 'Installing…';
+  msg.style.color = '';
+  if (chromiumPolling) return;
+  chromiumPolling = true;
+  try {
+    while (true) {
+      const status = await window.pywebview.api.get_chromium_install_status();
+      if (status.status !== 'running') {
+        msg.textContent = status.status === 'succeeded' ? '✓ Chromium installed' : (status.message || 'Install failed.');
+        msg.style.color = status.status === 'succeeded' ? '#56d364' : '#f85149';
+        if (status.status === 'succeeded') loadDiagnosticsChecklist();
+        break;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    chromiumPolling = false;
+    btn.disabled = false;
+  }
+}
+
+async function runWorkspaceUpdate() {
+  if (!confirm('This refreshes bundled skills, workflows, and config schema. Your profile/config values are never touched. Continue?')) return;
+  const msg = document.getElementById('diag-update-workspace-msg');
+  const btn = document.getElementById('diag-update-workspace-btn');
+  btn.disabled = true;
+  msg.textContent = 'Updating…';
+  msg.style.color = '';
+  try {
+    const result = await window.pywebview.api.run_update();
+    if (!result.ok) { msg.textContent = 'Update failed.'; msg.style.color = '#f85149'; return; }
+    const d = result.data;
+    msg.textContent = `✓ Updated ${d.assets} asset(s), ${d.skills} skill(s), ${d.workflows} workflow(s)`;
+    msg.style.color = '#56d364';
+    loadDiagnosticsChecklist();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Navigation ──
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -319,7 +399,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'company-hunt') refreshCompanyHuntPanel();
     if (view === 'insights' && !insightsLoaded) loadInsights();
-    if (view === 'settings' && !settingsLoaded) loadSettings();
+    if (view === 'settings') { restoreGuidedSections(); if (!settingsLoaded) loadSettings(); }
     if (view === 'get-started') loadGetStarted();
   });
 });
@@ -505,12 +585,16 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['undo-raw-config-btn', undoJobHunterConfig],
   ['save-career-context-btn', saveCareerContext],
   ['undo-career-context-btn', undoCareerContext],
-  ['save-search-setup-btn', saveSearchSetup],
-  ['copy-onboarding-prompt-btn', copyOnboardingPrompt],
-  ['import-chatbot-bundle-btn', importChatbotBundle],
   ['apply-quick-career-context-btn', applyQuickCareerContext],
   ['save-api-key-btn', saveApiKey],
   ['gs-recheck-btn', loadGetStartedActionsGuide],
+  ['gs-wizard-back-btn', wizardBack],
+  ['gs-wizard-next-btn', wizardNext],
+  ['gs-wizard-go-hunt-btn', wizardGoHunt],
+  ['cfg-job-title-add-btn', addJobTitleFromSuggestion],
+  ['diag-remove-legacy-btn', removeLegacyLocationOrFilterFiles],
+  ['diag-install-chromium-btn', startChromiumInstall],
+  ['diag-update-workspace-btn', runWorkspaceUpdate],
 ].forEach(([id, handler]) => document.getElementById(id).addEventListener('click', handler));
 
 document.querySelectorAll('th[data-col]').forEach(th => {
@@ -1547,83 +1631,166 @@ async function loadSettings() {
   ]);
 }
 
+// ── Get Started wizard ──
+// Basics/Region/Filters steps mount the real Settings → Guided sections in place (same
+// DOM nodes, same IDs, same save path) rather than duplicating fields — each entry is
+// [sectionId, anchorId], anchorId marking where the section returns to when Settings loads.
+const WIZARD_STEPS = ['basics', 'region', 'filters', 'career', 'done'];
+const WIZARD_STEP_LABELS = { basics: 'Basics', region: 'Region', filters: 'Filters', career: 'Career Profile', done: 'Done' };
+const WIZARD_MOUNTS = {
+  basics: [['settings-section-mode', 'anchor-settings-section-mode'], ['settings-section-job_titles', 'anchor-settings-section-job_titles']],
+  region: [['settings-section-regions', 'anchor-settings-section-regions']],
+  filters: [['settings-section-filters', 'anchor-settings-section-filters']],
+};
+let wizardStepIndex = 0;
+
+function restoreGuidedSections() {
+  Object.values(WIZARD_MOUNTS).flat().forEach(([sectionId, anchorId]) => {
+    const section = document.getElementById(sectionId);
+    const anchor = document.getElementById(anchorId);
+    if (section && anchor) anchor.before(section);
+  });
+}
+
+function mountWizardStep(step) {
+  const mounts = WIZARD_MOUNTS[step];
+  if (!mounts) return;
+  const host = document.getElementById(`gs-mount-${step}`);
+  mounts.forEach(([sectionId]) => {
+    const section = document.getElementById(sectionId);
+    if (section) host.appendChild(section);
+  });
+}
+
+function renderWizardSteps() {
+  document.getElementById('gs-wizard-steps').innerHTML = WIZARD_STEPS.map((step, i) =>
+    `<span class="wizard-step-dot ${i === wizardStepIndex ? 'active' : ''}">${esc(WIZARD_STEP_LABELS[step])}</span>`
+  ).join('');
+}
+
+async function showWizardStep(index) {
+  wizardStepIndex = Math.max(0, Math.min(index, WIZARD_STEPS.length - 1));
+  const step = WIZARD_STEPS[wizardStepIndex];
+  document.querySelectorAll('#gs-wizard-body .wizard-step').forEach(el => el.classList.toggle('active', el.dataset.step === step));
+  renderWizardSteps();
+  document.getElementById('gs-wizard-back-btn').disabled = wizardStepIndex === 0;
+  document.getElementById('gs-wizard-next-btn').style.display = step === 'done' ? 'none' : '';
+  document.getElementById('gs-wizard-msg').textContent = '';
+  if (WIZARD_MOUNTS[step]) mountWizardStep(step);
+  if (step === 'career') await renderCareerPanel();
+}
+
 async function loadGetStarted() {
-  // Settings editors back the quick-fill and import flows, so load them alongside the checklist.
+  // Settings editors back the wizard's Basics/Region/Filters steps and the quick-fill flow,
+  // so load them alongside the checklist before the wizard tries to mount anything.
   await loadOnboarding();
   if (!settingsLoaded) await loadSettings();
-}
-
-async function saveSearchSetup() {
-  const msg = document.getElementById('gs-search-msg');
-  msg.textContent = '';
   const bootstrap = await window.pywebview.api.get_bootstrap();
-  if (!bootstrap.ok) {
-    msg.textContent = 'Could not load current config.';
-    msg.style.color = '#f85149';
-    return;
-  }
-  const scope = document.getElementById('gs-search-scope').value;
-  const country = scope === 'remote_global' ? '' : document.getElementById('gs-search-country').value;
-  const citySelect = document.getElementById('gs-search-location');
-  const location = {country, scope};
-  if (scope === 'city') {
-    location.city_id = citySelect.value;
-  }
-  const prefs = {
-    mode: document.getElementById('gs-search-mode').value,
-    experience_levels: [...document.getElementById('gs-experience-levels').selectedOptions].map(option => option.value),
-    job_titles: document.getElementById('gs-search-job-titles').value.split('\n').map(s => s.trim()).filter(Boolean),
-    location,
-    search_lang: document.getElementById('gs-search-lang').value,
-    excluded_industries: [...document.getElementById('gs-search-excl-industries').selectedOptions].map(option => option.value),
-  };
-  const result = await window.pywebview.api.save_onboarding_preferences(prefs, bootstrap.data.config_revision);
-  if (result.ok) {
-    msg.textContent = 'Saved.';
-    msg.style.color = '#56d364';
-    loadOnboarding();
-  } else {
-    msg.textContent = (result.errors || []).join(' ') || 'Could not save.';
-    msg.style.color = '#f85149';
-  }
+  const blocking = bootstrap.ok ? bootstrap.data.readiness.blocking : {};
+  const startStep = (!blocking.job_titles) ? 0
+    : (!blocking.region) ? 1
+    : (!blocking.experience_levels) ? 2
+    : (!blocking.career_context || !blocking.base_resume) ? 3
+    : 4;
+  await showWizardStep(startStep);
 }
 
-async function copyOnboardingPrompt() {
-  const btn = document.getElementById('copy-onboarding-prompt-btn');
-  const result = await window.pywebview.api.get_onboarding_prompt();
-  if (!result.ok) {
-    btn.textContent = 'Failed';
-    setTimeout(() => { btn.textContent = 'Copy setup prompt'; }, 1200);
-    return;
+async function wizardNext() {
+  if (wizardStepIndex >= WIZARD_STEPS.length - 1) return;
+  const step = WIZARD_STEPS[wizardStepIndex];
+  if (WIZARD_MOUNTS[step]) {
+    const saved = await saveGuidedConfig();
+    if (!saved) return;
   }
+  await showWizardStep(wizardStepIndex + 1);
+}
+
+async function wizardBack() {
+  await showWizardStep(wizardStepIndex - 1);
+}
+
+async function wizardGoHunt() {
+  document.querySelector('.nav-btn[data-view="applications"]').click();
+  await findJobs();
+}
+
+// ── Career profile panel — two paths (coding agent / any chatbot) per artifact ──
+const CAREER_ARTIFACTS = {
+  career_context: { getPrompt: 'get_career_context_prompt', importReply: 'import_career_context_prompt_reply', checklistId: 'career_context' },
+  story_bank: { getPrompt: 'get_story_bank_prompt', importReply: 'import_story_bank_prompt_reply', checklistId: 'story_bank' },
+  base_resume: { getPrompt: 'get_resume_prompt', importReply: 'import_resume_prompt_reply', checklistId: 'resume' },
+};
+
+async function renderCareerPanel() {
+  const result = await window.pywebview.api.get_onboarding_checklist();
+  const doneIds = new Set((result.ok ? result.items : []).filter(item => item.done).map(item => item.id));
+  Object.entries(CAREER_ARTIFACTS).forEach(([artifact, cfg]) => {
+    const done = doneIds.has(cfg.checklistId);
+    const badge = document.querySelector(`.career-status[data-status="${artifact}"]`);
+    badge.textContent = done ? '✓ done' : '○ pending';
+    badge.classList.toggle('done', done);
+  });
+  const resumeReady = doneIds.has('career_context') && doneIds.has('story_bank');
+  document.querySelector('[data-resume-gate]').style.display = resumeReady ? 'none' : '';
+  document.querySelectorAll('[data-resume-paths]').forEach(el => { el.hidden = !resumeReady; });
+}
+
+async function copyTextToClipboard(text) {
   try {
-    await navigator.clipboard.writeText(result.data.prompt);
+    await navigator.clipboard.writeText(text);
   } catch(_) {
     const area = document.createElement('textarea');
-    area.value = result.data.prompt;
+    area.value = text;
     document.body.appendChild(area);
     area.select();
     document.execCommand('copy');
     area.remove();
   }
-  btn.textContent = 'Copied!';
-  setTimeout(() => { btn.textContent = 'Copy setup prompt'; }, 1200);
 }
 
-async function importChatbotBundle() {
-  const msg = document.getElementById('gs-import-msg');
-  const text = document.getElementById('gs-chatbot-response').value;
-  const result = await window.pywebview.api.import_onboarding_bundle(text);
-  if (result.ok) {
-    msg.textContent = 'Imported — career context, story bank, and resume source updated.';
-    msg.style.color = '#56d364';
-    document.getElementById('gs-chatbot-response').value = '';
-    loadOnboarding();
-  } else {
-    msg.textContent = (result.errors || []).join(' ') || 'Could not import.';
-    msg.style.color = '#f85149';
+document.getElementById('gs-step-career').addEventListener('click', async (e) => {
+  const commandBtn = e.target.closest('[data-copy-command]');
+  if (commandBtn) {
+    await copyTextToClipboard(commandBtn.dataset.copyCommand);
+    const original = commandBtn.textContent;
+    commandBtn.textContent = 'Copied!';
+    setTimeout(() => { commandBtn.textContent = original; }, 1200);
+    return;
   }
-}
+  const promptBtn = e.target.closest('[data-copy-prompt]');
+  if (promptBtn) {
+    const artifact = promptBtn.dataset.copyPrompt;
+    const result = await window.pywebview.api[CAREER_ARTIFACTS[artifact].getPrompt]();
+    const original = promptBtn.textContent;
+    if (!result.ok) {
+      const msg = document.querySelector(`[data-msg="${artifact}"]`);
+      msg.textContent = (result.errors || []).join(' ') || 'Could not build the prompt.';
+      msg.style.color = '#f85149';
+      return;
+    }
+    await copyTextToClipboard(result.data.prompt);
+    promptBtn.textContent = 'Copied!';
+    setTimeout(() => { promptBtn.textContent = original; }, 1200);
+    return;
+  }
+  const importBtn = e.target.closest('[data-import]');
+  if (importBtn) {
+    const artifact = importBtn.dataset.import;
+    const msg = document.querySelector(`[data-msg="${artifact}"]`);
+    const textarea = document.querySelector(`[data-reply="${artifact}"]`);
+    const result = await window.pywebview.api[CAREER_ARTIFACTS[artifact].importReply](textarea.value);
+    if (result.ok) {
+      msg.textContent = '✓ Imported';
+      msg.style.color = '#56d364';
+      textarea.value = '';
+      await loadOnboarding();
+      await renderCareerPanel();
+    } else {
+      msg.textContent = (result.errors || []).join(' ') || 'Could not import.';
+      msg.style.color = '#f85149';
+    }
+  }
+});
 
 function fillCareerContextLine(text, label, value) {
   if (!value) return text;
@@ -1743,12 +1910,6 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
-  const onboardingIndustries = document.getElementById('gs-search-excl-industries');
-  const excludedIndustries = new Set((form.filters || {}).excluded_industries || []);
-  onboardingIndustries.innerHTML = (filterOptions.industries || []).map(industry => `<option value="${esc(industry.id)}" ${excludedIndustries.has(industry.id) ? 'selected' : ''}>${esc(industry.label)}</option>`).join('');
-  const onboardingExperienceLevels = document.getElementById('gs-experience-levels');
-  const selectedLevels = new Set((form.filters || {}).experience_levels || []);
-  onboardingExperienceLevels.innerHTML = (filterOptions.experience_levels || []).map(level => `<option value="${esc(level.id)}" ${selectedLevels.has(level.id) ? 'selected' : ''}>${esc(level.label)}</option>`).join('');
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -1759,28 +1920,12 @@ async function renderGuidedForm(form) {
     const payload = await window.pywebview.api.get_location_countries();
     locationCountries = payload.countries || [];
   }
-  const primary = Object.values(form.regions || {}).find(r => r.primary) || Object.values(form.regions || {})[0] || {};
-  const primaryLocation = primary.scope ? primary : {country: primary.country || '', scope: primary.location === 'Remote' ? 'remote_country' : 'city'};
-  const gsCountry = document.getElementById('gs-search-country');
-  gsCountry.innerHTML = countryOptions(primaryLocation.country || '');
-  document.getElementById('gs-search-scope').value = primaryLocation.scope || 'city';
-  await loadOnboardingCities(primaryLocation.city_id || '');
-  gsCountry.onchange = () => { document.getElementById('gs-search-city-query').value = ''; loadOnboardingCities(); };
-  document.getElementById('gs-search-city-query').oninput = () => loadOnboardingCities(document.getElementById('gs-search-location').value);
   for (const [key, region] of Object.entries(form.regions || {})) await addRegionRow(key, region);
   renderActiveLocations();
 
   document.getElementById('cfg-overrides-rows').innerHTML = '';
   (form.scoring.strategic_overrides || []).forEach(o => addOverrideRow(o));
   loadingGuidedForm = false;
-}
-
-async function loadOnboardingCities(selectedId = '') {
-  const country = document.getElementById('gs-search-country').value;
-  const query = document.getElementById('gs-search-city-query').value.trim();
-  const payload = country ? await window.pywebview.api.get_location_cities(country, query, selectedId) : {cities: []};
-  const select = document.getElementById('gs-search-location');
-  select.innerHTML = '<option value="">Select city</option>' + (payload.cities || []).map(c => `<option value="${esc(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 
 function renderFilterGroups(filters) {
@@ -2022,12 +2167,12 @@ async function saveGuidedConfig() {
   const msg = document.getElementById('settings-guided-msg');
   clearSettingsMessages();
   const regionError = validateRegionRows();
-  if (regionError) { showSettingsErrors([regionError]); return; }
+  if (regionError) { showSettingsErrors([regionError]); return false; }
   btn.disabled = true;
   try {
     const form = collectGuidedForm();
     const result = await window.pywebview.api.save_job_hunter_config_form(form, cfgRevision);
-    if (!result.ok) { showSettingsErrors(result.errors); return; }
+    if (!result.ok) { showSettingsErrors(result.errors); return false; }
     cfgRevision = result.data.revision;
     cfgDirty = false;
     updateDirtyFlag('guided');
@@ -2035,8 +2180,10 @@ async function saveGuidedConfig() {
     msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
     setTimeout(() => { msg.textContent = ''; }, 2000);
     await loadRawConfig();
+    return true;
   } catch(e) {
     showSettingsErrors(['job_hunter.yml could not be saved. Retry, then run job-hunter doctor if the problem continues.']);
+    return false;
   } finally {
     btn.disabled = false;
   }

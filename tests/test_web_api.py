@@ -156,9 +156,10 @@ def test_get_started_is_a_top_level_view_not_a_settings_tab() -> None:
     assert 'id="gs-checklist"' in html
     assert 'data-settings-tab="get-started"' not in html
     assert 'id="settings-panel-get-started"' not in html
-    # First run lands on Get Started; optional items never force it.
+    # First run lands on Get Started; only readiness.blocking fields force it (story bank,
+    # GitHub schedule, and similar polish items never do — see readiness.py).
     assert "setupIncomplete" in html
-    assert "workflow_schedule" in html
+    assert "readiness.blocking" in html
 
 
 def test_dashboard_has_sync_button_and_auto_sync_on_open() -> None:
@@ -1667,29 +1668,91 @@ def test_applications_is_the_default_landing_view() -> None:
     assert '<section id="view-applications" class="view active">' in html
 
 
-def test_dashboard_contains_search_setup_and_chatbot_import_sections() -> None:
+def test_dashboard_contains_setup_wizard_with_reparented_guided_sections() -> None:
     html = _dashboard_source()
 
-    assert 'id="gs-section-search-setup"' in html
-    assert 'id="gs-search-mode"' in html
-    assert 'id="gs-experience-levels"' in html
-    assert 'id="gs-search-job-titles"' in html
-    assert 'id="gs-search-country"' in html
-    assert 'id="gs-search-location"' in html
-    assert 'id="gs-search-lang"' in html
-    assert 'id="gs-search-excl-industries"' in html
-    assert 'id="save-search-setup-btn"' in html
-    assert "function saveSearchSetup" in html
-    assert "save_onboarding_preferences" in html
+    assert 'id="gs-section-wizard"' in html
+    assert 'id="gs-wizard-steps"' in html
+    assert 'id="gs-mount-basics"' in html
+    assert 'id="gs-mount-region"' in html
+    assert 'id="gs-mount-filters"' in html
+    assert 'id="gs-wizard-back-btn"' in html
+    assert 'id="gs-wizard-next-btn"' in html
+    assert "function wizardNext" in html
+    assert "function wizardBack" in html
+    assert "function mountWizardStep" in html
+    assert "function restoreGuidedSections" in html
+    # Basics/Region/Filters steps are the real Settings sections, moved in place, not duplicated.
+    assert "anchor-settings-section-mode" in html
+    assert "anchor-settings-section-job_titles" in html
+    assert "anchor-settings-section-regions" in html
+    assert "anchor-settings-section-filters" in html
+    assert "save_job_hunter_config_form" in html
 
-    assert 'id="gs-section-chatbot-import"' in html
-    assert 'id="copy-onboarding-prompt-btn"' in html
-    assert 'id="gs-chatbot-response"' in html
-    assert 'id="import-chatbot-bundle-btn"' in html
-    assert "function copyOnboardingPrompt" in html
-    assert "function importChatbotBundle" in html
-    assert "get_onboarding_prompt" in html
-    assert "import_onboarding_bundle" in html
+
+def test_dashboard_contains_career_profile_panel_for_all_three_artifacts() -> None:
+    html = _dashboard_source()
+
+    assert 'id="gs-step-career"' in html
+    for artifact in ("career_context", "story_bank", "base_resume"):
+        assert f'data-artifact="{artifact}"' in html
+        assert f'data-status="{artifact}"' in html
+        assert f'data-copy-prompt="{artifact}"' in html
+        assert f'data-import="{artifact}"' in html
+        assert f'data-reply="{artifact}"' in html
+    assert 'data-copy-command="/setup context"' in html
+    assert 'data-copy-command="/setup stories"' in html
+    assert 'data-copy-command="/setup resume"' in html
+    assert "get_career_context_prompt" in html
+    assert "import_career_context_prompt_reply" in html
+    assert "get_story_bank_prompt" in html
+    assert "import_story_bank_prompt_reply" in html
+    assert "get_resume_prompt" in html
+    assert "import_resume_prompt_reply" in html
+    assert "data-resume-gate" in html
+    assert "data-resume-paths" in html
+
+
+def test_dashboard_contains_job_title_autocomplete() -> None:
+    html = _dashboard_source()
+
+    assert 'id="cfg-job-title-add"' in html
+    assert 'id="cfg-job-title-suggestions"' in html
+    assert 'id="cfg-job-title-add-btn"' in html
+    assert "get_job_title_suggestions" in html
+    assert "function addJobTitleFromSuggestion" in html
+
+
+def test_dashboard_contains_workspace_maintenance_fix_buttons() -> None:
+    html = _dashboard_source()
+
+    assert 'id="diag-remove-legacy-btn"' in html
+    assert 'id="diag-install-chromium-btn"' in html
+    assert 'id="diag-update-workspace-btn"' in html
+    assert "remove_legacy_location_or_filter_files" in html
+    assert "start_chromium_install" in html
+    assert "get_chromium_install_status" in html
+    assert "run_update" in html
+    assert "function runWorkspaceUpdate" in html
+
+
+def test_dashboard_no_longer_references_the_retired_combined_bundle_flow() -> None:
+    """Regression guard: the single 3-in-1 any-chatbot flow was replaced by three
+    per-artifact prompts (career context / story bank / resume) in the career panel."""
+    html = _dashboard_source()
+
+    for dead in (
+        "gs-section-search-setup",
+        "gs-section-chatbot-import",
+        "gs-search-mode",
+        "gs-experience-levels",
+        "get_onboarding_prompt",
+        "import_onboarding_bundle",
+        "saveSearchSetup",
+        "copyOnboardingPrompt",
+        "importChatbotBundle",
+    ):
+        assert dead not in html
 
 
 def test_dashboard_settings_disables_save_buttons_during_save() -> None:
