@@ -21,7 +21,7 @@ _VALID_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {"hunt_languages": ["en"]},
+    "filters": {"hunt_languages": ["en"], "experience_levels": ["associate", "mid", "senior"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic"},
 }
@@ -43,15 +43,21 @@ def test_onboarding_bootstrap_api_not_yet_built() -> None:
     assert hasattr(DashAPI, "get_bootstrap")
 
 
-def test_career_stage_not_yet_accepted_by_config_schema(tmp_path: Path) -> None:
-    """Phase 1: career_stage should be a valid additive config field."""
+def test_experience_levels_accepted_as_the_career_stage_successor(tmp_path: Path) -> None:
+    """career_stage was retired in favor of filters.experience_levels — a config
+    setting a level selection must validate cleanly, and a leftover career_stage
+    key must hard-fail rather than being silently accepted."""
     _copy_schema(tmp_path)
     data = dict(_VALID_CONFIG)
-    data["career_stage"] = "experienced"
+    data["filters"] = {**data["filters"], "experience_levels": ["lead", "director"]}
 
-    errors = service.validate_job_hunter_yaml(data, tmp_path)
+    assert service.validate_job_hunter_yaml(data, tmp_path) == []
 
-    assert errors == []
+    stale = dict(_VALID_CONFIG)
+    stale["career_stage"] = "experienced"
+
+    errors = service.validate_job_hunter_yaml(stale, tmp_path)
+    assert any("career_stage" in error for error in errors)
 
 
 def test_catalog_company_selection_package_not_yet_built() -> None:

@@ -41,8 +41,8 @@ def _profile_context(root: Path) -> dict[str, Any]:
     return {
         "scoring": {
             "min_fit_score": scoring.get("min_fit_score"),
-            # Resolved, not raw: an unset value defaults to career_stage's own cap
-            # (see resolve_max_years_experience) rather than showing the agent a null.
+            # Resolved, not raw: an unset value defaults to the selected experience_levels'
+            # derived cap (see resolve_max_years_experience) rather than showing the agent a null.
             "max_years_experience_required": resolve_max_years_experience(config),
             "strategic_overrides": scoring.get("strategic_overrides", []),
         },

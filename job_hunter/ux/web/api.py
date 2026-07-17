@@ -246,7 +246,7 @@ class DashAPI:
         }
 
     def save_onboarding_preferences(self, prefs: dict[str, Any], revision: str) -> dict[str, Any]:
-        """Save the compact Get Started search-setup page (mode/career_stage/titles/region/industries)."""
+        """Save the compact Get Started search-setup page (mode/experience_levels/titles/region/industries)."""
         import yaml
 
         from job_hunter.config import service

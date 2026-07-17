@@ -37,6 +37,66 @@ def test_language_screen_fails_open_on_low_confidence_short_title() -> None:
     assert uncertain
 
 
+def _experience_policy(*level_ids: str) -> JobPolicy:
+    return JobPolicy({"filters": {"experience_levels": list(level_ids)}})
+
+
+def test_experience_screen_excludes_no_overlap_range() -> None:
+    policy = _experience_policy("entry", "junior")  # 0-1, 0-2 -> user range 0-2
+
+    excluded, detail, ambiguous = policy.experience_screen(
+        "Principal Engineer", "We require 10+ years of experience leading platform architecture."
+    )
+
+    assert excluded
+    assert not ambiguous
+    assert detail is not None
+    assert detail.detected_min == 10
+    assert detail.detected_max is None
+    assert detail.user_min == 0
+    assert detail.user_max == 2
+
+
+def test_experience_screen_accepts_overlapping_range() -> None:
+    policy = _experience_policy("mid", "senior")  # 3-6, 5-9 -> user range 3-9
+
+    excluded, detail, ambiguous = policy.experience_screen("Senior Engineer", "5+ years of experience required.")
+
+    assert not excluded
+    assert not ambiguous
+    assert detail is not None
+    assert detail.detected_min == 5
+
+
+def test_experience_screen_fails_open_on_ambiguous_text() -> None:
+    policy = _experience_policy("entry", "junior")
+
+    excluded, detail, ambiguous = policy.experience_screen(
+        "Software Engineer", "Join our growing team and make an impact."
+    )
+
+    assert not excluded
+    assert ambiguous
+    assert detail is None
+
+
+def test_experience_screen_noop_when_no_levels_selected() -> None:
+    policy = _experience_policy()
+
+    excluded, detail, ambiguous = policy.experience_screen("Principal Engineer", "10+ years of experience required.")
+
+    assert not excluded
+    assert not ambiguous
+    assert detail is None
+
+
+def test_format_experience_reason_detail_renders_open_and_closed_ranges() -> None:
+    from job_hunter.sources.policy import ExperienceScreenDetail, format_experience_reason_detail
+
+    detail = ExperienceScreenDetail(detected_level_id=None, detected_min=8, detected_max=None, user_min=0, user_max=3)
+    assert format_experience_reason_detail(detail) == "requires 8+y, your range 0-3y"
+
+
 def test_excluded_company_matches_suffix_and_case_variants() -> None:
     policy = JobPolicy({"filters": {"excluded_companies": ["Delivery Hero", "Auto1", "Spam Co"]}})
 

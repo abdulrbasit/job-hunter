@@ -507,14 +507,8 @@
                 <option value="llm-api">llm-api</option>
               </select>
             </div>
-            <div class="settings-field"><label for="gs-career-stage">Career stage</label>
-              <select id="gs-career-stage">
-                <option value="student">student</option>
-                <option value="early_career">early_career</option>
-                <option value="experienced">experienced</option>
-                <option value="leadership">leadership</option>
-                <option value="custom">custom</option>
-              </select>
+            <div class="settings-field"><label for="gs-experience-levels">Experience levels</label>
+              <select id="gs-experience-levels" multiple></select>
             </div>
             <div class="settings-field"><label for="gs-search-scope">Scope</label><select id="gs-search-scope"><option value="city">City</option><option value="country">Country</option><option value="remote_country">Remote in country</option><option value="remote_global">Global remote</option></select></div>
             <div class="settings-field"><label for="gs-search-country">Country</label><select id="gs-search-country"></select></div>
@@ -530,7 +524,7 @@
             <button class="btn btn-primary" type="button" id="save-search-setup-btn">Save search setup</button>
             <span class="save-msg" id="gs-search-msg"></span>
           </div>
-          <span style="font-size:12px;color:var(--text-muted)">Sets mode, career stage, job titles, and your primary region in one step. Advanced fields (scoring, exclusions, LLM provider/model) stay in the Guided tab.</span>
+          <span style="font-size:12px;color:var(--text-muted)">Sets mode, experience levels, job titles, and your primary region in one step. Advanced fields (scoring, exclusions, LLM provider/model) stay in the Guided tab.</span>
         </div>
 
         <div class="settings-section" id="gs-section-chatbot-import">

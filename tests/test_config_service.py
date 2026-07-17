@@ -18,7 +18,7 @@ _VALID_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {"hunt_languages": ["en"]},
+    "filters": {"hunt_languages": ["en"], "experience_levels": ["associate", "mid", "senior"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic"},
 }
@@ -552,9 +552,9 @@ _ONBOARDING_BASE_CONFIG = {
 }
 
 
-def test_apply_onboarding_prefs_updates_titles_stage_and_primary_region() -> None:
+def test_apply_onboarding_prefs_updates_titles_experience_levels_and_primary_region() -> None:
     prefs = {
-        "career_stage": "leadership",
+        "experience_levels": ["lead", "director"],
         "job_titles": ["Director of Product"],
         "country": "us",
         "location": "New York",
@@ -563,7 +563,7 @@ def test_apply_onboarding_prefs_updates_titles_stage_and_primary_region() -> Non
 
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
-    assert merged["career_stage"] == "leadership"
+    assert merged["filters"]["experience_levels"] == ["lead", "director"]
     assert merged["job_titles"] == ["Director of Product"]
     assert merged["regions"]["primary"]["country"] == "US"
     assert merged["regions"]["primary"]["scope"] == "city"
@@ -704,7 +704,12 @@ _FULL_CONFIG = {
     },
     "job_titles": ["Product Manager", "Staff PM"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin", "primary": True}},
-    "filters": {"excluded_companies": ["Acme"], "excluded_titles": ["intern"], "hunt_languages": ["en"]},
+    "filters": {
+        "excluded_companies": ["Acme"],
+        "excluded_titles": ["intern"],
+        "hunt_languages": ["en"],
+        "experience_levels": ["associate", "mid", "senior"],
+    },
     "scoring": {
         "min_fit_score": 70,
         "max_years_experience_required": 10,

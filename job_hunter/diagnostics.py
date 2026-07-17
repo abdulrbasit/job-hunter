@@ -33,12 +33,16 @@ def _check_countries_resource() -> str:
 
 def _check_filters_resource() -> str:
     from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
+    from job_hunter.core.experience import load_experience_levels
     from job_hunter.filters.catalog import load_filter_catalog
 
     filters = load_filter_catalog()
-    if not filters.career_stages:
-        raise ValueError("no career stages loaded")
-    return f"{len(filters.career_stages)} career stages, {len(LANG_CODE_TO_NAME)} languages"
+    if not filters.industries:
+        raise ValueError("no industries loaded")
+    levels = load_experience_levels()
+    if not levels:
+        raise ValueError("no experience levels loaded")
+    return f"{len(filters.industries)} industries, {len(levels)} experience levels, {len(LANG_CODE_TO_NAME)} languages"
 
 
 def _check_catalog_resource() -> str:

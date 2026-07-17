@@ -2,7 +2,7 @@
 
 Reuses job_hunter.ux.health's lower-level checks (resume/career-context-filled,
 region, API key) rather than duplicating them; adds the checks health.py doesn't
-have yet (job_titles, career_stage). Deliberately separate from health.onboarding_status,
+have yet (job_titles, experience_levels). Deliberately separate from health.onboarding_status,
 which drives the pre-existing doctor/dashboard checklist and classifies story_bank as
 blocking — this flow follows the spec's "stories improve quality but never block" rule.
 """
@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.core.utils import read_yaml
+from job_hunter.filters import filter_values
 from job_hunter.ux.health import (
     _api_key_configured,
     _career_context_filled,
@@ -22,8 +23,6 @@ from job_hunter.ux.health import (
     _resume_filled,
     _workflow_schedule_configured,
 )
-
-_VALID_CAREER_STAGES = frozenset({"student", "early_career", "experienced", "leadership", "custom"})
 
 
 def get_readiness(root: Path) -> dict[str, Any]:
@@ -39,7 +38,7 @@ def get_readiness(root: Path) -> dict[str, Any]:
 
     blocking = {
         "job_titles": bool(config.get("job_titles")),
-        "career_stage": str(config.get("career_stage") or "custom") in _VALID_CAREER_STAGES,
+        "experience_levels": bool(filter_values(config, "experience_levels")),
         "region": _has_enabled_region(config),
         "career_context": career_path.exists() and _career_context_filled(career_path),
         "base_resume": resume_path.exists() and _resume_filled(resume_path),

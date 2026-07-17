@@ -59,23 +59,22 @@ If yes, repeat city → code → language for each. Use the city name (lowercase
 
 ---
 
-## Step 3 — Career Stage
+## Step 3 — Experience Levels
 
 Ask:
 
-> What career stage are you at? This ranks matching titles higher and auto-excludes
-> mismatched seniority (e.g. student stage won't show you Director roles) — on top of
-> whatever you set in the next step.
+> Which experience level(s) are you targeting? Postings are screened deterministically:
+> if the required experience stated in a listing (years or seniority title) doesn't
+> overlap any level you pick, it's excluded automatically — on top of whatever you set
+> in the next step.
 >
-> 1. **Student** — internships, working student, apprenticeships, graduate programs
-> 2. **Early career** — junior, associate, graduate, entry-level roles
-> 3. **Experienced** — no seniority preference (default)
-> 4. **Leadership** — lead, head of, director, VP, chief roles
-> 5. **Custom** — no automatic ranking/exclusion; only your own exclusions below apply
+> Levels: student_intern, student_working_student, student_thesis, entry, junior,
+> associate, mid, senior, lead, staff, principal, expert, manager, director, vp, c_level
 >
-> Reply with a number, or press Enter for Experienced.
+> Reply with one or more level ids (comma-separated), or press Enter for
+> `associate, mid, senior`.
 
-Set `career_stage` to `student`, `early_career`, `experienced`, `leadership`, or `custom`.
+Set `filters.experience_levels` to the chosen list of level ids.
 
 ---
 
@@ -94,8 +93,9 @@ Companies to skip:    [actual companies, or "(none)"]
 Industries to skip:   [actual industries, or "(none)"]
 ```
 
-These are on top of the career-stage exclusions from Step 3 — a student-stage user
-does not need "junior" or "working student" here; that's already handled by career_stage.
+These are on top of the experience-level screening from Step 3 — a posting requiring
+10+ years is already excluded if you only selected entry/junior levels; you don't
+need to add "senior" here separately.
 
 Ask:
 
@@ -116,7 +116,7 @@ Quick settings — press Enter to keep defaults or type changes:
 Resume layout:               double column  (alt: single column)
 Profile photo:               none           (provide filename if you have one in profile/)
 Min fit score:               70 / 100
-Max years experience req'd:  (auto, from your career stage — leave blank, or enter a number to override)
+Max years experience req'd:  (auto, from your selected experience levels — leave blank, or enter a number to override)
 Batch size:                  15
 ```
 

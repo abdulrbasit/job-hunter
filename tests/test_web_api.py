@@ -220,7 +220,7 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
 
     result = api.save_onboarding_preferences(
         {
-            "career_stage": "early_career",
+            "experience_levels": ["entry", "junior"],
             "job_titles": ["Associate PM"],
             "country": "de",
             "location": "Munich",
@@ -231,7 +231,7 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     on_disk = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
-    assert on_disk["career_stage"] == "early_career"
+    assert on_disk["filters"]["experience_levels"] == ["entry", "junior"]
     assert on_disk["job_titles"] == ["Associate PM"]
     assert on_disk["regions"]["primary"]["country"] == "DE"
     assert on_disk["regions"]["primary"]["scope"] == "city"
@@ -1291,7 +1291,7 @@ _SETTINGS_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {"hunt_languages": ["en"]},
+    "filters": {"hunt_languages": ["en"], "experience_levels": ["associate", "mid", "senior"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic", "providers": {"scoring": "anthropic"}},
 }
@@ -1560,7 +1560,7 @@ def test_dashboard_contains_search_setup_and_chatbot_import_sections() -> None:
 
     assert 'id="gs-section-search-setup"' in html
     assert 'id="gs-search-mode"' in html
-    assert 'id="gs-career-stage"' in html
+    assert 'id="gs-experience-levels"' in html
     assert 'id="gs-search-job-titles"' in html
     assert 'id="gs-search-country"' in html
     assert 'id="gs-search-location"' in html
@@ -1872,9 +1872,11 @@ def test_get_filter_options_uses_package_taxonomies() -> None:
         "excluded_titles",
         "excluded_industries",
         "hunt_languages",
+        "experience_levels",
     }
     assert any(item["id"] == "aerospace_defense" for item in result["industries"])
     assert any(item == {"code": "en", "name": "English"} for item in result["languages"])
+    assert any(item["id"] == "senior" for item in result["experience_levels"])
 
 
 def _seed_catalog(root: Path) -> None:

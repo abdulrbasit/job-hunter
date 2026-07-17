@@ -139,14 +139,6 @@ class FilterType(BaseModel):
     taxonomy: str = ""
 
 
-class CareerStage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    prefer: list[str] = Field(default_factory=list)
-    exclude: list[str] = Field(default_factory=list)
-    max_years_experience: int | None = None
-
-
 class Industry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -161,9 +153,28 @@ class FilterCatalog(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: int
-    career_stages: dict[str, CareerStage]
     employment_types: list[str]
     industries: list[Industry]
+
+
+class ExperienceLevel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    track: Literal["student", "ic", "management"]
+    min_years: int
+    max_years: int | None = None
+    keywords: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ExperienceLevelCatalog(BaseModel):
+    """Typed package-owned taxonomy of experience levels backing filters.experience_levels."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: int
+    levels: list[ExperienceLevel]
 
 
 class SearchParams(BaseModel):

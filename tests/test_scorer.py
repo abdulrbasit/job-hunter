@@ -296,3 +296,36 @@ def test_filter_bypass_years_by_company(company, expected_count) -> None:
     with patch.object(scorer, "score", return_value=_score_result(82, years=8, company=company)):
         matches = scorer.score_and_filter_jobs([job], config=_BYPASS_CONFIG)
     assert len(matches) == expected_count
+
+
+_LEVELS_DERIVED_BYPASS_CONFIG = {
+    "filters": {"experience_levels": ["entry", "junior"]},  # derives max_years=2, no explicit override
+    "scoring": {
+        "min_fit_score": 80,
+        "strategic_overrides": [
+            {
+                "company": "Infineon",
+                "reason": "strategic",
+                "min_score_override": 75,
+                "bypass_max_years_experience": True,
+            },
+        ],
+    },
+}
+
+
+def test_bypass_still_works_when_max_years_is_derived_from_experience_levels() -> None:
+    """The bypass mechanism itself is unchanged, but its max_years input now comes
+    from filters.experience_levels instead of the retired career_stage — confirm the
+    two integrate correctly (no explicit scoring.max_years_experience_required here)."""
+    job = {**JOB, "company": "Infineon Technologies"}
+    with patch.object(scorer, "score", return_value=_score_result(82, years=8, company="Infineon Technologies")):
+        matches = scorer.score_and_filter_jobs([job], config=_LEVELS_DERIVED_BYPASS_CONFIG)
+    assert len(matches) == 1
+
+
+def test_years_cap_derived_from_experience_levels_applies_without_bypass() -> None:
+    job = {**JOB, "company": "Some Other Co"}
+    with patch.object(scorer, "score", return_value=_score_result(82, years=8, company="Some Other Co")):
+        matches = scorer.score_and_filter_jobs([job], config=_LEVELS_DERIVED_BYPASS_CONFIG)
+    assert len(matches) == 0

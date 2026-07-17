@@ -10,7 +10,7 @@ from typing import Any
 from job_hunter.agent_context._utils import _root
 from job_hunter.agent_context.candidates import _job_hunter_config_for, _title_key
 from job_hunter.constants import DEFAULT_BATCH_SIZE
-from job_hunter.sources.policy import JobPolicy
+from job_hunter.sources.policy import JobPolicy, format_experience_reason_detail
 
 
 def build_candidate_batch(
@@ -95,6 +95,9 @@ def screen_candidate_batch(
         if "incompatible_location_metadata" not in reasons and policy.has_wrong_location(candidate, region_config):
             reasons.append("wrong_location")
         description = str(candidate.get("full_job_description") or snippet)
+        experience_excluded, experience_detail, experience_unknown = policy.experience_screen(title, description)
+        if experience_excluded:
+            reasons.append("experience_out_of_range")
         if policy.language_screen(title, description)[0]:
             reasons.append("language_not_hunted")
         if policy.is_location_restricted(title, snippet):
@@ -113,10 +116,13 @@ def screen_candidate_batch(
             "reasons": reasons,
         }
         if reasons:
+            if experience_excluded and experience_detail:
+                row["reason_detail"] = format_experience_reason_detail(experience_detail)
             skipped.append(row)
         else:
             row["judgment_signals"] = {
                 "industry_terms": [term for term in excluded_industries if term in snippet.lower()],
+                "experience_unknown": experience_unknown,
             }
             retained.append(row)
 

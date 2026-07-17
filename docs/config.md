@@ -83,6 +83,7 @@ matching modes, normalization, and taxonomy expansion are package-owned in
 ```yaml
 filters:
   hunt_languages: [en, de]
+  experience_levels: [associate, mid, senior]
   excluded_titles: [intern, trainee]
   excluded_companies: ["Recruiter Corp"]
   excluded_industries: [aerospace_defense]
@@ -94,9 +95,23 @@ offline, statistical (`job_hunter/core/language.py`) — and excludes it
 (`language_not_hunted`) if the detection is confident and the code isn't in
 `hunt_languages`; low-confidence detections fail open and are flagged
 `language_uncertain` rather than excluded. There's no manual per-language keyword list
-to maintain. `excluded_industries` contains IDs from the bundled industry taxonomy.
-Dashboard controls read both taxonomies from package resources. New package options
-become selectable without changing existing user config. Legacy `{description,
+to maintain.
+
+`experience_levels` is an allowlist of package-owned level IDs (at least one required;
+see `job_hunter/catalog/experience_levels.json` for the full taxonomy — 16 levels from
+`student_intern` through `c_level`, each with a min/max years range and EN+DE title
+keywords); there's no separate `excluded_experience_levels` list. Screening extracts
+each posting's required-experience range — offline, deterministic, regex + title
+keywords (`job_hunter/core/experience.py`) — and excludes it
+(`experience_out_of_range`) if the detected range has no overlap with your selected
+levels' combined range; low-confidence/no-signal postings fail open and are flagged
+`experience_unknown` for scoring to judge instead. This replaces the retired
+`career_stage` key; `job-hunter doctor` migrates an existing `career_stage` value into
+an equivalent `experience_levels` selection once.
+
+`excluded_industries` contains IDs from the bundled industry taxonomy.
+Dashboard controls read all three taxonomies from package resources. New package
+options become selectable without changing existing user config. Legacy `{description,
 entries}` groups load in memory for compatibility, but explicit saves write scalar
 lists.
 
@@ -141,6 +156,12 @@ and gating rules.
 | `batch_size` | yes | Agent mode: candidates frozen per `/job-hunter batch`. LLM API mode: top-scored matches tailored per run |
 | `max_years_experience_required` | no | Skip listings requiring more years than this |
 | `strategic_overrides` | no | Per-company score/experience overrides (see below) |
+
+`max_years_experience_required` defaults to the max of your selected
+`filters.experience_levels`' ranges when unset — it's now an explicit *override* of
+that derived cap (previously it overrode the retired `career_stage`'s cap), not a
+primary setting. Prefer adjusting `experience_levels` first; set this only to
+override the derived default for a specific need.
 
 `strategic_overrides` is an array of objects, each requiring `company` and
 allowing `min_score_override`, `bypass_max_years_experience`, and `reason`

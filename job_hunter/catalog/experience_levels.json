@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "levels": [
+    {
+      "id": "student_intern",
+      "label": "Student / Intern",
+      "track": "student",
+      "min_years": 0,
+      "max_years": 0,
+      "keywords": {
+        "en": ["intern", "internship", "co-op"],
+        "de": ["praktikum", "praktikant", "praktikantin"]
+      }
+    },
+    {
+      "id": "student_working_student",
+      "label": "Working Student",
+      "track": "student",
+      "min_years": 0,
+      "max_years": 0,
+      "keywords": {
+        "en": ["working student"],
+        "de": ["werkstudent", "werkstudentin"]
+      }
+    },
+    {
+      "id": "student_thesis",
+      "label": "Thesis Student",
+      "track": "student",
+      "min_years": 0,
+      "max_years": 0,
+      "keywords": {
+        "en": ["thesis", "capstone project"],
+        "de": ["abschlussarbeit", "bachelorarbeit", "masterarbeit", "diplomarbeit"]
+      }
+    },
+    {
+      "id": "entry",
+      "label": "Entry Level",
+      "track": "ic",
+      "min_years": 0,
+      "max_years": 1,
+      "keywords": {
+        "en": ["entry level", "entry-level", "new grad", "graduate program"],
+        "de": ["berufseinsteiger", "berufseinstieg"]
+      }
+    },
+    {
+      "id": "junior",
+      "label": "Junior",
+      "track": "ic",
+      "min_years": 0,
+      "max_years": 2,
+      "keywords": {
+        "en": ["junior", "jr."],
+        "de": ["junior"]
+      }
+    },
+    {
+      "id": "associate",
+      "label": "Associate",
+      "track": "ic",
+      "min_years": 1,
+      "max_years": 3,
+      "keywords": {
+        "en": ["associate"],
+        "de": []
+      }
+    },
+    {
+      "id": "mid",
+      "label": "Mid-Level",
+      "track": "ic",
+      "min_years": 3,
+      "max_years": 6,
+      "keywords": {
+        "en": [],
+        "de": []
+      }
+    },
+    {
+      "id": "senior",
+      "label": "Senior",
+      "track": "ic",
+      "min_years": 5,
+      "max_years": 9,
+      "keywords": {
+        "en": ["senior", "sr."],
+        "de": ["senior"]
+      }
+    },
+    {
+      "id": "lead",
+      "label": "Lead",
+      "track": "ic",
+      "min_years": 7,
+      "max_years": 12,
+      "keywords": {
+        "en": ["tech lead", "team lead"],
+        "de": ["teamleitung", "teamleiter"]
+      }
+    },
+    {
+      "id": "staff",
+      "label": "Staff",
+      "track": "ic",
+      "min_years": 7,
+      "max_years": 12,
+      "keywords": {
+        "en": ["staff"],
+        "de": []
+      }
+    },
+    {
+      "id": "principal",
+      "label": "Principal",
+      "track": "ic",
+      "min_years": 10,
+      "max_years": null,
+      "keywords": {
+        "en": ["principal"],
+        "de": ["principal"]
+      }
+    },
+    {
+      "id": "expert",
+      "label": "Expert",
+      "track": "ic",
+      "min_years": 10,
+      "max_years": null,
+      "keywords": {
+        "en": [],
+        "de": []
+      }
+    },
+    {
+      "id": "manager",
+      "label": "Manager",
+      "track": "management",
+      "min_years": 5,
+      "max_years": 10,
+      "keywords": {
+        "en": ["engineering manager", "people manager", "line manager"],
+        "de": ["führungskraft"]
+      }
+    },
+    {
+      "id": "director",
+      "label": "Director",
+      "track": "management",
+      "min_years": 10,
+      "max_years": null,
+      "keywords": {
+        "en": ["director", "head of"],
+        "de": ["direktor", "direktorin", "abteilungsleitung"]
+      }
+    },
+    {
+      "id": "vp",
+      "label": "VP",
+      "track": "management",
+      "min_years": 12,
+      "max_years": null,
+      "keywords": {
+        "en": ["vp", "vice president"],
+        "de": ["vizepräsident", "vizepräsidentin"]
+      }
+    },
+    {
+      "id": "c_level",
+      "label": "C-Level",
+      "track": "management",
+      "min_years": 15,
+      "max_years": null,
+      "keywords": {
+        "en": ["chief", "ceo", "cto", "cfo", "coo"],
+        "de": ["geschäftsführer", "geschäftsführerin", "geschäftsführung", "vorstand"]
+      }
+    }
+  ]
+}

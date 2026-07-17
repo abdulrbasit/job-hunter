@@ -14,8 +14,9 @@ from importlib import resources
 
 from pydantic import BaseModel, ConfigDict
 
+from job_hunter.core.experience import ExperienceLevel, load_experience_levels
 from job_hunter.filters.catalog import load_filter_catalog
-from job_hunter.models import CareerStage, FilterCatalog
+from job_hunter.models import FilterCatalog
 
 
 class CountryEntry(BaseModel):
@@ -52,50 +53,49 @@ def country_codes() -> set[str]:
     return {c.code for c in load_countries()}
 
 
-def career_stage_names() -> list[str]:
-    return list(load_filters().career_stages.keys())
+def experience_level_names() -> list[str]:
+    return [level.id for level in load_experience_levels()]
 
 
-def career_stage(name: str) -> CareerStage:
-    stages = load_filters().career_stages
-    return stages.get(name, stages["custom"])
+def experience_level(level_id: str) -> ExperienceLevel | None:
+    return next((level for level in load_experience_levels() if level.id == level_id), None)
 
 
-# Legacy default used before career_stage existed; "custom" preserves it exactly.
-_LEGACY_MAX_YEARS_FALLBACK = 4
-
-# "leadership" has no cap; validation/scoring compare `years > max_years` with a
-# plain int, so "no cap" is a sentinel rather than None (avoids an Optional
-# refactor across job_hunter/pipeline/stages/validation.py and scoring.py).
+# Screening/scoring compare `years > max_years` with a plain int, so "no cap" is a
+# sentinel rather than None (avoids an Optional refactor across scoring.py).
 _NO_CAP_SENTINEL = 999
 
 
-def resolve_title_exclusions(config: dict) -> list[str]:
-    """User filter terms unioned with active career_stage's reviewed hard excludes."""
+def resolve_experience_range(config: dict) -> tuple[int, int | None]:
+    """Union of the user's selected experience_levels' [min_years, max_years].
+
+    An empty/unset selection is a defensive no-op fallback (real saved configs always
+    have at least one level per the schema) rather than a second competing default.
+    """
     from job_hunter.filters import filter_values
 
-    user_terms = filter_values(config, "excluded_titles")
-    stage_terms = career_stage(str(config.get("career_stage") or "custom")).exclude
-    return list(dict.fromkeys([*user_terms, *stage_terms]))
+    selected = filter_values(config, "experience_levels") or experience_level_names()
+    levels = [level for level in (experience_level(level_id) for level_id in selected) if level is not None]
+    if not levels:
+        return 0, None
+    min_years = min(level.min_years for level in levels)
+    if any(level.max_years is None for level in levels):
+        return min_years, None
+    return min_years, max(level.max_years for level in levels)  # type: ignore[type-var]
 
 
 def resolve_max_years_experience(config: dict) -> int:
-    """Explicit scoring.max_years_experience_required wins; else the career_stage default; else the legacy fallback."""
+    """Explicit scoring.max_years_experience_required wins; else the experience_levels-derived max."""
     scoring = config.get("scoring", {}) or {}
     explicit = scoring.get("max_years_experience_required")
     if explicit is not None:
         return int(explicit)
-    stage_name = str(config.get("career_stage") or "custom")
-    if stage_name == "custom":
-        return _LEGACY_MAX_YEARS_FALLBACK
-    stage_default = career_stage(stage_name).max_years_experience
-    return int(stage_default) if stage_default is not None else _NO_CAP_SENTINEL
+    _, max_years = resolve_experience_range(config)
+    return int(max_years) if max_years is not None else _NO_CAP_SENTINEL
 
 
-def preferred_title_terms(config: dict) -> list[str]:
-    """Career-stage terms that should rank a job higher — soft signal, never mandatory.
+def resolve_title_exclusions(config: dict) -> list[str]:
+    """User's own excluded_titles filter."""
+    from job_hunter.filters import filter_values
 
-    ponytail: not yet wired into a ranking/sort call site — there's no results list
-    to rank against until the Phase 4 Candidates UI exists. Upgrade trigger: Phase 4.
-    """
-    return list(career_stage(str(config.get("career_stage") or "custom")).prefer)
+    return list(filter_values(config, "excluded_titles"))

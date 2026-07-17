@@ -208,3 +208,42 @@ def migrate_career_pages(root: Path) -> MigrationResult:  # noqa: C901
         store.set_enabled_by_catalog_ids(root, enabled_ids, True)
 
     return MigrationResult(True, "Migrated config/career_pages.yml into config/job_hunter.yml and the companies store.")
+
+
+_CAREER_STAGE_TO_LEVELS: dict[str, list[str]] = {
+    "student": ["student_intern", "student_working_student", "student_thesis", "entry"],
+    "early_career": ["entry", "junior"],
+    "experienced": ["associate", "mid", "senior"],
+    "leadership": ["lead", "staff", "principal", "manager", "director", "vp", "c_level"],
+    # "custom" and any unrecognized value fall through to every level below — the
+    # clean equivalence for "no automatic exclusion" while still satisfying the
+    # schema's minItems: 1 on filters.experience_levels.
+}
+
+
+def migrate_career_stage(root: Path) -> MigrationResult:
+    """Retire the removed career_stage key: fold it into filters.experience_levels once."""
+    path = root / "config" / "job_hunter.yml"
+    if not path.exists():
+        return MigrationResult(False)
+    original = path.read_bytes()
+    data = yaml.safe_load(original) or {}
+    if not isinstance(data, dict) or "career_stage" not in data:
+        return MigrationResult(False)
+
+    from job_hunter.core.experience import load_experience_levels
+
+    stage_name = str(data.get("career_stage") or "custom")
+    all_ids = [level.id for level in load_experience_levels()]
+    mapped = _CAREER_STAGE_TO_LEVELS.get(stage_name, all_ids)
+
+    filters = data.setdefault("filters", {})
+    filters["experience_levels"] = _merge_values(filters.get("experience_levels", []) or [], mapped)
+    data.pop("career_stage", None)
+
+    backup = root / "outputs" / "state" / "config_backups" / "pre_experience_levels_job_hunter.yml.bak"
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    if not backup.exists():
+        _atomic_write(backup, original.decode("utf-8"))
+    _atomic_write(path, yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+    return MigrationResult(True, "Migrated career_stage into filters.experience_levels.")

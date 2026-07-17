@@ -259,7 +259,6 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "profile_image": profile.get("profile_image", ""),
         },
         "job_titles": list(data.get("job_titles") or []),
-        "career_stage": data.get("career_stage", "custom"),
         "regions": deepcopy(data.get("regions") or {}),
         "filters": deepcopy(filters),
         "scoring": {
@@ -315,17 +314,17 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     merged["mode"] = form.get("mode") or merged.get("mode", "agent")
     merged["profile"] = _apply_form_profile(merged.get("profile") or {}, form.get("profile") or {})
     merged["job_titles"] = [str(t).strip() for t in (form.get("job_titles") or []) if str(t).strip()]
-    # Only write career_stage back if it actually changed — config_to_form() projects
-    # a "custom" default for display even when the key is absent, and a form round-trip
-    # of an unchanged value must not introduce a key that wasn't in the original YAML.
-    if "career_stage" in form and form["career_stage"] != merged.get("career_stage", "custom"):
-        merged["career_stage"] = form["career_stage"]
     merged["regions"] = form.get("regions") or {}
 
     merged["filters"] = deepcopy(form.get("filters") or {})
     if not merged["filters"].get("hunt_languages"):
         merged["filters"]["hunt_languages"] = ["en"]
+    if not merged["filters"].get("experience_levels"):
+        from job_hunter.config.reference_data import experience_level_names
+
+        merged["filters"]["experience_levels"] = experience_level_names()
     merged.pop("exclusions", None)
+    merged.pop("career_stage", None)
     merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
 
     llm = dict(merged.get("llm") or {})
@@ -339,15 +338,13 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
 def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[str, Any]:
     """Apply the compact Get-Started search-setup fields onto existing job_hunter.yml data.
 
-    Touches only mode, career_stage, job_titles, the "primary" region, and
+    Touches only mode, experience_levels, job_titles, the "primary" region, and
     excluded-industry filter — leaves scoring, llm, other regions, and other
     filter groups untouched.
     """
     merged = deepcopy(data)
     if prefs.get("mode"):
         merged["mode"] = prefs["mode"]
-    if prefs.get("career_stage"):
-        merged["career_stage"] = prefs["career_stage"]
     merged["job_titles"] = [str(t).strip() for t in (prefs.get("job_titles") or []) if str(t).strip()]
 
     regions = dict(merged.get("regions") or {})
@@ -374,6 +371,9 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     industries = [str(i).strip() for i in (prefs.get("excluded_industries") or []) if str(i).strip()]
     filters = dict(merged.get("filters") or {})
     filters["excluded_industries"] = industries
+    experience_levels = [str(v).strip() for v in (prefs.get("experience_levels") or []) if str(v).strip()]
+    if experience_levels:
+        filters["experience_levels"] = experience_levels
     merged["filters"] = filters
 
     return merged

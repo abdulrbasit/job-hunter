@@ -1,17 +1,16 @@
-"""Tests for job_hunter/config/reference_data.py — countries.json, filters.json, career_stage resolution."""
+"""Tests for job_hunter/config/reference_data.py — countries.json, filters.json, experience-level resolution."""
 
 from __future__ import annotations
 
 from job_hunter.config.reference_data import (
-    career_stage,
-    career_stage_names,
     country_codes,
+    experience_level,
+    experience_level_names,
     load_countries,
-    preferred_title_terms,
+    resolve_experience_range,
     resolve_max_years_experience,
     resolve_title_exclusions,
 )
-from job_hunter.core.utils import has_excluded_title_term
 
 # ---------------------------------------------------------------------------
 # Catalog loading — Phase 1 gate: all 249 countries load
@@ -42,147 +41,76 @@ def test_known_countries_present_with_reviewed_languages() -> None:
     assert "de" in germany.reviewed_languages
 
 
-def test_filters_expose_all_five_career_stages() -> None:
-    assert set(career_stage_names()) == {"student", "early_career", "experienced", "leadership", "custom"}
+def test_filters_expose_sixteen_experience_levels() -> None:
+    assert len(experience_level_names()) == 16
+    assert "senior" in experience_level_names()
+    assert "student_intern" in experience_level_names()
 
 
 # ---------------------------------------------------------------------------
-# career_stage backward compatibility (custom / missing key)
+# resolve_title_exclusions — user's own excluded_titles only
 # ---------------------------------------------------------------------------
 
 
-def test_missing_career_stage_key_resolves_to_custom_and_preserves_user_terms() -> None:
-    config = {"exclusions": {"title_terms": ["marketing"]}}
+def test_resolve_title_exclusions_returns_user_terms_only() -> None:
+    config = {"filters": {"excluded_titles": ["marketing", "sales"]}}
 
-    assert resolve_title_exclusions(config) == ["marketing"]
-
-
-def test_custom_career_stage_disables_system_exclusions() -> None:
-    config = {"career_stage": "custom", "exclusions": {"title_terms": ["sales"]}}
-
-    assert resolve_title_exclusions(config) == ["sales"]
+    assert resolve_title_exclusions(config) == ["marketing", "sales"]
 
 
-def test_custom_career_stage_preserves_legacy_max_years_fallback() -> None:
-    config = {"career_stage": "custom", "scoring": {}}
-
-    assert resolve_max_years_experience(config) == 4
-
-
-def test_missing_scoring_section_preserves_legacy_fallback() -> None:
-    assert resolve_max_years_experience({}) == 4
+def test_resolve_title_exclusions_empty_when_unset() -> None:
+    assert resolve_title_exclusions({}) == []
 
 
 # ---------------------------------------------------------------------------
-# Hard-filter exclusions per stage
+# resolve_experience_range / resolve_max_years_experience
 # ---------------------------------------------------------------------------
 
 
-def test_student_stage_excludes_senior_titles() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "student", "exclusions": {"title_terms": []}})
+def test_resolve_experience_range_unions_selected_levels() -> None:
+    config = {"filters": {"experience_levels": ["associate", "mid", "senior"]}}
 
-    assert has_excluded_title_term("Senior Product Manager", excluded)
-    assert not has_excluded_title_term("Junior Product Manager", excluded)
-
-
-def test_experienced_stage_excludes_internship_and_junior_titles() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "experienced", "exclusions": {}})
-
-    assert has_excluded_title_term("Marketing Internship", excluded)
-    assert has_excluded_title_term("Junior Analyst", excluded)
-    assert not has_excluded_title_term("Senior Analyst", excluded)
+    assert resolve_experience_range(config) == (1, 9)
 
 
-def test_leadership_stage_excludes_early_career_titles() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "leadership", "exclusions": {}})
+def test_resolve_experience_range_uncapped_when_any_level_is_uncapped() -> None:
+    config = {"filters": {"experience_levels": ["senior", "principal"]}}
 
-    assert has_excluded_title_term("Graduate Software Engineer", excluded)
-    assert not has_excluded_title_term("Director of Engineering", excluded)
-
-
-def test_user_title_terms_are_additive_with_stage_excludes() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "student", "exclusions": {"title_terms": ["sales"]}})
-
-    assert "sales" in excluded
-    assert "senior" in excluded
+    assert resolve_experience_range(config) == (5, None)
 
 
-def test_stage_and_user_excludes_are_deduped() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "student", "exclusions": {"title_terms": ["senior"]}})
+def test_resolve_experience_range_defaults_to_all_levels_when_unset() -> None:
+    min_years, max_years = resolve_experience_range({})
 
-    assert excluded.count("senior") == 1
-
-
-# ---------------------------------------------------------------------------
-# Word-boundary false-positive protection (existing has_excluded_title_term)
-# ---------------------------------------------------------------------------
+    assert min_years == 0
+    assert max_years is None
 
 
-def test_student_exclude_does_not_match_substring_false_positive() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "student", "exclusions": {}})
+def test_resolve_max_years_experience_derives_from_selected_levels() -> None:
+    config = {"filters": {"experience_levels": ["entry", "junior"]}}
 
-    # "lead" is excluded for students, but must not match "Team Leadgen" or "Leader" style substrings.
-    assert not has_excluded_title_term("Leadgen Specialist Intern", excluded)
-
-
-def test_experienced_exclude_does_not_match_partial_word() -> None:
-    excluded = resolve_title_exclusions({"career_stage": "experienced", "exclusions": {}})
-
-    # "intern" is excluded, but must not match "International" as a substring.
-    assert not has_excluded_title_term("International Sales Manager", excluded)
+    assert resolve_max_years_experience(config) == 2
 
 
-# ---------------------------------------------------------------------------
-# Default experience caps
-# ---------------------------------------------------------------------------
+def test_resolve_max_years_experience_uncapped_returns_sentinel() -> None:
+    config = {"filters": {"experience_levels": ["director"]}}
+
+    assert resolve_max_years_experience(config) == 999
 
 
-def test_student_default_max_years_is_one() -> None:
-    assert resolve_max_years_experience({"career_stage": "student"}) == 1
-
-
-def test_early_career_default_max_years_is_three() -> None:
-    assert resolve_max_years_experience({"career_stage": "early_career"}) == 3
-
-
-def test_experienced_default_max_years_is_eight() -> None:
-    assert resolve_max_years_experience({"career_stage": "experienced"}) == 8
-
-
-def test_leadership_has_no_years_cap() -> None:
-    assert resolve_max_years_experience({"career_stage": "leadership"}) >= 999
-
-
-def test_explicit_max_years_override_wins_over_career_stage() -> None:
-    config = {"career_stage": "student", "scoring": {"max_years_experience_required": 12}}
+def test_explicit_max_years_override_wins_over_experience_levels() -> None:
+    config = {"filters": {"experience_levels": ["entry", "junior"]}, "scoring": {"max_years_experience_required": 12}}
 
     assert resolve_max_years_experience(config) == 12
 
 
-# ---------------------------------------------------------------------------
-# Positive ranking (preferred signals — soft, never mandatory)
-# ---------------------------------------------------------------------------
+def test_experience_level_unknown_id_returns_none() -> None:
+    assert experience_level("not-a-real-level") is None
 
 
-def test_student_preferred_terms_include_internship_signals() -> None:
-    prefer = preferred_title_terms({"career_stage": "student"})
+def test_experience_level_known_id_returns_level() -> None:
+    level = experience_level("senior")
 
-    assert "internship" in prefer
-    assert "working student" in prefer
-
-
-def test_leadership_preferred_terms_include_director_signals() -> None:
-    prefer = preferred_title_terms({"career_stage": "leadership"})
-
-    assert "director" in prefer
-
-
-def test_custom_stage_has_no_preferred_terms() -> None:
-    assert preferred_title_terms({"career_stage": "custom"}) == []
-
-
-def test_career_stage_unknown_name_falls_back_to_custom() -> None:
-    stage = career_stage("not-a-real-stage")
-
-    assert stage.exclude == []
-    assert stage.prefer == []
+    assert level is not None
+    assert level.min_years == 5
+    assert level.max_years == 9

@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Any
 
 from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
+from job_hunter.core.experience import load_experience_levels
 from job_hunter.core.utils import normalize_company_name
 from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.models import FilterMatchMode, FilterType
@@ -36,6 +37,13 @@ FILTER_TYPES: dict[str, FilterType] = {
         description="ISO language codes allowed during hunts",
         mode=FilterMatchMode.EXACT,
         taxonomy="languages",
+    ),
+    "experience_levels": FilterType(
+        name="experience_levels",
+        description="Experience levels you're targeting — postings whose required-experience "
+        "range doesn't overlap any selected level are excluded",
+        mode=FilterMatchMode.EXACT,
+        taxonomy="experience_levels",
     ),
 }
 
@@ -92,11 +100,15 @@ def validate_filter_choices(config: dict[str, Any]) -> list[str]:
     valid_industries = {industry.id for industry in load_filter_catalog().industries}
     invalid_industries = sorted(set(filters.get("excluded_industries", [])) - valid_industries)
     invalid_languages = sorted(set(filters.get("hunt_languages", [])) - set(LANG_CODE_TO_NAME))
+    valid_levels = {level.id for level in load_experience_levels()}
+    invalid_levels = sorted(set(filters.get("experience_levels", [])) - valid_levels)
     errors: list[str] = []
     if invalid_industries:
         errors.append(f"filters.excluded_industries contains unknown package IDs: {', '.join(invalid_industries)}")
     if invalid_languages:
         errors.append(f"filters.hunt_languages contains unknown ISO codes: {', '.join(invalid_languages)}")
+    if invalid_levels:
+        errors.append(f"filters.experience_levels contains unknown package IDs: {', '.join(invalid_levels)}")
     return errors
 
 
@@ -111,6 +123,16 @@ def filter_options() -> dict[str, Any]:
         "types": [definition.model_dump(mode="json") for definition in FILTER_TYPES.values()],
         "industries": [{"id": industry.id, "label": industry.label} for industry in load_filter_catalog().industries],
         "languages": languages,
+        "experience_levels": [
+            {
+                "id": level.id,
+                "label": level.label,
+                "track": level.track,
+                "min_years": level.min_years,
+                "max_years": level.max_years,
+            }
+            for level in load_experience_levels()
+        ],
     }
 
 

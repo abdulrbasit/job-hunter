@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from job_hunter.config.reference_data import resolve_title_exclusions
+from job_hunter.config.reference_data import resolve_experience_range, resolve_title_exclusions
 from job_hunter.core.builtin_filters import (
     CONTRACT_PHRASES,
     EXCLUDED_LISTING_URL_PATTERNS,
@@ -19,6 +19,7 @@ from job_hunter.core.builtin_filters import (
     STALE_INDICATORS,
     US_ONLY_PHRASES,
 )
+from job_hunter.core.experience import detect_experience
 from job_hunter.core.language import detect_language
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.filters import FilterSet
@@ -210,6 +211,24 @@ def _looks_like_remote_city_region(region_config: dict) -> bool:
 
 
 @dataclass(frozen=True)
+class ExperienceScreenDetail:
+    detected_level_id: str | None
+    detected_min: int | None
+    detected_max: int | None
+    user_min: int
+    user_max: int | None
+
+
+def format_experience_reason_detail(detail: ExperienceScreenDetail) -> str:
+    def fmt(lo: int | None, hi: int | None) -> str:
+        return f"{lo or 0}+y" if hi is None else f"{lo or 0}-{hi}y"
+
+    return (
+        f"requires {fmt(detail.detected_min, detail.detected_max)}, your range {fmt(detail.user_min, detail.user_max)}"
+    )
+
+
+@dataclass(frozen=True)
 class JobPolicy:
     config: dict
     filters: FilterSet | None = None
@@ -393,6 +412,26 @@ class JobPolicy:
         if detection.code is None:
             return False, None, True
         return detection.code not in allowed, detection.code, False
+
+    def experience_screen(self, title: str, description: str) -> tuple[bool, ExperienceScreenDetail | None, bool]:
+        """Detect the posting's required experience and compare it against experience_levels.
+
+        Returns (excluded, detail, ambiguous). Fails open (excluded=False) when
+        experience_levels is unset or detection isn't confident — ambiguous signals
+        the caller to flag the job for review (experience_unknown), not exclude it.
+        """
+        if not (self.filters.values("experience_levels") if self.filters else []):
+            return False, None, False
+        user_min, user_max = resolve_experience_range(self.config)
+        detection = detect_experience(title, description)
+        if not detection.confident or detection.min_years is None:
+            return False, None, True
+        detected_min, detected_max = detection.min_years, detection.max_years
+        overlaps = detected_min <= (user_max if user_max is not None else detected_min) and user_min <= (
+            detected_max if detected_max is not None else user_min
+        )
+        detail = ExperienceScreenDetail(detection.level_id, detected_min, detected_max, user_min, user_max)
+        return not overlaps, detail, False
 
     def _allowed_country_codes(self) -> set[str]:
         from job_hunter.locations import enabled_locations

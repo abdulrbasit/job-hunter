@@ -161,6 +161,9 @@ def scrape_with_stats(
             if reason:
                 reject(reason, region_key)
                 continue
+            if policy.experience_screen(jp.title or "", jp.snippet or "")[0]:
+                reject("experience_out_of_range", region_key)
+                continue
             if policy.language_screen(jp.title or "", jp.snippet or "")[0]:
                 reject("language_not_hunted", region_key)
                 continue

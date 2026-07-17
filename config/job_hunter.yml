@@ -36,6 +36,7 @@ filters:
     description: "Languages allowed during hunts"
     entries:
       - value: english
+  experience_levels: [associate, mid, senior]
   excluded_titles:
     description: "Title terms excluded from results"
     entries:

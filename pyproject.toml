@@ -85,7 +85,7 @@ include = ["job_hunter", "job_hunter.*"]
 ]
 "job_hunter.linkedin" = ["defaults.yml"]
 "job_hunter.ux.web" = ["*.html", "*.css", "*.js"]
-"job_hunter.catalog" = ["countries.json", "filters.json"]
+"job_hunter.catalog" = ["countries.json", "filters.json", "experience_levels.json"]
 "job_hunter.locations" = ["data/*.json", "data/*.md", "data/cities/*.json"]
 "job_hunter.companies" = ["data/*.jsonl", "data/manifest.json"]
 
@@ -184,6 +184,10 @@ ignore = ["E501", "S101"]
 # updated glob to match the C901-complex functions' new homes (process_jobs, validate).
 "job_hunter/pipeline/enrichment.py" = ["C901"]
 "job_hunter/pipeline/stages/{processing,validation}.py" = ["C901"]
+# _screen_job's sequential objective-gate chain (title/industry/location/experience/
+# language) crossed the threshold (11) when the experience-level gate was added;
+# verified via `ruff check --select C901` with the ignore removed.
+"job_hunter/pipeline/stages/screening.py" = ["C901"]
 # Narrowed from a blanket "*_source.py" glob (Phase 3): 8 of 18 board adapters had zero C901
 # violations and gained nothing from the ignore. Only list a source here once ruff proves it complex.
 # Phase 7 (2026-07-01): sources/*_source.py moved to sources/boards/<name>.py — glob updated.

@@ -100,6 +100,7 @@ regions:
 
 filters:
   hunt_languages: [en]
+  experience_levels: [associate, mid, senior]
   excluded_titles: [intern, internship, junior]
   excluded_companies: []
   excluded_industries: []
@@ -107,7 +108,7 @@ filters:
 scoring:
   min_fit_score: 70
   batch_size: 15
-  # max_years_experience_required: 5   # optional — defaults to your career_stage's cap
+  # max_years_experience_required: 5   # optional — defaults to the max of your experience_levels
 
 llm:
   default_provider: anthropic   # or openai, google, ollama

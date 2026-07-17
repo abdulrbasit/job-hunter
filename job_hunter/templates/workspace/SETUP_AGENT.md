@@ -74,7 +74,7 @@ job-hunter dash
 ```
 
 A new workspace opens straight to **Get Started**. Work through its
-sections — Quick Search Setup (job titles, career stage, region), Import
+sections — Quick Search Setup (job titles, experience levels, region), Import
 from Any Chatbot or Quick Career Context Fill, and the API Key /
 GitHub Actions sections if you use them. This is the fastest path and
 needs no VS Code.

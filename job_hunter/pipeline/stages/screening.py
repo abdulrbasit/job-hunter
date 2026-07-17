@@ -6,7 +6,27 @@ from typing import Any
 
 from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.locations import enabled_locations, job_matches_enabled_locations
-from job_hunter.sources.policy import JobPolicy
+from job_hunter.sources.policy import JobPolicy, format_experience_reason_detail
+
+
+def _screen_experience_and_language(policy: JobPolicy, title: str, description: str) -> tuple[str, dict[str, Any], str]:
+    """The two content-based deterministic gates, both fail-open on ambiguous reads."""
+    judgment_signals: dict[str, Any] = {}
+
+    excluded, exp_detail, experience_unknown = policy.experience_screen(title, description)
+    if excluded:
+        detail = format_experience_reason_detail(exp_detail) if exp_detail else ""
+        return "experience_out_of_range", judgment_signals, detail
+    if experience_unknown:
+        judgment_signals["experience_unknown"] = True
+
+    excluded, _detected_code, language_uncertain = policy.language_screen(title, description)
+    if excluded:
+        return "language_not_hunted", judgment_signals, ""
+    if language_uncertain:
+        judgment_signals["language_uncertain"] = True
+
+    return "", judgment_signals, ""
 
 
 def _screen_job(
@@ -16,11 +36,12 @@ def _screen_job(
     industries: list[str],
     title_filters: list[str],
     allowed_locations: list[Any] | None = None,
-) -> tuple[str, list[str], bool]:
+) -> tuple[str, dict[str, Any], str]:
     title = str(job.get("title") or "")
     snippet = str(job.get("snippet") or "")
     snippet_lower = snippet.lower()
-    language_uncertain = False
+    judgment_signals: dict[str, Any] = {}
+    rejection_detail = ""
 
     reason = policy.rejection_reason(job, title_filters)
     if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
@@ -50,12 +71,14 @@ def _screen_job(
 
     if not reason:
         description = str(job.get("full_job_description") or snippet)
-        excluded, _detected_code, language_uncertain = policy.language_screen(title, description)
-        if excluded:
-            reason = "language_not_hunted"
+        reason, extra_signals, rejection_detail = _screen_experience_and_language(policy, title, description)
+        judgment_signals.update(extra_signals)
 
-    signals = [] if reason else [term for term in industries if term in snippet_lower]
-    return reason, signals, language_uncertain
+    if not reason:
+        signals = [term for term in industries if term in snippet_lower]
+        if signals:
+            judgment_signals["industry_terms"] = signals
+    return reason, judgment_signals, rejection_detail
 
 
 def screen_jobs_by_rules(
@@ -72,17 +95,18 @@ def screen_jobs_by_rules(
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, signals, language_uncertain = _screen_job(
+        reason, judgment_signals, rejection_detail = _screen_job(
             job, policy, regions, industries, title_filters, allowed_locations
         )
         if reason:
-            rejected.append({**job, "_rejection_reason": reason})
+            rejected.append(
+                {
+                    **job,
+                    "_rejection_reason": reason,
+                    **({"_rejection_detail": rejection_detail} if rejection_detail else {}),
+                }
+            )
             continue
-        judgment_signals: dict[str, Any] = {}
-        if signals:
-            judgment_signals["industry_terms"] = signals
-        if language_uncertain:
-            judgment_signals["language_uncertain"] = True
         kept.append({**job, **({"_judgment_signals": judgment_signals} if judgment_signals else {})})
 
     return kept, rejected

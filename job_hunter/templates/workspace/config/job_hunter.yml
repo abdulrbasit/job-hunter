@@ -13,11 +13,6 @@ profile:
 
 job_titles: []
 
-# student | early_career | experienced | leadership | custom
-# Ranks matching titles higher and hard-excludes mismatched seniority; see
-# job_hunter/catalog/filters.json for the term lists behind each stage.
-career_stage: experienced
-
 regions:
   primary:
     enabled: true
@@ -37,14 +32,18 @@ regions:
 
 filters:
   hunt_languages: [en]
+  # See job_hunter/catalog/experience_levels.json for the full taxonomy (ids, year
+  # ranges, keywords). Postings whose detected required-experience range doesn't
+  # overlap any selected level here are excluded.
+  experience_levels: [associate, mid, senior]
   excluded_titles: []
   excluded_companies: []
   excluded_industries: []
 
 scoring:
   min_fit_score: 70
-  # Caps years-of-experience mentioned in a posting. Defaults to your career_stage's cap
-  # (see filters.json) when unset — uncomment to override it.
+  # Caps years-of-experience mentioned in a posting. Defaults to the max of your
+  # selected experience_levels' ranges when unset — uncomment to override it.
   # max_years_experience_required: 5
   # Shared run batch size. Agent mode freezes this many candidates per batch;
   # LLM API mode tailors this many top-scored matches per run. Request

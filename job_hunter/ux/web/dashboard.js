@@ -1571,7 +1571,7 @@ async function saveSearchSetup() {
   }
   const prefs = {
     mode: document.getElementById('gs-search-mode').value,
-    career_stage: document.getElementById('gs-career-stage').value,
+    experience_levels: [...document.getElementById('gs-experience-levels').selectedOptions].map(option => option.value),
     job_titles: document.getElementById('gs-search-job-titles').value.split('\n').map(s => s.trim()).filter(Boolean),
     location,
     search_lang: document.getElementById('gs-search-lang').value,
@@ -1746,6 +1746,9 @@ async function renderGuidedForm(form) {
   const onboardingIndustries = document.getElementById('gs-search-excl-industries');
   const excludedIndustries = new Set((form.filters || {}).excluded_industries || []);
   onboardingIndustries.innerHTML = (filterOptions.industries || []).map(industry => `<option value="${esc(industry.id)}" ${excludedIndustries.has(industry.id) ? 'selected' : ''}>${esc(industry.label)}</option>`).join('');
+  const onboardingExperienceLevels = document.getElementById('gs-experience-levels');
+  const selectedLevels = new Set((form.filters || {}).experience_levels || []);
+  onboardingExperienceLevels.innerHTML = (filterOptions.experience_levels || []).map(level => `<option value="${esc(level.id)}" ${selectedLevels.has(level.id) ? 'selected' : ''}>${esc(level.label)}</option>`).join('');
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -1790,7 +1793,8 @@ function renderFilterGroups(filters) {
     group.className = 'filter-group';
     group.dataset.name = name;
     const options = name === 'excluded_industries' ? (filterOptions.industries || []).map(item => ({value: item.id, label: item.label}))
-      : name === 'hunt_languages' ? (filterOptions.languages || []).map(item => ({value: item.code, label: `${item.name} (${item.code})`})) : null;
+      : name === 'hunt_languages' ? (filterOptions.languages || []).map(item => ({value: item.code, label: `${item.name} (${item.code})`}))
+      : name === 'experience_levels' ? (filterOptions.experience_levels || []).map(item => ({value: item.id, label: item.label})) : null;
     const editor = options
       ? `<select class="filter-values" multiple>${options.map(item => `<option value="${esc(item.value)}" ${values.has(item.value) ? 'selected' : ''}>${esc(item.label)}</option>`).join('')}</select>`
       : `<textarea class="filter-values" placeholder="One value per line">${esc([...values].join('\n'))}</textarea>`;

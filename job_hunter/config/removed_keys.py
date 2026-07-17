@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-_TOP_LEVEL_REMOVED = ("about_me", "sources", "secrets", "tailoring", "cover_letter", "exclusions")
+_TOP_LEVEL_REMOVED = ("about_me", "sources", "secrets", "tailoring", "cover_letter", "exclusions", "career_stage")
 _EXCLUSIONS_REMOVED = ("senior_flags", "stale_indicators", "url_patterns", "language_indicators")
 _FILTERS_REMOVED = ("excluded_languages",)
 
@@ -43,6 +43,8 @@ def reject_removed_user_config(data: dict[str, Any]) -> None:
             if "exclusions" in found
             else " Use filters.hunt_languages as the allowlist."
             if "filters.excluded_languages" in found
+            else " Run `job-hunter doctor` to migrate career_stage into filters.experience_levels."
+            if "career_stage" in found
             else " Update to the v1 compact config shape."
         )
         raise ValueError(f"Removed job_hunter.yml key(s): {joined}.{guidance}")

@@ -11,7 +11,7 @@ from job_hunter.ux.web.readiness import get_readiness
 _READY_CONFIG = {
     "mode": "agent",
     "job_titles": ["Product Manager"],
-    "career_stage": "experienced",
+    "filters": {"experience_levels": ["associate", "mid", "senior"]},
     "regions": {"primary": {"enabled": True, "country": "DE", "location": "Berlin"}},
     "profile": {
         "resume_tex": "profile/resume_double_column.tex",
@@ -54,7 +54,7 @@ def test_fully_filled_workspace_is_ready(tmp_path: Path) -> None:
 
     assert readiness["blocking"] == {
         "job_titles": True,
-        "career_stage": True,
+        "experience_levels": True,
         "region": True,
         "career_context": True,
         "base_resume": True,
@@ -63,14 +63,15 @@ def test_fully_filled_workspace_is_ready(tmp_path: Path) -> None:
     assert readiness["ready"] is True
 
 
-def test_missing_career_stage_key_is_still_valid_via_custom_default(tmp_path: Path) -> None:
+def test_missing_experience_levels_blocks_readiness(tmp_path: Path) -> None:
     config = dict(_READY_CONFIG)
-    config.pop("career_stage")
+    config.pop("filters")
     _write_workspace(tmp_path, config)
 
     readiness = get_readiness(tmp_path)
 
-    assert readiness["blocking"]["career_stage"] is True
+    assert readiness["blocking"]["experience_levels"] is False
+    assert readiness["ready"] is False
 
 
 def test_unfilled_career_context_blocks_readiness(tmp_path: Path) -> None:
