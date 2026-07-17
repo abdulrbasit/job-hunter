@@ -389,7 +389,25 @@ def test_update_workspace_assets_overwrites_docs_but_not_existing_yaml_config(tm
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
+        "config/schemas/job_hunter.schema.json",
     ]
+
+
+def test_update_workspace_assets_refreshes_stale_config_schema(tmp_path: Path) -> None:
+    """config/schemas/job_hunter.schema.json is documented everywhere (SETUP.md, doctor's
+    error hints) as system-owned and 'replaced on every update' — it must actually be
+    refreshed by update_workspace_assets(), not only written once at init time."""
+    from job_hunter.workspace.assets import update_workspace_assets
+
+    schema_path = tmp_path / "config" / "schemas" / "job_hunter.schema.json"
+    schema_path.parent.mkdir(parents=True)
+    schema_path.write_text('{"stale": true}', encoding="utf-8")
+
+    written = update_workspace_assets(tmp_path)
+
+    packaged = dict(iter_packaged_resource_files())
+    assert schema_path.read_bytes() == packaged["config/schemas/job_hunter.schema.json"]
+    assert "config/schemas/job_hunter.schema.json" in written
 
 
 def test_update_workspace_assets_does_not_touch_job_hunter_yml(tmp_path: Path) -> None:
@@ -438,6 +456,7 @@ def test_update_workspace_assets_does_not_recreate_retired_career_pages_file(tmp
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
+        "config/schemas/job_hunter.schema.json",
     ]
 
 
@@ -466,6 +485,7 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
+        "config/schemas/job_hunter.schema.json",
     ]
 
 

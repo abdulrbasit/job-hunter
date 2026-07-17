@@ -48,6 +48,7 @@ _UPDATE_ASSETS = (
     "SETUP.md",
     "SETUP_AGENT.md",
     "SETUP_LLM_API.md",
+    "config/schemas/job_hunter.schema.json",
 )
 _README_BLOCKS = (
     ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
