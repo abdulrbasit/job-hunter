@@ -37,8 +37,6 @@ def main() -> None:
     )
 
     import job_hunter.locations as locations
-    from job_hunter.catalog.loader import CompanyEntry
-    from job_hunter.catalog.merge import company_matches_enabled_locations
     from job_hunter.models import Location, LocationScope
     from job_hunter.ux.web.api import DashAPI  # noqa: TID251 - benchmark payload boundary
 
@@ -72,17 +70,6 @@ def main() -> None:
         lambda: [locations.job_matches_enabled_locations(job, allowed) for job in jobs],
         1_000,
     )
-    company = CompanyEntry(
-        id="benchmark",
-        name="Benchmark",
-        career_url="https://example.com/careers",
-        country_codes=["DE"],
-        city_tags=["Berlin"],
-        industry_ids=["software_it"],
-        verified_at="2026-07-16",
-    )
-    company_gate = _elapsed_ms(lambda: company_matches_enabled_locations(company, allowed), 1_000)
-
     api = DashAPI(Path.cwd())
     countries_payload = json.dumps(api.get_location_countries(), separators=(",", ":")).encode()
     cities_payload = json.dumps(api.get_location_cities("DE"), separators=(",", ":")).encode()
@@ -98,7 +85,6 @@ def main() -> None:
         },
         "canonicalize_1000_ms": canonicalization,
         "job_gate_3000_ms": job_gate,
-        "company_gate_1000_ms": company_gate,
         "payload_bytes": {"countries": len(countries_payload), "cities_DE": len(cities_payload)},
     }
     print(json.dumps(result, indent=2, sort_keys=True))

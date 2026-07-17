@@ -278,18 +278,21 @@ def candidate_companies(
     if excluded:
         where.append(f"industry NOT IN ({','.join('?' * len(excluded))})")
         params.extend(excluded)
-    sql = f"SELECT * FROM companies WHERE {' AND '.join(where)} ORDER BY source DESC, id"  # noqa: S608
+    # No ORDER BY: at 100k+ rows/country an unindexed `source, id` sort forces a temp
+    # b-tree (measured ~170ms/call in scripts/benchmark_companies.py). The two-pass
+    # dict build below gets the same "user overrides catalog" result from an unsorted
+    # fetch — catalog rows populate first, user rows then overwrite by key.
+    sql = f"SELECT * FROM companies WHERE {' AND '.join(where)}"  # noqa: S608
     with _conn(root) as conn:
         rows = [dict(row) for row in conn.execute(sql, params).fetchall()]
-    seen: set[tuple[str, str]] = set()
-    result = []
-    for row in rows:  # source DESC: 'user' sorts before 'catalog' — user override wins.
-        key = (row["normalized_url"], row["country"])
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(row)
-    return result
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        if row["source"] == "catalog":
+            by_key.setdefault((row["normalized_url"], row["country"]), row)
+    for row in rows:
+        if row["source"] == "user":
+            by_key[(row["normalized_url"], row["country"])] = row
+    return list(by_key.values())
 
 
 def set_enabled(root: Path, ids: list[int], enabled: bool) -> int:
