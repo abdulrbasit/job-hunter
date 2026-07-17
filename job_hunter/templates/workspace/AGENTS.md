@@ -39,7 +39,10 @@ Skills are in `.claude/skills/`. Open the workspace in Claude Code or Codex to u
 - `profile/career_context.md`: positioning, resume style, cover-letter style,
   outreach tone, LinkedIn voice, calibration notes.
 - `profile/story_bank.md`: reusable STAR stories.
-- `.env`: local secrets copied from `.env.example`.
+
+API keys are stored in your OS keyring via `job-hunter dash`'s setup
+wizard — not in a local file. `.env.example` is a template for GitHub
+Actions Secrets only.
 
 Generated files live under `outputs/`. Job state (URL dedup, candidates,
 application lifecycle) is in `outputs/state/jobs.db`. Same company with a

@@ -15,159 +15,56 @@ Read `config/job_hunter.yml`. Note any fields still at template defaults (`Your 
 
 ---
 
-## Step 1 — Job Titles
-
-Show current titles. Flag if they are still template defaults.
-
-Ask:
-
-> What job titles should I search for? List all variations — the more specific, the better.
->
-> Examples: `Senior Product Manager`, `Head of Product`, `Director of Product`
->
-> List them one per line or comma-separated.
-
-Replace `job_titles` with the user's list.
-
----
-
-## Step 2 — Primary Region
-
-Check if `regions.primary.location` is still `"Your City"`. If so, tell the user it must be set.
-
-Ask:
-
-> What city or region are you job hunting in?
-> Examples: `Berlin`, `London`, `Amsterdam`, `Munich`, `Remote`
-
-Derive the ISO alpha-2 country code from the city name (Munich→DE, London→GB, Amsterdam→NL, Paris→FR, Zurich→CH, Vienna→AT, Stockholm→SE, Oslo→NO, Copenhagen→DK, Warsaw→PL, Prague→CZ, Dublin→IE, Brussels→BE, Madrid→ES, Milan→IT, Toronto→CA, Sydney→AU, New York→US, San Francisco→US, Dubai→AE, Bangalore→IN, Singapore→SG, Tokyo→JP, Seoul→KR, São Paulo→BR). For cities not in this list, ask for the country code explicitly.
-
-Show the derived code: `I'll use country code XX — correct? (Enter to confirm or type the right code)`
-
-Then ask:
-
-> Should searches use English only, or also the local language?
-> Default `en` (English only). Type a language code to add local-language results (e.g., `de` for German).
-
-Update `regions.primary` (keep `enabled: true`, `primary: true`, set `mode: llm-api`).
-
-Then ask:
-
-> Any other search regions? (Optional — add more later with `/setup region add`)
-
-If yes, repeat city → code → language for each. Use the city name (lowercased, underscores) as the YAML key.
-
----
-
-## Step 3 — Experience Levels
-
-Ask:
-
-> Which experience level(s) are you targeting? Postings are screened deterministically:
-> if the required experience stated in a listing (years or seniority title) doesn't
-> overlap any level you pick, it's excluded automatically — on top of whatever you set
-> in the next step.
->
-> Levels: student_intern, student_working_student, student_thesis, entry, junior,
-> associate, mid, senior, lead, staff, principal, expert, manager, director, vp, c_level
->
-> Reply with one or more level ids (comma-separated), or press Enter for
-> `associate, mid, senior`.
-
-Set `filters.experience_levels` to the chosen list of level ids.
-
----
-
-## Step 4 — Exclusions
-
-Read the *actual current* values from `exclusions.*` in the config you loaded in
-"Before You Start" — the template ships all four empty (`[]`). Show them as read,
-substituting `(none)` for any empty list. Do not invent or assume example values.
-
-```
-Current exclusions — edit anything or press Enter to keep as-is:
-
-Title terms to skip:  [actual title_terms, or "(none)"]
-Languages to exclude: [actual languages, or "(none)"]
-Companies to skip:    [actual companies, or "(none)"]
-Industries to skip:   [actual industries, or "(none)"]
-```
-
-These are on top of the experience-level screening from Step 3 — a posting requiring
-10+ years is already excluded if you only selected entry/junior levels; you don't
-need to add "senior" here separately.
-
-Ask:
-
-> Any changes? Examples: "add consulting to industries", "exclude language German".
-> Press Enter to keep all defaults.
-
-Apply any changes to the four `exclusions.*` fields.
-
----
-
-## Step 5 — Quick Settings
-
-Show all at once:
-
-```
-Quick settings — press Enter to keep defaults or type changes:
-
-Resume layout:               double column  (alt: single column)
-Profile photo:               none           (provide filename if you have one in profile/)
-Min fit score:               70 / 100
-Max years experience req'd:  (auto, from your selected experience levels — leave blank, or enter a number to override)
-Batch size:                  15
-LLM provider:                anthropic      (alt: openai, google)
-Tailoring model:             claude-sonnet-4-6
-```
-
-Ask: `Any changes?`
-
-Update:
-- `profile.resume_tex`: `profile/resume_double_column.tex` or `profile/resume_single_column.tex`
-- `profile.profile_image`: path or `""`
-- `scoring.min_fit_score`, `scoring.batch_size`
-- `scoring.max_years_experience_required` — only set this if the user gives an explicit
-  number; otherwise leave it unset in the config so it defaults to the Step 3 career
-  stage's own cap (student=1, early_career=3, experienced=8, leadership=none).
-- `llm.default_provider` and all `llm.providers.*`
-- `llm.models.tailoring` and `llm.models.cover_letter`
-
----
-
-## Step 6 — API Keys and GitHub Actions
+## Steps 1-7 — Deterministic Setup
 
 Tell the user:
 
-> **LLM API mode requires API keys.** Set them up in two places:
->
-> **Local (for testing):**
-> 1. `cp .env.example .env`
-> 2. Open `.env` and fill in at minimum `ANTHROPIC_API_KEY` (or your chosen provider's key).
-> 3. Add optional free job board keys (Adzuna, Reed) for more results.
->
-> **GitHub Actions (for scheduled runs):**
-> Go to your repository → Settings → Secrets and variables → Actions → New repository secret.
-> Add the same keys as secrets (exact names from `.env.example`):
-> - `ANTHROPIC_API_KEY` (required for scoring and tailoring)
-> - `ADZUNA_APP_ID`, `ADZUNA_API_KEY`, `REED_API_KEY` (optional job boards, free keys)
->
-> **Enable the schedule:**
-> Open `.github/workflows/find-jobs.yml` and uncomment the `schedule:` and `- cron:` lines.
-> The default runs Mon–Fri at 20:00 Berlin time. Adjust the cron expression if needed.
->
-> Full setup guide: see the README in the job-hunter repository.
+> The fastest way to set job titles, region, experience levels, filters, and
+> quick settings is the dashboard — run `job-hunter dash` in a terminal, it
+> opens straight into a guided wizard for all of these, plus a Career Profile
+> panel for the steps below and an API key field. Come back here once the
+> wizard says you're ready, or keep going now if you'd rather do this as a
+> conversation.
 
-No config changes here. Continue when ready.
+If the user continues here, walk through each field one topic at a time, waiting
+for an answer before moving on. Flag any field still at its template default
+(`Your City`, empty `job_titles`, etc.) rather than treating it as configured.
 
----
+- **Job titles** — ask for all target title variations (e.g. `Senior Product
+  Manager`, `Head of Product`, `Director of Product`); replace `job_titles`.
+- **Region** — ask for a city. Look up its ISO alpha-2 country code with
+  `job-hunter internal region-lookup --city "<city>"` rather than guessing;
+  only ask the user directly if that command returns nothing. Confirm the code,
+  then ask English-only vs. also local language (default `en`). Update
+  `regions.primary` (`enabled: true`, `primary: true`, `mode: llm-api`). Offer
+  to add more regions the same way — city name (lowercased, underscores) as
+  the YAML key.
+- **Experience Levels** — offer the 16 level ids (`student_intern`,
+  `student_working_student`, `student_thesis`, `entry`, `junior`, `associate`,
+  `mid`, `senior`, `lead`, `staff`, `principal`, `expert`, `manager`,
+  `director`, `vp`, `c_level`); default `associate, mid, senior` on Enter. A
+  posting whose stated experience requirement doesn't overlap any chosen level
+  is excluded automatically — on top of whatever exclusions come next. Set
+  `filters.experience_levels`.
+- **Exclusions** — show the *actual current* `filters.*` exclusion lists from
+  the config you loaded in "Before You Start" (substituting `(none)` for any
+  empty list — never invent example values), ask what to change.
+- **Quick settings** — resume layout (double/single column), profile photo,
+  `scoring.min_fit_score`, `scoring.batch_size`, an optional
+  `scoring.max_years_experience_required` override (leave unset to default
+  from the chosen experience levels), LLM provider (`llm.default_provider`)
+  and `llm.models.tailoring`/`cover_letter`.
+- **API keys** — LLM API mode needs a real provider key. Locally, it's added
+  via the dashboard's Get Started → API Key field, stored in the OS keyring —
+  not a `.env` file. For scheduled GitHub Actions runs, the same key must
+  also be added as a repository Secret (Settings → Secrets and variables →
+  Actions → New repository secret) — Actions can't read the local keyring.
+  Optional free job-board keys (Adzuna, Reed) follow the same two places.
+  Mention the schedule can be enabled by uncommenting `schedule:`/`- cron:`
+  in `.github/workflows/find-jobs.yml` once secrets are set.
 
-## Step 7 — Config Preview and Write
-
-Set `mode: llm-api` in the config.
-
-Show the full updated `config/job_hunter.yml` preview:
+Set `mode: llm-api`. Show the full updated `config/job_hunter.yml` preview and
+confirm before writing:
 
 ```
 Here is the config I will write:
@@ -197,7 +94,7 @@ Parse and display results in a compact table (✓ pass / ✗ fail with fix hint)
 
 Tell the user:
 
-> Config saved. Now let's build your career profile — this is what the pipeline uses to score, tailor, and write cover letters accurately.
+> Config saved. Now let's build your career profile — this is what the pipeline uses to score, tailor, and write cover letters accurately. (You can also do this from the dashboard's Career Profile panel — click Copy command there and paste it back here, or use its any-chatbot path if you don't have this chat open.)
 >
 > Starting with career context…
 

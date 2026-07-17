@@ -40,6 +40,11 @@ Single responsibility: run `job-hunter doctor` and surface the results in a clea
 
 4. If `warnings` is non-empty, append the list with a "non-blocking" label.
 
+5. Mention: `job-hunter dash` → Settings → Diagnostics shows this same table live, with
+   one-click fixes for the checks that have a mechanical fix (legacy location/filter
+   files, missing Chromium, stale skills/workflows via an Update button) — this CLI
+   output stays useful for headless/CI checks.
+
 ## Token Rules
 
 - Print the table; do not re-explain each check in prose.

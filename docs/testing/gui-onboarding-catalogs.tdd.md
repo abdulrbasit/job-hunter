@@ -530,3 +530,76 @@ time.
 - `pytest tests/ -q --tb=short` — 1434 passed, 0 failed. `ruff format
   --check`, `ruff check`, `ty check` all passed.
 - No version bump.
+
+## Redesign: setup wizard + two-path career profile panel
+
+The single combined "Import from Any Chatbot" flow (`build_onboarding_prompt`/
+`parse_onboarding_bundle`/`service.replace_onboarding_bundle`, `#gs-section-chatbot-import`)
+had a real dead end: `BASE_RESUME` landed in `profile/resume_source.md`, a file nothing
+downstream ever read (`/setup resume` only reads `career_context.md`/`story_bank.md`) — a
+browser-chatbot-only user (no Claude Code/Codex) could fill career context and story bank
+but never actually produce a usable resume.
+
+Replaced with three focused per-artifact flows (`job_hunter/config/onboarding_bundle.py`:
+`build_career_context_prompt`/`build_story_bank_prompt`/`build_resume_prompt` +
+`parse_single_section`; six new `DashAPI` methods). Each prompt embeds the *current* file
+content (template or partially filled) and asks for a complete replacement, so every
+import is a validated whole-file write, never a merge. The resume prompt embeds the real
+`.tex` file and writes straight to the configured `profile.resume_tex` path — closing the
+gap — gated on career context + story bank both showing done first (nothing meaningful to
+embed otherwise), with a lightweight `\documentclass`-line sanity check before writing
+(not a full LaTeX parser).
+
+The flat `#gs-section-search-setup` mini-form (a bespoke duplicate of the Settings →
+Guided fields) was deleted; the wizard's Basics/Region/Filters steps instead **reparent
+the real Settings sections** (`settings-section-mode`/`job_titles`/`regions`/`filters`,
+moved via anchor `<span>` placeholders and restored on entering Settings) and save through
+the existing `saveGuidedConfig()`/`save_job_hunter_config_form` path — one source of truth,
+no duplicate fields, no second competing config writer.
+
+Also fixed a real bug found while wiring the wizard's auto-redirect: `setupIncomplete()`
+gated on the 7-item `onboarding_checklist()` via a hand-maintained `OPTIONAL_SETUP_IDS` set
+that omitted `story_bank` — but `readiness.py`'s `non_blocking` list explicitly says stories
+should never block. A fully-configured user with zero Final stories was nagged back to Get
+Started every launch. Switched the gate to `get_bootstrap()`'s `readiness.blocking` dict
+(the 6 fields that actually matter for a first hunt), deleted `OPTIONAL_SETUP_IDS`.
+
+New job-titles catalog (`job_hunter/catalog/job_titles.json` + `core/job_titles.py`,
+mirrors `core/experience.py`'s loader pattern) backs a `<input list="...">` autocomplete
+next to the existing `cfg-job-titles` textarea — additive suggestions only, free text
+still always accepted.
+
+Two doctor checks got one-click fixes in Settings → Diagnostics → Workspace Maintenance:
+`remove_legacy_location_or_filter_files()` (package_owned_locations/filters) and a
+background Chromium install (`start_chromium_install`/`get_chromium_install_status`,
+same start/status polling pattern as `start_hunt`). A third button, `run_update()`, mirrors
+`job-hunter update --yes` (skipping the CLI's git-dirty-check prompt, since the dashboard's
+own `confirm()` dialog already gates the call) — covers the remaining telemetry/stale-skill
+checks without a dedicated fix per check.
+
+Dropped from the original task wording after a scope correction: a local API-key wizard
+step with live validation, and resume file upload. Neither fits how the tool is actually
+used — agent mode needs no stored key (the coding-agent chat session handles LLM calls) and
+llm-api mode's real deployment target is GitHub Actions, where the key already lives as a
+repo Secret; the base resume is meant to be *authored* from career context + story bank, not
+supplied pre-made. The existing single keyring-backed API-key input (Get Started/Settings)
+was left untouched.
+
+Docs: `SETUP.md`/`SETUP_AGENT.md`/`SETUP_LLM_API.md` updated to describe the wizard + panel
+instead of the old flat Get Started page; `SETUP_LLM_API.md`'s `cp .env.example .env` local
+setup instructions were deleted outright (confirmed non-functional — no `dotenv`/
+`load_dotenv` import anywhere in `job_hunter/`, so a local `.env` was never actually read).
+`onboard_agent.md`/`onboard_llm_api.md` (`.claude/skills/setup/modes/`) collapsed their
+7-step deterministic-field walkthrough into one condensed section pointing at the dashboard
+first, replaced a hardcoded ~25-city country-lookup table with the already-correct
+`job-hunter internal region-lookup --city` command, and now mention the Career Profile
+panel's chat-command copy button alongside the manual `/setup context` instruction.
+
+Verification: `uv run pytest tests/ -q --tb=short` — 1544 passed, 0 failed, across three
+commits (backend prompts/catalog/doctor-fixes; dashboard wizard/panel UI; this doc). `ruff
+format --check`, `ruff check`, `ty check` all passed after each commit.
+`scripts/sync_workspace_template.py --check` confirms the bundled `.claude/skills/` copies
+match the edited root skill files. Manual: `node --check dashboard.js` (syntax valid),
+`job-hunter init` + `job-hunter dash` launched against a fresh temp workspace with no
+Python traceback (pywebview window opened and stayed open, consistent with a normal blocking
+`webview.start()` call).

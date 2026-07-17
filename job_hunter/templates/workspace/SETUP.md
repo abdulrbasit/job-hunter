@@ -74,10 +74,15 @@ steps printed.
 job-hunter dash
 ```
 
-A new workspace opens straight to **Get Started** — job titles, region,
-career context, API key (if you're using LLM API mode), and the GitHub
-Actions schedule are all set up from that one screen, in whatever order
-you like. Nothing here needs VS Code.
+A new workspace opens straight into a guided setup wizard: mode, job
+titles, region, languages/experience/exclusions — then a **Career
+Profile** panel for the parts an LLM has to write (career context, story
+bank, base resume). Each of those three offers two paths: a one-click
+command if you have Claude Code or Codex, or a copy-paste prompt plus
+paste-back Import if you only have a browser chatbot (ChatGPT, Claude.ai,
+etc.) — either way nothing here needs VS Code. The wizard reappears
+whenever something it needs is still missing; once everything's set, Get
+Started shows a plain summary and a **Run first hunt** button instead.
 
 For mode-specific detail (the `.env` file for LLM API mode, or the
 `/setup`/`/job-hunter` agent skills for agent mode), see:
@@ -98,7 +103,8 @@ job-hunter doctor
 config schemas) and merges in any new `config/job_hunter.yml` keys. It never
 touches your existing values, `profile/`, `outputs/`, or `.env`. Run
 `job-hunter update --skills-only` or `--workflows-only` for a narrower
-refresh.
+refresh. The same refresh is also a button — **Settings → Diagnostics →
+Update workspace** — if you'd rather not use a terminal at all.
 
 ## 8. Common troubleshooting
 

@@ -48,25 +48,12 @@ cd FirstName.LastName-Resume
 
 **Expected result:** `[ok] Workspace created at: ...`.
 
-## 6. Configure `.env`
+## 6. Add your API key
 
-`.env` is a plain-text file that holds your secret API keys for running
-Job Hunter **on your own computer**. It is never committed to Git — the
-workspace's `.gitignore` excludes it automatically.
-
-**Do this:**
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` in a text editor and fill in only the keys you use:
-
-```text
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-GOOGLE_API_KEY=
-```
+Open `job-hunter dash` — a new workspace opens straight into the setup
+wizard, which asks for your API key on the Basics step (once you've picked
+`llm-api` mode). Paste it there; it's stored in your OS keyring, never
+written to a file.
 
 Get a key from whichever provider you set as `llm.default_provider`:
 
@@ -75,13 +62,17 @@ Get a key from whichever provider you set as `llm.default_provider`:
 - Google: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 
 **Common mistake:** pasting a real key into `config/job_hunter.yml` or any
-file tracked by Git. API keys belong in `.env` (local) or GitHub Secrets
-(Actions) only — never in a committed file.
+file tracked by Git. Local keys belong in the OS keyring (via the
+dashboard) and GitHub Actions keys belong in repository Secrets — never in
+a committed file. The workspace's `.env.example` file is a template for
+GitHub Actions Secrets only (see step 9) — Job Hunter does not read a local
+`.env` file for anything running on your own computer.
 
-**Safe to ignore?** Leaving unused provider keys blank in `.env` is fine —
-Job Hunter only reads the key for your configured `llm.default_provider`.
+## 7. Configure job titles, region, and filters
 
-## 7. Configure `config/job_hunter.yml`
+The setup wizard in `job-hunter dash` writes `job_titles`, `regions`, and
+`filters` for you — no manual YAML editing needed. It produces a file
+shaped like this:
 
 ```yaml
 mode: llm-api
@@ -118,15 +109,16 @@ llm:
     cover_letter: claude-sonnet-4-6
 ```
 
-- `mode` — must be `llm-api` for this mode.
-- `default_provider` — which LLM API `.env`/GitHub Secrets must supply a key for.
+- `mode` — must be `llm-api` for this mode; set on the wizard's Basics step.
+- `default_provider` — which LLM API GitHub Secrets must supply a key for.
 - `max_workers` — how many jobs the pipeline scores/tailors at once. Higher
-  is faster but hits provider rate limits sooner.
+  is faster but hits provider rate limits sooner. Not wizard-covered — set
+  it via Settings → Guided → Advanced YAML if you need a non-default value.
 - `job_titles`, `regions`, `filters` — same shape as agent mode.
 - `scoring.min_fit_score` — the cutoff for tailoring a job (0-100).
 
-Run `job-hunter doctor` after any edit — it validates the file and reports
-exact line-level fixes.
+`job-hunter dash`'s Setup Health Check (Settings → Diagnostics) validates
+the file continuously and links straight to the fix for anything missing.
 
 ## 8. Run locally
 
@@ -194,8 +186,8 @@ job-hunter doctor
 ## 12. Troubleshooting
 
 **Missing API key**
-`job-hunter doctor` reports which provider key is missing. Add it to
-`.env` (local) or GitHub Secrets (Actions).
+`job-hunter doctor` reports which provider key is missing. Add it via
+`job-hunter dash`'s setup wizard (local) or GitHub Secrets (Actions).
 
 **Wrong provider/model**
 Confirm `llm.default_provider` in `config/job_hunter.yml` matches the key

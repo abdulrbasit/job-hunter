@@ -73,11 +73,21 @@ sign in.
 job-hunter dash
 ```
 
-A new workspace opens straight to **Get Started**. Work through its
-sections — Quick Search Setup (job titles, experience levels, region), Import
-from Any Chatbot or Quick Career Context Fill, and the API Key /
-GitHub Actions sections if you use them. This is the fastest path and
-needs no VS Code.
+A new workspace opens straight into a setup wizard: mode, job titles,
+region, then languages/experience levels/exclusions. Last is a **Career
+Profile** panel for career context, story bank, and your base resume —
+these need an LLM to write, so each offers two paths:
+
+- **Have Claude Code or Codex open?** Click **Copy command**, paste it
+  into the chat panel, and follow the interview (`/setup context`,
+  `/setup stories`, `/setup resume` — same skills as below).
+- **Only have a browser chatbot** (ChatGPT, Claude.ai)? Click **Copy
+  prompt**, paste it into your chatbot, have the conversation there, then
+  paste its final reply back into the panel and click **Import**.
+
+Mix and match — career context via chat panel, story bank via browser
+chatbot, whatever's fastest for you. Every artifact writes the same files
+either way.
 
 **Expected result:** the Get Started checklist shows all items done, and
 the dashboard lands on **Applications** the next time you open it.
@@ -85,10 +95,9 @@ the dashboard lands on **Applications** the next time you open it.
 **Common mistake:** rushing career context — thin or vague input here
 produces weak scoring and generic tailored resumes later.
 
-**Alternative: setup from the chat panel.** If you'd rather do it as a
-conversation, the same steps are available as agent skills — run
-`job-hunter doctor` from a terminal first (failures before onboarding are
-normal; each lists a fix), then in the Claude Code or Codex chat panel:
+**Alternative: the whole wizard as a conversation.** If you'd rather skip
+the dashboard entirely, the same deterministic steps (job titles, region,
+filters) and the three LLM steps are all available as chat-panel skills:
 
 ```text
 /setup onboard
@@ -96,9 +105,6 @@ normal; each lists a fix), then in the Claude Code or Codex chat panel:
 /setup stories
 /setup resume
 ```
-
-Both paths write the same files — use whichever is faster for you, and
-mix and match freely.
 
 ## 6. Daily workflow
 
