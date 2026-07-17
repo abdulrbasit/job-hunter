@@ -83,8 +83,9 @@ fixture-based test, and register any new secret in
 for exactly how that update runs.
 
 - **Non-YAML files** — always overwritten (e.g. `SETUP.md`, `README.md`).
-- **YAML config files** (`config/job_hunter.yml`, `config/career_pages.yml`) — fully user-owned.
-  Update only writes them if missing; an existing file is never read or rewritten.
+- **`config/job_hunter.yml`** — fully user-owned. Update only writes it if missing; an
+  existing file is never read or rewritten. Company data (once `config/career_pages.yml`)
+  is now package-owned + a runtime store — see [docs/config.md](docs/config.md#companies).
 
 To add a new config key: add it to `config/schemas/job_hunter.schema.json`
 with a default in the template YAML — see [docs/config.md](docs/config.md#adding-a-new-config-key).

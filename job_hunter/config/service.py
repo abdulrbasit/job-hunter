@@ -1,6 +1,6 @@
 """Backend config service: safe read/validate/save/undo for user-editable config files.
 
-Editable files (config/job_hunter.yml, config/career_pages.yml, profile/career_context.md)
+Editable files (config/job_hunter.yml, profile/career_context.md)
 are read and written as raw user content — never through get_job_hunter_config()'s merged
 runtime defaults — so a save can never bake code-owned defaults into disk.
 
@@ -29,7 +29,6 @@ from job_hunter.config.removed_keys import reject_removed_user_config
 MAX_CAREER_CONTEXT_BYTES = 512 * 1024
 
 JOB_HUNTER_CONFIG_REL = Path("config/job_hunter.yml")
-CAREER_PAGES_REL = Path("config/career_pages.yml")
 CAREER_CONTEXT_REL = Path("profile/career_context.md")
 STORY_BANK_REL = Path("profile/story_bank.md")
 # Chatbot-authored resume content lands here, not on the LaTeX resume_tex — bridging plain
@@ -39,7 +38,6 @@ ONBOARDING_RESUME_SOURCE_REL = Path("profile/resume_source.md")
 _BACKUP_DIR_REL = Path("outputs/state/config_backups")
 _LOGICAL_FILES: dict[str, Path] = {
     "job_hunter_config": JOB_HUNTER_CONFIG_REL,
-    "career_pages": CAREER_PAGES_REL,
     "career_context": CAREER_CONTEXT_REL,
     "story_bank": STORY_BANK_REL,
     "resume_source": ONBOARDING_RESUME_SOURCE_REL,
@@ -107,65 +105,36 @@ def _normalize_url(url: str) -> str:
     return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
 
 
-def _validate_company_entry(i: int, entry: dict[str, Any], seen_names: set[str], seen_urls: set[str]) -> list[str]:
-    errors: list[str] = []
-    name = str(entry.get("name") or "").strip()
-    url = str(entry.get("career_url") or "").strip()
-    if not name:
-        errors.append(f"companies[{i}]: 'name' is required")
-    if not url:
-        errors.append(f"companies[{i}]: 'career_url' is required")
-    elif urlsplit(url).scheme not in ("http", "https"):
-        errors.append(f"companies[{i}]: 'career_url' must be http/https ({url!r})")
-    if "enabled" in entry and not isinstance(entry.get("enabled"), bool):
-        errors.append(f"companies[{i}]: 'enabled' must be a boolean")
-
-    if name:
-        key = name.lower()
-        if key in seen_names:
-            errors.append(f"companies[{i}]: duplicate company name {name!r}")
-        seen_names.add(key)
-    if url:
-        norm = _normalize_url(url)
-        if norm in seen_urls:
-            errors.append(f"companies[{i}]: duplicate career_url {url!r}")
-        seen_urls.add(norm)
-    return errors
-
-
-DEFAULT_CATALOG_SETTINGS: dict[str, Any] = {"enabled_company_ids": []}
-
-
-def _validate_catalog_settings(data: Any) -> list[str]:
-    if data is None:
-        return []
-    if not isinstance(data, dict):
-        return ["career_pages.yml: 'catalog' must be a mapping"]
-    errors: list[str] = []
-    ids = data.get("enabled_company_ids", [])
-    if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
-        errors.append("career_pages.yml: catalog.enabled_company_ids must be a list of strings")
-    return errors
-
-
-def validate_career_pages(data: Any) -> list[str]:
-    """Structural validation for career_pages.yml's 'companies' list and optional 'catalog' settings."""
-    if not isinstance(data, dict):
-        return ["career_pages.yml must be a YAML mapping"]
-
-    companies = data.get("companies") if data.get("companies") is not None else []
-    if not isinstance(companies, list):
-        return ["career_pages.yml: 'companies' must be a list"]
+def validate_company_targets(targets: Any) -> list[str]:  # noqa: C901
+    """Structural validation for job_hunter.yml's companies.targets list."""
+    if not isinstance(targets, list):
+        return ["companies.targets must be a list"]
 
     errors: list[str] = []
-    seen_names: set[str] = set()
-    seen_urls: set[str] = set()
-    for i, entry in enumerate(companies):
+    seen: set[tuple[str, str]] = set()
+    for i, entry in enumerate(targets):
         if not isinstance(entry, dict):
-            errors.append(f"companies[{i}]: must be a mapping")
+            errors.append(f"companies.targets[{i}]: must be a mapping")
             continue
-        errors.extend(_validate_company_entry(i, entry, seen_names, seen_urls))
-    errors.extend(_validate_catalog_settings(data.get("catalog")))
+        name = str(entry.get("name") or "").strip()
+        url = str(entry.get("url") or "").strip()
+        country = str(entry.get("country") or "").strip().upper()
+        if not name:
+            errors.append(f"companies.targets[{i}]: 'name' is required")
+        if not url:
+            errors.append(f"companies.targets[{i}]: 'url' is required")
+        elif urlsplit(url).scheme != "https":
+            errors.append(f"companies.targets[{i}]: 'url' must be https ({url!r})")
+        if len(country) != 2:
+            errors.append(f"companies.targets[{i}]: 'country' must be an ISO alpha-2 code")
+        if "enabled" in entry and not isinstance(entry.get("enabled"), bool):
+            errors.append(f"companies.targets[{i}]: 'enabled' must be a boolean")
+
+        if name and url and country:
+            key = (_normalize_url(url), country)
+            if key in seen:
+                errors.append(f"companies.targets[{i}]: duplicate url+country")
+            seen.add(key)
     return errors
 
 
@@ -409,75 +378,74 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
 
 
 # ---------------------------------------------------------------------------
-# career_pages.yml
+# companies.targets (a section of job_hunter.yml — see job_hunter.companies for the
+# package-owned catalog + runtime store; targets are the user's own additions)
 # ---------------------------------------------------------------------------
 
 
-def _extract_leading_comment(path: Path) -> str:
-    """Return the file's leading run of comment/blank lines (its header block)."""
-    if not path.exists():
-        return ""
-    leading: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines(keepends=True):
-        if line.strip() == "" or line.lstrip().startswith("#"):
-            leading.append(line)
-        else:
-            break
-    return "".join(leading)
-
-
-def _normalize_companies(companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _normalize_targets(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = []
-    for entry in companies:
+    for entry in targets:
         item: dict[str, Any] = {
             "name": str(entry.get("name") or "").strip(),
-            "career_url": str(entry.get("career_url") or "").strip(),
+            "url": str(entry.get("url") or "").strip(),
+            "country": str(entry.get("country") or "").strip().upper(),
         }
-        location = entry.get("location")
-        if location:
-            item["location"] = str(location)
+        city = str(entry.get("city") or "").strip()
+        if city:
+            item["city"] = city
+        industry = str(entry.get("industry") or "").strip()
+        if industry:
+            item["industry"] = industry
         if entry.get("enabled", True) is False:
             item["enabled"] = False
         normalized.append(item)
     return normalized
 
 
-def read_career_pages(root: Path) -> dict[str, Any]:
-    path = root / CAREER_PAGES_REL
+def read_company_targets(root: Path) -> dict[str, Any]:
+    path = root / JOB_HUNTER_CONFIG_REL
     data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
-    companies = (data or {}).get("companies") or []
-    catalog = (data or {}).get("catalog") or dict(DEFAULT_CATALOG_SETTINGS)
-    return {
-        "ok": True,
-        "data": {"companies": companies, "catalog": catalog},
-        "revision": get_revision(path),
-        "errors": [],
-        "warnings": [],
-    }
+    targets = ((data or {}).get("companies") or {}).get("targets") or []
+    return {"ok": True, "data": {"targets": targets}, "revision": get_revision(path), "errors": [], "warnings": []}
 
 
-def save_career_pages(
-    root: Path,
-    companies: list[dict[str, Any]],
-    expected_revision: str,
-    catalog: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """catalog=None preserves whatever catalog settings are already on disk (default if none)."""
-    path = root / CAREER_PAGES_REL
-    if catalog is None:
-        existing = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
-        catalog = (existing or {}).get("catalog")
+def save_company_targets(root: Path, targets: list[dict[str, Any]], expected_revision: str) -> dict[str, Any]:
+    """Write companies.targets into job_hunter.yml — the one editable config file.
 
-    errors = validate_career_pages({"companies": companies, "catalog": catalog})
+    Guarded by the whole file's revision, same as raw YAML edits: targets live in
+    the same document, not a second file, so a stale save anywhere in job_hunter.yml
+    is rejected here too.
+    """
+    path = root / JOB_HUNTER_CONFIG_REL
+    errors = validate_company_targets(targets)
     if errors:
         return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
 
-    header = _extract_leading_comment(path)
-    body_data: dict[str, Any] = {"companies": _normalize_companies(companies)}
-    if catalog is not None and catalog != DEFAULT_CATALOG_SETTINGS:
-        body_data["catalog"] = catalog
-    body = yaml.safe_dump(body_data, sort_keys=False, allow_unicode=True)
-    return _safe_replace(root, "career_pages", CAREER_PAGES_REL, f"{header}{body}".encode(), expected_revision)
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except yaml.YAMLError as exc:
+        return {"ok": False, "errors": [f"Invalid YAML: {exc}"], "warnings": [], "revision": get_revision(path)}
+    if not isinstance(data, dict):
+        data = {}
+
+    normalized = _normalize_targets(targets)
+    if normalized:
+        data["companies"] = {"targets": normalized}
+    else:
+        data.pop("companies", None)
+
+    schema_errors = validate_job_hunter_yaml(data, root)
+    if schema_errors:
+        return {"ok": False, "errors": schema_errors, "warnings": [], "revision": get_revision(path)}
+
+    new_text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    result = _safe_replace(
+        root, "job_hunter_config", JOB_HUNTER_CONFIG_REL, new_text.encode("utf-8"), expected_revision
+    )
+    if result["ok"]:
+        get_job_hunter_config.cache_clear()
+    return result
 
 
 # ---------------------------------------------------------------------------

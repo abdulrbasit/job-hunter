@@ -60,7 +60,8 @@ the other sites) returns few or no Google results.
 
 ## Company career pages (`job_hunter/sources/career_pages/`)
 
-For `config/career_pages.yml` targets, tries in order: ATS public endpoint,
+For companies enabled in `job_hunter.companies` (package-catalog opt-ins plus
+`config/job_hunter.yml`'s `companies.targets`), tries in order: ATS public endpoint,
 JSON-LD structured data, sitemap crawl, static HTML parsing — falling back
 to Playwright (the sole browser tool used here) only when the page needs
 JavaScript. Run from the dashboard's "Run Company Browser Hunt" button

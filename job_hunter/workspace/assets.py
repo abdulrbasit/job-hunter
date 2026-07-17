@@ -48,13 +48,20 @@ _UPDATE_ASSETS = (
     "SETUP.md",
     "SETUP_AGENT.md",
     "SETUP_LLM_API.md",
-    "config/career_pages.yml",
 )
 _README_BLOCKS = (
     ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
     ("<!-- JOBS_TABLE_START -->", "<!-- JOBS_TABLE_END -->"),
 )
-_SQLITE_IGNORE_LINES = ("outputs/state/jobs.db-wal", "outputs/state/jobs.db-shm")
+# companies.db is a regenerable runtime cache (package seed + config/job_hunter.yml's
+# companies.targets mirror) — never git-synced, unlike jobs.db.
+_SQLITE_IGNORE_LINES = (
+    "outputs/state/jobs.db-wal",
+    "outputs/state/jobs.db-shm",
+    "outputs/state/companies.db",
+    "outputs/state/companies.db-wal",
+    "outputs/state/companies.db-shm",
+)
 
 
 def workspace_assets_root() -> Traversable:

@@ -1,0 +1,61 @@
+{"id":"airbnb","name":"Airbnb","url":"https://careers.airbnb.com","industry":"software_it"}
+{"id":"allianz","name":"Allianz","url":"https://careers.allianz.com","industry":"finance"}
+{"id":"apple","name":"Apple","url":"https://www.apple.com/careers/us/","industry":"software_it"}
+{"id":"bain","name":"Bain & Company","url":"https://www.bain.com/careers/","industry":"consulting"}
+{"id":"bcg","name":"Boston Consulting Group","url":"https://careers.bcg.com","industry":"consulting"}
+{"id":"blackrock","name":"BlackRock","url":"https://careers.blackrock.com","industry":"finance"}
+{"id":"booking_com","name":"Booking.com","url":"https://careers.booking.com","industry":"software_it"}
+{"id":"capitaland","name":"CapitaLand","url":"https://www.capitaland.com/careers","industry":"real_estate"}
+{"id":"carousell","name":"Carousell","url":"https://www.carousell.com/careers","industry":"retail_ecommerce"}
+{"id":"changi_airport_group","name":"Changi Airport Group","url":"https://www.changiairport.com/careers","industry":"transportation_logistics"}
+{"id":"chevron","name":"Chevron","url":"https://www.chevron.com/careers","industry":"energy"}
+{"id":"citigroup","name":"Citi","url":"https://jobs.citi.com","industry":"finance"}
+{"id":"city_developments_limited","name":"City Developments Limited (CDL)","url":"https://www.cdl.com.sg/careers","industry":"real_estate"}
+{"id":"comfortdelgro","name":"ComfortDelGro Corporation","url":"https://www.comfortdelgro.com/careers","industry":"transportation_logistics"}
+{"id":"dbs_bank","name":"DBS Bank","url":"https://www.dbs.com/careers","industry":"finance"}
+{"id":"deutsche_bank","name":"Deutsche Bank","url":"https://careers.db.com","industry":"finance"}
+{"id":"dhl","name":"DHL Group","url":"https://careers.dhl.com","industry":"transportation_logistics"}
+{"id":"expedia_group","name":"Expedia Group","url":"https://careers.expediagroup.com","industry":"software_it"}
+{"id":"exxonmobil","name":"ExxonMobil","url":"https://jobs.exxonmobil.com","industry":"energy"}
+{"id":"far_east_organization","name":"Far East Organization","url":"https://www.fareast.com.sg/careers","industry":"real_estate"}
+{"id":"fedex","name":"FedEx","url":"https://careers.fedex.com","industry":"transportation_logistics"}
+{"id":"genting_singapore","name":"Genting Singapore","url":"https://www.gentinggroup.com/careers","industry":"hospitality_travel"}
+{"id":"golden_agri_resources","name":"Golden Agri-Resources","url":"https://www.goldenagri.com.sg/careers","industry":"agriculture"}
+{"id":"grab","name":"Grab","url":"https://grab.careers","industry":"software_it"}
+{"id":"hp_inc","name":"HP Inc.","url":"https://jobs.hp.com","industry":"manufacturing"}
+{"id":"jardine_cycle_carriage","name":"Jardine Cycle & Carriage","url":"https://www.jcclgroup.com/careers","industry":"automotive"}
+{"id":"keppel_corporation","name":"Keppel Corporation","url":"https://www.kepcorp.com/careers","industry":"energy"}
+{"id":"lazada_group","name":"Lazada Group","url":"https://www.lazada.com/careers","industry":"retail_ecommerce"}
+{"id":"linkedin","name":"LinkedIn","url":"https://careers.linkedin.com","industry":"software_it"}
+{"id":"maersk","name":"Maersk","url":"https://www.maersk.com/careers","industry":"transportation_logistics"}
+{"id":"mapletree_investments","name":"Mapletree Investments","url":"https://www.mapletree.com.sg/careers","industry":"real_estate"}
+{"id":"mastercard","name":"Mastercard","url":"https://careers.mastercard.com","industry":"finance"}
+{"id":"mckinsey","name":"McKinsey & Company","url":"https://www.mckinsey.com/careers","industry":"consulting"}
+{"id":"mediacorp","name":"Mediacorp","url":"https://www.mediacorp.sg/careers","industry":"media_entertainment"}
+{"id":"meta","name":"Meta","url":"https://www.metacareers.com","industry":"software_it"}
+{"id":"ninja_van","name":"Ninja Van","url":"https://www.ninjavan.co/careers","industry":"transportation_logistics"}
+{"id":"ocbc_bank","name":"OCBC Bank","url":"https://www.ocbc.com/careers","industry":"finance"}
+{"id":"olam_group","name":"Olam Group","url":"https://www.olamgroup.com/careers","industry":"agriculture"}
+{"id":"palo_alto_networks","name":"Palo Alto Networks","url":"https://jobs.paloaltonetworks.com","industry":"software_it"}
+{"id":"paypal","name":"PayPal","url":"https://careers.pypl.com","industry":"finance"}
+{"id":"procter_gamble","name":"Procter & Gamble","url":"https://www.pgcareers.com","industry":"manufacturing"}
+{"id":"propertyguru_group","name":"PropertyGuru Group","url":"https://www.propertygurugroup.com/careers","industry":"real_estate"}
+{"id":"psa_international","name":"PSA International","url":"https://www.globalpsa.com/careers","industry":"transportation_logistics"}
+{"id":"razer","name":"Razer Inc","url":"https://www.razer.com/careers","industry":"manufacturing"}
+{"id":"salesforce","name":"Salesforce","url":"https://www.salesforce.com/company/careers/","industry":"software_it"}
+{"id":"sats_ltd","name":"SATS Ltd","url":"https://www.sats.com.sg/careers","industry":"hospitality_travel"}
+{"id":"sea_limited_shopee","name":"Sea Limited (Shopee)","url":"https://careers.sea.com","industry":"retail_ecommerce"}
+{"id":"sembcorp_industries","name":"Sembcorp Industries","url":"https://www.sembcorp.com/careers","industry":"energy"}
+{"id":"shell","name":"Shell","url":"https://www.shell.com/careers.html","industry":"energy"}
+{"id":"shopback","name":"ShopBack","url":"https://www.shopback.com/careers","industry":"retail_ecommerce"}
+{"id":"singapore_airlines","name":"Singapore Airlines","url":"https://www.singaporeair.com/careers","industry":"transportation_logistics"}
+{"id":"singapore_exchange","name":"Singapore Exchange (SGX Group)","url":"https://www.sgx.com/careers","industry":"finance"}
+{"id":"singapore_post","name":"Singapore Post (SingPost)","url":"https://www.singpost.com/careers","industry":"transportation_logistics"}
+{"id":"singtel","name":"Singtel","url":"https://www.singtel.com/careers","industry":"telecommunications"}
+{"id":"stripe","name":"Stripe","url":"https://stripe.com/jobs","industry":"software_it"}
+{"id":"swiss_re","name":"Swiss Re","url":"https://www.swissre.com/careers.html","industry":"finance"}
+{"id":"ubs","name":"UBS","url":"https://www.ubs.com/global/en/careers.html","industry":"finance"}
+{"id":"uob","name":"United Overseas Bank (UOB)","url":"https://www.uobgroup.com/careers","industry":"finance"}
+{"id":"visa_inc","name":"Visa","url":"https://corporate.visa.com/en/jobs.html","industry":"finance"}
+{"id":"wilmar_international","name":"Wilmar International","url":"https://www.wilmar-international.com/careers","industry":"agriculture"}
+{"id":"zurich_insurance","name":"Zurich Insurance Group","url":"https://www.zurich.com/careers","industry":"finance"}

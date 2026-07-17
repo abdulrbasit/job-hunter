@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from job_hunter.catalog.loader import CompanyEntry
+from job_hunter.companies import store as companies_store
 from job_hunter.models import JobPosting
-from job_hunter.sources import ats_slugs
 from job_hunter.sources.ats_apis import fetch_platform_jobs
 from job_hunter.sources.ats_slugs import (
     catalog_slugs,
@@ -235,77 +234,45 @@ class TestQueryAtsBySlugs:
 # ---------------------------------------------------------------------------
 
 
-def _company(
-    career_url: str,
-    *,
-    countries: list[str] | None = None,
-    remote: list[str] | None = None,
-    industries: list[str] | None = None,
-) -> CompanyEntry:
-    return CompanyEntry(
-        id="acme",
-        name="Acme",
-        career_url=career_url,
-        country_codes=countries or ["US"],
-        remote_country_codes=remote or [],
-        industry_ids=industries or [],
-        verified_at="2026-01-01",
+def _seed(tmp_path: Path, career_url: str, *, country: str = "US", industry: str = "", enabled: bool = True) -> None:
+    companies_store.sync_user_targets(
+        tmp_path, [{"name": "Acme", "url": career_url, "country": country, "industry": industry, "enabled": enabled}]
     )
 
 
 _NO_REGIONS: dict = {"regions": {}}
-_DE_ONLY: dict = {"regions": {"germany": {"enabled": True, "country": "DE"}}}
+_DE_ONLY: dict = {"regions": {"germany": {"enabled": True, "country": "DE", "scope": "country"}}}
 
 
 class TestCatalogSlugs:
-    def test_extracts_slug_from_ats_career_url(self, monkeypatch) -> None:
-        monkeypatch.setattr(ats_slugs, "load_companies", lambda: [_company("https://boards.greenhouse.io/Acme")])
-        assert catalog_slugs(_NO_REGIONS) == {}
+    def test_no_enabled_regions_excludes_everything(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://boards.greenhouse.io/Acme")
+        assert catalog_slugs(tmp_path, _NO_REGIONS) == {}
 
-    def test_skips_platform_without_public_fetcher(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            ats_slugs,
-            "load_companies",
-            lambda: [_company("https://acme.wd5.myworkdayjobs.com/External")],
-        )
-        assert catalog_slugs(_NO_REGIONS) == {}
+    def test_skips_platform_without_public_fetcher(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://acme.wd5.myworkdayjobs.com/External", country="DE")
+        assert catalog_slugs(tmp_path, _DE_ONLY) == {}
 
-    def test_skips_non_ats_career_url(self, monkeypatch) -> None:
-        monkeypatch.setattr(ats_slugs, "load_companies", lambda: [_company("https://acme.com/careers")])
-        assert catalog_slugs(_NO_REGIONS) == {}
+    def test_skips_non_ats_career_url(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://acme.com/careers", country="DE")
+        assert catalog_slugs(tmp_path, _DE_ONLY) == {}
 
-    def test_region_filter_excludes_other_countries(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            ats_slugs,
-            "load_companies",
-            lambda: [_company("https://boards.greenhouse.io/acme", countries=["US"])],
-        )
-        assert catalog_slugs(_DE_ONLY) == {}
+    def test_region_filter_excludes_other_countries(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://boards.greenhouse.io/acme", country="US")
+        assert catalog_slugs(tmp_path, _DE_ONLY) == {}
 
-    def test_region_filter_includes_remote_country_match(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            ats_slugs,
-            "load_companies",
-            lambda: [_company("https://boards.greenhouse.io/acme", countries=["US"], remote=["DE"])],
-        )
-        assert catalog_slugs(_DE_ONLY) == {"greenhouse": {"acme"}}
+    def test_region_filter_includes_matching_country(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://boards.greenhouse.io/acme", country="DE")
+        assert catalog_slugs(tmp_path, _DE_ONLY) == {"greenhouse": {"acme"}}
 
-    def test_no_enabled_regions_includes_all(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            ats_slugs,
-            "load_companies",
-            lambda: [_company("https://jobs.lever.co/acme", countries=["JP"])],
-        )
-        assert catalog_slugs(_NO_REGIONS) == {}
+    def test_disabled_company_is_excluded(self, tmp_path: Path) -> None:
+        _seed(tmp_path, "https://boards.greenhouse.io/acme", country="DE", enabled=False)
+        assert catalog_slugs(tmp_path, _DE_ONLY) == {}
 
-    def test_industry_exclusion_drops_company(self, monkeypatch) -> None:
-        from job_hunter.config.reference_data import load_filters
+    def test_industry_exclusion_drops_company(self, tmp_path: Path) -> None:
+        from job_hunter.filters.catalog import load_filter_catalog
 
-        industry = load_filters().industries[0]
-        monkeypatch.setattr(
-            ats_slugs,
-            "load_companies",
-            lambda: [_company("https://boards.greenhouse.io/acme", industries=[industry.id])],
-        )
-        config = {"regions": {}, "exclusions": {"industries": [industry.label]}}
-        assert catalog_slugs(config) == {}
+        industry = load_filter_catalog().industries[0]
+        _seed(tmp_path, "https://boards.greenhouse.io/acme", country="DE", industry=industry.id)
+        config = {**_DE_ONLY, "filters": {"excluded_industries": [industry.label]}}
+        assert catalog_slugs(tmp_path, config) == {}

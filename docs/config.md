@@ -100,6 +100,34 @@ rulesâ€”such as stale-page phrases and non-listing URL patternsâ€”rema
 in `job_hunter/core/builtin_filters.py`, their single canonical location shared
 by discovery and screening without crossing package boundaries.
 
+### `companies`
+
+Optional. Your own company-hunt targets — the bundled catalog (thousands of
+companies, package-owned, opt-in) is managed entirely through the dashboard's
+Company Hunt → Manage Companies → Shared Catalog view, not through this key.
+
+```yaml
+companies:
+  targets:
+    - name: Acme
+      url: https://acme.example/careers
+      country: DE
+      city: Berlin          # optional; must match a known city name for the country
+      industry: software_it # optional; defaults to "other" (unclassified)
+      enabled: true          # optional; defaults to true
+```
+
+`name`, `url` (https), and `country` (ISO alpha-2) are required per entry.
+`industry` values come from the same package-owned taxonomy as
+`filters.excluded_industries`. Targets are mirrored into a runtime SQLite
+store (`outputs/state/companies.db`) alongside the opted-in catalog rows —
+that store is what the company hunt and the dashboard's Companies table
+actually query; it's regenerable and gitignored, not itself a source of
+truth. This key replaces the retired `config/career_pages.yml`; a leftover
+copy is migrated into `companies.targets` once by `job-hunter doctor` and
+then removed. See [architecture.md](architecture.md) for the store schema
+and gating rules.
+
 ### `scoring`
 
 | Key | Required | Purpose |
@@ -173,5 +201,7 @@ the most recent save. Validation errors do not replace the current file.
 
 Location dropdowns read package resources through the dashboard API. Bootstrap
 returns countries and current active selections; cities are fetched only for
-the selected country. Existing legacy company configuration remains readable
-during its planned retirement into the single config/store ownership model.
+the selected country. The Company Hunt tab's Manage Companies view edits
+`companies.targets` (My Companies, revision-guarded like the rest of
+`job_hunter.yml`) and the runtime store's catalog opt-ins (Shared Catalog,
+server-paginated, filterable by country/city/industry/enabled/source).

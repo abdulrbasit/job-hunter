@@ -21,6 +21,7 @@ tailor-links, or tailor-raw modes.
 |---|---|
 | `agent_context/` | Bounded context objects consumed by agent skills |
 | `cli/` | Command parsing, output, and service composition |
+| `companies/` | Package-owned per-country company seed, the runtime SQLite store, and region/industry gating |
 | `config/` | YAML loading, choice validation, migrations, secrets, schemas, and workspace paths |
 | `core/` | Cross-package utilities and package-owned built-in quality filters |
 | `filters/` | Package-owned filter resource loading, type binding, normalization, and matching |
@@ -72,8 +73,13 @@ skills continue the same lifecycle through hidden CLI contracts under
 
 - `config/job_hunter.yml`: sole user-owned config; choices reference package-owned catalogs.
 - `job_hunter/locations/data/`: read-only canonical city resources shipped in the wheel.
+- `job_hunter/companies/data/*.jsonl`: read-only per-country company seed shipped in the wheel
+  (built by `scripts/build_company_seed.py`), imported into `outputs/state/companies.db` on
+  first use.
 - `profile/`: user-owned resume, career context, and story evidence.
-- `outputs/state/jobs.db`: canonical job and application state.
+- `outputs/state/jobs.db`: canonical job and application state; git-synced across machines.
+- `outputs/state/companies.db`: runtime company store (package seed + a mirror of
+  `config/job_hunter.yml`'s `companies.targets`) — regenerable, gitignored, not synced.
 - `outputs/state/metrics.db`: pipeline and token telemetry.
 - `outputs/jobs/<slug>/`: durable per-application artifacts.
 
@@ -92,10 +98,38 @@ explicit compatibility surface for config loading and migration; runtime
 sources, pipeline screening, catalog matching, and dashboard reference-data
 endpoints use `job_hunter.locations` directly. Source adapters receive a typed
 canonical search location. Orchestrator results and browser-hunt extraction
-attach canonical location evidence before the defense-in-depth screening gate,
-and catalog companies expose typed `Location` evidence. Fuzzy aliases are
-therefore confined to config-time resolution; runtime gates compare canonical
-IDs and scopes.
+attach canonical location evidence before the defense-in-depth screening gate.
+Fuzzy aliases are therefore confined to config-time resolution; runtime gates
+compare canonical IDs and scopes.
+
+### Companies
+
+`job_hunter/companies/` replaces the retired `config/career_pages.yml`:
+
+- `seed.py` reads the bundled per-country JSONL shards (`data/<CC>.jsonl` +
+  `data/manifest.json`) via `importlib.resources`.
+- `store.py` owns `outputs/state/companies.db` — one `companies` table
+  (`id, catalog_id, name, normalized_name, url, normalized_url, country, city,
+  industry, source, batch, enabled, created_at, updated_at`, unique on
+  `(normalized_url, country, source)`, indexed on `country`, `(country, city)`,
+  and `industry`). `ensure_seeded()` (re-)imports the seed on a version bump,
+  preserving each catalog row's `enabled` flag by `(normalized_url, country)`;
+  `sync_user_targets()` mirrors `config/job_hunter.yml`'s `companies.targets`
+  as `source='user'` rows on every hunt/dashboard read.
+- `gating.py` derives eligible countries from enabled regions (`None` for a
+  remote_global region = every country; `[]` for no enabled regions = nothing)
+  and expands `filters.excluded_industries` to taxonomy IDs, the same taxonomy
+  `filters/catalog.py` uses.
+- `pipeline/browser_hunt.py` and `sources/ats_slugs.py` both consume
+  `job_hunter.companies.hunt_candidates()` / `store.candidate_companies()` —
+  an index-backed `WHERE enabled = 1 AND country IN (...) AND industry NOT IN
+  (...)` query, not a full-catalog scan. When a user target and a catalog row
+  share a `(normalized_url, country)`, the user row wins (mirrors the old
+  career_pages.yml custom-entry-wins rule).
+
+`companies.db` is regenerable (seed + config mirror) and gitignored — unlike
+`jobs.db`, it is never synced across machines. `config/job_hunter.yml`'s
+`companies.targets` is the durable, git-synced record of a user's own targets.
 
 ## Shared writing policy
 

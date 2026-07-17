@@ -495,9 +495,8 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['catalog-bulk-disable-btn', () => bulkSetCatalogEnabled(false)],
   ['catalog-enable-shown-btn', () => setCatalogShownEnabled(true)],
   ['catalog-disable-shown-btn', () => setCatalogShownEnabled(false)],
-  ['open-career-pages-btn', openCareerPagesFile],
   ['open-config-folder-btn', openConfigFolder],
-  ['undo-career-pages-btn', undoCareerPages],
+  ['undo-company-targets-btn', undoCompanyTargets],
   ['add-region-btn', () => addRegionRow()],
   ['add-override-btn', () => addOverrideRow()],
   ['settings-save-guided', saveGuidedConfig],
@@ -529,6 +528,21 @@ document.getElementById('company-search').addEventListener('input', renderCompan
 document.getElementById('catalog-search').addEventListener('input', debouncedLoadCatalog);
 document.getElementById('catalog-industry-filter').addEventListener('change', () => {
   catalogIndustry = document.getElementById('catalog-industry-filter').value;
+  catalogPage = 1;
+  loadCatalogPage();
+});
+document.getElementById('catalog-country-filter').addEventListener('change', async () => {
+  const country = document.getElementById('catalog-country-filter').value;
+  const citySelect = document.getElementById('catalog-city-filter');
+  citySelect.innerHTML = '<option value="">All cities</option>';
+  if (country) {
+    const payload = await window.pywebview.api.get_location_cities(country);
+    citySelect.insertAdjacentHTML('beforeend', (payload.cities || []).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join(''));
+  }
+  catalogPage = 1;
+  loadCatalogPage();
+});
+document.getElementById('catalog-city-filter').addEventListener('change', () => {
   catalogPage = 1;
   loadCatalogPage();
 });
@@ -2131,20 +2145,21 @@ async function undoCareerContext() {
   }
 }
 
-// ── Companies ──
+// ── Companies (My Companies = config/job_hunter.yml's companies.targets) ──
 async function loadCompanies() {
   companiesLoaded = true;
   const tbody = document.getElementById('companies-tbody');
   try {
-    const result = await window.pywebview.api.get_career_pages();
+    const result = await window.pywebview.api.get_company_targets();
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
     selectedCompanyUrls.clear();
     companyRenderLimit = COMPANY_RENDER_STEP;
     renderCompanies();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7">${errorHtml('Companies could not be loaded.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9">${errorHtml('Companies could not be loaded.')}</td></tr>`;
   }
+  ensureCompanyFormOptionsLoaded();
 }
 
 function companyLatestResultHtml(latest) {
@@ -2157,14 +2172,16 @@ function companyLatestResultHtml(latest) {
 }
 
 function companyRowHtml(company) {
-  const url = company.career_url || '';
+  const url = company.url || '';
   const enabled = company.enabled !== false;
   const checked = selectedCompanyUrls.has(url) ? 'checked' : '';
   return `<tr data-url="${esc(url)}">
     <td class="td-num"><input type="checkbox" class="company-checkbox" data-url="${esc(url)}" ${checked}></td>
     <td class="td-company">${esc(company.name || '—')}</td>
     <td class="td-title"><a href="#" data-open-url="${esc(url)}">${esc(url)}</a></td>
-    <td>${esc(company.location || '—')}</td>
+    <td>${esc(company.country || '—')}</td>
+    <td>${esc(company.city || '—')}</td>
+    <td>${esc(industryLabel(company.industry))}</td>
     <td><span class="badge badge-${enabled ? 'candidate' : 'discarded'}">${enabled ? 'Enabled' : 'Disabled'}</span></td>
     <td>${companyLatestResultHtml(company.latest_result)}</td>
     <td>
@@ -2182,24 +2199,24 @@ function renderCompanies() {
     if (companyEnabledFilter === 'enabled' && !enabled) return false;
     if (companyEnabledFilter === 'disabled' && enabled) return false;
     if (!query) return true;
-    return `${c.name || ''} ${c.career_url || ''} ${c.location || ''}`.toLowerCase().includes(query);
+    return `${c.name || ''} ${c.url || ''} ${c.country || ''} ${c.city || ''} ${industryLabel(c.industry)}`.toLowerCase().includes(query);
   });
   document.getElementById('company-total-count').textContent = `${companiesData.length} companies`;
   if (!filtered.length) {
     document.getElementById('company-select-all').checked = false;
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No companies found</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="no-data">No companies found</div></td></tr>`;
     updateCompanyBulkButtons();
     return;
   }
-  // Cap the initial DOM render so a 2,000-company career_pages.yml doesn't build one
-  // giant innerHTML string up front; "Show more" grows the cap on demand. Rows already
-  // carry content-visibility:auto (shared table styling) for off-screen paint/layout cost.
+  // Cap the initial DOM render so a large companies.targets list doesn't build one giant
+  // innerHTML string up front; "Show more" grows the cap on demand. Rows already carry
+  // content-visibility:auto (shared table styling) for off-screen paint/layout cost.
   const visible = filtered.slice(0, companyRenderLimit);
-  document.getElementById('company-select-all').checked = visible.every(c => selectedCompanyUrls.has(c.career_url));
+  document.getElementById('company-select-all').checked = visible.every(c => selectedCompanyUrls.has(c.url));
   let rowsHtml = visible.map(companyRowHtml).join('');
   const remaining = filtered.length - visible.length;
   if (remaining > 0) {
-    rowsHtml += `<tr><td colspan="7" style="text-align:center">
+    rowsHtml += `<tr><td colspan="9" style="text-align:center">
       <button class="btn" data-show-more-companies>Show ${Math.min(COMPANY_RENDER_STEP, remaining)} more (${remaining} not shown)</button>
     </td></tr>`;
   }
@@ -2234,18 +2251,55 @@ function toggleSelectAllCompanies(checked) {
   updateCompanyBulkButtons();
 }
 
+let companyFormOptionsLoaded = false;
+
+async function ensureCompanyFormOptionsLoaded() {
+  if (companyFormOptionsLoaded) return;
+  companyFormOptionsLoaded = true;
+  if (!locationCountries.length) {
+    const payload = await window.pywebview.api.get_location_countries();
+    locationCountries = payload.countries || [];
+  }
+  document.getElementById('company-form-country').innerHTML = countryOptions();
+  if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
+  const industrySelect = document.getElementById('company-form-industry');
+  const options = (filterOptions.industries || []).filter(i => i.id !== 'other')
+    .map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`).join('');
+  industrySelect.insertAdjacentHTML('beforeend', options);
+  document.getElementById('company-form-country').addEventListener('change', loadCompanyFormCities);
+  document.getElementById('company-form-city').addEventListener('input', debounce(loadCompanyFormCities, 200));
+  loadCompanyFormCities();
+}
+
+function industryLabel(id) {
+  if (!id || id === 'other') return 'Other / Unclassified';
+  const match = (filterOptions && filterOptions.industries || []).find(i => i.id === id);
+  return match ? match.label : id;
+}
+
+async function loadCompanyFormCities() {
+  const country = document.getElementById('company-form-country').value;
+  const query = document.getElementById('company-form-city').value.trim();
+  const payload = country ? await window.pywebview.api.get_location_cities(country, query) : {cities: []};
+  document.getElementById('company-form-city-options').innerHTML =
+    (payload.cities || []).map(c => `<option value="${esc(c.name)}"></option>`).join('');
+}
+
 function startEditCompany(url) {
-  const company = companiesData.find(c => c.career_url === url);
+  const company = companiesData.find(c => c.url === url);
   if (!company) return;
   editingCompanyUrl = url;
   document.getElementById('company-form-title').textContent = 'Edit Company';
   document.getElementById('company-form-name').value = company.name || '';
-  document.getElementById('company-form-url').value = company.career_url || '';
-  document.getElementById('company-form-location').value = company.location || '';
+  document.getElementById('company-form-url').value = company.url || '';
+  document.getElementById('company-form-country').value = company.country || '';
+  document.getElementById('company-form-city').value = company.city || '';
+  document.getElementById('company-form-industry').value = company.industry || '';
   document.getElementById('company-form-enabled').checked = company.enabled !== false;
   document.getElementById('company-form-submit').textContent = 'Save changes';
   document.getElementById('company-form-cancel').style.display = '';
   document.getElementById('company-form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  loadCompanyFormCities();
 }
 
 function cancelCompanyForm() {
@@ -2253,7 +2307,9 @@ function cancelCompanyForm() {
   document.getElementById('company-form-title').textContent = 'Add Company';
   document.getElementById('company-form-name').value = '';
   document.getElementById('company-form-url').value = '';
-  document.getElementById('company-form-location').value = '';
+  document.getElementById('company-form-country').value = '';
+  document.getElementById('company-form-city').value = '';
+  document.getElementById('company-form-industry').value = '';
   document.getElementById('company-form-enabled').checked = true;
   document.getElementById('company-form-submit').textContent = 'Add company';
   document.getElementById('company-form-cancel').style.display = 'none';
@@ -2265,17 +2321,20 @@ async function submitCompanyForm() {
   const btn = document.getElementById('company-form-submit');
   const name = document.getElementById('company-form-name').value.trim();
   const url = document.getElementById('company-form-url').value.trim();
-  const location = document.getElementById('company-form-location').value.trim();
+  const country = document.getElementById('company-form-country').value;
+  const city = document.getElementById('company-form-city').value.trim();
+  const industry = document.getElementById('company-form-industry').value;
   const enabled = document.getElementById('company-form-enabled').checked;
+  const entry = { name, url, country, city, industry, enabled };
 
   const next = editingCompanyUrl
-    ? companiesData.map(c => c.career_url === editingCompanyUrl ? { name, career_url: url, location, enabled } : c)
-    : [...companiesData, { name, career_url: url, location, enabled }];
+    ? companiesData.map(c => c.url === editingCompanyUrl ? entry : c)
+    : [...companiesData, entry];
 
   msg.textContent = '';
   btn.disabled = true;
   try {
-    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    const result = await window.pywebview.api.save_company_targets(next, companiesRevision);
     if (!result.ok) {
       msg.textContent = '✗ ' + ((result.errors && result.errors[0]) || 'Save failed.');
       msg.style.color = '#f85149';
@@ -2294,12 +2353,12 @@ async function submitCompanyForm() {
 }
 
 async function deleteCompanyByUrl(url) {
-  const company = companiesData.find(c => c.career_url === url);
+  const company = companiesData.find(c => c.url === url);
   const name = company ? company.name : url;
-  if (!confirm(`Delete 1 company ("${name}") from career_pages.yml? This cannot be undone.`)) return;
-  const next = companiesData.filter(c => c.career_url !== url);
+  if (!confirm(`Delete 1 company ("${name}")? This cannot be undone.`)) return;
+  const next = companiesData.filter(c => c.url !== url);
   try {
-    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    const result = await window.pywebview.api.save_company_targets(next, companiesRevision);
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Delete failed.'); return; }
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
@@ -2313,10 +2372,10 @@ async function deleteCompanyByUrl(url) {
 async function bulkDeleteCompanies() {
   const urls = [...selectedCompanyUrls];
   if (!urls.length) return;
-  if (!confirm(`Delete ${urls.length} compan${urls.length === 1 ? 'y' : 'ies'} from career_pages.yml?`)) return;
-  const next = companiesData.filter(c => !urls.includes(c.career_url));
+  if (!confirm(`Delete ${urls.length} compan${urls.length === 1 ? 'y' : 'ies'}?`)) return;
+  const next = companiesData.filter(c => !urls.includes(c.url));
   try {
-    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    const result = await window.pywebview.api.save_company_targets(next, companiesRevision);
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Delete failed.'); return; }
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
@@ -2331,9 +2390,9 @@ async function bulkSetCompaniesEnabled(enabled) {
   const urls = [...selectedCompanyUrls];
   if (!urls.length) return;
   if (!confirm(`${enabled ? 'Enable' : 'Disable'} ${urls.length} compan${urls.length === 1 ? 'y' : 'ies'}?`)) return;
-  const next = companiesData.map(c => urls.includes(c.career_url) ? { ...c, enabled } : c);
+  const next = companiesData.map(c => urls.includes(c.url) ? { ...c, enabled } : c);
   try {
-    const result = await window.pywebview.api.save_career_pages(next, companiesRevision);
+    const result = await window.pywebview.api.save_company_targets(next, companiesRevision);
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update companies.'); return; }
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
@@ -2343,10 +2402,10 @@ async function bulkSetCompaniesEnabled(enabled) {
   }
 }
 
-async function undoCareerPages() {
-  if (!confirm('Undo the last career_pages.yml save? This restores the previous version.')) return;
+async function undoCompanyTargets() {
+  if (!confirm('Undo the last companies save? This restores the previous version of config/job_hunter.yml.')) return;
   try {
-    const result = await window.pywebview.api.undo_career_pages();
+    const result = await window.pywebview.api.undo_company_targets();
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Nothing to undo.'); return; }
     companiesData = result.data.companies;
     companiesRevision = result.data.revision;
@@ -2359,19 +2418,14 @@ async function undoCareerPages() {
 
 async function openCareerPage(url) {
   try {
-    const result = await window.pywebview.api.open_career_page(url);
+    const result = await window.pywebview.api.open_company_target(url);
     if (!result.ok) alert(result.error || 'Could not open career page.');
   } catch(e) {
-    reportFailure('Career page could not be opened.', 'Check the configured http/https URL and retry.');
+    reportFailure('Career page could not be opened.', 'Check the configured https URL and retry.');
   }
 }
 
-async function openCareerPagesFile() {
-  const result = await window.pywebview.api.open_career_pages_file();
-  if (!result.ok) alert(result.error || 'Could not open career_pages.yml.');
-}
-
-// ── Shared Catalog (bundled companies, opt-in per company or per sector) ──
+// ── Shared Catalog (bundled companies, opt-in per company or per filter) ──
 async function loadCatalogIndustries() {
   catalogIndustriesLoaded = true;
   const select = document.getElementById('catalog-industry-filter');
@@ -2382,6 +2436,11 @@ async function loadCatalogIndustries() {
       .join('');
     select.insertAdjacentHTML('beforeend', options);
   } catch(e) { /* dropdown just stays at "All industries" */ }
+  try {
+    const result = await window.pywebview.api.get_catalog_countries();
+    const select2 = document.getElementById('catalog-country-filter');
+    select2.insertAdjacentHTML('beforeend', (result.data.countries || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join(''));
+  } catch(e) { /* dropdown just stays at "All countries" */ }
 }
 
 function catalogRowHtml(company) {
@@ -2389,23 +2448,26 @@ function catalogRowHtml(company) {
   return `<tr data-id="${esc(company.id)}">
     <td class="td-num"><input type="checkbox" class="catalog-checkbox" data-id="${esc(company.id)}" ${checked}></td>
     <td class="td-company">${esc(company.name || '—')}</td>
-    <td class="td-title"><a href="#" data-open-url="${esc(company.career_url)}">${esc(company.career_url)}</a></td>
-    <td>${esc((company.country_codes || []).join(', ') || '—')}</td>
+    <td class="td-title"><a href="#" data-open-url="${esc(company.url)}">${esc(company.url)}</a></td>
+    <td>${esc(company.country || '—')}</td>
+    <td>${esc(industryLabel(company.industry))}</td>
     <td><span class="badge badge-${company.enabled ? 'candidate' : 'discarded'}">${company.enabled ? 'Enabled' : 'Disabled'}</span></td>
   </tr>`;
 }
 
 async function loadCatalogPage() {
   const tbody = document.getElementById('catalog-tbody');
-  tbody.innerHTML = `<tr><td colspan="5">${loadingHtml()}</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6">${loadingHtml()}</td></tr>`;
   try {
     const search = document.getElementById('catalog-search').value;
-    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 300, catalogEnabledFilter);
+    const country = document.getElementById('catalog-country-filter').value;
+    const city = document.getElementById('catalog-city-filter').value;
+    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 300, catalogEnabledFilter, country, city);
     if (!result.ok) throw new Error('not ok');
     catalogPageData = result.data;
     document.getElementById('catalog-total-count').textContent = `${catalogPageData.total} companies`;
     if (!catalogPageData.items.length) {
-      tbody.innerHTML = `<tr><td colspan="5"><div class="no-data">No companies found</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="no-data">No companies found</div></td></tr>`;
       document.getElementById('catalog-select-all').checked = false;
     } else {
       tbody.innerHTML = catalogPageData.items.map(catalogRowHtml).join('');
@@ -2414,7 +2476,7 @@ async function loadCatalogPage() {
     renderCatalogPager();
     updateCatalogBulkButtons();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="5">${errorHtml('Shared catalog could not be loaded.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">${errorHtml('Shared catalog could not be loaded.')}</td></tr>`;
   }
 }
 
@@ -2456,10 +2518,10 @@ function toggleSelectAllCatalog(checked) {
 }
 
 async function bulkSetCatalogEnabled(enabled) {
-  const ids = [...selectedCatalogIds];
+  const ids = [...selectedCatalogIds].map(Number);
   if (!ids.length) return;
   try {
-    const result = await window.pywebview.api.save_catalog_enabled_ids(ids, enabled, catalogPageData.revision);
+    const result = await window.pywebview.api.save_catalog_enabled_ids(ids, enabled);
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
     selectedCatalogIds.clear();
     loadCatalogPage();
@@ -2470,7 +2532,7 @@ async function bulkSetCatalogEnabled(enabled) {
 
 async function openCatalogCompany(id) {
   try {
-    const result = await window.pywebview.api.open_catalog_company(id);
+    const result = await window.pywebview.api.open_catalog_company(Number(id));
     if (!result.ok) alert(result.error || 'Could not open career page.');
   } catch(e) {
     reportFailure('Career page could not be opened.');
@@ -2478,15 +2540,16 @@ async function openCatalogCompany(id) {
 }
 
 async function setCatalogShownEnabled(enabled) {
-  // Works for "All industries" too — enables/disables every company matching the
-  // current industry + search + enabled-state filter, not just what fits on one page.
-  const label = document.getElementById('catalog-industry-filter').selectedOptions[0]?.textContent || 'All industries';
+  // Works for "All industries" too — enables/disables every company matching the current
+  // country + city + industry + search + enabled-state filter, not just what fits on one page.
   const n = catalogPageData.total || 0;
-  if (!confirm(`${enabled ? 'Enable' : 'Disable'} all ${n} shown compan${n === 1 ? 'y' : 'ies'} (${label})?`)) return;
+  if (!confirm(`${enabled ? 'Enable' : 'Disable'} all ${n} shown compan${n === 1 ? 'y' : 'ies'}?`)) return;
   try {
     const search = document.getElementById('catalog-search').value;
-    const result = await window.pywebview.api.save_catalog_filter_enabled(
-      catalogIndustry, search, catalogEnabledFilter, enabled, catalogPageData.revision
+    const country = document.getElementById('catalog-country-filter').value;
+    const city = document.getElementById('catalog-city-filter').value;
+    const result = await window.pywebview.api.set_catalog_filter_enabled(
+      catalogIndustry, search, catalogEnabledFilter, country, city, enabled
     );
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
     loadCatalogPage();

@@ -41,12 +41,12 @@ def _check_filters_resource() -> str:
 
 
 def _check_catalog_resource() -> str:
-    from job_hunter.catalog import load_companies
+    from job_hunter.companies import seed
 
-    companies = load_companies()
-    if not companies:
-        raise ValueError("company catalog is empty")
-    return f"{len(companies)} companies loaded"
+    manifest = seed.manifest()
+    if not manifest.get("total"):
+        raise ValueError("company seed is empty")
+    return f"{manifest['total']} companies across {len(manifest['files'])} countries"
 
 
 def _check_dashboard_assets() -> str:

@@ -877,14 +877,14 @@ def test_version_command_shows_update_info() -> None:
     assert "uv tool upgrade" in result.output
 
 
-def test_update_command_adds_workspace_assets(tmp_path: Path) -> None:
+def test_update_command_does_not_touch_existing_job_hunter_yaml(tmp_path: Path) -> None:
     from typer.testing import CliRunner
 
     from job_hunter.cli import app
 
-    companies = tmp_path / "config" / "career_pages.yml"
-    companies.parent.mkdir()
-    companies.write_text("companies:\n  - name: Keep Me\n", encoding="utf-8")
+    config = tmp_path / "config" / "job_hunter.yml"
+    config.parent.mkdir()
+    config.write_text("mode: agent\ncompanies:\n  targets:\n    - name: Keep Me\n", encoding="utf-8")
 
     result = CliRunner().invoke(app, ["update", "--workspace", str(tmp_path)])
 
@@ -892,7 +892,7 @@ def test_update_command_adds_workspace_assets(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert (tmp_path / "SETUP.md").exists()
-    assert yaml.safe_load(companies.read_bytes())["companies"] == [{"name": "Keep Me"}]
+    assert yaml.safe_load(config.read_bytes())["companies"]["targets"] == [{"name": "Keep Me"}]
 
 
 def _git(root: Path, *args: str) -> None:

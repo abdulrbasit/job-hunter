@@ -7,17 +7,16 @@ changing what it touches.
 
 1. **Workspace assets** — `workspace/assets.py::update_workspace_assets`.
    Iterates `_UPDATE_ASSETS` (currently `README.md`, `SETUP.md`,
-   `SETUP_AGENT.md`, `SETUP_LLM_API.md`, `config/career_pages.yml`):
+   `SETUP_AGENT.md`, `SETUP_LLM_API.md`):
    - Non-YAML files are overwritten outright, except `README.md`, whose
      `<!-- JOBS_STATS_START -->`/`<!-- JOBS_TABLE_START -->` blocks are
      copied forward from the existing file first (`_preserve_readme_blocks`).
-   - `config/career_pages.yml` and `config/job_hunter.yml` are both
-     user-owned YAML. If the file already exists, update leaves it alone —
-     no reading, no rewriting, no merging of any kind. If it's missing
-     (an older workspace that predates the file), update writes the
-     template default once. `job-hunter doctor` schema-validates
-     `config/job_hunter.yml` and tells you what to add by hand if a future
-     release ever needs a new required key.
+   - `config/job_hunter.yml` is user-owned YAML. If the file already exists,
+     update leaves it alone — no reading, no rewriting, no merging of any
+     kind. `job-hunter doctor` schema-validates it and tells you what to add
+     by hand if a future release ever needs a new required key. Doctor also
+     migrates a leftover `config/career_pages.yml` (the retired company-config
+     file) into `companies.targets` once, then removes it.
    - `_OBSOLETE_CLI_DIRS` (currently just `.gemini/`) is removed outright
      first, if present — an old mirrored agent-CLI skill tree with no user
      data in it.

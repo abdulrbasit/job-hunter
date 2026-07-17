@@ -53,6 +53,13 @@ def test_metrics_does_not_depend_on_ux_pipeline_or_cli() -> None:
         _assert_no_dependency(_PACKAGE_ROOT / "metrics", banned)
 
 
+def test_companies_does_not_depend_on_ux_pipeline_or_cli() -> None:
+    """job_hunter.companies (seed + runtime store + gating) sits below pipeline/ux/cli,
+    same layer as locations/ and filters/ — consumed by them, not the reverse."""
+    for banned in ("job_hunter.ux", "job_hunter.pipeline", "job_hunter.cli"):
+        _assert_no_dependency(_PACKAGE_ROOT / "companies", banned)
+
+
 def test_ux_does_not_depend_on_cli() -> None:
     """ux/ legitimately calls into pipeline.stages.readme (report generation, see
     pyproject.toml's TID251 exemption) and agent_context.validate_score_file (health.py's

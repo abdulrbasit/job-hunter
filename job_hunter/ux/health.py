@@ -23,9 +23,10 @@ def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, An
 
 
 def doctor(root: Path) -> dict[str, Any]:
-    from job_hunter.config.migrations import migrate_legacy_exclusions
+    from job_hunter.config.migrations import migrate_career_pages, migrate_legacy_exclusions
 
     migrate_legacy_exclusions(root)
+    migrate_career_pages(root)
     checks: list[dict[str, Any]] = []
     job_hunter_config = read_yaml(root / "config" / "job_hunter.yml")
     from job_hunter.config.locations import legacy_location_warnings
@@ -107,7 +108,7 @@ def doctor(root: Path) -> dict[str, Any]:
         )
     checks.extend(_schema_checks(root))
     checks.append(_config_schema_check(root))
-    checks.append(_career_pages_check(root))
+    checks.append(_companies_store_check(root))
     checks.extend(_telemetry_checks(root))
     telemetry_warnings = _telemetry_warnings(root)
     schedule = _workflow_schedule_configured(root)
@@ -184,20 +185,24 @@ def _config_schema_check(root: Path) -> dict[str, Any]:
     return _check("config_schema", True, "config/job_hunter.yml matches schema")
 
 
-def _career_pages_check(root: Path) -> dict[str, Any]:
-    from job_hunter.config.service import validate_career_pages
+def _companies_store_check(root: Path) -> dict[str, Any]:
+    legacy = root / "config" / "career_pages.yml"
+    if legacy.exists():
+        return _check(
+            "companies_store",
+            False,
+            "config/career_pages.yml still present after migration",
+            "Run job-hunter doctor again, or check outputs/state/config_backups/career_pages.yml.bak.",
+        )
+    from job_hunter.companies import store
 
-    path = root / "config" / "career_pages.yml"
-    if not path.exists():
-        return _check("career_pages_schema", True, "config/career_pages.yml not present; optional")
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        return _check("career_pages_schema", False, str(exc), "Fix config/career_pages.yml.")
-    errors = validate_career_pages(data)
-    if errors:
-        return _check("career_pages_schema", False, "; ".join(errors), "Fix config/career_pages.yml.")
-    return _check("career_pages_schema", True, "config/career_pages.yml is valid")
+    store.ensure_seeded(root)
+    count = store.company_count(root)
+    unclassified_user = store.company_count(root, source="user", industry="other")
+    detail = f"{count} companies in the runtime store"
+    if unclassified_user:
+        detail += f"; {unclassified_user} of your own targets need an industry assigned"
+    return _check("companies_store", True, detail)
 
 
 def _telemetry_checks(root: Path) -> list[dict[str, Any]]:

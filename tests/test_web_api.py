@@ -819,14 +819,17 @@ def test_delete_unprocessed_returns_error_on_failure(tmp_path: Path, monkeypatch
 
 def _write_career_hunt_config(root: Path, companies: list[dict]) -> None:
     (root / "config").mkdir(parents=True, exist_ok=True)
+    targets = [{"name": c["name"], "url": c["career_url"], "country": "DE"} for c in companies]
     (root / "config" / "job_hunter.yml").write_text(
         yaml.safe_dump(
-            {"job_titles": ["Product Manager"], "regions": {"de": {"enabled": True, "country": "DE"}}, "exclusions": {}}
+            {
+                "job_titles": ["Product Manager"],
+                "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+                "companies": {"targets": targets},
+            }
         ),
         encoding="utf-8",
     )
-    located = [{**company, "location": company.get("location") or "Germany"} for company in companies]
-    (root / "config" / "career_pages.yml").write_text(yaml.safe_dump({"companies": located}), encoding="utf-8")
 
 
 def test_run_company_hunt_starts_worker_and_persists_summary(tmp_path: Path, monkeypatch) -> None:
@@ -1594,18 +1597,26 @@ def test_dashboard_settings_warns_before_losing_unsaved_changes() -> None:
 # Companies (career_pages.yml management)
 # ---------------------------------------------------------------------------
 
-_REAL_CAREER_PAGES = (Path(__file__).parents[1] / "config" / "career_pages.yml").read_text(encoding="utf-8")
+
+def _write_company_targets(root: Path, targets: list[dict] | None = None) -> None:
+    config = root / "config"
+    config.mkdir(parents=True, exist_ok=True)
+    data = dict(_SETTINGS_CONFIG)
+    if targets:
+        data["companies"] = {"targets": targets}
+    (config / "job_hunter.yml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    schema_dir = config / "schemas"
+    schema_dir.mkdir(parents=True, exist_ok=True)
+    real_schema = (Path(__file__).parents[1] / "config" / "schemas" / "job_hunter.schema.json").read_text(
+        encoding="utf-8"
+    )
+    (schema_dir / "job_hunter.schema.json").write_text(real_schema, encoding="utf-8")
 
 
-def _write_career_pages(root: Path, text: str = _REAL_CAREER_PAGES) -> None:
-    (root / "config").mkdir(parents=True, exist_ok=True)
-    (root / "config" / "career_pages.yml").write_text(text, encoding="utf-8")
+def test_get_company_targets_returns_targets_and_revision(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
 
-
-def test_get_career_pages_returns_companies_and_revision(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
-
-    result = DashAPI(tmp_path).get_career_pages()
+    result = DashAPI(tmp_path).get_company_targets()
 
     assert result["ok"] is True
     assert result["data"]["companies"] == []
@@ -1613,12 +1624,10 @@ def test_get_career_pages_returns_companies_and_revision(tmp_path: Path) -> None
     json.dumps(result)
 
 
-def test_get_career_pages_decorates_with_latest_hunt_result(tmp_path: Path) -> None:
+def test_get_company_targets_decorates_with_latest_hunt_result(tmp_path: Path) -> None:
     from job_hunter.tracking import company_hunts
 
-    _write_career_pages(
-        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
-    )
+    _write_company_targets(tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}])
     run_id = company_hunts.begin_run(tmp_path, company_hunts.MODE_NEW_CHANGED)
     company_hunts.create_tasks(
         tmp_path, run_id, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], status=company_hunts.PENDING
@@ -1626,7 +1635,7 @@ def test_get_career_pages_decorates_with_latest_hunt_result(tmp_path: Path) -> N
     task_id = company_hunts.get_pending_tasks(tmp_path, run_id)[0]["id"]
     company_hunts.finish_task(tmp_path, task_id, run_id, status=company_hunts.OK, jobs_observed=2, jobs_inserted=1)
 
-    result = DashAPI(tmp_path).get_career_pages()
+    result = DashAPI(tmp_path).get_company_targets()
 
     latest = result["data"]["companies"][0]["latest_result"]
     assert latest["status"] == "ok"
@@ -1634,125 +1643,121 @@ def test_get_career_pages_decorates_with_latest_hunt_result(tmp_path: Path) -> N
     json.dumps(result)
 
 
-def test_get_career_pages_reports_none_for_never_checked_company(tmp_path: Path) -> None:
-    _write_career_pages(
-        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
-    )
+def test_get_company_targets_reports_none_for_never_checked_company(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}])
 
-    result = DashAPI(tmp_path).get_career_pages()
+    result = DashAPI(tmp_path).get_company_targets()
 
     assert result["data"]["companies"][0]["latest_result"] is None
 
 
-def test_save_career_pages_adds_a_company(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_save_company_targets_adds_a_company(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
     api = DashAPI(tmp_path)
-    loaded = api.get_career_pages()
+    loaded = api.get_company_targets()
 
-    result = api.save_career_pages(
-        [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}],
+    result = api.save_company_targets(
+        [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "city": "Berlin"}],
         loaded["data"]["revision"],
     )
 
     assert result["ok"] is True
     assert result["data"]["companies"] == [
-        {"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin", "latest_result": None}
+        {"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "city": "Berlin", "latest_result": None}
     ]
 
 
-def test_save_career_pages_rejects_invalid_entry_without_touching_disk(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_save_company_targets_rejects_invalid_entry_without_touching_disk(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
     api = DashAPI(tmp_path)
-    loaded = api.get_career_pages()
-    before_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
+    loaded = api.get_company_targets()
+    before_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
 
-    result = api.save_career_pages([{"name": "", "career_url": "not-a-url"}], loaded["data"]["revision"])
+    result = api.save_company_targets([{"name": "", "url": "not-a-url", "country": ""}], loaded["data"]["revision"])
 
     assert result["ok"] is False
     assert result["data"] is None
-    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == before_text
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == before_text
 
 
-def test_save_career_pages_rejects_stale_revision(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_save_company_targets_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
     api = DashAPI(tmp_path)
 
-    result = api.save_career_pages([{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], "0" * 64)
+    result = api.save_company_targets([{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}], "0" * 64)
 
     assert result["ok"] is False
 
 
-def test_save_career_pages_bulk_disable_existing_companies(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_save_company_targets_bulk_disable_existing_companies(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
     api = DashAPI(tmp_path)
-    loaded = api.get_career_pages()
-    api.save_career_pages(
+    loaded = api.get_company_targets()
+    api.save_company_targets(
         [
-            {"name": "Stripe", "career_url": "https://stripe.com/jobs"},
-            {"name": "N26", "career_url": "https://n26.com/careers"},
+            {"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"},
+            {"name": "N26", "url": "https://n26.com/careers", "country": "DE"},
         ],
         loaded["data"]["revision"],
     )
-    reloaded = api.get_career_pages()
+    reloaded = api.get_company_targets()
 
     disabled = [dict(c, enabled=False) for c in reloaded["data"]["companies"]]
-    result = api.save_career_pages(disabled, reloaded["data"]["revision"])
+    result = api.save_company_targets(disabled, reloaded["data"]["revision"])
 
     assert result["ok"] is True
     assert all(c["enabled"] is False for c in result["data"]["companies"])
 
 
-def test_undo_career_pages_restores_previous_companies(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_undo_company_targets_restores_previous_companies(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
     api = DashAPI(tmp_path)
-    loaded = api.get_career_pages()
-    api.save_career_pages([{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], loaded["data"]["revision"])
+    loaded = api.get_company_targets()
+    api.save_company_targets(
+        [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}], loaded["data"]["revision"]
+    )
 
-    result = api.undo_career_pages()
+    result = api.undo_company_targets()
 
     assert result["ok"] is True
     assert result["data"]["companies"] == []
 
 
-def test_open_career_page_allows_known_https_url(tmp_path: Path, monkeypatch) -> None:
-    _write_career_pages(
-        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
-    )
+def test_open_company_target_allows_known_https_url(tmp_path: Path, monkeypatch) -> None:
+    _write_company_targets(tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}])
     opened: list[str] = []
     monkeypatch.setattr("job_hunter.ux.web.api._open_url", lambda url: opened.append(url))
 
-    result = DashAPI(tmp_path).open_career_page("https://stripe.com/jobs")
+    result = DashAPI(tmp_path).open_company_target("https://stripe.com/jobs")
 
     assert result == {"ok": True}
     assert opened == ["https://stripe.com/jobs"]
 
 
-def test_open_career_page_rejects_url_not_in_config(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+def test_open_company_target_rejects_url_not_in_config(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path)
 
-    result = DashAPI(tmp_path).open_career_page("https://evil.example.com")
+    result = DashAPI(tmp_path).open_company_target("https://evil.example.com")
+
+    assert result["ok"] is False
+
+
+def test_open_company_target_rejects_non_http_scheme_even_if_present_in_yaml(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path, [{"name": "Evil", "url": "file:///etc/passwd", "country": "DE"}])
+
+    result = DashAPI(tmp_path).open_company_target("file:///etc/passwd")
 
     assert result["ok"] is False
 
 
-def test_open_career_page_rejects_non_http_scheme_even_if_present_in_yaml(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, "companies:\n  - name: Evil\n    career_url: 'file:///etc/passwd'\n")
-
-    result = DashAPI(tmp_path).open_career_page("file:///etc/passwd")
-
-    assert result["ok"] is False
-    assert "http" in result["error"]
-
-
-def test_open_career_pages_file_and_config_folder_use_validated_paths(tmp_path: Path, monkeypatch) -> None:
-    _write_career_pages(tmp_path)
+def test_open_config_folder_uses_validated_path(tmp_path: Path, monkeypatch) -> None:
+    _write_company_targets(tmp_path)
     opened: list[Path] = []
     monkeypatch.setattr("job_hunter.ux.web.api._open_path", lambda path: opened.append(path))
     api = DashAPI(tmp_path)
 
-    assert api.open_career_pages_file() == {"ok": True}
     assert api.open_config_folder() == {"ok": True}
-    assert opened == [(tmp_path / "config" / "career_pages.yml").resolve(), (tmp_path / "config").resolve()]
+    assert opened == [(tmp_path / "config").resolve()]
 
 
 def test_dashboard_contains_companies_nav_and_table() -> None:
@@ -1774,11 +1779,10 @@ def test_dashboard_contains_companies_nav_and_table() -> None:
     assert "function submitCompanyForm" in html
     assert "function bulkDeleteCompanies" in html
     assert "function bulkSetCompaniesEnabled" in html
-    assert "get_career_pages" in html
-    assert "save_career_pages" in html
-    assert "undo_career_pages" in html
-    assert "open_career_page" in html
-    assert "open_career_pages_file" in html
+    assert "get_company_targets" in html
+    assert "save_company_targets" in html
+    assert "undo_company_targets" in html
+    assert "open_company_target" in html
     assert "open_config_folder" in html
     assert "function companyLatestResultHtml" in html
     assert "company.latest_result" in html
@@ -1872,45 +1876,66 @@ def test_get_filter_options_uses_package_taxonomies() -> None:
     assert any(item == {"code": "en", "name": "English"} for item in result["languages"])
 
 
-def test_get_catalog_industries_returns_only_industries_present_in_catalog() -> None:
-    result = DashAPI(Path("unused")).get_catalog_industries()
+def _seed_catalog(root: Path) -> None:
+    from job_hunter.companies import store
+
+    store.ensure_seeded(root)
+
+
+def _catalog_id_to_row_id(root: Path, catalog_id: str) -> int:
+    from job_hunter.companies import store
+
+    matches = store.query_page(root, source="catalog", search=catalog_id, page_size=50)["items"]
+    return next(r["id"] for r in matches if r["catalog_id"] == catalog_id)
+
+
+def test_get_catalog_industries_returns_only_industries_present_in_catalog(tmp_path: Path) -> None:
+    _seed_catalog(tmp_path)
+
+    result = DashAPI(tmp_path).get_catalog_industries()
 
     assert result["ok"] is True
     industries = {i["id"]: i["count"] for i in result["data"]["industries"]}
-    assert industries["software_it"] > 0
-    assert "uncategorized" not in industries or industries["uncategorized"] >= 0
+    assert industries.get("software_it", 0) > 0
     json.dumps(result)
 
 
-def test_get_catalog_page_reflects_enabled_state_from_career_pages(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": ["sap"]}}))
+def test_get_catalog_page_reflects_enabled_state(tmp_path: Path) -> None:
+    from job_hunter.companies import store
+
+    _seed_catalog(tmp_path)
+    store.set_enabled_by_catalog_ids(tmp_path, ["sap"], True)
 
     result = DashAPI(tmp_path).get_catalog_page(search="sap")
 
     assert result["ok"] is True
     items = result["data"]["items"]
-    assert any(item["id"] == "sap" and item["enabled"] is True for item in items)
+    assert any(item["catalog_id"] == "sap" and item["enabled"] for item in items)
     json.dumps(result)
 
 
 def test_get_catalog_page_filters_by_industry(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+    _seed_catalog(tmp_path)
 
     result = DashAPI(tmp_path).get_catalog_page(industry="software_it", page_size=500)
 
     assert result["ok"] is True
     assert result["data"]["total"] > 0
-    assert all("software_it" in _industry_ids_for(item["id"]) for item in result["data"]["items"])
+    assert all(item["industry"] == "software_it" for item in result["data"]["items"])
 
 
-def _industry_ids_for(company_id: str) -> list[str]:
-    from job_hunter.catalog import load_companies
+def test_get_catalog_page_filters_by_country(tmp_path: Path) -> None:
+    _seed_catalog(tmp_path)
 
-    return next(c.industry_ids for c in load_companies() if c.id == company_id)
+    result = DashAPI(tmp_path).get_catalog_page(country="DE", page_size=500)
+
+    assert result["ok"] is True
+    assert result["data"]["total"] > 0
+    assert all(item["country"] == "DE" for item in result["data"]["items"])
 
 
 def test_get_catalog_page_paginates(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
+    _seed_catalog(tmp_path)
 
     page1 = DashAPI(tmp_path).get_catalog_page(page=1, page_size=10)
 
@@ -1920,116 +1945,113 @@ def test_get_catalog_page_paginates(tmp_path: Path) -> None:
 
 
 def test_save_catalog_enabled_ids_adds_and_removes(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path)
-    api = DashAPI(tmp_path)
-    revision = api.get_career_pages()["data"]["revision"]
+    from job_hunter.companies import store
 
-    enabled = api.save_catalog_enabled_ids(["sap", "siemens"], True, revision)
+    _seed_catalog(tmp_path)
+    sap_id = _catalog_id_to_row_id(tmp_path, "sap")
+    siemens_id = _catalog_id_to_row_id(tmp_path, "siemens")
+    api = DashAPI(tmp_path)
+
+    enabled = api.save_catalog_enabled_ids([sap_id, siemens_id], True)
     assert enabled["ok"] is True
-    assert set(enabled["data"]["catalog"]["enabled_company_ids"]) == {"sap", "siemens"}
+    assert store.get_by_id(tmp_path, sap_id)["enabled"] == 1
+    assert store.get_by_id(tmp_path, siemens_id)["enabled"] == 1
 
-    disabled = api.save_catalog_enabled_ids(["sap"], False, enabled["data"]["revision"])
+    disabled = api.save_catalog_enabled_ids([sap_id], False)
     assert disabled["ok"] is True
-    assert disabled["data"]["catalog"]["enabled_company_ids"] == ["siemens"]
+    assert store.get_by_id(tmp_path, sap_id)["enabled"] == 0
+    assert store.get_by_id(tmp_path, siemens_id)["enabled"] == 1
 
 
-def test_save_catalog_enabled_ids_preserves_custom_companies(tmp_path: Path) -> None:
-    _write_career_pages(
-        tmp_path, yaml.safe_dump({"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]})
-    )
+def test_save_catalog_enabled_ids_does_not_touch_user_targets(tmp_path: Path) -> None:
+    _write_company_targets(tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}])
+    _seed_catalog(tmp_path)
     api = DashAPI(tmp_path)
-    revision = api.get_career_pages()["data"]["revision"]
+    sap_id = _catalog_id_to_row_id(tmp_path, "sap")
 
-    api.save_catalog_enabled_ids(["sap"], True, revision)
+    api.save_catalog_enabled_ids([sap_id], True)
 
-    reloaded = api.get_career_pages()
+    reloaded = api.get_company_targets()
     assert reloaded["data"]["companies"][0]["name"] == "Stripe"
 
 
-def test_save_catalog_filter_enabled_enables_every_company_in_sector(tmp_path: Path) -> None:
-    from job_hunter.catalog import load_companies
+def test_set_catalog_filter_enabled_enables_every_company_in_sector(tmp_path: Path) -> None:
+    from job_hunter.companies import store
 
-    _write_career_pages(tmp_path)
+    _seed_catalog(tmp_path)
     api = DashAPI(tmp_path)
-    revision = api.get_career_pages()["data"]["revision"]
 
-    result = api.save_catalog_filter_enabled("software_it", "", "", True, revision)
+    result = api.set_catalog_filter_enabled("software_it", "", "", "", "", True)
 
-    expected = {c.id for c in load_companies() if "software_it" in c.industry_ids}
+    total = store.company_count(tmp_path, source="catalog", industry="software_it")
+    enabled = store.query_page(tmp_path, source="catalog", industry="software_it", enabled=True, page_size=1)["total"]
     assert result["ok"] is True
-    assert set(result["data"]["catalog"]["enabled_company_ids"]) == expected
+    assert enabled == total
+    assert result["data"]["count"] == total
 
 
-def test_save_catalog_filter_enabled_with_empty_industry_enables_everything_matching_search(tmp_path: Path) -> None:
+def test_set_catalog_filter_enabled_with_empty_industry_enables_everything_matching_search(tmp_path: Path) -> None:
     """Regression: "Enable all in this industry" used to hard-require an industry pick —
     empty industry (the "All industries" filter) must mean "every industry", not a no-op,
     so users can bulk-enable a whole search result without picking a sector first."""
-    from job_hunter.catalog import load_companies
+    from job_hunter.companies import store
 
-    _write_career_pages(tmp_path)
+    _seed_catalog(tmp_path)
     api = DashAPI(tmp_path)
-    revision = api.get_career_pages()["data"]["revision"]
 
-    result = api.save_catalog_filter_enabled("", "sap", "", True, revision)
+    result = api.set_catalog_filter_enabled("", "sap", "", "", "", True)
 
-    expected = {c.id for c in load_companies() if "sap" in c.name.lower()}
-    assert expected  # sanity: the fixture catalog does contain a matching company
+    matches = store.query_page(tmp_path, source="catalog", search="sap", page_size=50)["items"]
+    assert matches  # sanity: the fixture catalog does contain a matching company
     assert result["ok"] is True
-    assert set(result["data"]["catalog"]["enabled_company_ids"]) == expected
+    assert all(item["enabled"] for item in matches)
 
 
-def test_save_catalog_filter_enabled_disable_respects_enabled_filter(tmp_path: Path) -> None:
+def test_set_catalog_filter_enabled_disable_respects_enabled_filter(tmp_path: Path) -> None:
     """Disabling "all shown" while viewing the Enabled tab must only touch companies that
     are actually enabled right now, not silently enable-then-disable everything matching
     the industry/search regardless of current state."""
-    from job_hunter.catalog import load_companies
+    from job_hunter.companies import store
 
-    software_ids = {c.id for c in load_companies() if "software_it" in c.industry_ids}
-    some_id = next(iter(software_ids))
-    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": [some_id]}}))
+    _seed_catalog(tmp_path)
     api = DashAPI(tmp_path)
-    revision = api.get_career_pages()["data"]["revision"]
+    api.set_catalog_filter_enabled("software_it", "", "", "", "", True)
 
-    result = api.save_catalog_filter_enabled("software_it", "", "enabled", False, revision)
+    result = api.set_catalog_filter_enabled("software_it", "", "enabled", "", "", False)
 
     assert result["ok"] is True
-    assert result["data"]["catalog"]["enabled_company_ids"] == []
-
-
-def test_get_catalog_filter_ids_returns_only_matching_ids(tmp_path: Path) -> None:
-    from job_hunter.catalog import load_companies
-
-    _write_career_pages(tmp_path)
-    result = DashAPI(tmp_path).get_catalog_filter_ids("software_it", "", "")
-
-    expected = {c.id for c in load_companies() if "software_it" in c.industry_ids}
-    assert result["ok"] is True
-    assert set(result["data"]["ids"]) == expected
+    remaining = store.query_page(tmp_path, source="catalog", industry="software_it", enabled=True, page_size=1)["total"]
+    assert remaining == 0
 
 
 def test_get_catalog_page_filters_by_enabled_state(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, yaml.safe_dump({"companies": [], "catalog": {"enabled_company_ids": ["sap"]}}))
+    from job_hunter.companies import store
+
+    _seed_catalog(tmp_path)
+    store.set_enabled_by_catalog_ids(tmp_path, ["sap"], True)
     api = DashAPI(tmp_path)
 
     enabled_only = api.get_catalog_page(search="sap", enabled_filter="enabled")
     disabled_only = api.get_catalog_page(search="sap", enabled_filter="disabled")
 
-    assert any(item["id"] == "sap" for item in enabled_only["data"]["items"])
-    assert not any(item["id"] == "sap" for item in disabled_only["data"]["items"])
+    assert any(item["catalog_id"] == "sap" for item in enabled_only["data"]["items"])
+    assert not any(item["catalog_id"] == "sap" for item in disabled_only["data"]["items"])
 
 
 def test_open_catalog_company_opens_known_id(tmp_path: Path, monkeypatch) -> None:
+    _seed_catalog(tmp_path)
+    sap_id = _catalog_id_to_row_id(tmp_path, "sap")
     opened = []
     monkeypatch.setattr("job_hunter.ux.web.api._open_url", lambda url: opened.append(url))
 
-    result = DashAPI(tmp_path).open_catalog_company("sap")
+    result = DashAPI(tmp_path).open_catalog_company(sap_id)
 
     assert result["ok"] is True
     assert opened and opened[0].startswith("https://")
 
 
 def test_open_catalog_company_rejects_unknown_id(tmp_path: Path) -> None:
-    result = DashAPI(tmp_path).open_catalog_company("not-a-real-company")
+    result = DashAPI(tmp_path).open_catalog_company(999999999)
 
     assert result["ok"] is False
 
@@ -2040,10 +2062,12 @@ def test_dashboard_has_shared_catalog_browse_ui() -> None:
     assert "get_catalog_industries" in html
     assert "get_catalog_page" in html
     assert "save_catalog_enabled_ids" in html
-    assert "save_catalog_filter_enabled" in html
+    assert "set_catalog_filter_enabled" in html
     assert "open_catalog_company" in html
     assert 'data-companies-view="catalog"' in html
     assert 'id="catalog-industry-filter"' in html
+    assert 'id="catalog-country-filter"' in html
+    assert 'id="catalog-city-filter"' in html
 
 
 def test_dashboard_shared_catalog_has_enabled_disabled_tabs_and_no_preview_panel() -> None:

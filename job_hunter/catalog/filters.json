@@ -289,6 +289,14 @@
         "agtech",
         "farming"
       ]
+    },
+    {
+      "id": "other",
+      "label": "Other / Unclassified",
+      "aliases": [
+        "unclassified",
+        "uncategorized"
+      ]
     }
   ],
   "languages": {

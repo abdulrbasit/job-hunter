@@ -1,4 +1,8 @@
-"""Company browser hunt: runs the career-page extraction ladder per company in career_pages.yml.
+"""Company browser hunt: runs the career-page extraction ladder per enabled company.
+
+Enabled companies come from job_hunter.companies.hunt_candidates — the runtime store
+(package catalog opt-ins + config/job_hunter.yml's companies.targets), gated by the
+user's enabled regions and excluded industries.
 
 Writes results to outputs/state/jobs.db (status='candidate'), the same store the regular
 find-jobs hunt uses — so browser-hunt candidates get deduped, screened, scored, and tailored
@@ -24,7 +28,7 @@ from typing import Any
 
 import yaml
 
-from job_hunter.catalog.merge import effective_companies
+from job_hunter.companies import hunt_candidates
 from job_hunter.config.loader import ROOT
 from job_hunter.locations import canonical_locations_for_job
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
@@ -114,8 +118,8 @@ def _timed_cheap_extract(
     company: dict[str, Any], titles: list[str], exclusions: list[str]
 ) -> tuple[list[dict], bool, float]:
     """Times only this company's own extraction, from when a pool worker actually picks it
-    up — not from task creation. With CHEAP_WORKERS=8 and a large career_pages.yml (e.g.
-    2,000+ companies), queue-wait alone can exceed COMPANY_DEADLINE_SECONDS long before a
+    up — not from task creation. With CHEAP_WORKERS=8 and thousands of enabled companies,
+    queue-wait alone can exceed COMPANY_DEADLINE_SECONDS long before a
     company's own turn comes up if duration is measured from task creation instead."""
     started_at = time.monotonic()
     jobs, needs_playwright = _cheap_extract(company, titles, exclusions)
@@ -130,30 +134,23 @@ def run(  # noqa: C901
 ) -> int:
     emit = on_progress or (lambda _event: None)
     root = Path(ROOT)
-    companies_path = root / "config" / "career_pages.yml"
     config_path = root / "config" / "job_hunter.yml"
-
-    if not companies_path.exists():
-        logger.error("[browser-hunt] %s not found — create it from the template", companies_path)
-        emit({"step": "fatal", "reason": "no company list found — add companies in config/career_pages.yml"})
-        return 1
 
     try:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-        companies_config = yaml.safe_load(companies_path.read_text(encoding="utf-8")) or {}
     except (yaml.YAMLError, OSError):
         logger.exception("[browser-hunt] failed to read config")
-        emit({"step": "fatal", "reason": "config/career_pages.yml or config/job_hunter.yml could not be read"})
+        emit({"step": "fatal", "reason": "config/job_hunter.yml could not be read"})
         return 1
 
     titles = config.get("job_titles", [])
     from job_hunter.config.reference_data import resolve_title_exclusions
 
     exclusions = resolve_title_exclusions(config)
-    enabled_companies = effective_companies(config, companies_config)
+    enabled_companies = hunt_candidates(root, config)
 
     if not enabled_companies:
-        logger.info("[browser-hunt] no companies in %s — nothing to do", companies_path)
+        logger.info("[browser-hunt] no companies enabled — nothing to do")
         return 0
 
     resumed_run = company_hunts.find_resumable_run(root) if mode == company_hunts.MODE_RESUME else None

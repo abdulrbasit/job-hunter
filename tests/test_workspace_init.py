@@ -28,7 +28,7 @@ def test_workspace_template_assets_include_config_and_hidden_dirs() -> None:
     paths = {path for path, _content in iter_managed_files()}
 
     assert "config/job_hunter.yml" in paths
-    assert "config/career_pages.yml" in paths
+    assert "config/career_pages.yml" not in paths  # retired: company data moved to job_hunter.companies
     assert ".github/workflows/find-jobs.yml" in paths
     assert ".github/searxng/settings.yml" in paths
     assert ".claude/skills/setup/SKILL.md" in paths
@@ -127,7 +127,7 @@ def test_init_creates_complete_workspace_from_package_template(tmp_path: Path) -
     run_init(workspace)
 
     assert (workspace / "config" / "job_hunter.yml").exists()
-    assert (workspace / "config" / "career_pages.yml").exists()
+    assert not (workspace / "config" / "career_pages.yml").exists()
     assert not (workspace / "config" / "locations").exists()
     assert not (workspace / "config" / "location_data").exists()
     assert (workspace / ".github" / "workflows" / "find-jobs.yml").exists()
@@ -324,10 +324,6 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
     root = Path(__file__).resolve().parents[1]
     packaged = dict(iter_packaged_resource_files())
 
-    canonical_files = ("config/career_pages.yml",)
-    for rel in canonical_files:
-        assert packaged[rel] == (root / rel).read_bytes(), f"packaged workspace asset drifted: {rel}"
-
     for skill_file in sorted((root / ".claude" / "skills").rglob("*")):
         if not skill_file.is_file():
             continue
@@ -347,7 +343,7 @@ def test_packaged_workspace_assets_match_canonical_sources() -> None:
 def test_asset_ownership_predicates_are_explicit() -> None:
     assert is_resource_only_file("README.md")
     assert is_resource_only_file(".github/workflows/find-jobs.yml")
-    assert not is_resource_only_file("config/career_pages.yml")
+    assert is_resource_only_file("config/job_hunter.yml")
     assert is_dev_only_skill(".claude/skills/commit/SKILL.md")
     assert not is_dev_only_skill(".claude/skills/job-hunter/SKILL.md")
     assert not is_dev_only_skill(".agents/skills/commit/SKILL.md")
@@ -358,7 +354,6 @@ def test_source_checkout_assets_use_canonical_and_resource_owners() -> None:
     source = dict(_iter_source_checkout_files(root))
     packaged = dict(iter_packaged_resource_files())
 
-    assert source["config/career_pages.yml"] == (root / "config/career_pages.yml").read_bytes()
     assert source["README.md"] == packaged["README.md"]
     assert source["profile/story_bank.md"] == packaged["profile/story_bank.md"]
     assert ".claude/skills/commit/SKILL.md" not in source
@@ -383,18 +378,12 @@ def test_update_workspace_assets_overwrites_docs_but_not_existing_yaml_config(tm
     from job_hunter.workspace.assets import update_workspace_assets
 
     setup = tmp_path / "SETUP.md"
-    companies = tmp_path / "config" / "career_pages.yml"
     setup.write_text("stale setup\n", encoding="utf-8")
-    companies.parent.mkdir(parents=True)
-    original_companies = "companies:\n  - name: User Company\n"
-    companies.write_text(original_companies, encoding="utf-8")
 
     written = update_workspace_assets(tmp_path)
 
     packaged = dict(iter_packaged_resource_files())
     assert setup.read_bytes() == packaged["SETUP.md"]
-    # existing YAML config is untouched, not merged
-    assert companies.read_text(encoding="utf-8") == original_companies
     assert written == [
         "README.md",
         "SETUP.md",
@@ -430,23 +419,25 @@ def test_update_workspace_assets_appends_sqlite_ignores_without_overwriting_exis
     assert updated.startswith("# mine\ncustom.cache\n")
     assert updated.count("outputs/state/jobs.db-wal") == 1
     assert updated.count("outputs/state/jobs.db-shm") == 1
+    assert updated.count("outputs/state/companies.db-wal") == 1
+    assert updated.count("outputs/state/companies.db-shm") == 1
+    assert sum(1 for line in updated.splitlines() if line == "outputs/state/companies.db") == 1
 
 
-def test_update_workspace_assets_creates_missing_company_config(tmp_path: Path) -> None:
+def test_update_workspace_assets_does_not_recreate_retired_career_pages_file(tmp_path: Path) -> None:
     from job_hunter.workspace.assets import update_workspace_assets
 
     written = update_workspace_assets(tmp_path)
 
     packaged = dict(iter_packaged_resource_files())
     assert (tmp_path / "SETUP.md").read_bytes() == packaged["SETUP.md"]
-    assert (tmp_path / "config" / "career_pages.yml").read_bytes() == packaged["config/career_pages.yml"]
+    assert not (tmp_path / "config" / "career_pages.yml").exists()
     assert not (tmp_path / "config" / "job_hunter.yml").exists()
     assert written == [
         "README.md",
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
-        "config/career_pages.yml",
     ]
 
 
@@ -475,7 +466,6 @@ def test_update_workspace_assets_refreshes_docs_and_preserves_readme_stats(tmp_p
         "SETUP.md",
         "SETUP_AGENT.md",
         "SETUP_LLM_API.md",
-        "config/career_pages.yml",
     ]
 
 

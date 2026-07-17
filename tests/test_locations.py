@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from job_hunter.catalog.loader import CompanyEntry
-from job_hunter.catalog.merge import company_matches_enabled_locations
 from job_hunter.config.loader import get_job_hunter_config_for_root
 from job_hunter.config.locations import (
     canonicalize_config_regions,
@@ -274,28 +272,3 @@ def test_orchestrator_rejects_disabled_city_and_skips_unsupported_country_source
     assert calls[0][1].id == "city:DE:geonames:2950159"
     assert [job.company for job in jobs] == ["A"]
     assert stats.rejected["location_not_enabled"] == 1
-
-
-def test_company_hunt_candidate_requires_enabled_city_metadata() -> None:
-    allowed = enabled_locations(
-        {
-            "regions": {
-                "munich": _city_region("DE", "geonames:2867714"),
-                "berlin": _city_region("DE", "geonames:2950159"),
-            }
-        }
-    )
-
-    def company(city: str) -> CompanyEntry:
-        return CompanyEntry(
-            id=city.lower(),
-            name=city,
-            career_url=f"https://{city.lower()}.example/careers",
-            country_codes=["DE"],
-            city_tags=[city],
-            industry_ids=["software_it"],
-            verified_at="2026-07-16",
-        )
-
-    assert company_matches_enabled_locations(company("Berlin"), allowed)
-    assert not company_matches_enabled_locations(company("Stuttgart"), allowed)

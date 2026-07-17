@@ -61,10 +61,10 @@ In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover 
 
 ## Company Hunt
 
-For company career pages that need a real browser, add targets to
-`config/career_pages.yml` (or opt in to the shared catalog), then open the
-**Company Hunt** tab in `job-hunter dash` and click **Run Company Hunt**.
-Results land in `outputs/state/jobs.db`, the same store the normal hunt uses.
+For company career pages that need a real browser, add your own companies or
+opt in to the shared catalog in the **Company Hunt** tab's **Manage Companies**
+view in `job-hunter dash`, then click **Run Company Hunt**. Results land in
+`outputs/state/jobs.db`, the same store the normal hunt uses.
 
 The native web dashboard includes Settings, Companies, paginated Applications
 and Candidates, Company Hunt (its own top-level tab), Insights, and Analytics.

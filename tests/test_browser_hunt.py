@@ -12,31 +12,45 @@ from job_hunter.pipeline import browser_hunt
 from job_hunter.tracking import company_hunts
 from job_hunter.tracking.repository import get_discovered_jobs
 
+_FILTER_KEY_MAP = {
+    "companies": "excluded_companies",
+    "title_terms": "excluded_titles",
+    "industries": "excluded_industries",
+}
 
-def _write_config(root: Path, companies: list[object], exclusions: dict | None = None) -> None:
+
+def _target(company: object) -> object:
+    """Map a legacy {name, career_url, location?, enabled?} test fixture to a
+    companies.targets entry {name, url, country, enabled?}. Malformed (non-dict)
+    entries pass through unchanged — they exercise the "don't abort on bad data" tests."""
+    if not isinstance(company, dict):
+        return company
+    entry: dict[str, object] = {"name": company.get("name"), "url": company.get("career_url"), "country": "DE"}
+    if "enabled" in company:
+        entry["enabled"] = company["enabled"]
+    return entry
+
+
+def _write_config(
+    root: Path, companies: list[object], exclusions: dict | None = None, regions: dict | None = None
+) -> None:
     config = root / "config"
     config.mkdir()
-    (config / "job_hunter.yml").write_text(
-        yaml.safe_dump(
-            {
-                "job_titles": ["Product Manager"],
-                "regions": {"de": {"enabled": True, "country": "DE"}},
-                "exclusions": exclusions or {"title_terms": ["intern"]},
-            }
-        ),
-        encoding="utf-8",
-    )
-    normalized = [
-        {**company, "location": company.get("location") or "Germany"} if isinstance(company, dict) else company
-        for company in companies
-    ]
-    (config / "career_pages.yml").write_text(
-        yaml.safe_dump({"companies": normalized}),
-        encoding="utf-8",
-    )
+    filters = {}
+    for legacy_key, value in (exclusions or {"title_terms": ["intern"]}).items():
+        filters[_FILTER_KEY_MAP.get(legacy_key, legacy_key)] = value
+    data: dict[str, object] = {
+        "job_titles": ["Product Manager"],
+        "regions": regions or {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+        "filters": filters,
+    }
+    targets = [_target(company) for company in companies]
+    if targets:
+        data["companies"] = {"targets": targets}
+    (config / "job_hunter.yml").write_text(yaml.safe_dump(data), encoding="utf-8")
 
 
-def test_browser_hunt_requires_company_config(tmp_path: Path, monkeypatch) -> None:
+def test_browser_hunt_requires_job_hunter_config(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
 
     assert browser_hunt.run() == 1
@@ -177,8 +191,7 @@ def test_browser_hunt_emits_progress_events_for_each_company(tmp_path: Path, mon
 def test_browser_hunt_invalid_yaml_emits_fatal_event_and_returns_1(tmp_path: Path, monkeypatch) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "job_hunter.yml").write_text("job_titles: [Product Manager]", encoding="utf-8")
-    (config_dir / "career_pages.yml").write_text("companies: [unterminated", encoding="utf-8")
+    (config_dir / "job_hunter.yml").write_text("job_titles: [unterminated", encoding="utf-8")
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
 
     events: list[dict] = []
@@ -259,22 +272,10 @@ def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypat
 
 def test_browser_hunt_rejects_extracted_job_outside_enabled_city(tmp_path: Path, monkeypatch) -> None:
     companies = [{"name": "Berlin Corp", "career_url": "https://berlin.example/jobs", "location": "Berlin"}]
-    _write_config(tmp_path, companies)
-    (tmp_path / "config" / "job_hunter.yml").write_text(
-        yaml.safe_dump(
-            {
-                "job_titles": ["Product Manager"],
-                "regions": {
-                    "berlin": {
-                        "enabled": True,
-                        "country": "DE",
-                        "scope": "city",
-                        "city_id": "geonames:2950159",
-                    }
-                },
-            }
-        ),
-        encoding="utf-8",
+    _write_config(
+        tmp_path,
+        companies,
+        regions={"berlin": {"enabled": True, "country": "DE", "scope": "city", "city_id": "geonames:2950159"}},
     )
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
@@ -339,11 +340,11 @@ def test_browser_hunt_persists_a_run_and_task_row_on_success(tmp_path: Path, mon
 
 
 def test_browser_hunt_deadline_measures_own_processing_time_not_queue_wait(tmp_path: Path, monkeypatch) -> None:
-    """Regression: with a small worker pool and a long queue (e.g. a 2,000+ company
-    career_pages.yml), duration used to be measured from task creation — so a company
-    queued behind a slow one could get marked "took too long to respond" even though its
-    own fetch was instant, just because it waited a long time for a free worker. duration
-    must be timed from when a worker actually starts that company's own attempt."""
+    """Regression: with a small worker pool and a long queue, duration used to be measured
+    from task creation — so a company queued behind a slow one could get marked "took too
+    long to respond" even though its own fetch was instant, just because it waited a long
+    time for a free worker. duration must be timed from when a worker actually starts that
+    company's own attempt."""
     companies = [
         {"name": "Slow First", "career_url": "https://slow.example.com/jobs"},
         {"name": "Fast Second", "career_url": "https://fast.example.com/jobs"},

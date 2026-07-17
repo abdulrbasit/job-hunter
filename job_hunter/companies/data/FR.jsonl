@@ -1,0 +1,73 @@
+{"id":"accenture","name":"Accenture","url":"https://www.accenture.com/us-en/careers","industry":"consulting"}
+{"id":"adeo_leroy_merlin","name":"Groupe Adeo (Leroy Merlin)","url":"https://www.adeo.com/careers","industry":"retail_ecommerce"}
+{"id":"air_france_klm","name":"Air France-KLM","url":"https://careers.airfranceklm.com","industry":"transportation_logistics"}
+{"id":"air_liquide","name":"Air Liquide","url":"https://www.airliquide.com/careers","industry":"manufacturing"}
+{"id":"airbus","name":"Airbus","url":"https://www.airbus.com/en/careers","industry":"aerospace_defense"}
+{"id":"alstom","name":"Alstom","url":"https://www.alstom.com/careers","industry":"transportation_logistics"}
+{"id":"amazon","name":"Amazon","url":"https://www.amazon.jobs","industry":"retail_ecommerce"}
+{"id":"atos","name":"Atos","url":"https://atos.net/en/careers","industry":"software_it"}
+{"id":"auchan","name":"Auchan","url":"https://www.auchan.com/careers","industry":"retail_ecommerce"}
+{"id":"axa","name":"AXA","url":"https://www.axa.com/en/about-us/careers","industry":"finance"}
+{"id":"back_market","name":"Back Market","url":"https://www.backmarket.com/careers","industry":"retail_ecommerce"}
+{"id":"bcg","name":"Boston Consulting Group","url":"https://careers.bcg.com","industry":"consulting"}
+{"id":"blablacar","name":"BlaBlaCar","url":"https://www.blablacar.com/careers","industry":"transportation_logistics"}
+{"id":"bnp_paribas","name":"BNP Paribas","url":"https://www.bnpparibas.com/careers","industry":"finance"}
+{"id":"bouygues","name":"Bouygues","url":"https://www.bouygues.com/careers","industry":"real_estate"}
+{"id":"capgemini","name":"Capgemini","url":"https://www.capgemini.com/careers/","industry":"software_it"}
+{"id":"carrefour","name":"Carrefour","url":"https://www.carrefour.com/careers","industry":"retail_ecommerce"}
+{"id":"chanel","name":"Chanel","url":"https://www.chanel.com/careers","industry":"retail_ecommerce"}
+{"id":"contentsquare","name":"Contentsquare","url":"https://contentsquare.com/careers","industry":"software_it"}
+{"id":"credit_agricole","name":"Crédit Agricole","url":"https://www.credit-agricole.com/careers","industry":"finance"}
+{"id":"criteo","name":"Criteo","url":"https://www.criteo.com/careers","industry":"software_it"}
+{"id":"danone","name":"Danone","url":"https://www.danone.com/careers","industry":"manufacturing"}
+{"id":"dassault_aviation","name":"Dassault Aviation","url":"https://www.dassault-aviation.com/careers","industry":"aerospace_defense"}
+{"id":"dassault_systemes","name":"Dassault Systèmes","url":"https://www.3ds.com/careers","industry":"software_it"}
+{"id":"decathlon","name":"Decathlon","url":"https://careers.decathlon.com","industry":"retail_ecommerce"}
+{"id":"deezer","name":"Deezer","url":"https://www.deezer.com/careers","industry":"media_entertainment"}
+{"id":"disney","name":"The Walt Disney Company","url":"https://jobs.disneycareers.com","industry":"media_entertainment"}
+{"id":"doctolib","name":"Doctolib","url":"https://www.doctolib.com/careers","industry":"healthcare"}
+{"id":"edf","name":"EDF","url":"https://www.edf.fr/careers","industry":"energy"}
+{"id":"engie","name":"Engie","url":"https://www.engie.com/careers","industry":"energy"}
+{"id":"eutelsat","name":"Eutelsat","url":"https://www.eutelsat.com/careers","industry":"telecommunications"}
+{"id":"forvia","name":"Forvia (Faurecia)","url":"https://www.forvia.com/careers","industry":"automotive"}
+{"id":"ge_aerospace","name":"GE Aerospace","url":"https://www.ge.com/careers","industry":"aerospace_defense"}
+{"id":"groupe_bpce","name":"Groupe BPCE","url":"https://www.groupebpce.com/careers","industry":"finance"}
+{"id":"groupe_casino","name":"Groupe Casino","url":"https://www.groupe-casino.fr/careers","industry":"retail_ecommerce"}
+{"id":"hermes","name":"Hermès","url":"https://www.hermes.com/careers","industry":"retail_ecommerce"}
+{"id":"ibm","name":"IBM","url":"https://www.ibm.com/careers","industry":"software_it"}
+{"id":"iliad_free","name":"Iliad (Free)","url":"https://www.iliad.fr/careers","industry":"telecommunications"}
+{"id":"kering","name":"Kering","url":"https://www.kering.com/careers","industry":"retail_ecommerce"}
+{"id":"la_banque_postale","name":"La Banque Postale","url":"https://www.labanquepostale.com/careers","industry":"finance"}
+{"id":"legrand","name":"Legrand","url":"https://www.legrand.com/careers","industry":"manufacturing"}
+{"id":"loreal","name":"L'Oréal","url":"https://careers.loreal.com","industry":"manufacturing"}
+{"id":"lvmh","name":"LVMH","url":"https://www.lvmh.com/en/talents","industry":"retail_ecommerce"}
+{"id":"manomano","name":"ManoMano","url":"https://www.manomano.fr/careers","industry":"retail_ecommerce"}
+{"id":"mckinsey","name":"McKinsey & Company","url":"https://www.mckinsey.com/careers","industry":"consulting"}
+{"id":"michelin","name":"Michelin","url":"https://www.michelin.com/careers","industry":"manufacturing"}
+{"id":"natixis","name":"Natixis","url":"https://www.natixis.com/careers","industry":"finance"}
+{"id":"naval_group","name":"Naval Group","url":"https://www.naval-group.com/careers","industry":"aerospace_defense"}
+{"id":"orange_sa","name":"Orange","url":"https://www.orange.jobs","industry":"telecommunications"}
+{"id":"ovhcloud","name":"OVHcloud","url":"https://www.ovhcloud.com/careers","industry":"software_it"}
+{"id":"payfit","name":"PayFit","url":"https://payfit.com/careers","industry":"software_it"}
+{"id":"pernod_ricard","name":"Pernod Ricard","url":"https://www.pernod-ricard.com/careers","industry":"manufacturing"}
+{"id":"publicis_groupe","name":"Publicis Groupe","url":"https://www.publicisgroupe.com/careers","industry":"media_entertainment"}
+{"id":"qonto","name":"Qonto","url":"https://qonto.com/careers","industry":"finance"}
+{"id":"renault_group","name":"Renault Group","url":"https://www.renaultgroup.com/careers","industry":"automotive"}
+{"id":"rexel","name":"Rexel","url":"https://www.rexel.com/careers","industry":"retail_ecommerce"}
+{"id":"safran","name":"Safran","url":"https://www.safran-group.com/careers","industry":"aerospace_defense"}
+{"id":"saint_gobain","name":"Saint-Gobain","url":"https://www.saint-gobain.com/careers","industry":"manufacturing"}
+{"id":"sanofi","name":"Sanofi","url":"https://www.sanofi.com/en/careers","industry":"biotech_pharma"}
+{"id":"sap_global","name":"SAP Global Careers","url":"https://jobs.sap.com/global","industry":"software_it"}
+{"id":"schneider_electric","name":"Schneider Electric","url":"https://www.se.com/ww/en/about-us/careers/","industry":"manufacturing"}
+{"id":"societe_generale","name":"Société Générale","url":"https://careers.societegenerale.com","industry":"finance"}
+{"id":"sodexo","name":"Sodexo","url":"https://www.sodexo.com/careers","industry":"hospitality_travel"}
+{"id":"sopra_steria","name":"Sopra Steria","url":"https://www.soprasteria.com/careers","industry":"software_it"}
+{"id":"stellantis","name":"Stellantis","url":"https://www.stellantis.com/en/careers","industry":"automotive"}
+{"id":"suez","name":"Suez","url":"https://www.suez.com/careers","industry":"energy"}
+{"id":"thales_group","name":"Thales Group","url":"https://www.thalesgroup.com/careers","industry":"aerospace_defense"}
+{"id":"totalenergies","name":"TotalEnergies","url":"https://totalenergies.com/careers","industry":"energy"}
+{"id":"ubisoft","name":"Ubisoft","url":"https://www.ubisoft.com/careers","industry":"media_entertainment"}
+{"id":"valeo","name":"Valeo","url":"https://www.valeo.com/careers","industry":"automotive"}
+{"id":"veolia","name":"Veolia","url":"https://www.veolia.com/careers","industry":"energy"}
+{"id":"vinci","name":"Vinci","url":"https://www.vinci.com/careers","industry":"real_estate"}
+{"id":"voodoo","name":"Voodoo","url":"https://www.voodoo.io/careers","industry":"media_entertainment"}

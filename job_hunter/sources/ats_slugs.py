@@ -13,7 +13,6 @@ from pathlib import Path
 
 import yaml
 
-from job_hunter.catalog.loader import load_companies
 from job_hunter.constants import ATS_DISCOVERY_API_TIMEOUT
 from job_hunter.core.utils import location_matches, title_matches
 from job_hunter.models import JobPosting
@@ -38,24 +37,21 @@ def harvest_slugs(jobs: list[JobPosting | dict]) -> dict[str, set[str]]:
     return result
 
 
-def catalog_slugs(config: dict) -> dict[str, set[str]]:
-    """ATS slugs from the bundled company catalog, filtered to the user's enabled
+def catalog_slugs(root: Path, config: dict) -> dict[str, set[str]]:
+    """ATS slugs from enabled companies (store), filtered to the user's enabled
     regions and industry exclusions; platforms with a public list API only."""
-    from job_hunter.catalog.merge import _excluded_industry_ids, company_matches_enabled_locations
-    from job_hunter.locations import enabled_locations
+    from job_hunter.companies import enabled_countries, excluded_industry_ids
+    from job_hunter.companies import store as companies_store
+    from job_hunter.filters import filter_values
     from job_hunter.sources.ats_apis import _FETCHERS
 
-    allowed_locations = enabled_locations(config)
-    from job_hunter.filters import filter_values
-
-    excluded = _excluded_industry_ids(filter_values(config, "excluded_industries"))
+    companies_store.ensure_seeded(root)
+    excluded = excluded_industry_ids(filter_values(config, "excluded_industries"))
     result: dict[str, set[str]] = {}
-    for company in load_companies():
-        if excluded and set(company.industry_ids) & excluded:
-            continue
-        if not company_matches_enabled_locations(company, allowed_locations):
-            continue
-        detected = detect_ats(company.career_url)
+    for row in companies_store.candidate_companies(
+        root, countries=enabled_countries(config), excluded_industries=excluded
+    ):
+        detected = detect_ats(row["url"])
         if detected and detected[0] in _FETCHERS:
             result.setdefault(detected[0], set()).add(detected[1].lower())
     return result

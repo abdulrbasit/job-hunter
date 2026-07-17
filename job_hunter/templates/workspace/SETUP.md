@@ -139,13 +139,14 @@ freely — updates never overwrite it.
 
 The dashboard's **Company Hunt** tab (under Job Candidates) is an optional, on-demand
 alternative to the regular `find-jobs` hunt. Instead of searching job boards, it scrapes
-the company career pages you list in `config/career_pages.yml` (falling back to a real
-browser, Playwright, only for pages that need JavaScript). Its results are written to
-`outputs/state/jobs.db` — the same database `find-jobs` uses — so they're deduped,
-screened, scored, and tailored through the exact same pipeline as any other discovered
-job; there's nothing separate to review or copy.
+the career pages of your enabled companies (falling back to a real browser, Playwright,
+only for pages that need JavaScript). Its results are written to `outputs/state/jobs.db`
+— the same database `find-jobs` uses — so they're deduped, screened, scored, and
+tailored through the exact same pipeline as any other discovered job; there's nothing
+separate to review or copy.
 
-To use it: add companies to `config/career_pages.yml`, then open `job-hunter dash` →
-**Job Candidates** → **Company Hunt** and click "Run Company Hunt" whenever you want.
+To use it: open `job-hunter dash` → **Job Candidates** → **Company Hunt** →
+**Manage Companies**, add your own companies (under "My Companies") and/or opt into
+bundled ones (under "Shared Catalog"), then click "Run Company Hunt" whenever you want.
 You'll see each company checked in real time, plus a plain-English summary if any
 couldn't be checked. New candidates show up alongside jobs from the regular hunt.

@@ -235,14 +235,16 @@
             <button class="status-tab" data-companies-view="catalog">Shared Catalog</button>
           </div>
 
-          <!-- My Companies: user-added, from career_pages.yml, enabled by default -->
+          <!-- My Companies: config/job_hunter.yml's companies.targets, enabled by default -->
           <div id="companies-mine-view">
             <div class="settings-section" id="company-form-section">
               <h3 id="company-form-title">Add Company</h3>
               <div class="settings-grid">
                 <div class="settings-field"><label for="company-form-name">Name</label><input type="text" id="company-form-name"></div>
                 <div class="settings-field"><label for="company-form-url">Career URL</label><input type="text" id="company-form-url" placeholder="https://…"></div>
-                <div class="settings-field"><label for="company-form-location">Location (optional)</label><input type="text" id="company-form-location"></div>
+                <div class="settings-field"><label for="company-form-country">Country</label><select id="company-form-country"></select></div>
+                <div class="settings-field"><label for="company-form-city">City (optional)</label><input type="search" id="company-form-city" list="company-form-city-options" placeholder="Start typing a city"><datalist id="company-form-city-options"></datalist></div>
+                <div class="settings-field"><label for="company-form-industry">Industry</label><select id="company-form-industry"><option value="">Other / Unclassified</option></select></div>
                 <div class="settings-row-checkbox"><input type="checkbox" id="company-form-enabled" checked> Enabled</div>
               </div>
               <div class="settings-actions">
@@ -253,7 +255,7 @@
             </div>
 
             <div class="filter-bar">
-              <input class="search-input" type="text" id="company-search" placeholder="Search companies…">
+              <input class="search-input" type="text" id="company-search" placeholder="Search name, country, city, industry…">
               <div class="status-tabs" id="company-filter-tabs">
                 <button class="status-tab active" data-company-filter="">All</button>
                 <button class="status-tab" data-company-filter="enabled">Enabled</button>
@@ -262,9 +264,8 @@
               <button class="btn btn-danger" id="company-bulk-delete-btn" style="display:none">Delete selected</button>
               <button class="btn" id="company-bulk-enable-btn" style="display:none">Enable selected</button>
               <button class="btn" id="company-bulk-disable-btn" style="display:none">Disable selected</button>
-              <button class="btn" id="open-career-pages-btn">Open career_pages.yml</button>
               <button class="btn" id="open-config-folder-btn">Open config folder</button>
-              <button class="btn" id="undo-career-pages-btn">Undo last save</button>
+              <button class="btn" id="undo-company-targets-btn">Undo last save</button>
               <span class="topbar-subtitle" id="company-total-count">0 companies</span>
             </div>
 
@@ -275,25 +276,33 @@
                     <th class="td-num"><input type="checkbox" id="company-select-all"></th>
                     <th>Name</th>
                     <th>Career URL</th>
-                    <th>Location</th>
+                    <th>Country</th>
+                    <th>City</th>
+                    <th>Industry</th>
                     <th>Enabled</th>
                     <th>Latest Status</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody id="companies-tbody">
-                  <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+                  <tr><td colspan="9"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Shared Catalog: bundled companies (job_hunter/catalog/companies.json), opt-in
-               per-company or per-sector — off by default, unlike your own added companies. -->
+          <!-- Shared Catalog: bundled companies (job_hunter/companies/data/*.jsonl), opt-in
+               per-company or per-filter — off by default, unlike your own added companies. -->
           <div id="companies-catalog-view" style="display:none">
-            <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Bundled companies shared with every Job Hunter user. None of these run until you enable them, one at a time or a whole sector.</span>
+            <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Bundled companies shared with every Job Hunter user. None of these run until you enable them, one at a time or a whole filtered set.</span>
             <div class="filter-bar">
               <input class="search-input" type="text" id="catalog-search" placeholder="Search shared catalog…">
+              <select class="filter-select" id="catalog-country-filter">
+                <option value="">All countries</option>
+              </select>
+              <select class="filter-select" id="catalog-city-filter">
+                <option value="">All cities</option>
+              </select>
               <select class="filter-select" id="catalog-industry-filter">
                 <option value="">All industries</option>
               </select>
@@ -316,12 +325,13 @@
                     <th class="td-num"><input type="checkbox" id="catalog-select-all"></th>
                     <th>Name</th>
                     <th>Career URL</th>
-                    <th>Countries</th>
+                    <th>Country</th>
+                    <th>Industry</th>
                     <th>Enabled</th>
                   </tr>
                 </thead>
                 <tbody id="catalog-tbody">
-                  <tr><td colspan="5"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+                  <tr><td colspan="6"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
                 </tbody>
               </table>
             </div>

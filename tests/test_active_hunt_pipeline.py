@@ -257,7 +257,7 @@ def test_ats_slug_step_unions_catalog_slugs_with_harvested_store(monkeypatch) ->
     monkeypatch.setattr(orchestrator, "harvest_slugs", lambda _results: {})
     monkeypatch.setattr(orchestrator, "update_slug_store", lambda _ws, slugs: persisted.append(slugs))
     monkeypatch.setattr(orchestrator, "load_slug_store", lambda _ws: {"greenhouse": ["harvested"]})
-    monkeypatch.setattr(orchestrator, "catalog_slugs", lambda _config: {"greenhouse": {"cataloged"}})
+    monkeypatch.setattr(orchestrator, "catalog_slugs", lambda _root, _config: {"greenhouse": {"cataloged"}})
 
     def fake_query(slug_store, _titles, _regions, _excluded):
         captured["store"] = slug_store

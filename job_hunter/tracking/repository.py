@@ -133,6 +133,11 @@ class _AutoCloseConnection(sqlite3.Connection):
             self.close()
 
 
+# Public alias — other sqlite-backed stores (e.g. job_hunter.companies.store) reuse this
+# connection class instead of redefining the same Windows-handle-release fix.
+AutoCloseConnection = _AutoCloseConnection
+
+
 def _conn(root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(root), timeout=10, factory=_AutoCloseConnection)
     conn.row_factory = sqlite3.Row

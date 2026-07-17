@@ -55,10 +55,11 @@ def test_career_stage_not_yet_accepted_by_config_schema(tmp_path: Path) -> None:
 
 
 def test_catalog_company_selection_package_not_yet_built() -> None:
-    """Phase 2: job_hunter.catalog should load the bundled company catalog."""
-    from job_hunter import catalog
+    """Phase 2: job_hunter.companies should load the bundled company seed into a store."""
+    from job_hunter.companies import seed, store
 
-    assert callable(catalog.load_companies)
+    assert callable(seed.iter_seed_rows)
+    assert callable(store.ensure_seeded)
 
 
 def test_daily_hunt_typed_service_not_yet_built() -> None:

@@ -267,208 +267,187 @@ def test_undo_unknown_logical_name_returns_error(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# career_pages.yml validation
+# companies.targets validation
 # ---------------------------------------------------------------------------
 
 
-def test_validate_career_pages_accepts_legacy_three_field_entries() -> None:
-    data = {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": ""}]}
+def test_validate_company_targets_accepts_full_entry() -> None:
+    data = [
+        {"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "city": "Berlin", "industry": "finance"}
+    ]
 
-    assert service.validate_career_pages(data) == []
-
-
-def test_validate_career_pages_defaults_enabled_to_true_when_absent() -> None:
-    data = {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}]}
-
-    assert service.validate_career_pages(data) == []
+    assert service.validate_company_targets(data) == []
 
 
-def test_validate_career_pages_requires_name_and_url() -> None:
-    errors = service.validate_career_pages({"companies": [{"location": "Berlin"}]})
+def test_validate_company_targets_requires_name_url_and_country() -> None:
+    errors = service.validate_company_targets([{}])
 
     assert any("name" in e for e in errors)
-    assert any("career_url" in e for e in errors)
+    assert any("url" in e for e in errors)
+    assert any("country" in e for e in errors)
 
 
-def test_validate_career_pages_rejects_non_http_scheme() -> None:
-    errors = service.validate_career_pages({"companies": [{"name": "Evil", "career_url": "file:///etc/passwd"}]})
+def test_validate_company_targets_rejects_non_https_scheme() -> None:
+    errors = service.validate_company_targets([{"name": "Evil", "url": "http://evil.example/careers", "country": "DE"}])
 
-    assert any("http/https" in e for e in errors)
+    assert any("https" in e for e in errors)
 
 
-def test_validate_career_pages_rejects_duplicate_names_case_insensitively() -> None:
-    errors = service.validate_career_pages(
-        {
-            "companies": [
-                {"name": "Stripe", "career_url": "https://stripe.com/jobs"},
-                {"name": "STRIPE", "career_url": "https://stripe.com/careers"},
-            ]
-        }
+def test_validate_company_targets_rejects_duplicate_url_and_country() -> None:
+    errors = service.validate_company_targets(
+        [
+            {"name": "Stripe", "url": "https://stripe.com/jobs/", "country": "DE"},
+            {"name": "Stripe Careers", "url": "HTTPS://STRIPE.COM/jobs", "country": "DE"},
+        ]
     )
 
-    assert any("duplicate company name" in e for e in errors)
+    assert any("duplicate url" in e for e in errors)
 
 
-def test_validate_career_pages_rejects_duplicate_normalized_urls() -> None:
-    errors = service.validate_career_pages(
-        {
-            "companies": [
-                {"name": "Stripe", "career_url": "https://stripe.com/jobs/"},
-                {"name": "Stripe Careers", "career_url": "HTTPS://STRIPE.COM/jobs"},
-            ]
-        }
+def test_validate_company_targets_allows_same_url_in_different_countries() -> None:
+    errors = service.validate_company_targets(
+        [
+            {"name": "Stripe DE", "url": "https://stripe.com/jobs", "country": "DE"},
+            {"name": "Stripe US", "url": "https://stripe.com/jobs", "country": "US"},
+        ]
     )
 
-    assert any("duplicate career_url" in e for e in errors)
+    assert errors == []
 
 
-def test_validate_career_pages_rejects_non_boolean_enabled() -> None:
-    errors = service.validate_career_pages(
-        {"companies": [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": "yes"}]}
+def test_validate_company_targets_rejects_non_boolean_enabled() -> None:
+    errors = service.validate_company_targets(
+        [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "enabled": "yes"}]
     )
 
     assert any("boolean" in e for e in errors)
 
 
+def test_validate_company_targets_rejects_non_iso_country() -> None:
+    errors = service.validate_company_targets([{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "GER"}])
+
+    assert any("ISO alpha-2" in e for e in errors)
+
+
 # ---------------------------------------------------------------------------
-# career_pages.yml read/save/undo
+# companies.targets read/save/undo (a section of config/job_hunter.yml)
 # ---------------------------------------------------------------------------
 
 
-def _write_career_pages(root: Path, text: str) -> None:
-    (root / "config").mkdir(parents=True, exist_ok=True)
-    (root / "config" / "career_pages.yml").write_text(text, encoding="utf-8")
+def test_read_company_targets_returns_targets_and_revision(tmp_path: Path) -> None:
+    data = {
+        **_VALID_CONFIG,
+        "companies": {"targets": [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}]},
+    }
+    _write_config(tmp_path, data)
 
-
-_REAL_CAREER_PAGES = (Path(__file__).parents[1] / "config" / "career_pages.yml").read_text(encoding="utf-8")
-
-
-def test_existing_career_pages_file_remains_valid() -> None:
-    data = yaml.safe_load(_REAL_CAREER_PAGES) or {}
-
-    assert service.validate_career_pages(data) == []
-
-
-def test_read_career_pages_returns_companies_and_revision(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-
-    result = service.read_career_pages(tmp_path)
+    result = service.read_company_targets(tmp_path)
 
     assert result["ok"] is True
-    assert result["data"]["companies"] == []
-    assert result["revision"] == service.get_revision(tmp_path / "config" / "career_pages.yml")
+    assert result["data"]["targets"] == [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}]
+    assert result["revision"] == service.get_revision(tmp_path / "config" / "job_hunter.yml")
 
 
-def test_save_career_pages_preserves_leading_comment_block(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+def test_read_company_targets_returns_empty_list_when_absent(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
 
-    result = service.save_career_pages(
-        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}], revision
+    result = service.read_company_targets(tmp_path)
+
+    assert result["data"]["targets"] == []
+
+
+def test_save_company_targets_writes_into_job_hunter_yaml(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+
+    result = service.save_company_targets(
+        tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}], revision
     )
 
     assert result["ok"] is True
-    new_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
-    assert new_text.startswith("# Company career pages for the browser hunt workflow.")
-    reloaded = yaml.safe_load(new_text)
-    assert reloaded["companies"] == [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "location": "Berlin"}]
+    reloaded = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert reloaded["companies"]["targets"] == [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}]
+    assert reloaded["job_titles"] == _VALID_CONFIG["job_titles"]  # rest of the file untouched
 
 
-def test_save_career_pages_omits_enabled_when_true(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+def test_save_company_targets_omits_enabled_when_true(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
 
-    service.save_career_pages(
-        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": True}], revision
+    service.save_company_targets(
+        tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "enabled": True}], revision
     )
 
-    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
-    assert "enabled" not in reloaded["companies"][0]
+    reloaded = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert "enabled" not in reloaded["companies"]["targets"][0]
 
 
-def test_save_career_pages_keeps_enabled_false(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+def test_save_company_targets_keeps_enabled_false(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
 
-    service.save_career_pages(
-        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs", "enabled": False}], revision
+    service.save_company_targets(
+        tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE", "enabled": False}], revision
     )
 
-    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
-    assert reloaded["companies"][0]["enabled"] is False
+    reloaded = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert reloaded["companies"]["targets"][0]["enabled"] is False
 
 
-def test_save_career_pages_rejects_invalid_entries_without_touching_disk(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    before_text = (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8")
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
+def test_save_company_targets_empty_list_omits_companies_key(tmp_path: Path) -> None:
+    data = {
+        **_VALID_CONFIG,
+        "companies": {"targets": [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}]},
+    }
+    _write_config(tmp_path, data)
+    _copy_schema(tmp_path)
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
 
-    result = service.save_career_pages(tmp_path, [{"name": "", "career_url": "not-a-url"}], revision)
+    service.save_company_targets(tmp_path, [], revision)
+
+    reloaded = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert "companies" not in reloaded
+
+
+def test_save_company_targets_rejects_invalid_entries_without_touching_disk(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    before_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+
+    result = service.save_company_targets(tmp_path, [{"name": "", "url": "not-a-url", "country": ""}], revision)
 
     assert result["ok"] is False
-    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == before_text
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == before_text
 
 
-def test_save_career_pages_rejects_stale_revision(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
+def test_save_company_targets_rejects_stale_revision(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
 
-    result = service.save_career_pages(
-        tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], "0" * 64
+    result = service.save_company_targets(
+        tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}], "0" * 64
     )
 
     assert result["ok"] is False
 
 
-def test_undo_career_pages_restores_exact_prior_bytes(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
-    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision)
+def test_undo_company_targets_restores_exact_prior_bytes(tmp_path: Path) -> None:
+    _write_config(tmp_path, _VALID_CONFIG)
+    _copy_schema(tmp_path)
+    before_text = (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8")
+    revision = service.get_revision(tmp_path / "config" / "job_hunter.yml")
+    service.save_company_targets(
+        tmp_path, [{"name": "Stripe", "url": "https://stripe.com/jobs", "country": "DE"}], revision
+    )
 
-    result = service.undo_last_save(tmp_path, "career_pages")
+    result = service.undo_last_save(tmp_path, "job_hunter_config")
 
     assert result["ok"] is True
-    assert (tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8") == _REAL_CAREER_PAGES
-
-
-# ---------------------------------------------------------------------------
-# career_pages.yml catalog block (opt-in allowlist: catalog.enabled_company_ids)
-# ---------------------------------------------------------------------------
-
-
-def test_read_career_pages_defaults_catalog_when_absent(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-
-    result = service.read_career_pages(tmp_path)
-
-    assert result["data"]["catalog"] == {"enabled_company_ids": []}
-
-
-def test_save_career_pages_without_catalog_arg_preserves_existing_catalog_block(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
-    service.save_career_pages(tmp_path, [], revision, catalog={"enabled_company_ids": ["google"]})
-    revision2 = service.get_revision(tmp_path / "config" / "career_pages.yml")
-
-    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision2)
-
-    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
-    assert reloaded["catalog"] == {"enabled_company_ids": ["google"]}
-
-
-def test_save_career_pages_omits_default_catalog_block(tmp_path: Path) -> None:
-    _write_career_pages(tmp_path, _REAL_CAREER_PAGES)
-    revision = service.get_revision(tmp_path / "config" / "career_pages.yml")
-
-    service.save_career_pages(tmp_path, [{"name": "Stripe", "career_url": "https://stripe.com/jobs"}], revision)
-
-    reloaded = yaml.safe_load((tmp_path / "config" / "career_pages.yml").read_text(encoding="utf-8"))
-    assert "catalog" not in reloaded
-
-
-def test_validate_career_pages_rejects_non_string_enabled_company_ids() -> None:
-    errors = service.validate_career_pages({"companies": [], "catalog": {"enabled_company_ids": [123]}})
-
-    assert any("enabled_company_ids" in e for e in errors)
+    assert (tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8") == before_text
 
 
 # ---------------------------------------------------------------------------

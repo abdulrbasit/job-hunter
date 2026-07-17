@@ -272,7 +272,7 @@ def scrape_with_stats(
             new_slugs = harvest_slugs(results)
             update_slug_store(_WORKSPACE_ROOT, new_slugs)
             slug_store = load_slug_store(_WORKSPACE_ROOT)
-            for platform, slugs in catalog_slugs(config).items():
+            for platform, slugs in catalog_slugs(_WORKSPACE_ROOT, config).items():
                 slug_store[platform] = sorted(set(slug_store.get(platform, [])) | slugs)
             slug_jobs = query_ats_by_slugs(slug_store, job_titles, regions, excluded_title_terms)
             _add_unique([JobPosting.model_validate(j) for j in slug_jobs], "ats_slug")

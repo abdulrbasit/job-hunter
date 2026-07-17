@@ -133,6 +133,28 @@
         "enabled": {"type": "boolean"}
       },
       "additionalProperties": false
+    },
+    "companies": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "url", "country"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "url": {"type": "string", "minLength": 1},
+              "country": {"type": "string", "minLength": 2, "maxLength": 2},
+              "city": {"type": "string"},
+              "industry": {"type": "string"},
+              "enabled": {"type": "boolean"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

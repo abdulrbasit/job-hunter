@@ -135,3 +135,76 @@ def migrate_workspace_filter_files(root: Path) -> MigrationResult:
     if filter_schema.exists():
         filter_schema.unlink()
     return MigrationResult(True, "Folded obsolete workspace filter files into config/job_hunter.yml.")
+
+
+def migrate_career_pages(root: Path) -> MigrationResult:  # noqa: C901
+    """Retire config/career_pages.yml: fold its entries into job_hunter.yml's
+    companies.targets and the runtime companies store, then remove the file.
+
+    Custom entries become targets (their free-text `location` is resolved to a
+    country via canonicalize_runtime_location, falling back to the first enabled
+    region's country). The old opt-in allowlist (catalog.enabled_company_ids) is
+    applied to the runtime store by catalog_id after seeding.
+    """
+    legacy = root / "config" / "career_pages.yml"
+    if not legacy.exists():
+        return MigrationResult(False)
+
+    original = legacy.read_bytes()
+    try:
+        data = yaml.safe_load(original) or {}
+    except yaml.YAMLError:
+        data = {}
+    companies = [c for c in (data.get("companies") or []) if isinstance(c, dict)]
+    enabled_ids = [str(i) for i in ((data.get("catalog") or {}).get("enabled_company_ids") or [])]
+
+    config_path = root / "config" / "job_hunter.yml"
+    config_original = config_path.read_bytes() if config_path.exists() else b"{}\n"
+    config_data = yaml.safe_load(config_original) or {}
+    if not isinstance(config_data, dict):
+        config_data = {}
+
+    from job_hunter.locations import canonicalize_runtime_location, enabled_locations
+
+    fallback_country = next((loc.country for loc in enabled_locations(config_data) if loc.country), "")
+    targets = list((config_data.get("companies") or {}).get("targets") or [])
+    existing_keys = {
+        (str(t.get("url") or "").rstrip("/").lower(), str(t.get("country") or "").upper()) for t in targets
+    }
+    for entry in companies:
+        url = str(entry.get("career_url") or "").strip()
+        if not url:
+            continue
+        location = str(entry.get("location") or "").strip()
+        matches = canonicalize_runtime_location(location) if location else []
+        country = matches[0].country if matches else fallback_country
+        if not country:
+            continue
+        key = (url.rstrip("/").lower(), country)
+        if key in existing_keys:
+            continue
+        existing_keys.add(key)
+        item: dict[str, Any] = {"name": str(entry.get("name") or "").strip(), "url": url, "country": country}
+        if entry.get("enabled", True) is False:
+            item["enabled"] = False
+        targets.append(item)
+
+    if targets:
+        config_data["companies"] = {"targets": targets}
+
+    backup_dir = root / "outputs" / "state" / "config_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    if not (backup_dir / "career_pages.yml.bak").exists():
+        _atomic_write(backup_dir / "career_pages.yml.bak", original.decode("utf-8"))
+    if not (backup_dir / "pre_companies_job_hunter.yml.bak").exists():
+        _atomic_write(backup_dir / "pre_companies_job_hunter.yml.bak", config_original.decode("utf-8"))
+    _atomic_write(config_path, yaml.safe_dump(config_data, sort_keys=False, allow_unicode=True))
+    legacy.unlink()
+
+    if enabled_ids:
+        from job_hunter.companies import store
+
+        store.ensure_seeded(root)
+        store.set_enabled_by_catalog_ids(root, enabled_ids, True)
+
+    return MigrationResult(True, "Migrated config/career_pages.yml into config/job_hunter.yml and the companies store.")
