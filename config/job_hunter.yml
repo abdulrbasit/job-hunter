@@ -32,29 +32,12 @@ regions:
   #   location: "Singapore"
 
 filters:
-  languages:
-    description: "Languages allowed during hunts"
-    entries:
-      - value: english
+  hunt_languages: [en]
   experience_levels: [associate, mid, senior]
   excluded_titles:
-    description: "Title terms excluded from results"
-    entries:
-      - value: intern
-      - value: internship
-      - value: trainee
-      - value: working student
-      - value: werkstudent
-      - value: junior
-      - value: principal
-      - value: expert
-      - value: chief product
-  excluded_companies:
-    description: "Companies excluded from results"
-    entries: []
-  excluded_industries:
-    description: "Industries excluded from results"
-    entries: []
+    [intern, internship, trainee, "working student", werkstudent, junior, principal, expert, "chief product"]
+  excluded_companies: []
+  excluded_industries: []
 
 scoring:
   min_fit_score: 70
