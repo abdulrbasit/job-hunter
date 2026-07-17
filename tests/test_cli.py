@@ -102,9 +102,10 @@ def test_tailor_job_and_find_jobs_workflows_sync_through_internal_sync() -> None
 
 
 def test_template_config_does_not_hardcode_max_years_experience() -> None:
-    """A hardcoded max_years_experience_required overrides career_stage's own default
-    (resolve_max_years_experience) — regression: a fresh 'student' workspace was capped at
-    5 years instead of the student stage's 1, silently filtering out its own target roles."""
+    """A hardcoded max_years_experience_required overrides the selected experience_levels'
+    own derived default (resolve_max_years_experience) — regression: a fresh entry-level
+    workspace was capped at 5 years instead of its own selected levels' cap, silently
+    filtering out its own target roles."""
     import yaml
 
     config = yaml.safe_load((WORKSPACE_TEMPLATE / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
