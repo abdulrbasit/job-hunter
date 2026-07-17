@@ -49,6 +49,26 @@ def has_remote(root: Path) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
+def _is_real_workspace(root: Path) -> bool:
+    """True only for a workspace created by `job-hunter init` (marked by
+    .job-hunter/manifest.json). config/job_hunter.yml alone is not sufficient — the
+    job-hunter package's own source checkout has one too (a dev/test fixture), and
+    config.paths._resolve_root() can fall back to that checkout as ROOT. Without this
+    guard, running `job-hunter dash` from inside the source checkout would auto-commit
+    and push the checkout's own dirty state — this happened once and must not recur."""
+    from job_hunter.workspace.manifest import MANIFEST_PATH
+
+    return (root / MANIFEST_PATH).exists()
+
+
+def _not_a_workspace_error() -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": "Not a job-hunter workspace (no .job-hunter/manifest.json) — refusing to sync.",
+        "next_action": "Run this from inside a workspace created by `job-hunter init`.",
+    }
+
+
 def commit_dirty_paths(root: Path, paths: tuple[str, ...], message: str) -> bool:
     """Stage and commit any dirty files under `paths`. Returns True if a commit was made."""
     status = _run_git(["status", "--porcelain", "--untracked-files=all", "--", *paths], root)
@@ -104,6 +124,8 @@ def merge_and_push(root: Path) -> dict[str, Any]:
     the DB merge means a rebase conflict on outputs/* is always auto-resolvable, so this
     never leaves the workspace mid-conflict.
     """
+    if not _is_real_workspace(root):
+        return _not_a_workspace_error()
     if not has_remote(root):
         return {
             "ok": False,
@@ -162,6 +184,8 @@ def merge_and_push(root: Path) -> dict[str, Any]:
 
 def sync_workspace(root: Path, *, message: str = "chore(sync): local changes") -> dict[str, Any]:
     """Commit dirty durable state, then merge_and_push. The one-call entry point for the GUI."""
+    if not _is_real_workspace(root):
+        return _not_a_workspace_error()
     commit_dirty_paths(root, FINALIZE_PATHS, message)
     return merge_and_push(root)
 

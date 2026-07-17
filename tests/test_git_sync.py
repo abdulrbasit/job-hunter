@@ -227,11 +227,46 @@ def test_merge_remote_jobs_tombstone_blocks_rediscovery_by_url_alone(tmp_path: P
 
 def test_sync_workspace_reports_error_without_remote(tmp_path: Path) -> None:
     _init_repo(tmp_path)
+    (tmp_path / ".job-hunter").mkdir()
+    (tmp_path / ".job-hunter" / "manifest.json").write_text("{}", encoding="utf-8")
 
     result = git_sync.sync_workspace(tmp_path)
 
     assert result["ok"] is False
     assert "remote" in result["error"].lower()
+
+
+def test_sync_workspace_refuses_without_workspace_manifest(tmp_path: Path) -> None:
+    """Regression: job-hunter dash launched from inside the job-hunter package's own
+    source checkout (whose config/job_hunter.yml is a dev/test fixture, not a real
+    workspace) once auto-committed and pushed the source tree's dirty build artifacts,
+    because sync_workspace had no way to tell "real workspace" from "source checkout".
+    .job-hunter/manifest.json (written only by `job-hunter init`) is the only reliable
+    marker — its absence must hard-refuse before touching git at all, commit included."""
+    _init_repo(tmp_path)
+    _git(["remote", "add", "origin", "https://example.invalid/repo.git"], tmp_path)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text("mode: agent\n", encoding="utf-8")
+    _git(["add", "-A"], tmp_path)
+    _git(["commit", "-m", "initial"], tmp_path)
+    (tmp_path / "README.md").write_text("dirty local edit\n", encoding="utf-8")
+
+    result = git_sync.sync_workspace(tmp_path)
+
+    assert result["ok"] is False
+    assert "workspace" in result["error"].lower()
+    status = _git(["status", "--porcelain"], tmp_path)
+    assert "README.md" in status.stdout  # confirms nothing was staged/committed
+
+
+def test_merge_and_push_refuses_without_workspace_manifest(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    _git(["remote", "add", "origin", "https://example.invalid/repo.git"], tmp_path)
+
+    result = git_sync.merge_and_push(tmp_path)
+
+    assert result["ok"] is False
+    assert "workspace" in result["error"].lower()
 
 
 def test_sync_status_reports_error_without_remote(tmp_path: Path) -> None:
@@ -254,6 +289,8 @@ def _two_clones(tmp_path: Path) -> tuple[Path, Path]:
     _init_repo(clone_a)
     (clone_a / "README.md").write_text("hello\n", encoding="utf-8")
     (clone_a / "outputs" / "state").mkdir(parents=True)
+    (clone_a / ".job-hunter").mkdir()
+    (clone_a / ".job-hunter" / "manifest.json").write_text("{}", encoding="utf-8")
     upsert_job(clone_a, {"url": "https://seed.example/x", "slug": "seed"})
     _git(["add", "-A"], clone_a)
     _git(["commit", "-m", "seed"], clone_a)
