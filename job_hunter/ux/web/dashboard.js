@@ -120,8 +120,10 @@ async function initAll() {
     const name = await window.pywebview.api.get_user_name();
     if (name) document.getElementById('sidebar-name').textContent = name;
   } catch(_) {}
-  await loadOnboarding();
+  // get_bootstrap() already bundles the checklist server-side — one round trip
+  // covers both the topbar banner and the readiness gate below.
   const bootstrap = await window.pywebview.api.get_bootstrap();
+  renderOnboardingChecklist(bootstrap.ok ? bootstrap.data.checklist : null);
   if (setupIncomplete(bootstrap)) {
     document.querySelector('.nav-btn[data-view="get-started"]').click();
   }
@@ -256,32 +258,40 @@ function checklistItemsHtml(items) {
   `).join('');
 }
 
-// One fetch feeds both setup surfaces: the slim topbar pill and the Get Started checklist.
-async function loadOnboarding() {
+// One result renders both setup surfaces: the slim topbar pill and the Get Started checklist.
+function renderOnboardingChecklist(result) {
   const banner = document.getElementById('onboarding-banner');
   const checklistEl = document.getElementById('gs-checklist');
-  try {
-    const result = await window.pywebview.api.get_onboarding_checklist();
-    if (!result.ok) {
-      banner.textContent = `${result.error || 'Setup status is unavailable.'} ${result.next_action || ''}`;
-      banner.style.display = '';
-      return result;
-    }
-    checklistEl.innerHTML = checklistItemsHtml(result.items) || '<li class="no-data">All setup checks pass.</li>';
-    if (result.done_count >= result.total_count) {
-      banner.style.display = 'none';
-      return result;
-    }
-    banner.innerHTML = `<div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done — <a href="#" id="finish-setup-link">Finish setup →</a></div>`;
-    document.getElementById('finish-setup-link').addEventListener('click', (e) => {
-      e.preventDefault();
-      document.querySelector('.nav-btn[data-view="get-started"]').click();
-    });
-    banner.style.display = '';
-    return result;
-  } catch(_) {
+  if (!result) {
     banner.textContent = 'Setup status is unavailable. Run job-hunter doctor in the workspace.';
     banner.style.display = '';
+    return;
+  }
+  if (!result.ok) {
+    banner.textContent = `${result.error || 'Setup status is unavailable.'} ${result.next_action || ''}`;
+    banner.style.display = '';
+    return;
+  }
+  checklistEl.innerHTML = checklistItemsHtml(result.items) || '<li class="no-data">All setup checks pass.</li>';
+  if (result.done_count >= result.total_count) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.innerHTML = `<div class="onboarding-progress">Setup: ${result.done_count} of ${result.total_count} done — <a href="#" id="finish-setup-link">Finish setup →</a></div>`;
+  document.getElementById('finish-setup-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.querySelector('.nav-btn[data-view="get-started"]').click();
+  });
+  banner.style.display = '';
+}
+
+async function loadOnboarding() {
+  try {
+    const result = await window.pywebview.api.get_onboarding_checklist();
+    renderOnboardingChecklist(result);
+    return result;
+  } catch(_) {
+    renderOnboardingChecklist(null);
     return null;
   }
 }
@@ -1682,10 +1692,11 @@ async function showWizardStep(index) {
 
 async function loadGetStarted() {
   // Settings editors back the wizard's Basics/Region/Filters steps and the quick-fill flow,
-  // so load them alongside the checklist before the wizard tries to mount anything.
-  await loadOnboarding();
+  // so load them before the wizard tries to mount anything. get_bootstrap() bundles the
+  // checklist server-side — one round trip covers the banner, the checklist, and readiness.
   if (!settingsLoaded) await loadSettings();
   const bootstrap = await window.pywebview.api.get_bootstrap();
+  renderOnboardingChecklist(bootstrap.ok ? bootstrap.data.checklist : null);
   const blocking = bootstrap.ok ? bootstrap.data.readiness.blocking : {};
   const startStep = (!blocking.job_titles) ? 0
     : (!blocking.region) ? 1
