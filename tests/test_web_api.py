@@ -1713,6 +1713,29 @@ def test_dashboard_contains_career_profile_panel_for_all_three_artifacts() -> No
     assert "data-resume-paths" in html
 
 
+def test_dashboard_filter_groups_render_as_checkbox_lists_not_native_multiselect() -> None:
+    """Regression: catalog-backed filter groups (industries/languages/experience levels)
+    used a native <select multiple> — no visual feedback on selections, requires
+    ctrl/cmd-click. Replaced with a searchable checkbox list."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "filter-checklist" in js
+    assert "filter-check-search" in js
+    assert 'type="checkbox"' in js
+    assert 'select class="filter-values" multiple' not in js
+    assert "selectedOptions" not in js.split("function renderFilterGroups")[1].split("function markConfigDirty")[0]
+
+
+def test_dashboard_github_secret_status_does_not_claim_unknowable_state() -> None:
+    """Regression: the required-secret line claimed 'configured'/'(not set)' based on the
+    LOCAL keyring value, which has nothing to do with whether the secret actually exists
+    on GitHub — that's server-side state the app can't read. Only schedule_enabled (which
+    reads the local workflow file directly) is genuinely detectable."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "s.configured ? 'configured' : '(not set)'" not in js
+
+
 def test_dashboard_contains_job_title_autocomplete() -> None:
     html = _dashboard_source()
 

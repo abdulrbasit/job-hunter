@@ -123,7 +123,7 @@ async function initAll() {
   // get_bootstrap() already bundles the checklist server-side — one round trip
   // covers both the topbar banner and the readiness gate below.
   const bootstrap = await window.pywebview.api.get_bootstrap();
-  renderOnboardingChecklist(bootstrap.ok ? bootstrap.data.checklist : null);
+  renderOnboardingChecklist(bootstrap.ok ? { ok: true, ...bootstrap.data.checklist } : null);
   if (setupIncomplete(bootstrap)) {
     document.querySelector('.nav-btn[data-view="get-started"]').click();
   }
@@ -1696,7 +1696,7 @@ async function loadGetStarted() {
   // checklist server-side — one round trip covers the banner, the checklist, and readiness.
   if (!settingsLoaded) await loadSettings();
   const bootstrap = await window.pywebview.api.get_bootstrap();
-  renderOnboardingChecklist(bootstrap.ok ? bootstrap.data.checklist : null);
+  renderOnboardingChecklist(bootstrap.ok ? { ok: true, ...bootstrap.data.checklist } : null);
   const blocking = bootstrap.ok ? bootstrap.data.readiness.blocking : {};
   const startStep = (!blocking.job_titles) ? 0
     : (!blocking.region) ? 1
@@ -1876,11 +1876,15 @@ async function loadGetStartedActionsGuide() {
     status.textContent = result.schedule_enabled
       ? '✓ Schedule is enabled — unattended hunting is live.'
       : '○ Schedule not enabled yet — manual runs only.';
+    // Whether this secret exists on GitHub isn't something the app can know (that's
+    // GitHub's server-side state, not readable locally) — only show its name to add,
+    // never a configured/not-set claim. schedule_enabled above is the one status here
+    // that's actually detectable (it reads the local workflow file directly).
     const s = result.required_secret;
     requiredEl.innerHTML = '';
     if (s.name) {
       const label = document.createElement('span');
-      label.textContent = `${s.name}: ${s.configured ? 'configured' : '(not set)'} `;
+      label.textContent = `${s.name} `;
       requiredEl.appendChild(label);
       if (s.configured) {
         const copyBtn = document.createElement('button');
@@ -1951,13 +1955,34 @@ function renderFilterGroups(filters) {
     const options = name === 'excluded_industries' ? (filterOptions.industries || []).map(item => ({value: item.id, label: item.label}))
       : name === 'hunt_languages' ? (filterOptions.languages || []).map(item => ({value: item.code, label: `${item.name} (${item.code})`}))
       : name === 'experience_levels' ? (filterOptions.experience_levels || []).map(item => ({value: item.id, label: item.label})) : null;
+    // Catalog-backed groups (industries/languages/experience levels) render as a
+    // searchable checkbox list — native <select multiple> requires ctrl/cmd-click and
+    // gives no visual feedback on what's selected, which is a real usability problem
+    // once a group has more than a handful of options. Free-text groups (companies/
+    // titles) stay a plain textarea, since there's no fixed catalog to check against.
     const editor = options
-      ? `<select class="filter-values" multiple>${options.map(item => `<option value="${esc(item.value)}" ${values.has(item.value) ? 'selected' : ''}>${esc(item.label)}</option>`).join('')}</select>`
+      ? `<div class="filter-checklist-wrap">
+          <input type="search" class="filter-check-search" placeholder="Filter…" aria-label="Filter ${esc(name.replaceAll('_', ' '))} options">
+          <div class="filter-values filter-checklist">${options.map(item => `
+            <label class="filter-check"><input type="checkbox" value="${esc(item.value)}" ${values.has(item.value) ? 'checked' : ''}><span>${esc(item.label)}</span></label>
+          `).join('')}</div>
+        </div>`
       : `<textarea class="filter-values" placeholder="One value per line">${esc([...values].join('\n'))}</textarea>`;
     group.innerHTML = `<h4>${esc(name.replaceAll('_', ' '))}</h4><div class="settings-help">${esc(definition.description)}</div><div class="settings-field">${editor}</div>`;
     container.appendChild(group);
-    group.querySelector('.filter-values').addEventListener('change', markConfigDirty);
-    group.querySelector('.filter-values').addEventListener('input', markConfigDirty);
+    const valuesEl = group.querySelector('.filter-values');
+    valuesEl.addEventListener('change', markConfigDirty);
+    if (valuesEl.tagName === 'TEXTAREA') {
+      valuesEl.addEventListener('input', markConfigDirty);
+      return;
+    }
+    const search = group.querySelector('.filter-check-search');
+    search.addEventListener('input', () => {
+      const needle = search.value.trim().toLowerCase();
+      valuesEl.querySelectorAll('.filter-check').forEach(row => {
+        row.style.display = !needle || row.textContent.toLowerCase().includes(needle) ? '' : 'none';
+      });
+    });
   });
 }
 
@@ -1965,9 +1990,9 @@ function collectFilterGroups() {
   const filters = {};
   document.querySelectorAll('#cfg-filter-groups .filter-group').forEach(group => {
     const editor = group.querySelector('.filter-values');
-    filters[group.dataset.name] = editor.tagName === 'SELECT'
-      ? [...editor.selectedOptions].map(option => option.value)
-      : editor.value.split('\n').map(value => value.trim()).filter(Boolean);
+    filters[group.dataset.name] = editor.tagName === 'TEXTAREA'
+      ? editor.value.split('\n').map(value => value.trim()).filter(Boolean)
+      : [...editor.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
   });
   return filters;
 }
