@@ -129,19 +129,33 @@ class ExperienceDetection:
 def detect_experience(title: str, description: str, hunt_language: str = "en") -> ExperienceDetection:
     """Detect a posting's required experience: years-regex first, title/level keywords second.
 
+    Years-regex is the precise signal and its pattern set is small (a handful per
+    language), so it's cheap to run once over the full text regardless of length —
+    checked first so an explicit "5+ years" always wins over a coarser level bucket.
+    Keyword matching is the expensive part (every level's keywords, per language),
+    so once years-regex comes up empty, the short title is tried before the much
+    longer description — most keyword-resolvable postings ("Senior Engineer",
+    "Werkstudent Marketing") never need the full-description scan at all.
+
     Fails open (confident=False) when nothing matches — callers must not exclude
     on an unconfident read.
     """
-    text = f"{description}\n{title}".strip()
-    if not text:
+    title = title.strip()
+    description = description.strip()
+    if not title and not description:
         return ExperienceDetection(None, None, None, False)
 
-    years = _extract_years(text, hunt_language)
+    years = _extract_years(f"{description}\n{title}".strip(), hunt_language)
     if years is not None:
         return ExperienceDetection(None, years[0], years[1], True)
 
-    level = _match_keyword(text, hunt_language)
-    if level is not None:
-        return ExperienceDetection(level.id, level.min_years, level.max_years, True)
+    if title:
+        level = _match_keyword(title, hunt_language)
+        if level is not None:
+            return ExperienceDetection(level.id, level.min_years, level.max_years, True)
+    if description:
+        level = _match_keyword(description, hunt_language)
+        if level is not None:
+            return ExperienceDetection(level.id, level.min_years, level.max_years, True)
 
     return ExperienceDetection(None, None, None, False)
