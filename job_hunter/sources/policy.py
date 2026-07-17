@@ -13,14 +13,13 @@ from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.builtin_filters import (
     CONTRACT_PHRASES,
     EXCLUDED_LISTING_URL_PATTERNS,
-    LANG_CODE_TO_NAME,
-    LANGUAGE_INDICATORS,
     LISTING_ONLY_PATHS,
     MAX_POSTING_AGE_DAYS,
     RESTRICTION_PHRASES,
     STALE_INDICATORS,
     US_ONLY_PHRASES,
 )
+from job_hunter.core.language import detect_language
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.filters import FilterSet
 from job_hunter.locations import COUNTRY_NAME_TO_CODE
@@ -380,23 +379,20 @@ class JobPolicy:
         codes = _codes_from_location_text(location)
         return bool(codes) and not codes & allowed_codes
 
-    def excluded_by_search_lang(self, title: str, snippet: str, search_lang: str) -> bool:
-        """Return True if job's language is not in the search_lang allow-list."""
-        allowed_names = set(self.filters.allowed_languages) if self.filters else set()
-        if not allowed_names:
-            allowed_codes = {c.strip().lower() for c in search_lang.split(",") if c.strip()}
-            if not allowed_codes or "*" in allowed_codes:
-                return False
-            allowed_names = {LANG_CODE_TO_NAME[c] for c in allowed_codes if c in LANG_CODE_TO_NAME}
-        if not allowed_names:
-            return False
-        text = (title + " " + snippet).lower()
-        for lang_name, indicators in LANGUAGE_INDICATORS.items():
-            if lang_name in allowed_names:
-                continue
-            if any(ind in text for ind in indicators):
-                return True
-        return False
+    def language_screen(self, title: str, description: str) -> tuple[bool, str | None, bool]:
+        """Detect the posting's language and compare it against hunt_languages.
+
+        Returns (excluded, detected_code, low_confidence). Fails open (excluded=False)
+        when hunt_languages is unset or detection confidence is too low to trust —
+        low_confidence signals the caller should flag the job for review, not exclude it.
+        """
+        allowed = set(self.filters.values("hunt_languages")) if self.filters else set()
+        if not allowed:
+            return False, None, False
+        detection = detect_language(title, description)
+        if detection.code is None:
+            return False, None, True
+        return detection.code not in allowed, detection.code, False
 
     def _allowed_country_codes(self) -> set[str]:
         from job_hunter.locations import enabled_locations

@@ -88,12 +88,17 @@ filters:
   excluded_industries: [aerospace_defense]
 ```
 
-`hunt_languages` is an allowlist of ISO language codes; there is no
-`excluded_languages` list. `excluded_industries` contains IDs from the bundled
-industry taxonomy. Dashboard controls read both taxonomies from package
-resources. New package options become selectable without changing existing
-user config. Legacy `{description, entries}` groups load in memory for
-compatibility, but explicit saves write scalar lists.
+`hunt_languages` is an allowlist of ISO language codes (at least one required); there is
+no `excluded_languages` list. Screening detects each posting's actual language —
+offline, statistical (`job_hunter/core/language.py`) — and excludes it
+(`language_not_hunted`) if the detection is confident and the code isn't in
+`hunt_languages`; low-confidence detections fail open and are flagged
+`language_uncertain` rather than excluded. There's no manual per-language keyword list
+to maintain. `excluded_industries` contains IDs from the bundled industry taxonomy.
+Dashboard controls read both taxonomies from package resources. New package options
+become selectable without changing existing user config. Legacy `{description,
+entries}` groups load in memory for compatibility, but explicit saves write scalar
+lists.
 
 User preferences belong in these filter groups. Product-owned listing-quality
 rulesâ€”such as stale-page phrases and non-listing URL patternsâ€”remain code-owned

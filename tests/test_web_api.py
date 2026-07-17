@@ -1291,7 +1291,7 @@ _SETTINGS_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {},
+    "filters": {"hunt_languages": ["en"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic", "providers": {"scoring": "anthropic"}},
 }
@@ -1323,6 +1323,7 @@ def test_guided_form_round_trips_legacy_remote_country_and_city_regions(tmp_path
         "qatar": {"enabled": True, "country": "QA", "location": "Qatar"},
         "bahrain": {"enabled": True, "country": "BH", "location": "Bahrain"},
     }
+    config["filters"] = {}
     config["exclusions"] = {"companies": ["Acme"], "title_terms": ["intern"], "languages": ["german"]}
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "job_hunter.yml").write_text(yaml.safe_dump(config), encoding="utf-8")

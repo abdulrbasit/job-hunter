@@ -23,7 +23,7 @@ tailor-links, or tailor-raw modes.
 | `cli/` | Command parsing, output, and service composition |
 | `companies/` | Package-owned per-country company seed, the runtime SQLite store, and region/industry gating |
 | `config/` | YAML loading, choice validation, migrations, secrets, schemas, and workspace paths |
-| `core/` | Cross-package utilities and package-owned built-in quality filters |
+| `core/` | Cross-package utilities and package-owned built-in quality filters, including offline language detection (`core/language.py`, consumed by `sources/policy.py`'s screening gate) |
 | `filters/` | Package-owned filter resource loading, type binding, normalization, and matching |
 | `linkedin/` | LinkedIn ideas, drafts, and engagement planning |
 | `locations/` | Package-owned country/city resources, canonical resolution, and scope matching |

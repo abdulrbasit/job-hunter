@@ -18,7 +18,7 @@ _VALID_CONFIG = {
     },
     "job_titles": ["Product Manager"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {},
+    "filters": {"hunt_languages": ["en"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
     "llm": {"default_provider": "anthropic"},
 }
@@ -704,7 +704,7 @@ _FULL_CONFIG = {
     },
     "job_titles": ["Product Manager", "Staff PM"],
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin", "primary": True}},
-    "filters": {"excluded_companies": ["Acme"], "excluded_titles": ["intern"]},
+    "filters": {"excluded_companies": ["Acme"], "excluded_titles": ["intern"], "hunt_languages": ["en"]},
     "scoring": {
         "min_fit_score": 70,
         "max_years_experience_required": 10,

@@ -331,6 +331,54 @@ def test_hard_screen_rejects_excluded_industry() -> None:
     assert rejected[0]["_rejection_reason"] == "excluded_industry"
 
 
+def test_hard_screen_rejects_german_posting_when_hunt_languages_is_english_only() -> None:
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    jobs = [
+        {
+            "title": "PM",
+            "company": "Workflow SaaS",
+            "snippet": "Wir suchen einen erfahrenen Produktmanager fuer unser Team in Berlin.",
+            "location": "Berlin, Germany",
+            "region": "de",
+        }
+    ]
+    config = {
+        "job_titles": ["PM"],
+        "filters": {"hunt_languages": ["en"]},
+        "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+    }
+
+    kept, rejected = screen_jobs_by_rules(jobs, config)
+
+    assert kept == []
+    assert rejected[0]["_rejection_reason"] == "language_not_hunted"
+
+
+def test_hard_screen_keeps_low_confidence_language_and_flags_it_for_review() -> None:
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    jobs = [
+        {
+            "title": "Manager",
+            "company": "Workflow SaaS",
+            "snippet": "",
+            "location": "Berlin, Germany",
+            "region": "de",
+        }
+    ]
+    config = {
+        "job_titles": ["Manager"],
+        "filters": {"hunt_languages": ["en"]},
+        "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+    }
+
+    kept, rejected = screen_jobs_by_rules(jobs, config)
+
+    assert rejected == []
+    assert kept[0]["_judgment_signals"]["language_uncertain"] is True
+
+
 def test_finalize_processed_batch_updates_readme_and_upserts_successful_application(tmp_path) -> None:
     match = {"score": 90, "job": {"title": "PM", "company": "Acme", "url": "https://example.com/pm"}}
 

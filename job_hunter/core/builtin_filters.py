@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from importlib import resources
-
 STALE_INDICATORS: tuple[str, ...] = (
     "no longer available",
     "this job has expired",
@@ -122,12 +119,3 @@ LANG_CODE_TO_NAME: dict[str, str] = {
     "uk": "ukrainian",
     "ca": "catalan",
 }
-
-
-def _load_language_indicators() -> dict[str, tuple[str, ...]]:
-    raw = resources.files("job_hunter").joinpath("catalog", "filters.json").read_text(encoding="utf-8")
-    languages = json.loads(raw)["languages"]
-    return {name: tuple(data["indicators"]) for name, data in languages.items()}
-
-
-LANGUAGE_INDICATORS = _load_language_indicators()

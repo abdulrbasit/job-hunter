@@ -94,8 +94,9 @@ def screen_candidate_batch(
             reasons.append("incompatible_location_metadata")
         if "incompatible_location_metadata" not in reasons and policy.has_wrong_location(candidate, region_config):
             reasons.append("wrong_location")
-        if policy.excluded_by_search_lang(title, snippet, region_config.get("search_lang", "en")):
-            reasons.append("excluded_by_search_lang")
+        description = str(candidate.get("full_job_description") or snippet)
+        if policy.language_screen(title, description)[0]:
+            reasons.append("language_not_hunted")
         if policy.is_location_restricted(title, snippet):
             reasons.append("location_restricted")
         if policy.is_stale_posting(title, snippet):

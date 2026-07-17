@@ -155,13 +155,6 @@ class Industry(BaseModel):
     aliases: list[str] = Field(default_factory=list)
 
 
-class FilterLanguage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    indicators: list[str] = Field(default_factory=list)
-    review_status: str
-
-
 class FilterCatalog(BaseModel):
     """Typed package-owned taxonomy backing user filter choices."""
 
@@ -171,7 +164,6 @@ class FilterCatalog(BaseModel):
     career_stages: dict[str, CareerStage]
     employment_types: list[str]
     industries: list[Industry]
-    languages: dict[str, FilterLanguage]
 
 
 class SearchParams(BaseModel):

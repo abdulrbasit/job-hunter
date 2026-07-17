@@ -178,7 +178,3 @@ class FilterSet:
     def matches(self, name: str, text: str) -> bool:
         match = self.bound.get(name)
         return bool(match and match.matches(text))
-
-    @property
-    def allowed_languages(self) -> frozenset[str]:
-        return frozenset(LANG_CODE_TO_NAME[code] for code in self.values("hunt_languages") if code in LANG_CODE_TO_NAME)

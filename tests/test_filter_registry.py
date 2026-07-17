@@ -36,7 +36,7 @@ def test_scalar_choices_bind_to_package_matching_logic() -> None:
     assert not filters.matches("excluded_companies", "Hero Digital")
     assert filters.matches("excluded_titles", "Product Management Intern")
     assert filters.matches("excluded_industries", "Defense aviation systems")
-    assert filters.allowed_languages == frozenset({"english", "german"})
+    assert filters.values("hunt_languages") == ["en", "de"]
 
 
 def test_legacy_nested_groups_canonicalize_in_memory_without_mutating_input() -> None:

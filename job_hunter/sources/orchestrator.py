@@ -65,6 +65,7 @@ def _params_for_region(
     excluded_title_terms: list[str],
     *,
     max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
+    default_search_lang: str = "en",
 ) -> SearchParams:
     canonical = location_from_region(region_config)
     query_location = (
@@ -77,7 +78,7 @@ def _params_for_region(
         canonical_location=canonical,
         country=canonical.country,
         location=query_location,
-        search_lang=region_config.get("search_lang", "en"),
+        search_lang=region_config.get("search_lang") or default_search_lang,
         job_titles=job_titles,
         max_results=max_results,
         excluded_title_terms=excluded_title_terms,
@@ -120,12 +121,13 @@ def scrape_with_stats(
     allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
+    hunt_languages = policy.filters.values("hunt_languages") if policy.filters else []
+    default_search_lang = hunt_languages[0] if hunt_languages else "en"
 
     def _add_unique(
         postings: list[JobPosting],
         source: str,
         *,
-        search_lang: str = "en",
         region_config: dict[str, Any] | None = None,
     ) -> None:
         source_rejected: Counter[str] = Counter()
@@ -159,8 +161,8 @@ def scrape_with_stats(
             if reason:
                 reject(reason, region_key)
                 continue
-            if policy.excluded_by_search_lang(jp.title or "", jp.snippet or "", search_lang):
-                reject("excluded_by_search_lang", region_key)
+            if policy.language_screen(jp.title or "", jp.snippet or "")[0]:
+                reject("language_not_hunted", region_key)
                 continue
             hinted_country = location_from_region(region_config).country if region_config else ""
             canonical_locations = canonical_locations_for_job(jp.model_dump(), hinted_country)
@@ -209,7 +211,7 @@ def scrape_with_stats(
             region_key="global_remote",
             country="",
             location="",
-            search_lang="en",
+            search_lang=default_search_lang,
             job_titles=job_titles,
             max_results=max_results,
             excluded_title_terms=excluded_title_terms,
@@ -227,16 +229,19 @@ def scrape_with_stats(
     elif global_adapters and remote_allowed:
         for region_key, region_config in regions.items():
             params = _params_for_region(
-                region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
+                region_key,
+                region_config,
+                job_titles,
+                excluded_title_terms,
+                max_results=max_results,
+                default_search_lang=default_search_lang,
             )
             with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
                 futures = {pool.submit(adapter.fetch, params): adapter.source_name for adapter in global_adapters}
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(
-                            future.result(), source, search_lang=params.search_lang, region_config=region_config
-                        )
+                        _add_unique(future.result(), source, region_config=region_config)
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)
@@ -245,7 +250,12 @@ def scrape_with_stats(
     if regional_adapters:
         for region_key, region_config in regions.items():
             params = _params_for_region(
-                region_key, region_config, job_titles, excluded_title_terms, max_results=max_results
+                region_key,
+                region_config,
+                job_titles,
+                excluded_title_terms,
+                max_results=max_results,
+                default_search_lang=default_search_lang,
             )
             eligible_adapters = [
                 adapter
@@ -257,9 +267,7 @@ def scrape_with_stats(
                 for future in as_completed(futures):
                     source = futures[future]
                     try:
-                        _add_unique(
-                            future.result(), source, search_lang=params.search_lang, region_config=region_config
-                        )
+                        _add_unique(future.result(), source, region_config=region_config)
                     except Exception as exc:
                         stats.failed_sources.append(source)
                         logger.warning("[orchestrator] %s raised: %s", source, exc)

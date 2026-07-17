@@ -16,10 +16,11 @@ def _screen_job(
     industries: list[str],
     title_filters: list[str],
     allowed_locations: list[Any] | None = None,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], bool]:
     title = str(job.get("title") or "")
     snippet = str(job.get("snippet") or "")
     snippet_lower = snippet.lower()
+    language_uncertain = False
 
     reason = policy.rejection_reason(job, title_filters)
     if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
@@ -48,12 +49,13 @@ def _screen_job(
         reason = "location_restricted"
 
     if not reason:
-        search_lang = (region_config.get("search_lang") or "en") if isinstance(region_config, dict) else "en"
-        if policy.excluded_by_search_lang(title, snippet, search_lang):
-            reason = "excluded_by_search_lang"
+        description = str(job.get("full_job_description") or snippet)
+        excluded, _detected_code, language_uncertain = policy.language_screen(title, description)
+        if excluded:
+            reason = "language_not_hunted"
 
     signals = [] if reason else [term for term in industries if term in snippet_lower]
-    return reason, signals
+    return reason, signals, language_uncertain
 
 
 def screen_jobs_by_rules(
@@ -70,10 +72,17 @@ def screen_jobs_by_rules(
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, signals = _screen_job(job, policy, regions, industries, title_filters, allowed_locations)
+        reason, signals, language_uncertain = _screen_job(
+            job, policy, regions, industries, title_filters, allowed_locations
+        )
         if reason:
             rejected.append({**job, "_rejection_reason": reason})
-        else:
-            kept.append({**job, **({"_judgment_signals": {"industry_terms": signals}} if signals else {})})
+            continue
+        judgment_signals: dict[str, Any] = {}
+        if signals:
+            judgment_signals["industry_terms"] = signals
+        if language_uncertain:
+            judgment_signals["language_uncertain"] = True
+        kept.append({**job, **({"_judgment_signals": judgment_signals} if judgment_signals else {})})
 
     return kept, rejected

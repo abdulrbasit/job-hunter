@@ -7,7 +7,6 @@ from job_hunter.config.reference_data import (
     career_stage_names,
     country_codes,
     load_countries,
-    load_filters,
     preferred_title_terms,
     resolve_max_years_experience,
     resolve_title_exclusions,
@@ -45,15 +44,6 @@ def test_known_countries_present_with_reviewed_languages() -> None:
 
 def test_filters_expose_all_five_career_stages() -> None:
     assert set(career_stage_names()) == {"student", "early_career", "experienced", "leadership", "custom"}
-
-
-def test_filters_expose_sixteen_reviewed_languages() -> None:
-    languages = load_filters().languages
-    reviewed = [name for name, lang in languages.items() if lang.review_status == "reviewed"]
-
-    assert len(reviewed) == 16
-    assert "german" in reviewed
-    assert "english" in reviewed
 
 
 # ---------------------------------------------------------------------------

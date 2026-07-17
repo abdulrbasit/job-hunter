@@ -38,6 +38,7 @@ dependencies = [
   "pywebview>=4.4",
   "playwright>=1.40.0",
   "defusedxml>=0.7.1",
+  "lingua-language-detector>=2.2.0",
 ]
 
 [project.optional-dependencies]

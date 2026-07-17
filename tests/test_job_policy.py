@@ -3,21 +3,38 @@ from __future__ import annotations
 from job_hunter.sources.policy import JobPolicy
 
 
-def _language_policy(*allowed: str) -> JobPolicy:
-    name_to_code = {"english": "en", "german": "de"}
-    return JobPolicy({"filters": {"hunt_languages": [name_to_code[value] for value in allowed]}})
+def _language_policy(*codes: str) -> JobPolicy:
+    return JobPolicy({"filters": {"hunt_languages": list(codes)}})
 
 
 def test_language_allowlist_rejects_detected_unlisted_language() -> None:
-    policy = _language_policy("english")
+    policy = _language_policy("en")
 
-    assert policy.excluded_by_search_lang("PM", "Wir suchen einen erfahrenen Produktmanager.", "en")
+    excluded, code, uncertain = policy.language_screen("PM", "Wir suchen einen erfahrenen Produktmanager.")
+
+    assert excluded
+    assert code == "de"
+    assert not uncertain
 
 
 def test_language_allowlist_accepts_listed_language() -> None:
-    policy = _language_policy("english", "german")
+    policy = _language_policy("en", "de")
 
-    assert not policy.excluded_by_search_lang("PM", "Wir suchen einen erfahrenen Produktmanager.", "en")
+    excluded, code, uncertain = policy.language_screen("PM", "Wir suchen einen erfahrenen Produktmanager.")
+
+    assert not excluded
+    assert code == "de"
+    assert not uncertain
+
+
+def test_language_screen_fails_open_on_low_confidence_short_title() -> None:
+    policy = _language_policy("en")
+
+    excluded, code, uncertain = policy.language_screen("Manager", "")
+
+    assert not excluded
+    assert code is None
+    assert uncertain
 
 
 def test_excluded_company_matches_suffix_and_case_variants() -> None:

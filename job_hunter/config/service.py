@@ -323,6 +323,8 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     merged["regions"] = form.get("regions") or {}
 
     merged["filters"] = deepcopy(form.get("filters") or {})
+    if not merged["filters"].get("hunt_languages"):
+        merged["filters"]["hunt_languages"] = ["en"]
     merged.pop("exclusions", None)
     merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
 
