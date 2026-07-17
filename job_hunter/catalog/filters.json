@@ -26,8 +26,56 @@
       "label": "Finance & Banking",
       "aliases": [
         "fintech",
+        "fintech lending",
         "banking",
-        "financial services"
+        "financial services",
+        "financial technology",
+        "retail bank",
+        "commercial bank",
+        "neobank",
+        "credit institution",
+        "credit union",
+        "banking-as-a-service",
+        "payment technology",
+        "wealth management",
+        "investment management",
+        "financial crime"
+      ]
+    },
+    {
+      "id": "crypto_web3",
+      "label": "Crypto & Web3",
+      "aliases": [
+        "cryptocurrency",
+        "blockchain",
+        "defi",
+        "decentralized finance",
+        "nft",
+        "web3"
+      ]
+    },
+    {
+      "id": "gambling_betting",
+      "label": "Gambling & Betting",
+      "aliases": [
+        "gambling",
+        "casino",
+        "lottery",
+        "betting",
+        "sports betting",
+        "poker"
+      ]
+    },
+    {
+      "id": "defense_weapons",
+      "label": "Defense & Weapons",
+      "aliases": [
+        "weapons",
+        "defence",
+        "military",
+        "arms",
+        "firearms",
+        "defense contractor"
       ]
     },
     {

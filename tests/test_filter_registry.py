@@ -3,7 +3,27 @@ from __future__ import annotations
 import re
 
 from job_hunter.filters import FILTER_TYPES, FilterSet, canonicalize_filter_config
+from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.models import FilterMatchMode
+
+
+def test_industries_catalog_covers_crypto_gambling_and_defense_weapons() -> None:
+    """Regression: these categories didn't exist before a real user's excluded_industries
+    list (granular pre-taxonomy free text like 'crypto', 'gambling', 'defense contractor')
+    turned out to have no home in the 21-category taxonomy — added rather than lossily
+    folding them into 'finance'/'aerospace_defense', which would over-exclude (e.g.
+    aerospace_defense already covers commercial aviation, not just weapons manufacturers)."""
+    industries = {i.id: i for i in load_filter_catalog().industries}
+
+    assert "crypto_web3" in industries
+    assert "gambling_betting" in industries
+    assert "defense_weapons" in industries
+    assert "gambling" in industries["gambling_betting"].aliases
+    assert "cryptocurrency" in industries["crypto_web3"].aliases
+    assert "military" in industries["defense_weapons"].aliases
+    # aerospace_defense keeps its existing meaning (aviation + defense) unchanged —
+    # defense_weapons is additive, not a replacement.
+    assert "defense" in industries["aerospace_defense"].aliases
 
 
 def test_package_registry_defines_known_filter_types_and_modes() -> None:
