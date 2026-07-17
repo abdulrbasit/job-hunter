@@ -177,6 +177,15 @@ class ExperienceLevelCatalog(BaseModel):
     levels: list[ExperienceLevel]
 
 
+class JobTitleCatalog(BaseModel):
+    """Typed package-owned list of common job titles backing the job-titles autocomplete."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: int
+    titles: list[str]
+
+
 class SearchParams(BaseModel):
     """Input contract for every JobSourceAdapter.fetch() call."""
 

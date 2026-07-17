@@ -22,6 +22,20 @@ def _check(name: str, ok: bool, detail: str = "", fix: str = "") -> dict[str, An
     return {"name": name, "ok": ok, "detail": detail, "fix": fix}
 
 
+def legacy_owned_paths(root: Path) -> list[Path]:
+    """Workspace-local location/filter files that must not exist — data is package-owned."""
+    return [
+        root / "config" / "locations",
+        root / "config" / "location_data",
+        root / "config" / "locations.yml",
+        root / "config" / "locations.json",
+        root / "config" / "filters",
+        root / "config" / "filters.yml",
+        root / "config" / "filters.json",
+        root / "config" / "schemas" / "filter.schema.json",
+    ]
+
+
 def doctor(root: Path) -> dict[str, Any]:
     from job_hunter.config.migrations import migrate_career_pages, migrate_career_stage, migrate_legacy_exclusions
 
@@ -413,7 +427,7 @@ def onboarding_checklist(root: Path) -> dict[str, Any]:
             "id": "career_context",
             "label": "Fill in your career context (targeting, resume style, tone)",
             "done": career_rel not in missing and f"{career_rel}:filled" not in missing,
-            "action_hint": "Get Started → Import from Any Chatbot, or Settings → Career Context",
+            "action_hint": "Get Started → Career Profile panel, or Settings → Career Context",
         },
         {
             "id": "story_bank",

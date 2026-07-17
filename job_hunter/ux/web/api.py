@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -80,6 +81,9 @@ class DashAPI:
         self._hunt_started_at: str | None = None
         self._last_hunt_result: dict[str, Any] | None = None
         self._last_sync_result: dict[str, Any] | None = None
+        self._chromium_lock = threading.Lock()
+        self._chromium_running = False
+        self._last_chromium_result: dict[str, Any] | None = None
 
     @staticmethod
     def _mutation_error(message: str, next_action: str) -> dict[str, Any]:
@@ -261,26 +265,188 @@ class DashAPI:
         result = service.save_job_hunter_config(self._root, new_text, revision)
         return self._config_result(result)
 
-    def get_onboarding_prompt(self) -> dict[str, Any]:
-        """A copyable prompt for the any-chatbot onboarding path."""
-        from job_hunter.config.loader import get_job_hunter_config
-        from job_hunter.config.onboarding_bundle import build_onboarding_prompt
+    def _checklist_item_done(self, item_id: str) -> bool:
+        from job_hunter.ux.health import onboarding_checklist
 
-        prompt = build_onboarding_prompt(get_job_hunter_config())
+        items = onboarding_checklist(self._root)["items"]
+        return any(item["id"] == item_id and item["done"] for item in items)
+
+    def get_career_context_prompt(self) -> dict[str, Any]:
+        """A copyable any-chatbot prompt for building career_context.md."""
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import build_career_context_prompt
+
+        current = service.read_career_context(self._root)["data"]
+        prompt = build_career_context_prompt(current)
         return {"ok": True, "data": {"prompt": prompt}, "errors": [], "warnings": []}
 
-    def import_onboarding_bundle(self, text: str) -> dict[str, Any]:
-        """Parse a pasted any-chatbot response and atomically replace the three profile files."""
+    def import_career_context_prompt_reply(self, text: str) -> dict[str, Any]:
+        """Parse a pasted any-chatbot reply and write it as the new career_context.md."""
         from job_hunter.config import service
-        from job_hunter.config.onboarding_bundle import parse_onboarding_bundle
+        from job_hunter.config.onboarding_bundle import parse_single_section
 
-        sections, errors = parse_onboarding_bundle(text)
-        if errors:
+        content, errors = parse_single_section(text, "CAREER_CONTEXT")
+        if errors or content is None:
             return {"ok": False, "data": None, "errors": errors, "warnings": []}
-        result = service.replace_onboarding_bundle(self._root, sections)
+        revision = service.read_career_context(self._root)["revision"]
+        result = service.save_career_context(self._root, content, revision)
         if not result["ok"]:
             return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
         return {"ok": True, "data": None, "errors": [], "warnings": []}
+
+    def get_story_bank_prompt(self) -> dict[str, Any]:
+        """A copyable any-chatbot prompt for building story_bank.md."""
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import build_story_bank_prompt
+
+        current = service.read_story_bank(self._root)["data"]
+        prompt = build_story_bank_prompt(current)
+        return {"ok": True, "data": {"prompt": prompt}, "errors": [], "warnings": []}
+
+    def import_story_bank_prompt_reply(self, text: str) -> dict[str, Any]:
+        """Parse a pasted any-chatbot reply and write it as the new story_bank.md."""
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import parse_single_section
+
+        content, errors = parse_single_section(text, "STORY_BANK")
+        if errors or content is None:
+            return {"ok": False, "data": None, "errors": errors, "warnings": []}
+        revision = service.read_story_bank(self._root)["revision"]
+        result = service.save_story_bank(self._root, content, revision)
+        if not result["ok"]:
+            return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
+        return {"ok": True, "data": None, "errors": [], "warnings": []}
+
+    def get_resume_prompt(self) -> dict[str, Any]:
+        """A copyable any-chatbot prompt for building the base resume .tex.
+
+        Only available once career context and story bank are both filled — the
+        prompt has nothing meaningful to embed otherwise.
+        """
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import build_resume_prompt
+
+        if not (self._checklist_item_done("career_context") and self._checklist_item_done("story_bank")):
+            return {
+                "ok": False,
+                "data": None,
+                "errors": ["Fill in career context and story bank first — the resume prompt is built from them."],
+                "warnings": [],
+            }
+        resume_tex = service.read_resume_tex(self._root)["data"]
+        career_context = service.read_career_context(self._root)["data"]
+        story_bank = service.read_story_bank(self._root)["data"]
+        prompt = build_resume_prompt(resume_tex, career_context, story_bank)
+        return {"ok": True, "data": {"prompt": prompt}, "errors": [], "warnings": []}
+
+    def import_resume_prompt_reply(self, text: str) -> dict[str, Any]:
+        """Parse a pasted any-chatbot reply and write it as the base resume .tex."""
+        from job_hunter.config import service
+        from job_hunter.config.onboarding_bundle import parse_single_section
+
+        content, errors = parse_single_section(text, "BASE_RESUME")
+        if errors or content is None:
+            return {"ok": False, "data": None, "errors": errors, "warnings": []}
+        revision = service.read_resume_tex(self._root)["revision"]
+        result = service.save_resume_tex(self._root, content, revision)
+        if not result["ok"]:
+            return {"ok": False, "data": None, "errors": result["errors"], "warnings": result["warnings"]}
+        return {"ok": True, "data": None, "errors": [], "warnings": []}
+
+    def get_job_title_suggestions(self, query: str = "") -> dict[str, Any]:
+        from job_hunter.core.job_titles import load_job_titles
+
+        needle = query.strip().lower()
+        titles = load_job_titles()
+        matches = [t for t in titles if needle in t.lower()] if needle else titles
+        return {"ok": True, "data": {"titles": matches[:20]}, "errors": [], "warnings": []}
+
+    def remove_legacy_location_or_filter_files(self) -> dict[str, Any]:
+        """One-click fix for the doctor package_owned_locations/package_owned_filters checks."""
+        from job_hunter.ux.health import legacy_owned_paths
+
+        removed = []
+        for path in legacy_owned_paths(self._root):
+            if not path.exists():
+                continue
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+            removed.append(str(path.relative_to(self._root)))
+        return {"ok": True, "data": {"removed": removed}, "errors": [], "warnings": []}
+
+    def start_chromium_install(self) -> dict[str, Any]:
+        """One-click fix for the doctor playwright_chromium check; browser downloads are slow,
+        so this runs on a background thread like start_hunt()."""
+        with self._chromium_lock:
+            if self._chromium_running:
+                return {"ok": False, "status": "running", "error": "Chromium install is already running."}
+            self._chromium_running = True
+        self._last_chromium_result = None
+        threading.Thread(target=self._run_chromium_install_worker, daemon=True).start()
+        return {"ok": True, "status": "running"}
+
+    def _run_chromium_install_worker(self) -> None:
+        import logging
+
+        try:
+            proc = subprocess.run(  # noqa: S603
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                self._last_chromium_result = {"status": "succeeded", "message": "Chromium installed."}
+            else:
+                self._last_chromium_result = {
+                    "status": "failed",
+                    "message": proc.stderr.strip()[-500:] or "playwright install chromium failed.",
+                }
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).exception("[chromium] install worker crashed")
+            self._last_chromium_result = {"status": "failed", "message": "Chromium install failed unexpectedly."}
+        finally:
+            with self._chromium_lock:
+                self._chromium_running = False
+
+    def get_chromium_install_status(self) -> dict[str, Any]:
+        with self._chromium_lock:
+            running = self._chromium_running
+        if running:
+            return {"ok": True, "status": "running"}
+        if self._last_chromium_result is None:
+            return {"ok": True, "status": "idle"}
+        return {"ok": True, **self._last_chromium_result}
+
+    def run_update(self) -> dict[str, Any]:
+        """Dashboard equivalent of `job-hunter update --yes` — refreshes bundled skills,
+        workflows, and config schema without the CLI's git-dirty-check prompt, since the
+        dashboard's own confirmation dialog already gates this call."""
+        from job_hunter.config.migrations import migrate_legacy_exclusions, migrate_workspace_filter_files
+        from job_hunter.workspace.assets import update_workspace_assets
+        from job_hunter.workspace.operations import install_telemetry
+        from job_hunter.workspace.operations import update_skills as run_update_skills
+        from job_hunter.workspace.operations import update_workflows as run_update_workflows
+
+        migrate_legacy_exclusions(self._root)
+        migrate_workspace_filter_files(self._root)
+        written = update_workspace_assets(self._root)
+        skills_result = run_update_skills(self._root)
+        workflows_result = run_update_workflows(self._root)
+        telemetry_warnings = install_telemetry(self._root)
+        return {
+            "ok": True,
+            "data": {
+                "assets": len(written),
+                "skills": len(skills_result.written),
+                "workflows": len(workflows_result.written),
+                "telemetry_warnings": telemetry_warnings,
+            },
+            "errors": [],
+            "warnings": [],
+        }
 
     def get_api_key_status(self) -> dict[str, Any]:
         from job_hunter.config.secrets import get_secret

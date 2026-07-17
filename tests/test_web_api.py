@@ -239,9 +239,9 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
     assert "location" not in on_disk["regions"]["primary"]
 
 
-def test_get_onboarding_prompt_returns_copyable_text(tmp_path: Path) -> None:
-    (tmp_path / "config").mkdir(parents=True)
-    (tmp_path / "config" / "job_hunter.yml").write_text(
+def _write_minimal_config(root: Path) -> None:
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    (root / "config" / "job_hunter.yml").write_text(
         yaml.safe_dump(
             {
                 "mode": "agent",
@@ -255,36 +255,148 @@ def test_get_onboarding_prompt_returns_copyable_text(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = DashAPI(tmp_path).get_onboarding_prompt()
+
+def test_get_career_context_prompt_returns_copyable_text(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    (tmp_path / "profile").mkdir(parents=True)
+
+    result = DashAPI(tmp_path).get_career_context_prompt()
 
     assert result["ok"] is True
     assert "CAREER_CONTEXT" in result["data"]["prompt"]
 
 
-def test_import_onboarding_bundle_writes_profile_files(tmp_path: Path) -> None:
+def test_import_career_context_prompt_reply_writes_file(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
     (tmp_path / "profile").mkdir(parents=True)
-    bundle = (
-        "<<<CAREER_CONTEXT>>>\ntargeting notes\n<<<END_CAREER_CONTEXT>>>\n"
-        "<<<STORY_BANK>>>\nstory content\n<<<END_STORY_BANK>>>\n"
-        "<<<BASE_RESUME>>>\nresume content\n<<<END_BASE_RESUME>>>\n"
-    )
+    reply = "<<<CAREER_CONTEXT>>>\ntargeting notes\n<<<END_CAREER_CONTEXT>>>\n"
 
-    result = DashAPI(tmp_path).import_onboarding_bundle(bundle)
+    result = DashAPI(tmp_path).import_career_context_prompt_reply(reply)
 
     assert result["ok"] is True
     assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "targeting notes"
-    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == "story content"
-    assert (tmp_path / "profile" / "resume_source.md").read_text(encoding="utf-8") == "resume content"
 
 
-def test_import_onboarding_bundle_reports_parse_errors_without_writing(tmp_path: Path) -> None:
+def test_import_career_context_prompt_reply_reports_parse_errors_without_writing(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
     (tmp_path / "profile").mkdir(parents=True)
 
-    result = DashAPI(tmp_path).import_onboarding_bundle("not a valid bundle")
+    result = DashAPI(tmp_path).import_career_context_prompt_reply("not a valid reply")
 
     assert result["ok"] is False
     assert result["errors"]
     assert not (tmp_path / "profile" / "career_context.md").exists()
+
+
+def test_get_story_bank_prompt_returns_copyable_text(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    (tmp_path / "profile").mkdir(parents=True)
+
+    result = DashAPI(tmp_path).get_story_bank_prompt()
+
+    assert result["ok"] is True
+    assert "STORY_BANK" in result["data"]["prompt"]
+
+
+def test_import_story_bank_prompt_reply_writes_file(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    (tmp_path / "profile").mkdir(parents=True)
+    reply = "<<<STORY_BANK>>>\n## Draft\nnew story\n<<<END_STORY_BANK>>>\n"
+
+    result = DashAPI(tmp_path).import_story_bank_prompt_reply(reply)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == "## Draft\nnew story"
+
+
+def test_get_resume_prompt_blocked_until_career_context_and_story_bank_done(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    (tmp_path / "profile").mkdir(parents=True)
+
+    result = DashAPI(tmp_path).get_resume_prompt()
+
+    assert result["ok"] is False
+    assert result["errors"]
+
+
+def test_import_resume_prompt_reply_writes_configured_resume_tex(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"profile": {"resume_tex": "profile/resume_double_column.tex"}}), encoding="utf-8"
+    )
+    (tmp_path / "profile").mkdir(parents=True)
+    (tmp_path / "profile" / "resume_double_column.tex").write_text("\\documentclass{altacv}\nName", encoding="utf-8")
+    reply = "<<<BASE_RESUME>>>\n\\documentclass{altacv}\nJane Doe\n<<<END_BASE_RESUME>>>\n"
+
+    result = DashAPI(tmp_path).import_resume_prompt_reply(reply)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "resume_double_column.tex").read_text(encoding="utf-8") == (
+        "\\documentclass{altacv}\nJane Doe"
+    )
+
+
+def test_get_job_title_suggestions_filters_by_query(tmp_path: Path) -> None:
+    result = DashAPI(tmp_path).get_job_title_suggestions("product manager")
+
+    assert result["ok"] is True
+    assert "Product Manager" in result["data"]["titles"]
+    assert all("product manager" in t.lower() for t in result["data"]["titles"])
+
+
+def test_get_job_title_suggestions_empty_query_returns_some_titles(tmp_path: Path) -> None:
+    result = DashAPI(tmp_path).get_job_title_suggestions("")
+
+    assert result["ok"] is True
+    assert len(result["data"]["titles"]) > 0
+
+
+def test_remove_legacy_location_or_filter_files_deletes_forbidden_paths(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "filters.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "config" / "locations").mkdir()
+    (tmp_path / "config" / "locations" / "x.json").write_text("{}", encoding="utf-8")
+
+    result = DashAPI(tmp_path).remove_legacy_location_or_filter_files()
+
+    assert result["ok"] is True
+    assert not (tmp_path / "config" / "filters.json").exists()
+    assert not (tmp_path / "config" / "locations").exists()
+
+
+def test_remove_legacy_location_or_filter_files_is_a_no_op_when_nothing_present(tmp_path: Path) -> None:
+    result = DashAPI(tmp_path).remove_legacy_location_or_filter_files()
+
+    assert result["ok"] is True
+    assert result["data"]["removed"] == []
+
+
+def test_chromium_install_status_idle_before_start(tmp_path: Path) -> None:
+    result = DashAPI(tmp_path).get_chromium_install_status()
+
+    assert result == {"ok": True, "status": "idle"}
+
+
+def test_start_chromium_install_rejects_concurrent_start(tmp_path: Path) -> None:
+    dash = DashAPI(tmp_path)
+    dash._chromium_running = True
+
+    result = dash.start_chromium_install()
+
+    assert result["ok"] is False
+    assert result["status"] == "running"
+
+
+def test_run_update_refreshes_workspace_assets(tmp_path: Path) -> None:
+    from job_hunter.workspace.operations import run_init
+
+    run_init(tmp_path)
+
+    result = DashAPI(tmp_path).run_update()
+
+    assert result["ok"] is True
+    assert "skills" in result["data"]
+    assert "workflows" in result["data"]
 
 
 def test_get_api_key_status_reports_not_configured(tmp_path: Path, monkeypatch) -> None:

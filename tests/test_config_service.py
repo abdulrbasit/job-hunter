@@ -590,6 +590,26 @@ def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
     assert merged["filters"]["excluded_titles"] == ["intern"]
 
 
+def test_apply_onboarding_prefs_sets_hunt_languages() -> None:
+    prefs = {"job_titles": ["PM"], "hunt_languages": ["en", "de"]}
+
+    merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
+
+    assert merged["filters"]["hunt_languages"] == ["en", "de"]
+    assert merged["filters"]["excluded_titles"] == ["intern"]
+
+
+def test_apply_onboarding_prefs_leaves_hunt_languages_untouched_when_absent() -> None:
+    config = dict(_ONBOARDING_BASE_CONFIG)
+    config["filters"] = dict(config["filters"])
+    config["filters"]["hunt_languages"] = ["en"]
+    prefs = {"job_titles": ["PM"]}
+
+    merged = service.apply_onboarding_prefs(config, prefs)
+
+    assert merged["filters"]["hunt_languages"] == ["en"]
+
+
 def test_apply_onboarding_prefs_preserves_other_regions() -> None:
     config = dict(_ONBOARDING_BASE_CONFIG)
     config["regions"] = {
@@ -605,7 +625,7 @@ def test_apply_onboarding_prefs_preserves_other_regions() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Onboarding: any-chatbot bundle import (Phase 3)
+# Onboarding: any-chatbot per-artifact writers (career context / story bank / resume)
 # ---------------------------------------------------------------------------
 
 
@@ -613,59 +633,98 @@ def _bootstrap_profile_dir(root: Path) -> None:
     (root / "profile").mkdir(parents=True, exist_ok=True)
 
 
-def test_replace_onboarding_bundle_writes_all_three_files(tmp_path: Path) -> None:
+def test_save_story_bank_writes_file(tmp_path: Path) -> None:
     _bootstrap_profile_dir(tmp_path)
-    sections = {
-        "CAREER_CONTEXT": "- targeting: Product roles in Berlin",
-        "STORY_BANK": "### Led a launch\nSTAR content here.",
-        "BASE_RESUME": "# Jane Doe\nProduct Manager.",
-    }
+    rev = service.get_revision(tmp_path / "profile" / "story_bank.md")
 
-    result = service.replace_onboarding_bundle(tmp_path, sections)
+    result = service.save_story_bank(tmp_path, "## Draft\n### Led a launch\nSTAR content.\n", rev)
 
     assert result["ok"] is True
-    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == sections["CAREER_CONTEXT"]
-    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == sections["STORY_BANK"]
-    assert (tmp_path / "profile" / "resume_source.md").read_text(encoding="utf-8") == sections["BASE_RESUME"]
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == (
+        "## Draft\n### Led a launch\nSTAR content.\n"
+    )
 
 
-def test_replace_onboarding_bundle_rejects_missing_section(tmp_path: Path) -> None:
+def test_save_story_bank_backs_up_previous_content(tmp_path: Path) -> None:
     _bootstrap_profile_dir(tmp_path)
+    (tmp_path / "profile" / "story_bank.md").write_text("old stories", encoding="utf-8")
+    rev = service.get_revision(tmp_path / "profile" / "story_bank.md")
 
-    result = service.replace_onboarding_bundle(tmp_path, {"CAREER_CONTEXT": "context", "STORY_BANK": "stories"})
-
-    assert result["ok"] is False
-    assert not (tmp_path / "profile" / "career_context.md").exists()
-
-
-def test_replace_onboarding_bundle_backs_up_previous_content(tmp_path: Path) -> None:
-    _bootstrap_profile_dir(tmp_path)
-    (tmp_path / "profile" / "career_context.md").write_text("old context", encoding="utf-8")
-    sections = {
-        "CAREER_CONTEXT": "- targeting: new",
-        "STORY_BANK": "new stories",
-        "BASE_RESUME": "new resume",
-    }
-
-    service.replace_onboarding_bundle(tmp_path, sections)
-    undo = service.undo_last_save(tmp_path, "career_context")
+    service.save_story_bank(tmp_path, "new stories", rev)
+    undo = service.undo_last_save(tmp_path, "story_bank")
 
     assert undo["ok"] is True
-    assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "old context"
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == "old stories"
 
 
-def test_replace_onboarding_bundle_rejects_invalid_career_context(tmp_path: Path) -> None:
+def test_save_story_bank_rejects_new_content_under_final_heading(tmp_path: Path) -> None:
     _bootstrap_profile_dir(tmp_path)
-    sections = {
-        "CAREER_CONTEXT": "has\x00nul",
-        "STORY_BANK": "stories",
-        "BASE_RESUME": "resume",
-    }
+    (tmp_path / "profile" / "story_bank.md").write_text("## Draft\n\n## Final\n", encoding="utf-8")
+    rev = service.get_revision(tmp_path / "profile" / "story_bank.md")
 
-    result = service.replace_onboarding_bundle(tmp_path, sections)
+    result = service.save_story_bank(tmp_path, "## Draft\n\n## Final\nA brand new story appeared here.\n", rev)
 
     assert result["ok"] is False
-    assert not (tmp_path / "profile" / "story_bank.md").exists()
+    assert any("Final" in e for e in result["errors"])
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == "## Draft\n\n## Final\n"
+
+
+def test_save_story_bank_allows_unchanged_final_content(tmp_path: Path) -> None:
+    _bootstrap_profile_dir(tmp_path)
+    original = "## Draft\nold draft\n\n## Final\nAn already-approved story.\n"
+    (tmp_path / "profile" / "story_bank.md").write_text(original, encoding="utf-8")
+    rev = service.get_revision(tmp_path / "profile" / "story_bank.md")
+
+    updated = "## Draft\nold draft\nnew draft too\n\n## Final\nAn already-approved story.\n"
+    result = service.save_story_bank(tmp_path, updated, rev)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "story_bank.md").read_text(encoding="utf-8") == updated
+
+
+def test_save_resume_tex_writes_configured_path(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"profile": {"resume_tex": "profile/resume_double_column.tex"}}), encoding="utf-8"
+    )
+    (tmp_path / "profile").mkdir(parents=True)
+    (tmp_path / "profile" / "resume_double_column.tex").write_text("\\documentclass{altacv}\nName", encoding="utf-8")
+    rev = service.get_revision(tmp_path / "profile" / "resume_double_column.tex")
+
+    result = service.save_resume_tex(tmp_path, "\\documentclass{altacv}\nJane Doe", rev)
+
+    assert result["ok"] is True
+    assert (tmp_path / "profile" / "resume_double_column.tex").read_text(encoding="utf-8") == (
+        "\\documentclass{altacv}\nJane Doe"
+    )
+
+
+def test_save_resume_tex_rejects_missing_documentclass(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"profile": {"resume_tex": "profile/resume_double_column.tex"}}), encoding="utf-8"
+    )
+    (tmp_path / "profile").mkdir(parents=True)
+    (tmp_path / "profile" / "resume_double_column.tex").write_text("\\documentclass{altacv}\nName", encoding="utf-8")
+    rev = service.get_revision(tmp_path / "profile" / "resume_double_column.tex")
+
+    result = service.save_resume_tex(tmp_path, "just some plain text, not latex at all", rev)
+
+    assert result["ok"] is False
+    assert any("documentclass" in e for e in result["errors"])
+
+
+def test_save_resume_tex_rejects_invalid_bytes(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir(parents=True)
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump({"profile": {"resume_tex": "profile/resume_double_column.tex"}}), encoding="utf-8"
+    )
+    (tmp_path / "profile").mkdir(parents=True)
+    rev = service.get_revision(tmp_path / "profile" / "resume_double_column.tex")
+
+    result = service.save_resume_tex(tmp_path, "has\x00nul", rev)
+
+    assert result["ok"] is False
 
 
 # ---------------------------------------------------------------------------

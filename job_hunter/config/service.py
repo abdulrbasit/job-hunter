@@ -31,16 +31,12 @@ MAX_CAREER_CONTEXT_BYTES = 512 * 1024
 JOB_HUNTER_CONFIG_REL = Path("config/job_hunter.yml")
 CAREER_CONTEXT_REL = Path("profile/career_context.md")
 STORY_BANK_REL = Path("profile/story_bank.md")
-# Chatbot-authored resume content lands here, not on the LaTeX resume_tex — bridging plain
-# text to the LaTeX template is a separate, larger task (see /setup resume).
-ONBOARDING_RESUME_SOURCE_REL = Path("profile/resume_source.md")
 
 _BACKUP_DIR_REL = Path("outputs/state/config_backups")
 _LOGICAL_FILES: dict[str, Path] = {
     "job_hunter_config": JOB_HUNTER_CONFIG_REL,
     "career_context": CAREER_CONTEXT_REL,
     "story_bank": STORY_BANK_REL,
-    "resume_source": ONBOARDING_RESUME_SOURCE_REL,
 }
 
 
@@ -53,6 +49,17 @@ def _career_context_rel(root: Path) -> Path:
         data = {}
     value = str((data.get("profile") or {}).get("career_context") or "") if isinstance(data, dict) else ""
     return Path(value) if value else CAREER_CONTEXT_REL
+
+
+def _resume_tex_rel(root: Path) -> Path:
+    """The configured profile.resume_tex path — doctor/readiness honor it, so writers must too."""
+    path = root / JOB_HUNTER_CONFIG_REL
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, yaml.YAMLError):
+        data = {}
+    value = str((data.get("profile") or {}).get("resume_tex") or "") if isinstance(data, dict) else ""
+    return Path(value) if value else Path("profile/resume_double_column.tex")
 
 
 def get_revision(path: Path) -> str:
@@ -374,6 +381,9 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     experience_levels = [str(v).strip() for v in (prefs.get("experience_levels") or []) if str(v).strip()]
     if experience_levels:
         filters["experience_levels"] = experience_levels
+    hunt_languages = [str(v).strip() for v in (prefs.get("hunt_languages") or []) if str(v).strip()]
+    if hunt_languages:
+        filters["hunt_languages"] = hunt_languages
     merged["filters"] = filters
 
     return merged
@@ -461,6 +471,18 @@ def read_career_context(root: Path) -> dict[str, Any]:
     return {"ok": True, "data": text, "revision": get_revision(path), "errors": [], "warnings": []}
 
 
+def read_story_bank(root: Path) -> dict[str, Any]:
+    path = root / STORY_BANK_REL
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    return {"ok": True, "data": text, "revision": get_revision(path), "errors": [], "warnings": []}
+
+
+def read_resume_tex(root: Path) -> dict[str, Any]:
+    path = root / _resume_tex_rel(root)
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    return {"ok": True, "data": text, "revision": get_revision(path), "errors": [], "warnings": []}
+
+
 def save_career_context(root: Path, text: str, expected_revision: str) -> dict[str, Any]:
     rel = _career_context_rel(root)
     errors = validate_career_context(text)
@@ -469,55 +491,75 @@ def save_career_context(root: Path, text: str, expected_revision: str) -> dict[s
     return _safe_replace(root, "career_context", rel, text.encode("utf-8"), expected_revision)
 
 
-# ---------------------------------------------------------------------------
-# Any-chatbot onboarding bundle (profile/career_context.md, story_bank.md, resume_source.md)
-# ---------------------------------------------------------------------------
+def _validate_profile_text(text: str, filename: str) -> list[str]:
+    errors: list[str] = []
+    if "\x00" in text:
+        errors.append(f"{filename} must not contain NUL bytes")
+    if len(text.encode("utf-8")) > MAX_CAREER_CONTEXT_BYTES:
+        errors.append(f"{filename} exceeds max size of {MAX_CAREER_CONTEXT_BYTES} bytes")
+    return errors
 
 
-# Section name -> (relative path, logical name). Logical names reuse existing
-# undo slots (e.g. "career_context" is the same file/slot save_career_context uses).
-def _onboarding_bundle_targets(root: Path) -> dict[str, tuple[Path, str]]:
-    return {
-        "CAREER_CONTEXT": (_career_context_rel(root), "career_context"),
-        "STORY_BANK": (STORY_BANK_REL, "story_bank"),
-        "BASE_RESUME": (ONBOARDING_RESUME_SOURCE_REL, "resume_source"),
-    }
+def save_story_bank(root: Path, text: str, expected_revision: str) -> dict[str, Any]:
+    """Write a chatbot-authored story_bank.md replacement.
 
-
-def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str, Any]:
-    """Atomically replace all three onboarding profile files, or none of them.
-
-    Backs up each file's previous bytes before writing (one slot per file,
-    reusing the same backup dir/logical names as their regular save functions)
-    and rolls back any file already written if a later write in the batch fails.
+    Guards against a pasted reply silently populating '## Final' content that
+    wasn't already in the file — final promotion stays a manual, human step for
+    both the coding-agent and any-chatbot paths.
     """
-    targets = _onboarding_bundle_targets(root)
-    missing = [name for name in targets if name not in sections]
-    if missing:
-        return {"ok": False, "errors": [f"Missing section(s): {', '.join(missing)}"], "warnings": []}
-
-    errors = validate_career_context(sections["CAREER_CONTEXT"])
+    errors = _validate_profile_text(text, "story_bank.md")
+    path = root / STORY_BANK_REL
+    previous = path.read_text(encoding="utf-8") if path.exists() else ""
+    new_final = _final_sections(text) - _final_sections(previous)
+    if new_final:
+        errors.append("New content appeared under a '## Final' heading — move it to Draft and promote it yourself.")
     if errors:
-        return {"ok": False, "errors": errors, "warnings": []}
+        return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
+    return _safe_replace(root, "story_bank", STORY_BANK_REL, text.encode("utf-8"), expected_revision)
 
-    previous: dict[str, bytes] = {}
-    written: list[str] = []
-    for name, (rel_path, _logical) in targets.items():
-        path = root / rel_path
-        previous[name] = path.read_bytes() if path.exists() else b""
 
-    try:
-        for name, (rel_path, logical) in targets.items():
-            _atomic_write(_backup_path(root, logical), previous[name])
-            _atomic_write(root / rel_path, sections[name].encode("utf-8"))
-            written.append(name)
-    except OSError as exc:
-        for name in written:
-            with suppress(OSError):
-                _atomic_write(root / targets[name][0], previous[name])
-        return {"ok": False, "errors": [f"Could not save onboarding bundle: {exc}"], "warnings": []}
+def _final_sections(text: str) -> set[str]:
+    """Content under every '## Final' heading, one string per role block."""
+    sections: set[str] = set()
+    lines = text.splitlines()
+    in_final = False
+    current: list[str] = []
+    for line in lines:
+        if line.strip().startswith("## Final"):
+            in_final = True
+            current = []
+            continue
+        if line.strip().startswith("##") or line.strip().startswith("# "):
+            if in_final and current:
+                sections.add("\n".join(current).strip())
+            in_final = False
+            continue
+        if in_final:
+            current.append(line)
+    if in_final and current:
+        sections.add("\n".join(current).strip())
+    return {s for s in sections if s}
 
-    return {"ok": True, "errors": [], "warnings": []}
+
+def save_resume_tex(root: Path, text: str, expected_revision: str) -> dict[str, Any]:
+    """Write a chatbot-authored resume .tex replacement to the configured profile.resume_tex path.
+
+    Sanity check only (not a LaTeX parser): the original file's \\documentclass line
+    must still be present, confirming the reply preserved the template structure
+    rather than replacing it with unrelated content.
+    """
+    rel = _resume_tex_rel(root)
+    path = root / rel
+    errors = _validate_profile_text(text, path.name)
+    previous = path.read_text(encoding="utf-8") if path.exists() else ""
+    documentclass = next((line.strip() for line in previous.splitlines() if "\\documentclass" in line), None)
+    if documentclass and documentclass not in text:
+        errors.append(
+            "Resume content must preserve the original \\documentclass line — the LaTeX structure looks changed."
+        )
+    if errors:
+        return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
+    return _safe_replace(root, "resume_tex", rel, text.encode("utf-8"), expected_revision)
 
 
 # ---------------------------------------------------------------------------
@@ -525,9 +567,13 @@ def replace_onboarding_bundle(root: Path, sections: dict[str, str]) -> dict[str,
 # ---------------------------------------------------------------------------
 
 
+_DYNAMIC_LOGICAL_FILES = {"career_context": _career_context_rel, "resume_tex": _resume_tex_rel}
+
+
 def undo_last_save(root: Path, logical_name: str) -> dict[str, Any]:
     """Restore the one backup slot kept for logical_name. Consumes the backup (one-level)."""
-    rel_path = _career_context_rel(root) if logical_name == "career_context" else _LOGICAL_FILES.get(logical_name)
+    dynamic = _DYNAMIC_LOGICAL_FILES.get(logical_name)
+    rel_path = dynamic(root) if dynamic else _LOGICAL_FILES.get(logical_name)
     if rel_path is None:
         return {"ok": False, "errors": [f"Unknown config file: {logical_name}"], "warnings": [], "revision": ""}
 
