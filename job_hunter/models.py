@@ -144,9 +144,12 @@ class Company(BaseModel):
 
     name: str
     career_url: str
-    region: str
-    location: str
+    catalog_id: str = ""
+    region: str = ""
+    location: str = ""
     country: str = ""
+    city: str = ""
+    industry: str = "other"
     search_lang: str = ""
     ats: str = ""
     company_type: CompanyType = CompanyType.UNKNOWN

@@ -123,10 +123,10 @@ def ensure_seeded(root: Path) -> bool:
         conn.execute("DELETE FROM companies WHERE source = 'catalog'")
         rows = []
         for company in seed.iter_seed_companies():
-            catalog_id = company["id"]
-            name = company["name"]
-            url = company["url"]
-            country = company["country"]
+            catalog_id = company.catalog_id
+            name = company.name
+            url = company.career_url
+            country = company.country
             normalized_url = _normalize_url(url)
             enabled = 1 if (normalized_url, country) in enabled_keys else 0
             rows.append(
@@ -137,9 +137,9 @@ def ensure_seeded(root: Path) -> bool:
                     url,
                     normalized_url,
                     country,
-                    company.get("industry") or "other",
-                    company.get("company_type") or "unknown",
-                    company.get("funding_stage"),
+                    company.industry,
+                    company.company_type.value,
+                    company.funding_stage.value if company.funding_stage else None,
                     "catalog",
                     version,
                     enabled,

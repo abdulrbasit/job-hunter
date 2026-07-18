@@ -26,10 +26,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import yaml
+from yaml import YAMLError
 
 from job_hunter.companies import hunt_candidates
-from job_hunter.config.loader import ROOT
+from job_hunter.config.loader import ROOT, get_job_hunter_config_for_root
 from job_hunter.locations import canonical_locations_for_job
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.sources.career_pages import extract_career_page_jobs
@@ -134,11 +134,12 @@ def run(  # noqa: C901
 ) -> int:
     emit = on_progress or (lambda _event: None)
     root = Path(ROOT)
-    config_path = root / "config" / "job_hunter.yml"
-
+    if not (root / "config" / "job_hunter.yml").exists():
+        emit({"step": "fatal", "reason": "config/job_hunter.yml could not be read"})
+        return 1
     try:
-        config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    except (yaml.YAMLError, OSError):
+        config = get_job_hunter_config_for_root(root)
+    except (YAMLError, ValueError, OSError):
         logger.exception("[browser-hunt] failed to read config")
         emit({"step": "fatal", "reason": "config/job_hunter.yml could not be read"})
         return 1

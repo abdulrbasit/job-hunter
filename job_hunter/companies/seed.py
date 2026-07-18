@@ -8,6 +8,8 @@ from functools import lru_cache
 from importlib import resources
 from typing import Any
 
+from job_hunter.models import Company
+
 
 @lru_cache(maxsize=1)
 def manifest() -> dict[str, Any]:
@@ -31,11 +33,20 @@ def iter_seed_rows() -> Iterator[tuple[str, str, str, str, str | None]]:
             yield row["id"], row["name"], row["url"], country, row.get("industry") or "other"
 
 
-def iter_seed_companies() -> Iterator[dict[str, Any]]:
+def iter_seed_companies() -> Iterator[Company]:
     """Yield full package-owned company rows while keeping iter_seed_rows compatible."""
     data_dir = resources.files("job_hunter.companies").joinpath("data")
     for country in sorted(manifest()["files"]):
         text = data_dir.joinpath(f"{country}.jsonl").read_text(encoding="utf-8")
         for line in text.splitlines():
             if line.strip():
-                yield {"country": country, **json.loads(line)}
+                row = json.loads(line)
+                yield Company(
+                    catalog_id=row["id"],
+                    name=row["name"],
+                    career_url=row["url"],
+                    country=country,
+                    industry=row.get("industry") or "other",
+                    company_type=row.get("company_type") or "unknown",
+                    funding_stage=row.get("funding_stage"),
+                )
