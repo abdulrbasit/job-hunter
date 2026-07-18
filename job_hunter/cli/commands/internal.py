@@ -9,7 +9,7 @@ from typing import Annotated
 import typer
 
 from job_hunter.cli import _run_artifacts
-from job_hunter.cli.app import internal_app, update_safety_app
+from job_hunter.cli.app import app, internal_app, update_safety_app
 from job_hunter.cli.options import JSON_OPTION
 from job_hunter.cli.output import fail
 
@@ -241,52 +241,35 @@ def _fail_finalize(errors: list[str], *, label: str) -> None:
     raise typer.Exit(1)
 
 
-def _commit_finalizable_changes(root: Path, finalize_paths: tuple[str, ...], message: str | None) -> bool:
-    import subprocess
-
-    status = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all", "--", *finalize_paths],
-        cwd=root,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if status.returncode != 0:
-        typer.echo(status.stderr.strip() or "[finalize-run] git status failed", err=True)
-        raise typer.Exit(status.returncode)
-    if not status.stdout.strip():
-        typer.echo("[finalize-run] no finalizable changes to commit")
-        return False
-
-    if message is None:
-        changed_paths = [line[3:] for line in status.stdout.splitlines() if line]
-        message = _derive_finalize_message(changed_paths)
-
-    existing_paths = [path for path in finalize_paths if (root / path).exists()]
-    subprocess.run(["git", "add", "--force", "--", *existing_paths], check=True, cwd=root)
-    staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=root, check=False)
-    if staged.returncode == 0:
-        typer.echo("[finalize-run] no staged durable changes to commit")
-        return False
-    subprocess.run(["git", "commit", "-m", message], check=True, cwd=root)
-    typer.echo(f"[finalize-run] committed: {message}")
-    return True
-
-
-def _push_finalized_run(root: Path, *, push: bool, mode: str) -> None:
-    if not (push or mode == "auto"):
-        return
-    from job_hunter.workspace.git_sync import merge_and_push
-
-    result = merge_and_push(root)
+def _report_finalize_result(result: dict) -> None:
+    """Translate a `_run_artifacts.run_finalize_core` result dict into the same stdout
+    contract `finalize-run` has always had. Shared by `internal finalize-run` and the
+    public `job-hunter finalize` command."""
     if not result["ok"]:
+        stage = result.get("stage", "finalize")
+        if stage in ("verify", "validation"):
+            _fail_finalize(result["error"].split("; "), label=stage)
         fail(f"[finalize-run] {result['error']}")
-    if result["inserted"] or result["updated"] or result["deleted"]:
-        typer.echo(
-            f"[finalize-run] merged remote job state: {result['inserted']} new, "
-            f"{result['updated']} updated, {result['deleted']} removed"
-        )
-    typer.echo("[finalize-run] pushed to origin")
+        return
+
+    if result["discarded"]:
+        typer.echo(f"[finalize-run] discarded {result['discarded']} SKIP/missing-JD job folder(s) before commit")
+    if result["synced"]:
+        typer.echo(f"[finalize-run] synced {result['synced']} processed job tracker entry(s)")
+    if result["committed"]:
+        typer.echo(f"[finalize-run] committed: {result['message']}")
+    else:
+        typer.echo("[finalize-run] no finalizable changes to commit")
+    if result["pushed"]:
+        merge = result.get("merge") or {}
+        if merge.get("inserted") or merge.get("updated") or merge.get("deleted"):
+            typer.echo(
+                f"[finalize-run] merged remote job state: {merge.get('inserted', 0)} new, "
+                f"{merge.get('updated', 0)} updated, {merge.get('deleted', 0)} removed"
+            )
+        typer.echo("[finalize-run] pushed to origin")
+    for rel in result.get("cleaned") or []:
+        typer.echo(f"[finalize-run] cleaned up {rel}")
 
 
 @internal_app.command(name="finalize-run")
@@ -298,30 +281,33 @@ def finalize_run(
     mode: str = typer.Option("manual", "--mode", help="manual|auto"),
 ) -> None:
     """Validate, commit, and optionally push durable run artifacts."""
+    from job_hunter.agent_context import validate_score_file
     from job_hunter.tracker import repo_path
     from job_hunter.ux.health import verify_repository
 
     root = repo_path()
-    verify_payload = verify_repository(root)
-    if verify_payload["errors"]:
-        _fail_finalize(verify_payload["errors"], label="verify")
+    verify_errors = verify_repository(root)["errors"]
+    result = _run_artifacts.run_finalize_core(
+        root,
+        verify_errors=verify_errors,
+        validate_score_file=validate_score_file,
+        message=message,
+        push=push,
+        mode=mode,
+    )
+    _report_finalize_result(result)
 
-    discarded = _discard_dead_job_folders(root)
-    if discarded:
-        typer.echo(f"[finalize-run] discarded {len(discarded)} SKIP/missing-JD job folder(s) before commit")
 
-    validation_errors = _validate_run_artifacts(root)
-    if validation_errors:
-        _fail_finalize(validation_errors, label="validation")
-
-    synced = _sync_processed_from_job_outputs(root)
-    if synced:
-        typer.echo(f"[finalize-run] synced {synced} processed job tracker entry(s)")
-
-    committed = _commit_finalizable_changes(root, FINALIZE_PATHS, message)
-    if committed:
-        _push_finalized_run(root, push=push, mode=mode)
-    _cleanup_transient_state(root, label="finalize-run")
+@app.command(name="finalize")
+def finalize_public(
+    message: str | None = typer.Option(
+        None, "--message", "-m", help="Commit message; derived from changed paths when omitted"
+    ),
+    push: bool = typer.Option(False, "--push", help="Also push to origin after committing"),
+) -> None:
+    """Validate, commit, and optionally push durable run artifacts — README, settings,
+    profile, and job/LinkedIn outputs. Same action as the dashboard's Finalize button."""
+    finalize_run(message=message, push=push, mode="manual")
 
 
 @internal_app.command(name="sync")
@@ -349,8 +335,10 @@ def cleanup_transient() -> None:
     """Delete transient agent state files (queues, batch, screen files)."""
     from job_hunter.tracker import repo_path
 
-    cleaned = _cleanup_transient_state(repo_path(), label="cleanup-transient")
-    if cleaned == 0:
+    cleaned = _cleanup_transient_state(repo_path())
+    for rel in cleaned:
+        typer.echo(f"[cleanup-transient] cleaned up {rel}")
+    if not cleaned:
         typer.echo("[cleanup-transient] no transient state files found")
 
 

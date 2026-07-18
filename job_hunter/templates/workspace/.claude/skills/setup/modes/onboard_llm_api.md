@@ -108,7 +108,7 @@ Tell the user:
 
 > Career context saved. Now let's capture your STAR stories — reusable proof points the tailoring step references.
 
-Execute `.claude/skills/setup/modes/stories.md` inline.
+Execute `.claude/skills/job-hunter/modes/stories.md` inline.
 
 ---
 

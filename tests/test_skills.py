@@ -198,7 +198,6 @@ def test_job_hunter_router_skill_contract() -> None:
     for child in (
         "batch",
         "one",
-        "finalize",
         "tailor",
         "outreach",
         "interview",
@@ -209,6 +208,10 @@ def test_job_hunter_router_skill_contract() -> None:
         assert f".claude/skills/job-hunter/modes/{child}.md" in text, (
             f"job-hunter router must reference .claude/skills/job-hunter/modes/{child}.md"
         )
+
+    # finalize has no mode file — all bookkeeping lives in `job-hunter finalize` itself.
+    assert ".claude/skills/job-hunter/modes/finalize.md" not in text
+    assert "job-hunter finalize" in text
 
     assert "## Command Menu" in text
     assert "job-hunter dash" in text

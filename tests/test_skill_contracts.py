@@ -205,7 +205,6 @@ def test_job_hunter_modes_emit_telemetry_phase_markers() -> None:
         "outreach.md": "outreach",
         "stories.md": "stories",
         "one.md": "one",
-        "finalize.md": "finalize",
     }
     for filename, phase in expected.items():
         text = (modes / filename).read_text(encoding="utf-8")

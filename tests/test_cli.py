@@ -203,6 +203,7 @@ KNOWN_PUBLIC_COMMANDS = {
     "applications",
     "dash",
     "doctor",
+    "finalize",
     "hunt",
     "init",
     "tailor",
@@ -442,7 +443,9 @@ def test_finalize_validation_blocks_excluded_apply_and_broken_readme_link(
         encoding="utf-8",
     )
 
-    errors = cli_module._validate_run_artifacts(tmp_path)
+    from job_hunter.agent_context import validate_score_file
+
+    errors = cli_module._validate_run_artifacts(tmp_path, validate_score_file)
 
     assert any("excluded company" in error for error in errors)
     assert any("broken Files link" in error for error in errors)
@@ -696,9 +699,9 @@ def test_cleanup_transient_removes_batch_scratch_files(tmp_path: Path, monkeypat
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{}", encoding="utf-8")
 
-    cleaned = cli_module._cleanup_transient_state(tmp_path, label="test")
+    cleaned = cli_module._cleanup_transient_state(tmp_path)
 
-    assert cleaned == len(cli_module.TRANSIENT_STATE_PATHS)
+    assert len(cleaned) == len(cli_module.TRANSIENT_STATE_PATHS)
     assert all(not (tmp_path / rel).exists() for rel in cli_module.TRANSIENT_STATE_PATHS)
 
 
@@ -713,7 +716,7 @@ def test_cli_run_artifact_helpers_live_in_dedicated_module(tmp_path: Path) -> No
     transient.parent.mkdir(parents=True)
     transient.write_text("{}", encoding="utf-8")
 
-    assert _run_artifacts.cleanup_transient_state(tmp_path, label="test") == 1
+    assert _run_artifacts.cleanup_transient_state(tmp_path) == ["outputs/state/agent_candidate_queue.json"]
     assert not transient.exists()
 
 
@@ -788,7 +791,7 @@ def test_finalize_run_discards_dead_job_folders_before_commit(tmp_path: Path, mo
     from typer.testing import CliRunner
 
     import job_hunter.cli as cli_module
-    from job_hunter.cli.commands import internal
+    from job_hunter.workspace import finalize as finalize_module
 
     jobs_dir = tmp_path / "outputs" / "jobs"
     skip_job = jobs_dir / "skip-co"
@@ -798,9 +801,9 @@ def test_finalize_run_discards_dead_job_folders_before_commit(tmp_path: Path, mo
 
     monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
     monkeypatch.setattr("job_hunter.ux.health.verify_repository", lambda _root: {"errors": []})
-    monkeypatch.setattr(internal, "_validate_run_artifacts", lambda _root: [])
-    monkeypatch.setattr(internal, "_sync_processed_from_job_outputs", lambda _root: 0)
-    monkeypatch.setattr(internal, "_commit_finalizable_changes", lambda *_args: False)
+    monkeypatch.setattr(finalize_module, "validate_run_artifacts", lambda *_args: [])
+    monkeypatch.setattr(finalize_module, "sync_processed_from_job_outputs", lambda _root: 0)
+    monkeypatch.setattr(finalize_module, "stage_and_commit_finalize_paths", lambda *_args: (False, None))
 
     result = CliRunner().invoke(cli_module.app, ["internal", "finalize-run"])
 
@@ -809,10 +812,10 @@ def test_finalize_run_discards_dead_job_folders_before_commit(tmp_path: Path, mo
     assert "discarded 1 SKIP/missing-JD job folder" in result.stdout
 
 
-def test_commit_finalizable_changes_derives_message_when_none_given(tmp_path: Path) -> None:
+def test_stage_and_commit_finalize_paths_derives_message_when_none_given(tmp_path: Path) -> None:
     import subprocess
 
-    from job_hunter.cli.commands.internal import _commit_finalizable_changes
+    from job_hunter.cli._run_artifacts import stage_and_commit_finalize_paths
 
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
@@ -822,9 +825,10 @@ def test_commit_finalizable_changes_derives_message_when_none_given(tmp_path: Pa
     story_bank.parent.mkdir(parents=True)
     story_bank.write_text("# Role\n", encoding="utf-8")
 
-    committed = _commit_finalizable_changes(tmp_path, ("profile",), None)
+    committed, message = stage_and_commit_finalize_paths(tmp_path, ("profile",), None)
 
     assert committed is True
+    assert message == "feat(stories): update story bank"
     log = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=tmp_path, text=True, capture_output=True, check=True)
     assert log.stdout.strip() == "feat(stories): update story bank"
 
@@ -835,7 +839,7 @@ def test_finalize_run_cleans_transient_state_when_nothing_is_committed(
     from typer.testing import CliRunner
 
     import job_hunter.cli as cli_module
-    from job_hunter.cli.commands import internal
+    from job_hunter.workspace import finalize as finalize_module
 
     compiled = tmp_path / "outputs" / "state" / "compiled"
     compiled.mkdir(parents=True)
@@ -843,14 +847,32 @@ def test_finalize_run_cleans_transient_state_when_nothing_is_committed(
 
     monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
     monkeypatch.setattr("job_hunter.ux.health.verify_repository", lambda _root: {"errors": []})
-    monkeypatch.setattr(internal, "_validate_run_artifacts", lambda _root: [])
-    monkeypatch.setattr(internal, "_sync_processed_from_job_outputs", lambda _root: 0)
-    monkeypatch.setattr(internal, "_commit_finalizable_changes", lambda *_args: False)
+    monkeypatch.setattr(finalize_module, "validate_run_artifacts", lambda *_args: [])
+    monkeypatch.setattr(finalize_module, "sync_processed_from_job_outputs", lambda _root: 0)
+    monkeypatch.setattr(finalize_module, "stage_and_commit_finalize_paths", lambda *_args: (False, None))
 
     result = CliRunner().invoke(cli_module.app, ["internal", "finalize-run"])
 
     assert result.exit_code == 0
     assert not compiled.exists()
+
+
+def test_public_finalize_command_delegates_to_finalize_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import job_hunter.cli as cli_module
+    from job_hunter.workspace import finalize as finalize_module
+
+    monkeypatch.setattr("job_hunter.tracker.repo_path", lambda *p: tmp_path.joinpath(*p))
+    monkeypatch.setattr("job_hunter.ux.health.verify_repository", lambda _root: {"errors": []})
+    monkeypatch.setattr(finalize_module, "validate_run_artifacts", lambda *_args: [])
+    monkeypatch.setattr(finalize_module, "sync_processed_from_job_outputs", lambda _root: 0)
+    monkeypatch.setattr(finalize_module, "stage_and_commit_finalize_paths", lambda *_args: (False, None))
+
+    result = CliRunner().invoke(cli_module.app, ["finalize"])
+
+    assert result.exit_code == 0
+    assert "no finalizable changes to commit" in result.stdout
 
 
 # --- version ---

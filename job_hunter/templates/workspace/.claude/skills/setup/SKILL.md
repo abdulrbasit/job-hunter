@@ -1,8 +1,8 @@
 ---
 name: setup
-description: "Workspace setup and health command center. Routes to onboarding, career context, resume building, region management, health checks, resume styling, and story creation."
-when_to_use: "Use for first-time workspace setup, health checks, config changes, career context, resume building, and story bank management."
-argument-hint: "[onboard|context|resume|doctor|region <add|remove> <name>|style|stories]"
+description: "Workspace setup command center. Routes to onboarding, career context, resume building, and resume styling; health checks and regions are dashboard/CLI now."
+when_to_use: "Use for first-time workspace setup, career context, resume building, resume styling, and story bank management."
+argument-hint: "[onboard|context|resume|doctor|region|style|stories]"
 disable-model-invocation: true
 allowed-tools: Read Edit Write Bash WebSearch
 author: "Abdul Basit (@abdulrbasit)"
@@ -22,10 +22,10 @@ Normalize the first argument to lowercase. Empty argument → show menu.
 - `onboard`, `init`, `start`: execute `.claude/skills/setup/modes/onboard.md` inline.
 - `context`, `career`, `career-context`: execute `.claude/skills/setup/modes/context.md` inline.
 - `resume`, `build`, `build-resume`: execute `.claude/skills/setup/modes/resume.md` inline.
-- `doctor`, `health`, `check`: execute `.claude/skills/setup/modes/doctor.md` inline.
-- `region`, `add-region`: execute `.claude/skills/setup/modes/region.md` inline with remaining arguments.
+- `stories`, `star`: execute `.claude/skills/job-hunter/modes/stories.md` inline.
+- `doctor`, `health`, `check`: run `job-hunter doctor --json`, render the ✓/✗ table. Point the user at `job-hunter dash` → Settings → Diagnostics for one-click fixes.
+- `region`, `add-region`: no skill for this — tell the user to open `job-hunter dash` → Settings → Guided → Regions. If they have no GUI access, edit the named region block in `config/job_hunter.yml` directly (use `job-hunter internal region-lookup --city "<city>"` for the country code).
 - `style`: execute `.claude/skills/setup/modes/style.md` inline.
-- `stories`, `star`: execute `.claude/skills/setup/modes/stories.md` inline.
 
 Unknown mode → print the command menu and ask the user to choose a listed mode.
 
@@ -37,9 +37,8 @@ Setup Command Center
 /setup onboard         One-time workspace initialization (config, keys, profile, regions)
 /setup context         Interactive guided setup for profile/career_context.md
 /setup resume          Build the base resume from career context and story bank
-/setup doctor          Run health checker and show setup status
-/setup region add <n>  Add a new search region to config
-/setup region remove <n>  Remove an existing search region
-/setup style           Change resume color scheme or font
 /setup stories         Convert raw work notes into rated STAR stories
+/setup doctor          Run health checker and show setup status
+/setup region           Points you at dash → Settings → Guided → Regions
+/setup style            Change resume color scheme or font
 ```

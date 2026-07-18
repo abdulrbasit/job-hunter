@@ -70,6 +70,30 @@ def _sync_items(
             print(f"  stale   {label}")
 
 
+def _prune_stale(src_dir: Path, dst_dir: Path, label_prefix: str, dry_run: bool, changes: list[int]) -> None:
+    """Delete template files/dirs with no canonical counterpart — keeps a skill deletion
+    at the source from leaving an orphaned copy behind in the shipped template."""
+    if not dst_dir.is_dir():
+        return
+    for child in sorted(dst_dir.rglob("*")):
+        if not child.is_file():
+            continue
+        rel = child.relative_to(dst_dir)
+        if (src_dir / rel).exists():
+            continue
+        changes[0] += 1
+        label = f"{label_prefix}{rel.as_posix()}"
+        if dry_run:
+            print(f"  extra   {label}")
+        else:
+            child.unlink()
+            print(f"  pruned  {label}")
+    if not dry_run:
+        for d in sorted((p for p in dst_dir.rglob("*") if p.is_dir()), reverse=True):
+            if not any(d.iterdir()):
+                d.rmdir()
+
+
 def sync(*, check: bool = False) -> int:  # noqa: C901
     """Sync canonical root → template. Returns count of files that differ (or would change)."""
     changes = [0]
@@ -104,8 +128,10 @@ def sync(*, check: bool = False) -> int:  # noqa: C901
     # User skills
     skills_src = REPO / ".claude" / "skills"
     skills_dst = TEMPLATE / ".claude" / "skills"
-    for skill in _user_skills():
+    user_skills = _user_skills()
+    for skill in user_skills:
         src = skills_src / skill
+        dst = skills_dst / skill
         if not src.is_dir():
             print(f"  warn: .claude/skills/{skill}/ not found, skipping")
             continue
@@ -114,8 +140,22 @@ def sync(*, check: bool = False) -> int:  # noqa: C901
             if not child.is_file():
                 continue
             rel = child.relative_to(src)
-            items.append((child, skills_dst / skill / rel, f".claude/skills/{skill}/{rel.as_posix()}"))
+            items.append((child, dst / rel, f".claude/skills/{skill}/{rel.as_posix()}"))
         _sync_items(items, check, changes)
+        _prune_stale(src, dst, f".claude/skills/{skill}/", check, changes)
+
+    # Whole skill directories removed at the source (not just files within one).
+    if skills_dst.is_dir():
+        for dst_skill_dir in sorted(p for p in skills_dst.iterdir() if p.is_dir()):
+            if dst_skill_dir.name in _DEV_SKILL_DIRS or dst_skill_dir.name in user_skills:
+                continue
+            changes[0] += 1
+            label = f".claude/skills/{dst_skill_dir.name}/"
+            if check:
+                print(f"  extra   {label}")
+            else:
+                shutil.rmtree(dst_skill_dir)
+                print(f"  pruned  {label}")
 
     return changes[0]
 

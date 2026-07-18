@@ -175,6 +175,10 @@ ignore = ["E501", "S101"]
 # S603/S607: workspace/git_sync.py intentionally shells out to git for the lossless sync flow
 # (fetch/merge/rebase/push) shared by the GUI Sync button, `internal sync`, and finalize-run.
 "job_hunter/workspace/git_sync.py" = ["S603", "S607"]
+# S603/S607: workspace/finalize.py intentionally shells out to git to stage/commit the
+# finalize allowlist — the pure core shared by `job-hunter finalize`, `internal
+# finalize-run`, and the dashboard Finalize button.
+"job_hunter/workspace/finalize.py" = ["S603", "S607"]
 # C901 ignores below: verified against `ruff check --select C901` with the ignore removed (Phase 3,
 # 2026-07-01) — every remaining entry still fires without it. Re-verify before trusting this list stale;
 # it drifts as functions are refactored. Phase 0 backlog tracks decomposing these, not silencing them.

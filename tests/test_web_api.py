@@ -1280,6 +1280,91 @@ def test_start_sync_worker_crash_reports_failed_and_resets_lock(tmp_path: Path, 
     assert api.start_sync()["ok"] is True  # lock was released despite the crash
 
 
+def test_get_finalize_status_reports_idle_before_any_run(tmp_path: Path) -> None:
+    assert DashAPI(tmp_path).get_finalize_status() == {"ok": True, "status": "idle"}
+
+
+def test_start_finalize_runs_worker_and_reports_result(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "job_hunter.workspace.finalize.run_finalize_core",
+        lambda root, **kwargs: {
+            "ok": True,
+            "discarded": 0,
+            "synced": 0,
+            "committed": True,
+            "message": "chore: update 2026-07-18",
+            "pushed": False,
+            "cleaned": 0,
+        },
+    )
+    api = DashAPI(tmp_path)
+
+    result = api.start_finalize()
+    assert result == {"ok": True, "status": "running"}
+
+    for _ in range(50):
+        if api.get_finalize_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_finalize_status()
+    assert status["status"] == "succeeded"
+    assert status["committed"] is True
+    assert status["message"] == "chore: update 2026-07-18"
+    json.dumps(status)
+
+
+def test_start_finalize_rejects_concurrent_start_with_hunt(tmp_path: Path, monkeypatch) -> None:
+    import threading
+
+    release = threading.Event()
+
+    def blocking_run(inp):
+        release.wait(timeout=5)
+        return _fake_hunt_output()
+
+    monkeypatch.setattr("job_hunter.config.get_mode", lambda: "agent")
+    monkeypatch.setattr("job_hunter.pipeline.hunt.run", blocking_run)
+    api = DashAPI(tmp_path)
+
+    api.start_hunt()
+    try:
+        second = api.start_finalize()
+        assert second["ok"] is False
+        assert second["status"] == "running"
+    finally:
+        release.set()
+        for _ in range(50):
+            if api.get_hunt_status()["status"] != "running":
+                break
+            import time
+
+            time.sleep(0.05)
+
+
+def test_start_finalize_worker_crash_reports_failed_and_resets_lock(tmp_path: Path, monkeypatch) -> None:
+    def boom(root, **kwargs):
+        raise RuntimeError("finalize exploded")
+
+    monkeypatch.setattr("job_hunter.workspace.finalize.run_finalize_core", boom)
+    api = DashAPI(tmp_path)
+
+    api.start_finalize()
+    for _ in range(50):
+        if api.get_finalize_status()["status"] != "running":
+            break
+        import time
+
+        time.sleep(0.05)
+
+    status = api.get_finalize_status()
+    assert status["status"] == "failed"
+    assert "finalize exploded" not in status["error"]  # detailed exceptions stay out of the UI-facing message
+    assert api.start_finalize()["ok"] is True  # lock was released despite the crash
+
+
 def test_start_company_hunt_is_alias_for_run_company_hunt(tmp_path: Path) -> None:
     _write_career_hunt_config(tmp_path, [])
     api = DashAPI(tmp_path)

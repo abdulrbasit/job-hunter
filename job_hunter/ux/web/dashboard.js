@@ -248,6 +248,46 @@ async function pollSyncStatus(silent) {
   }
 }
 
+// ── Finalize — validate, commit, and (optionally) push durable run artifacts ──
+let finalizePolling = false;
+
+async function runFinalize() {
+  if (!confirm('Finalize durable changes?\n\nThis validates and commits README, config, profile, job/LinkedIn outputs, and jobs.db locally. Run Sync afterward to push.')) return;
+  const result = await window.pywebview.api.start_finalize();
+  if (!result.ok) {
+    showToast(result.error || 'Could not start finalize.');
+    return;
+  }
+  pollFinalizeStatus();
+}
+
+async function pollFinalizeStatus() {
+  if (finalizePolling) return;
+  finalizePolling = true;
+  const btn = document.getElementById('finalize-btn');
+  btn.disabled = true;
+  btn.textContent = '✓ Finalizing…';
+  try {
+    while (true) {
+      const result = await window.pywebview.api.get_finalize_status();
+      if (result.status !== 'running') {
+        if (result.status === 'succeeded') {
+          showToast(result.committed ? `Finalized — ${result.message}` : 'Nothing to finalize.');
+          if (result.committed) refreshAll();
+        } else if (result.status === 'failed') {
+          showToast(result.error || 'Finalize failed.');
+        }
+        break;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    finalizePolling = false;
+    btn.disabled = false;
+    btn.textContent = '✓ Finalize';
+  }
+}
+
 function checklistItemsHtml(items) {
   return items.map(item => `
     <li class="onboarding-item ${item.done ? 'done' : ''}">
@@ -566,6 +606,7 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
 [
   ['refresh-btn', refreshAll],
   ['sync-btn', () => runSync({ silent: false })],
+  ['finalize-btn', () => runFinalize()],
   ['find-jobs-btn', findJobs],
   ['app-bulk-delete-btn', bulkDeleteApplications],
   ['dp-close-btn', closeDetail],

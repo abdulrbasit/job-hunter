@@ -33,7 +33,7 @@ Arguments: `$ARGUMENTS`
 - Never fabricate resume facts, employers, dates, metrics, skills, or job history.
 - Never submit applications, send messages, connect, follow, like, comment, or post automatically.
 - Never overwrite profile/config inputs unless that mode requires it and the user requested it.
-- Leave generated changes uncommitted unless `finalize` is explicitly invoked.
+- Leave generated changes uncommitted unless the user runs `job-hunter finalize`.
 
 ## Initialization
 
@@ -56,7 +56,7 @@ Normalize the first argument to lowercase. Empty argument → `help`.
 - `dashboard`, `apps`, `applications`: tell the user to open the Job Hunter app (`job-hunter dash`) and use the Applications view — there is no terminal dashboard to run inline.
 - `batch`, `process`, `queue`: execute `.claude/skills/job-hunter/modes/batch.md` inline.
 - `one <url>`, `url <url>`, or any pasted `http(s)://` URL: execute `.claude/skills/job-hunter/modes/one.md` inline with the URL and remaining arguments.
-- `finalize`: execute `.claude/skills/job-hunter/modes/finalize.md` inline.
+- `finalize`: run `job-hunter finalize` (add `--push` if the user asked to push). It validates, commits, and optionally pushes durable outputs itself — no separate skill needed. Show its output verbatim.
 - `screen`: execute `.claude/skills/job-hunter/modes/screen.md` inline.
 
 **Per-job actions** — second token is the job slug
@@ -82,7 +82,7 @@ Job Hunter Command Center
 /job-hunter dashboard          Open the Job Hunter app to review applications
 /job-hunter batch              Process the next frozen candidate batch
 /job-hunter one <url>          Process one job URL end-to-end
-/job-hunter finalize           Commit durable reviewed outputs
+/job-hunter finalize           Runs `job-hunter finalize` to commit durable reviewed outputs
 /job-hunter screen             Pre-screen a frozen batch against config exclusion rules
 
 ── Per-Job Actions ─────────────────────────────────────────────────────
@@ -100,14 +100,14 @@ Job Hunter Command Center
 /job-hunter linkedin network   Build a weekly connection queue
 
 ── Tools ───────────────────────────────────────────────────────────────
-/job-hunter add-region [add|remove] <name>   Add or remove a search region
-/job-hunter style              Change resume color scheme or font
 /job-hunter setup              One-time onboarding for a fresh workspace
 /job-hunter doctor             Run the health checker and show setup status
+/job-hunter add-region         Add/remove a region — dash → Settings → Guided → Regions
+/job-hunter style              Change resume color scheme or font
 ```
 
 ## Output Rules
 
 - Execute child skills inline from their `SKILL.md`; do not print a slash command as a handoff.
 - Print only paths, counts, short decisions, and next actions.
-- Leave generated changes uncommitted unless `finalize` is explicitly invoked.
+- Leave generated changes uncommitted unless the user runs `job-hunter finalize`.

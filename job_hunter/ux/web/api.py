@@ -81,6 +81,7 @@ class DashAPI:
         self._hunt_started_at: str | None = None
         self._last_hunt_result: dict[str, Any] | None = None
         self._last_sync_result: dict[str, Any] | None = None
+        self._last_finalize_result: dict[str, Any] | None = None
         self._chromium_lock = threading.Lock()
         self._chromium_running = False
         self._last_chromium_result: dict[str, Any] | None = None
@@ -187,6 +188,55 @@ class DashAPI:
         if self._last_sync_result is None:
             return {"ok": True, "status": "idle"}
         return {"ok": True, **self._last_sync_result}
+
+    def start_finalize(self, push: bool = False) -> dict[str, Any]:
+        """Validate, commit, and optionally push durable run artifacts — the dashboard
+        twin of `job-hunter finalize`. Shares the hunt lock for the same reason start_sync
+        does: it can also merge/push outputs/state/jobs.db."""
+        with self._hunt_lock:
+            if self._hunt_running:
+                return {"ok": False, "status": "running", "error": "A hunt or sync is already running."}
+            self._hunt_running = True
+        self._last_finalize_result = None
+        threading.Thread(target=self._run_finalize_worker, args=(push,), daemon=True).start()
+        return {"ok": True, "status": "running"}
+
+    def _run_finalize_worker(self, push: bool) -> None:
+        import logging
+
+        from job_hunter.agent_context import validate_score_file
+        from job_hunter.ux.health import verify_repository
+        from job_hunter.workspace.finalize import run_finalize_core
+
+        try:
+            verify_errors = verify_repository(self._root)["errors"]
+            result = run_finalize_core(
+                self._root,
+                verify_errors=verify_errors,
+                validate_score_file=validate_score_file,
+                push=push,
+                mode="manual",
+            )
+            self._last_finalize_result = {**result, "status": "succeeded" if result["ok"] else "failed"}
+        except Exception:  # noqa: BLE001 — a crashed worker must not wedge _hunt_running
+            logging.getLogger(__name__).exception("[finalize] worker crashed")
+            self._last_finalize_result = {
+                "ok": False,
+                "status": "failed",
+                "error": "Finalize failed. Check local logs for details.",
+            }
+        finally:
+            with self._hunt_lock:
+                self._hunt_running = False
+
+    def get_finalize_status(self) -> dict[str, Any]:
+        with self._hunt_lock:
+            running = self._hunt_running
+        if running:
+            return {"ok": True, "status": "running"}
+        if self._last_finalize_result is None:
+            return {"ok": True, "status": "idle"}
+        return {"ok": True, **self._last_finalize_result}
 
     def start_company_hunt(self, mode: str = "new_changed") -> dict[str, Any]:
         """Spec-named alias for run_company_hunt (kept for the existing wired UI)."""
