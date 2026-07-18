@@ -166,3 +166,29 @@ def test_manual_lists_provider_reads_csv_drops_filtered_by_country(monkeypatch, 
     assert rows[0]["name"] == "Siemens"
     assert rows[0]["city"] == "Munich"
     assert rows[0]["industry_hint"] == "manufacturing"
+
+
+def test_wikidata_city_scoped_query_constrains_hq_by_city_label(monkeypatch) -> None:
+    captured: dict = {}
+
+    class _Empty:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"results": {"bindings": []}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):  # noqa: ANN001, ANN202
+        captured["query"] = params["query"]
+        return _Empty()
+
+    monkeypatch.setattr(wikidata, "_sleep", lambda seconds: None)
+    monkeypatch.setattr(wikidata.requests, "get", fake_get)
+
+    wikidata.fetch("DE", city="Munich")
+    assert '?hq rdfs:label "Munich"@en .' in captured["query"]
+
+    wikidata.fetch("DE")
+    assert 'rdfs:label "' not in captured["query"]

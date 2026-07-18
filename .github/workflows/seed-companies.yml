@@ -1,0 +1,60 @@
+name: Seed Companies
+
+# Daily deterministic growth of the bundled company data (job_hunter/companies/data/).
+# Each run seeds one rotation bucket (~1/7 of all package countries), so the full
+# universe is covered every week. Commits data changes straight back to main —
+# release.yml is workflow_dispatch-only, so these commits can never trigger a release.
+
+on:
+  schedule:
+    - cron: "30 3 * * *" # 03:30 UTC = 05:30 Berlin (CEST) / 04:30 Berlin (CET)
+  workflow_dispatch:
+    inputs:
+      countries:
+        description: "Space-separated ISO codes (empty = today's rotation bucket)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seed-companies
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    if: github.repository == 'abdulrbasit/job-hunter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Grow seed data
+        run: |
+          if [ -n "${{ github.event.inputs.countries }}" ]; then
+            uv run python scripts/seed_companies.py ${{ github.event.inputs.countries }}
+          else
+            uv run python scripts/seed_companies.py --rotate-daily
+          fi
+
+      - name: Validate grown data
+        run: uv run pytest tests/test_company_seed_data.py tests/test_seed_companies.py -q --tb=short
+
+      - name: Commit and push if changed
+        run: |
+          if [ -z "$(git status --porcelain -- job_hunter/companies/data)" ]; then
+            echo "No data changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add job_hunter/companies/data
+          git commit -m "chore: grow company seed data ($(date -u +%F))"
+          git push

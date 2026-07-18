@@ -1,8 +1,10 @@
+{"id":"0711_entertainment","name":"0711 Entertainment","url":"https://www.0711.net/","industry":"media_entertainment","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"10xteam","name":"10xteam","url":"https://jobs.ashbyhq.com/10xteam","industry":"other"}
 {"id":"1password","name":"1Password","url":"https://1password.com/careers/","industry":"other"}
 {"id":"360learning","name":"360learning","url":"https://jobs.lever.co/360learning","industry":"other"}
 {"id":"3m","name":"3M","url":"https://www.3m.com/3M/en_US/careers-us/","industry":"manufacturing"}
 {"id":"8returns","name":"8returns","url":"https://jobs.ashbyhq.com/8returns","industry":"other"}
+{"id":"a_o_hostels","name":"a&o Hostels","url":"https://www.aohostels.com","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"abacum","name":"Abacum","url":"https://jobs.ashbyhq.com/abacum","industry":"other"}
 {"id":"ableton","name":"Ableton","url":"https://www.ableton.com/en/jobs/","industry":"other"}
 {"id":"abnormalsecurity","name":"Abnormalsecurity","url":"https://job-boards.greenhouse.io/abnormalsecurity","industry":"other"}
@@ -13,21 +15,26 @@
 {"id":"acutechgroupinc","name":"Acutechgroupinc","url":"https://job-boards.greenhouse.io/acutechgroupinc","industry":"other"}
 {"id":"ada_health","name":"Ada Health","url":"https://ada.com/careers/","industry":"other"}
 {"id":"adaption","name":"Adaption","url":"https://jobs.ashbyhq.com/adaption","industry":"other"}
+{"id":"adelphi_consult__germany","name":"Adelphi Consult (Germany)","url":"https://www.adelphi.de/en/profile/adelphi-consult","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"adidas","name":"Adidas","url":"https://careers.adidas.com","industry":"retail_ecommerce"}
 {"id":"adjust","name":"Adjust","url":"https://www.adjust.com/company/careers/","industry":"other"}
 {"id":"adjustjobs","name":"Adjustjobs","url":"https://job-boards.greenhouse.io/adjustjobs","industry":"other"}
 {"id":"adobe_2","name":"Adobe","url":"https://careers.adobe.com/us/en","industry":"other"}
 {"id":"adthena","name":"Adthena","url":"https://jobs.ashbyhq.com/adthena","industry":"other"}
+{"id":"advita","name":"advita","url":"https://www.advita.de/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"aeria_games","name":"Aeria Games","url":"https://www.aeriagames.net/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"aerovect","name":"Aerovect","url":"https://jobs.ashbyhq.com/aerovect","industry":"other"}
 {"id":"affinidi","name":"Affinidi","url":"https://job-boards.greenhouse.io/affinidi","industry":"other"}
 {"id":"agency","name":"Agency","url":"https://job-boards.greenhouse.io/agency","industry":"other"}
 {"id":"agicap","name":"Agicap","url":"https://jobs.lever.co/agicap","industry":"other"}
 {"id":"ahrefsjobs","name":"Ahrefsjobs","url":"https://job-boards.greenhouse.io/ahrefsjobs","industry":"other"}
 {"id":"aignostics","name":"Aignostics","url":"https://aignostics.com/careers/","industry":"other"}
+{"id":"aiomics","name":"aiomics","url":"https://www.aiomics.io","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"aios","name":"Aios","url":"https://jobs.ashbyhq.com/aios","industry":"other"}
 {"id":"airapps","name":"Airapps","url":"https://jobs.ashbyhq.com/airapps","industry":"other"}
 {"id":"airbnb_2","name":"Airbnb","url":"https://job-boards.greenhouse.io/airbnb","industry":"other"}
 {"id":"airbus","name":"Airbus","url":"https://www.airbus.com/en/careers","industry":"aerospace_defense"}
+{"id":"airbus_bank","name":"Airbus Bank","url":"https://www.airbusbank.com/de/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"aircall","name":"Aircall","url":"https://jobs.lever.co/aircall","industry":"other"}
 {"id":"airship","name":"Airship","url":"https://job-boards.greenhouse.io/airship","industry":"other"}
 {"id":"airspace","name":"Airspace","url":"https://job-boards.greenhouse.io/airspace","industry":"other"}
@@ -44,7 +51,11 @@
 {"id":"algolia","name":"Algolia","url":"https://job-boards.greenhouse.io/algolia","industry":"other"}
 {"id":"alimentiv_2","name":"Alimentiv 2","url":"https://jobs.lever.co/alimentiv-2","industry":"other"}
 {"id":"alixpartners","name":"Alixpartners","url":"https://job-boards.greenhouse.io/alixpartners","industry":"other"}
+{"id":"all3media_deutschland","name":"All3Media Deutschland","url":"https://all3media.de/","industry":"media_entertainment","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"allianz","name":"Allianz","url":"https://careers.allianz.com","industry":"finance"}
+{"id":"allianz_direct","name":"Allianz Direct","url":"https://www.allianzdirect.de","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"allianz_se","name":"Allianz SE","url":"https://www.allianz.com/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"allsecur_deutschland","name":"Allsecur Deutschland","url":"https://www.allsecur.de/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"aloyoga","name":"Aloyoga","url":"https://job-boards.greenhouse.io/aloyoga","industry":"other"}
 {"id":"alpineeagle","name":"Alpineeagle","url":"https://job-boards.greenhouse.io/alpineeagle","industry":"other"}
 {"id":"alteryx","name":"Alteryx","url":"https://www.alteryx.com/careers","industry":"other"}
@@ -54,6 +65,7 @@
 {"id":"amperon","name":"Amperon","url":"https://job-boards.greenhouse.io/amperon","industry":"other"}
 {"id":"amplemarket","name":"Amplemarket","url":"https://job-boards.greenhouse.io/amplemarket","industry":"other"}
 {"id":"amplitude","name":"Amplitude","url":"https://job-boards.greenhouse.io/amplitude","industry":"other"}
+{"id":"anabrid","name":"anabrid","url":"https://www.anabrid.com","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"anara","name":"Anara","url":"https://jobs.ashbyhq.com/anara","industry":"other"}
 {"id":"anthropic","name":"Anthropic","url":"https://job-boards.greenhouse.io/anthropic","industry":"other"}
 {"id":"anydesk","name":"Anydesk","url":"https://job-boards.greenhouse.io/anydesk","industry":"other"}
@@ -61,6 +73,7 @@
 {"id":"apaleo","name":"Apaleo","url":"https://job-boards.greenhouse.io/apaleo","industry":"other"}
 {"id":"appen","name":"Appen","url":"https://jobs.lever.co/appen","industry":"other"}
 {"id":"apple","name":"Apple","url":"https://www.apple.com/careers/us/","industry":"software_it"}
+{"id":"applied_integral","name":"Applied Integral","url":"https://www.appliedintegral.com","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"applovin","name":"Applovin","url":"https://job-boards.greenhouse.io/applovin","industry":"other"}
 {"id":"appodeal","name":"Appodeal","url":"https://job-boards.greenhouse.io/appodeal","industry":"other"}
 {"id":"appzen","name":"Appzen","url":"https://jobs.lever.co/appzen","industry":"other"}
@@ -68,7 +81,10 @@
 {"id":"archer56","name":"Archer56","url":"https://job-boards.greenhouse.io/archer56","industry":"other"}
 {"id":"arizeai","name":"Arizeai","url":"https://job-boards.greenhouse.io/arizeai","industry":"other"}
 {"id":"armissecurity","name":"Armissecurity","url":"https://job-boards.greenhouse.io/armissecurity","industry":"other"}
+{"id":"arnoldsche","name":"arnoldsche","url":"https://arnoldsche.com/","industry":"media_entertainment","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"art_of_travel_gmbh","name":"Art of Travel GmbH","url":"https://www.artoftravel.de/","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"artefact","name":"Artefact","url":"https://job-boards.greenhouse.io/artefact","industry":"other"}
+{"id":"artnet","name":"Artnet","url":"https://www.artnet.com/","industry":"telecommunications","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"arxroboticsgmbh","name":"Arxroboticsgmbh","url":"https://job-boards.greenhouse.io/arxroboticsgmbh","industry":"other"}
 {"id":"ashby","name":"Ashby","url":"https://jobs.ashbyhq.com/ashby","industry":"other"}
 {"id":"asm","name":"ASM","url":"https://job-boards.greenhouse.io/asm","industry":"other"}
@@ -76,6 +92,7 @@
 {"id":"atariinc","name":"Atariinc","url":"https://job-boards.greenhouse.io/atariinc","industry":"other"}
 {"id":"atlassian_2","name":"Atlassian","url":"https://www.atlassian.com/company/careers/all-jobs","industry":"other"}
 {"id":"atolls","name":"Atolls","url":"https://job-boards.greenhouse.io/atolls","industry":"other"}
+{"id":"atron_electronic_gmbh","name":"Atron electronic GmbH","url":"https://www.atron.com/","industry":"transportation_logistics","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"attio","name":"Attio","url":"https://jobs.ashbyhq.com/attio","industry":"other"}
 {"id":"audi","name":"Audi","url":"https://www.audi.com/careers","industry":"automotive"}
 {"id":"audibenehearcom","name":"Audibenehearcom","url":"https://job-boards.greenhouse.io/audibenehearcom","industry":"other"}
@@ -85,6 +102,7 @@
 {"id":"auto1_group","name":"Auto1 Group","url":"https://www.auto1-group.com/careers","industry":"retail_ecommerce"}
 {"id":"automattic","name":"Automattic","url":"https://automattic.com/work-with-us/","industry":"other"}
 {"id":"autoproff","name":"Autoproff","url":"https://job-boards.greenhouse.io/autoproff","industry":"other"}
+{"id":"ave_publishing_gmbh___co__kg","name":"AVE Publishing GmbH & Co. KG","url":"https://www.ave-publishing.de/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"avepoint","name":"Avepoint","url":"https://job-boards.greenhouse.io/avepoint","industry":"other"}
 {"id":"aviatrix","name":"Aviatrix","url":"https://job-boards.greenhouse.io/aviatrix","industry":"other"}
 {"id":"aviv_group","name":"AVIV Group","url":"https://www.aviv-group.com/careers/","industry":"other"}
@@ -94,25 +112,39 @@
 {"id":"axon","name":"Axon","url":"https://job-boards.greenhouse.io/axon","industry":"other"}
 {"id":"axs","name":"AXS","url":"https://job-boards.greenhouse.io/axs","industry":"other"}
 {"id":"babbel","name":"Babbel","url":"https://jobs.ashbyhq.com/babbel","industry":"other"}
+{"id":"baden_w\u00fcrttembergische_wertpapierb\u00f6rse","name":"Baden-W\u00fcrttembergische Wertpapierb\u00f6rse","url":"https://www.bsdex.de/de/","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"bain","name":"Bain & Company","url":"https://www.bain.com/careers/","industry":"consulting"}
 {"id":"banyansoftware","name":"Banyansoftware","url":"https://job-boards.greenhouse.io/banyansoftware","industry":"other"}
 {"id":"basf","name":"BASF","url":"https://www.basf.com/careers","industry":"manufacturing"}
+{"id":"basic_ag","name":"Basic AG","url":"https://basicbio.de","industry":"retail_ecommerce","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"bayada","name":"Bayada","url":"https://job-boards.greenhouse.io/bayada","industry":"other"}
 {"id":"bayasystems","name":"Bayasystems","url":"https://job-boards.greenhouse.io/bayasystems","industry":"other"}
 {"id":"bayer","name":"Bayer","url":"https://career.bayer.com","industry":"biotech_pharma"}
-{"id":"bcg","name":"Boston Consulting Group","url":"https://careers.bcg.com","industry":"consulting"}
+{"id":"bayerische_hausbau","name":"Bayerische Hausbau","url":"https://www.hausbau.de","industry":"real_estate","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"bayernets","name":"bayernets","url":"https://www.bayernets.de/","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"bayerngas","name":"Bayerngas","url":"https://www.bayerngas.de","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"baywa","name":"BayWa","url":"https://www.baywa.com/","industry":"retail_ecommerce","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"bdainc","name":"Bdainc","url":"https://job-boards.greenhouse.io/bdainc","industry":"other"}
+{"id":"beamtenversicherungsverein","name":"Beamtenversicherungsverein","url":"https://www.bvv.de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"beauhurst","name":"Beauhurst","url":"https://job-boards.greenhouse.io/beauhurst","industry":"other"}
 {"id":"beiersdorf","name":"Beiersdorf","url":"https://www.beiersdorf.com/careers","industry":"manufacturing"}
 {"id":"belkins","name":"Belkins","url":"https://jobs.lever.co/belkins","industry":"other"}
+{"id":"bellevue_investments","name":"Bellevue Investments","url":"https://www.magix.com/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"benchling","name":"Benchling","url":"https://jobs.ashbyhq.com/benchling","industry":"other"}
+{"id":"berlin_chemie___menarini","name":"Berlin-Chemie / Menarini","url":"https://www.berlin-chemie.de/en-us/","industry":"biotech_pharma","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"berliner_bank","name":"Berliner Bank","url":"https://www.berliner-bank.de","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"bertelsmann","name":"Bertelsmann","url":"https://www.bertelsmann.com/careers","industry":"media_entertainment"}
+{"id":"best_service_gmbh","name":"Best Service GmbH","url":"https://www.bestservice.com/index.html","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"better_decisions_group_gmbh","name":"better decisions group GmbH","url":"https://bdg.io","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"betterhelp","name":"Betterhelp","url":"https://job-boards.greenhouse.io/betterhelp","industry":"other"}
 {"id":"bettermile","name":"Bettermile","url":"https://jobs.ashbyhq.com/bettermile","industry":"other"}
+{"id":"bewusstes_unternehmen","name":"bewusstes unternehmen","url":"https://www.bewusstes-unternehmen.com","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"beyondtrust","name":"Beyondtrust","url":"https://job-boards.greenhouse.io/beyondtrust","industry":"other"}
 {"id":"bigblue","name":"Bigblue","url":"https://jobs.lever.co/bigblue","industry":"other"}
+{"id":"bio_company","name":"Bio Company","url":"https://www.biocompany.de/","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"bioptimus8","name":"Bioptimus8","url":"https://job-boards.greenhouse.io/bioptimus8","industry":"other"}
 {"id":"bitmovin","name":"Bitmovin","url":"https://job-boards.greenhouse.io/bitmovin","industry":"other"}
+{"id":"bitpanda_asset_management_gmbh","name":"Bitpanda Asset Management GmbH","url":"https://www.bitpanda.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"bitwarden","name":"Bitwarden","url":"https://job-boards.greenhouse.io/bitwarden","industry":"other"}
 {"id":"blackduck","name":"Blackduck","url":"https://job-boards.greenhouse.io/blackduck","industry":"other"}
 {"id":"blackforestlabs","name":"Blackforestlabs","url":"https://job-boards.greenhouse.io/blackforestlabs","industry":"other"}
@@ -125,25 +157,35 @@
 {"id":"bluecatnetworks","name":"Bluecatnetworks","url":"https://jobs.lever.co/bluecatnetworks","industry":"other"}
 {"id":"bluefishai","name":"Bluefishai","url":"https://job-boards.greenhouse.io/bluefishai","industry":"other"}
 {"id":"blueprintmedicines","name":"Blueprintmedicines","url":"https://job-boards.greenhouse.io/blueprintmedicines","industry":"other"}
+{"id":"bmw","name":"BMW","url":"https://www.bmw.com","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"bmw_group","name":"BMW Group","url":"https://www.bmwgroup.jobs","industry":"automotive"}
+{"id":"bmw_peugeot_citro\u00ebn_electrification","name":"BMW Peugeot Citro\u00ebn Electrification","url":"https://www.bpc-electrification.com/","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"boam","name":"Boam","url":"https://jobs.ashbyhq.com/boam","industry":"other"}
+{"id":"boilr","name":"boilr","url":"https://boilr.ai","industry":"energy","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"boomilp","name":"Boomilp","url":"https://job-boards.greenhouse.io/boomilp","industry":"other"}
-{"id":"bosch","name":"Robert Bosch GmbH","url":"https://www.bosch.com/careers","industry":"manufacturing"}
+{"id":"borgward_group_ag","name":"Borgward Group AG","url":"https://www.borgward.com","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"bosch_2","name":"Bosch","url":"https://www.bosch.com/careers/jobs/","industry":"other"}
+{"id":"bcg","name":"Boston Consulting Group","url":"https://careers.bcg.com","industry":"consulting"}
 {"id":"bounce","name":"Bounce","url":"https://jobs.ashbyhq.com/bounce","industry":"other"}
 {"id":"box","name":"Box","url":"https://www.box.com/about-us/careers","industry":"other"}
 {"id":"braineffectjobs","name":"Braineffectjobs","url":"https://job-boards.greenhouse.io/braineffectjobs","industry":"other"}
+{"id":"brandback","name":"Brandback","url":"https://brandback.ai","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"bratte","name":"Bratte","url":"https://jobs.ashbyhq.com/bratte","industry":"other"}
 {"id":"brave","name":"Brave","url":"https://job-boards.greenhouse.io/brave","industry":"other"}
 {"id":"braze","name":"Braze","url":"https://job-boards.greenhouse.io/braze","industry":"other"}
+{"id":"breuninger","name":"Breuninger","url":"https://www.breuninger.com/","industry":"retail_ecommerce","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"brevo","name":"Brevo","url":"https://jobs.lever.co/brevo","industry":"other"}
+{"id":"brmedia","name":"BRmedia","url":"https://www.br-media.de/","industry":"media_entertainment","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"broadsign","name":"Broadsign","url":"https://job-boards.greenhouse.io/broadsign","industry":"other"}
 {"id":"brooksrunning","name":"Brooksrunning","url":"https://jobs.lever.co/brooksrunning","industry":"other"}
 {"id":"brunswickgroup","name":"Brunswickgroup","url":"https://job-boards.greenhouse.io/brunswickgroup","industry":"other"}
+{"id":"bsh_hausger\u00e4te_gmbh","name":"BSH Hausger\u00e4te GmbH","url":"https://www.bsh-group.com/","industry":"manufacturing","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"buena","name":"Buena","url":"https://jobs.ashbyhq.com/buena","industry":"other"}
 {"id":"builder","name":"Builder","url":"https://job-boards.greenhouse.io/builder","industry":"other"}
 {"id":"bullpen_talent","name":"Bullpen Talent","url":"https://jobs.ashbyhq.com/bullpen-talent","industry":"other"}
 {"id":"bunch","name":"Bunch","url":"https://jobs.ashbyhq.com/bunch","industry":"other"}
+{"id":"burgerme","name":"burgerme","url":"https://www.burgerme.de","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"burmester_audiosysteme_gmbh","name":"Burmester Audiosysteme GmbH","url":"https://www.burmester.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"butternutbox","name":"Butternutbox","url":"https://job-boards.greenhouse.io/butternutbox","industry":"other"}
 {"id":"c3iot","name":"C3iot","url":"https://job-boards.greenhouse.io/c3iot","industry":"other"}
 {"id":"camunda","name":"Camunda","url":"https://camunda.com/career/","industry":"other"}
@@ -161,15 +203,19 @@
 {"id":"catawiki","name":"Catawiki","url":"https://job-boards.greenhouse.io/catawiki","industry":"other"}
 {"id":"catonetworks","name":"Catonetworks","url":"https://job-boards.greenhouse.io/catonetworks","industry":"other"}
 {"id":"ceartas","name":"Ceartas","url":"https://jobs.ashbyhq.com/ceartas","industry":"other"}
+{"id":"cegos_integrata_gmbh","name":"Cegos Integrata GmbH","url":"https://www.cegos-integrata.de/","industry":"education","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"celonis","name":"Celonis","url":"https://www.celonis.com/careers","industry":"software_it"}
 {"id":"celonis_2","name":"Celonis","url":"https://www.celonis.com/careers/jobs/","industry":"other"}
 {"id":"centrifuge","name":"Centrifuge","url":"https://jobs.lever.co/centrifuge","industry":"other"}
 {"id":"cfoinsights","name":"Cfoinsights","url":"https://job-boards.greenhouse.io/cfoinsights","industry":"other"}
+{"id":"cg_gruppe","name":"CG Gruppe","url":"https://www.cg-gruppe.de/","industry":"real_estate","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"chainguard","name":"Chainguard","url":"https://job-boards.greenhouse.io/chainguard","industry":"other"}
 {"id":"chargepoint","name":"Chargepoint","url":"https://job-boards.greenhouse.io/chargepoint","industry":"other"}
 {"id":"charlesriverassociates","name":"Charlesriverassociates","url":"https://job-boards.greenhouse.io/charlesriverassociates","industry":"other"}
+{"id":"check24","name":"Check24","url":"https://www.check24.de/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"choco","name":"Choco","url":"https://jobs.ashbyhq.com/choco","industry":"other"}
 {"id":"chromatic","name":"Chromatic","url":"https://jobs.ashbyhq.com/chromatic","industry":"other"}
+{"id":"chronomarket_luxury_gmbh","name":"ChronoMarket Luxury GmbH","url":"https://chronomarket.eu","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"circleci","name":"CircleCI","url":"https://circleci.com/careers/","industry":"other"}
 {"id":"cirquedusoleil","name":"Cirquedusoleil","url":"https://jobs.lever.co/cirquedusoleil","industry":"other"}
 {"id":"classpass","name":"Classpass","url":"https://job-boards.greenhouse.io/classpass","industry":"other"}
@@ -212,6 +258,7 @@
 {"id":"corcepttherapeutics","name":"Corcepttherapeutics","url":"https://job-boards.greenhouse.io/corcepttherapeutics","industry":"other"}
 {"id":"corelight","name":"Corelight","url":"https://job-boards.greenhouse.io/corelight","industry":"other"}
 {"id":"coreweaveu","name":"Coreweaveu","url":"https://job-boards.greenhouse.io/coreweaveu","industry":"other"}
+{"id":"corey_management_gmbh","name":"COREY Management GmbH","url":"https://corey-management.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"correlationone","name":"Correlationone","url":"https://job-boards.greenhouse.io/correlationone","industry":"other"}
 {"id":"corti","name":"Corti","url":"https://jobs.ashbyhq.com/corti","industry":"other"}
 {"id":"cosuno","name":"Cosuno","url":"https://jobs.ashbyhq.com/cosuno","industry":"other"}
@@ -225,13 +272,19 @@
 {"id":"cultureamp","name":"Cultureamp","url":"https://job-boards.greenhouse.io/cultureamp","industry":"other"}
 {"id":"cursor","name":"Cursor","url":"https://jobs.ashbyhq.com/cursor","industry":"other"}
 {"id":"cuspai","name":"Cuspai","url":"https://jobs.ashbyhq.com/cuspai","industry":"other"}
+{"id":"customer_alliance","name":"Customer Alliance","url":"https://www.customer-alliance.com/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"customerio","name":"Customerio","url":"https://job-boards.greenhouse.io/customerio","industry":"other"}
 {"id":"cvx","name":"CVX","url":"https://job-boards.greenhouse.io/cvx","industry":"other"}
 {"id":"cyluscybersecurity","name":"Cyluscybersecurity","url":"https://job-boards.greenhouse.io/cyluscybersecurity","industry":"other"}
 {"id":"cypress_io","name":"Cypress.io","url":"https://www.cypress.io/careers","industry":"other"}
 {"id":"d2l_2","name":"D2L","url":"https://www.d2l.com/careers/","industry":"other"}
+{"id":"daimler_buses","name":"Daimler Buses","url":"https://www.daimlertruck.com/unternehmen/daimler-buses","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"daimler_financial_services","name":"Daimler Financial Services","url":"https://www.mercedes-benz-mobility.com","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"daimler_truck","name":"Daimler Truck","url":"https://www.daimlertruck.com/careers","industry":"automotive"}
+{"id":"daka_corporate_consulting","name":"DaKa Corporate Consulting","url":"https://dakaholding.com/consulting","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"dandy","name":"Dandy","url":"https://jobs.ashbyhq.com/dandy","industry":"other"}
+{"id":"daphi_gmbh","name":"DaPhi GmbH","url":"https://www.daphi.de/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"darlot","name":"Darlot","url":"https://darlot.co","industry":"software_it","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"dash0","name":"Dash0","url":"https://jobs.ashbyhq.com/dash0","industry":"other"}
 {"id":"databricks","name":"Databricks","url":"https://www.databricks.com/company/careers","industry":"other"}
 {"id":"datadog_2","name":"Datadog","url":"https://job-boards.greenhouse.io/datadog","industry":"other"}
@@ -239,19 +292,26 @@
 {"id":"dataiku","name":"Dataiku","url":"https://job-boards.greenhouse.io/dataiku","industry":"other"}
 {"id":"dataikujobs","name":"Dataikujobs","url":"https://job-boards.greenhouse.io/dataikujobs","industry":"other"}
 {"id":"datarobot","name":"DataRobot","url":"https://www.datarobot.com/careers/","industry":"other"}
+{"id":"db_international","name":"DB International","url":"https://db-engineering-consulting.com/","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"debutbiotech25","name":"Debutbiotech25","url":"https://job-boards.greenhouse.io/debutbiotech25","industry":"other"}
 {"id":"deepgram","name":"Deepgram","url":"https://jobs.ashbyhq.com/deepgram","industry":"other"}
 {"id":"deepl","name":"DeepL","url":"https://www.deepl.com/en/careers/jobs","industry":"other"}
 {"id":"deepl_2","name":"DeepL","url":"https://www.deepl.com/en/jobs","industry":"other"}
 {"id":"deliverect","name":"Deliverect","url":"https://jobs.lever.co/deliverect","industry":"other"}
 {"id":"delivery_hero","name":"Delivery Hero","url":"https://careers.deliveryhero.com","industry":"retail_ecommerce"}
+{"id":"delock","name":"Delock","url":"https://www.delock.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"deloitte","name":"Deloitte","url":"https://www2.deloitte.com/global/en/careers.html","industry":"consulting"}
 {"id":"deltia","name":"Deltia","url":"https://jobs.ashbyhq.com/deltia","industry":"other"}
 {"id":"dept","name":"Dept","url":"https://job-boards.greenhouse.io/dept","industry":"other"}
+{"id":"design_hotels","name":"Design Hotels","url":"https://www.designhotels.com","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"deutsche_bahn","name":"Deutsche Bahn","url":"https://www.deutschebahn.com/en/career","industry":"transportation_logistics"}
 {"id":"deutsche_bank","name":"Deutsche Bank","url":"https://careers.db.com","industry":"finance"}
-{"id":"deutsche_boerse","name":"Deutsche Börse","url":"https://www.deutsche-boerse.com/careers","industry":"finance"}
+{"id":"deutsche_boerse","name":"Deutsche B\u00f6rse","url":"https://www.deutsche-boerse.com/careers","industry":"finance"}
+{"id":"deutsche_kreditbank","name":"Deutsche Kreditbank","url":"https://www.dkb.de","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"deutsche_linoleum_werke","name":"Deutsche Linoleum-Werke","url":"https://www.dlw.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"deutsche_pfandbriefbank","name":"Deutsche Pfandbriefbank","url":"https://www.pfandbriefbank.com","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"deutsche_telekom","name":"Deutsche Telekom","url":"https://www.telekom.com/en/careers","industry":"telecommunications"}
+{"id":"deutsche_wohnen_se","name":"Deutsche Wohnen SE","url":"https://www.deutsche-wohnen.com/","industry":"real_estate","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"deutz_ag","name":"Deutz AG","url":"https://www.deutz.com/careers","industry":"manufacturing"}
 {"id":"devrev","name":"Devrev","url":"https://job-boards.greenhouse.io/devrev","industry":"other"}
 {"id":"dhl","name":"DHL Group","url":"https://careers.dhl.com","industry":"transportation_logistics"}
@@ -261,6 +321,7 @@
 {"id":"digitalocean","name":"DigitalOcean","url":"https://www.digitalocean.com/careers","industry":"other"}
 {"id":"digitalocean98","name":"Digitalocean98","url":"https://job-boards.greenhouse.io/digitalocean98","industry":"other"}
 {"id":"diligentcorporation","name":"Diligentcorporation","url":"https://job-boards.greenhouse.io/diligentcorporation","industry":"other"}
+{"id":"dispolok","name":"Dispolok","url":"https://www.mrce.eu/","industry":"transportation_logistics","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"dnb","name":"DNB","url":"https://jobs.lever.co/dnb","industry":"other"}
 {"id":"docebo","name":"Docebo","url":"https://jobs.ashbyhq.com/docebo","industry":"other"}
 {"id":"docker","name":"Docker","url":"https://jobs.ashbyhq.com/docker","industry":"other"}
@@ -268,24 +329,36 @@
 {"id":"doctolib_2","name":"Doctolib","url":"https://job-boards.greenhouse.io/doctolib","industry":"other"}
 {"id":"doinstruct","name":"Doinstruct","url":"https://jobs.ashbyhq.com/doinstruct","industry":"other"}
 {"id":"doitintl","name":"Doitintl","url":"https://job-boards.greenhouse.io/doitintl","industry":"other"}
+{"id":"doktorakut","name":"DoktorAkut","url":"https://doktorakut.de","industry":"healthcare","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"domicil_real_estate_ag","name":"Domicil Real Estate AG","url":"https://www.domicil-group.de/","industry":"real_estate","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"dominodatalab","name":"Dominodatalab","url":"https://job-boards.greenhouse.io/dominodatalab","industry":"other"}
 {"id":"donorbox","name":"Donorbox","url":"https://job-boards.greenhouse.io/donorbox","industry":"other"}
 {"id":"doonails","name":"Doonails","url":"https://jobs.lever.co/doonails","industry":"other"}
+{"id":"dormero_hotels","name":"Dormero Hotels","url":"https://www.dormero.de/","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"dps_business_solutions_gmbh","name":"DPS Business Solutions GmbH","url":"https://www.dps-bs.de/","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"dragos","name":"Dragos","url":"https://job-boards.greenhouse.io/dragos","industry":"other"}
 {"id":"drata","name":"Drata","url":"https://jobs.ashbyhq.com/drata","industry":"other"}
+{"id":"driveddy_gmbh","name":"drivEddy GmbH","url":"https://www.drivEddy.com","industry":"education","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"duetti","name":"Duetti","url":"https://jobs.lever.co/duetti","industry":"other"}
+{"id":"dynamic_yield","name":"Dynamic Yield","url":"https://www.dynamicyield.com/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"dynamisinc","name":"Dynamisinc","url":"https://job-boards.greenhouse.io/dynamisinc","industry":"other"}
 {"id":"dynatrace","name":"Dynatrace","url":"https://careers.dynatrace.com/","industry":"other"}
+{"id":"eon","name":"E.ON","url":"https://www.eon.com/careers","industry":"energy"}
+{"id":"e_on_drive","name":"E.ON Drive","url":"https://www.eon-drive.com/","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"e_on_energie_deutschland","name":"E.ON Energie Deutschland","url":"https://www.eon.de/de/pk.html","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"easygenerator","name":"Easygenerator","url":"https://jobs.ashbyhq.com/Easygenerator","industry":"other"}
 {"id":"easyship","name":"Easyship","url":"https://job-boards.greenhouse.io/easyship","industry":"other"}
 {"id":"ebay_2","name":"eBay","url":"https://jobs.ebayinc.com/us/en/search-results","industry":"other"}
 {"id":"ecosia","name":"Ecosia","url":"https://explore.jobs.ecosia.org/","industry":"other"}
 {"id":"ecosia_2","name":"Ecosia","url":"https://www.ecosia.org/jobs","industry":"other"}
+{"id":"ecotoiletten","name":"EcoToiletten","url":"https://www.ecotoiletten.de","industry":"energy","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"ecovis_international","name":"Ecovis International","url":"https://www.ecovis.com/en","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"ecoworks","name":"Ecoworks","url":"https://job-boards.greenhouse.io/ecoworks","industry":"other"}
 {"id":"edeka","name":"Edeka","url":"https://www.edeka.de/karriere","industry":"retail_ecommerce"}
 {"id":"edgeconnex","name":"Edgeconnex","url":"https://job-boards.greenhouse.io/edgeconnex","industry":"other"}
 {"id":"editorialist","name":"Editorialist","url":"https://jobs.lever.co/editorialist","industry":"other"}
 {"id":"eh2","name":"Eh2","url":"https://job-boards.greenhouse.io/eh2","industry":"other"}
+{"id":"ekstend","name":"Ekstend","url":"https://www.ekstend.de","industry":"consulting","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"elastic_2","name":"Elastic","url":"https://job-boards.greenhouse.io/elastic","industry":"other"}
 {"id":"elastic_3","name":"Elastic","url":"https://jobs.elastic.co/jobs","industry":"other"}
 {"id":"eleks","name":"Eleks","url":"https://jobs.lever.co/eleks","industry":"other"}
@@ -293,25 +366,31 @@
 {"id":"elevenlabs","name":"Elevenlabs","url":"https://jobs.ashbyhq.com/elevenlabs","industry":"other"}
 {"id":"elfbeauty","name":"Elfbeauty","url":"https://jobs.lever.co/elfbeauty","industry":"other"}
 {"id":"ellamind","name":"Ellamind","url":"https://jobs.ashbyhq.com/ellamind","industry":"other"}
+{"id":"embea","name":"Embea","url":"https://embea.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"emburse","name":"Emburse","url":"https://jobs.lever.co/emburse","industry":"other"}
 {"id":"emidat","name":"Emidat","url":"https://jobs.ashbyhq.com/emidat","industry":"other"}
 {"id":"emma_sleep","name":"Emma Sleep","url":"https://jobs.lever.co/emma-sleep","industry":"other"}
 {"id":"emnify","name":"Emnify","url":"https://job-boards.greenhouse.io/emnify","industry":"other"}
 {"id":"enchargeai36","name":"Enchargeai36","url":"https://job-boards.greenhouse.io/enchargeai36","industry":"other"}
+{"id":"energienetze_bayern","name":"Energienetze Bayern","url":"https://www.energienetze-bayern.de/","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"energyrecovery","name":"Energyrecovery","url":"https://jobs.lever.co/energyrecovery","industry":"other"}
 {"id":"engflow","name":"Engflow","url":"https://jobs.ashbyhq.com/engflow","industry":"other"}
 {"id":"enode","name":"Enode","url":"https://jobs.ashbyhq.com/enode","industry":"other"}
 {"id":"entersekt","name":"Entersekt","url":"https://job-boards.greenhouse.io/entersekt","industry":"other"}
-{"id":"eon","name":"E.ON","url":"https://www.eon.com/careers","industry":"energy"}
 {"id":"eositsolutions","name":"Eositsolutions","url":"https://job-boards.greenhouse.io/eositsolutions","industry":"other"}
 {"id":"epidemic_sound","name":"Epidemic Sound","url":"https://jobs.ashbyhq.com/epidemic-sound","industry":"other"}
 {"id":"equilibriumenergy","name":"Equilibriumenergy","url":"https://job-boards.greenhouse.io/equilibriumenergy","industry":"other"}
 {"id":"espace","name":"Espace","url":"https://jobs.lever.co/espace","industry":"other"}
+{"id":"eterno","name":"Eterno","url":"https://www.eterno.group","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"eucalyptus","name":"Eucalyptus","url":"https://job-boards.greenhouse.io/eucalyptus","industry":"other"}
+{"id":"euwax","name":"EUWAX","url":"https://www.euwax-ag.de","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"eve_systems","name":"Eve Systems","url":"https://www.evehome.com/de","industry":"manufacturing","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"everbridge","name":"Everbridge","url":"https://jobs.lever.co/everbridge","industry":"other"}
 {"id":"everfield","name":"Everfield","url":"https://jobs.ashbyhq.com/everfield","industry":"other"}
 {"id":"everstreamanalytics","name":"Everstreamanalytics","url":"https://job-boards.greenhouse.io/everstreamanalytics","industry":"other"}
 {"id":"evonik_industries","name":"Evonik Industries","url":"https://careers.evonik.com","industry":"manufacturing"}
+{"id":"evum_motors","name":"EVUM Motors","url":"https://evum-motors.com/","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"expath_training___consulting_gmbh","name":"Expath Training & Consulting GmbH","url":"https://www.expath.de","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"extremenetworks","name":"Extremenetworks","url":"https://jobs.lever.co/extremenetworks","industry":"other"}
 {"id":"ey","name":"EY","url":"https://www.ey.com/en_gl/careers","industry":"consulting"}
 {"id":"eye_security","name":"EYE Security","url":"https://jobs.ashbyhq.com/eye-security","industry":"other"}
@@ -333,6 +412,7 @@
 {"id":"flexport","name":"Flexport","url":"https://job-boards.greenhouse.io/flexport","industry":"other"}
 {"id":"flipp","name":"Flipp","url":"https://job-boards.greenhouse.io/flipp","industry":"other"}
 {"id":"flix","name":"Flix","url":"https://job-boards.greenhouse.io/flix","industry":"other"}
+{"id":"flix_se","name":"Flix SE","url":"https://www.flixbus.com","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"flixbus","name":"FlixBus (Flix SE)","url":"https://careers.flixbus.com","industry":"transportation_logistics"}
 {"id":"focused","name":"Focused","url":"https://jobs.ashbyhq.com/focused","industry":"other"}
 {"id":"ford","name":"Ford Motor Company","url":"https://corporate.ford.com/careers.html","industry":"automotive"}
@@ -341,26 +421,38 @@
 {"id":"founders_factory","name":"Founders Factory","url":"https://jobs.ashbyhq.com/founders-factory","industry":"other"}
 {"id":"foxelligroup","name":"Foxelligroup","url":"https://jobs.ashbyhq.com/foxelligroup","industry":"other"}
 {"id":"foxitsoftware","name":"Foxitsoftware","url":"https://jobs.lever.co/foxitsoftware","industry":"other"}
+{"id":"fraunhofer_additive_manufacturing_alliance","name":"Fraunhofer Additive Manufacturing Alliance","url":"https://www.generativ.fraunhofer.de/","industry":"manufacturing","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"fraunhofer","name":"Fraunhofer-Gesellschaft","url":"https://www.fraunhofer.de/careers","industry":"education"}
+{"id":"freecom","name":"Freecom","url":"https://www.freecom.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"fresenius","name":"Fresenius","url":"https://www.fresenius.com/careers","industry":"healthcare"}
 {"id":"fresenius_medical_care","name":"Fresenius Medical Care","url":"https://www.freseniusmedicalcare.com/careers","industry":"healthcare"}
+{"id":"friendscout24","name":"FriendScout24","url":"https://www.lovescout24.de/","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"fritz","name":"Fritz!","url":"https://www.fritz.com/","industry":"telecommunications","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"fundamental","name":"Fundamental","url":"https://jobs.ashbyhq.com/fundamental","industry":"other"}
 {"id":"fundedclub","name":"Fundedclub","url":"https://job-boards.greenhouse.io/fundedclub","industry":"other"}
 {"id":"g2i","name":"G2i","url":"https://jobs.ashbyhq.com/g2i","industry":"other"}
+{"id":"ga_generic_assays_gmbh","name":"GA Generic Assays GmbH","url":"https://www.genericassays.com/en/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"gallup","name":"Gallup","url":"https://job-boards.greenhouse.io/gallup","industry":"other"}
 {"id":"galvany","name":"Galvany","url":"https://jobs.ashbyhq.com/galvany","industry":"other"}
 {"id":"gameduell","name":"GameDuell","url":"https://inside.gameduell.com/jobs/","industry":"other"}
 {"id":"gamma","name":"Gamma","url":"https://jobs.ashbyhq.com/gamma","industry":"other"}
+{"id":"garamantis","name":"Garamantis","url":"https://www.garamantis.com","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"gasversorgung_s\u00fcddeutschland","name":"Gasversorgung S\u00fcddeutschland","url":"https://www.gvs-erdgas.de/","industry":"energy","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"gch_hotels","name":"GCH Hotels","url":"https://www.gchhotelgroup.com/","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"generalatlantic","name":"Generalatlantic","url":"https://job-boards.greenhouse.io/generalatlantic","industry":"other"}
+{"id":"generali_deutschland","name":"Generali Deutschland","url":"https://www.generali.de/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"genscript","name":"Genscript","url":"https://job-boards.greenhouse.io/genscript","industry":"other"}
 {"id":"geotab","name":"Geotab","url":"https://job-boards.greenhouse.io/geotab","industry":"other"}
 {"id":"getyourguide","name":"GetYourGuide","url":"https://careers.getyourguide.com","industry":"hospitality_travel"}
 {"id":"ghsmartjobs","name":"Ghsmartjobs","url":"https://jobs.lever.co/ghsmartjobs","industry":"other"}
+{"id":"gigaset","name":"Gigaset","url":"https://www.gigaset.ag/","industry":"telecommunications","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"gigaset_communications","name":"Gigaset Communications","url":"https://www.gigaset.com/","industry":"telecommunications","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"gigs","name":"Gigs","url":"https://job-boards.greenhouse.io/gigs","industry":"other"}
 {"id":"github","name":"GitHub","url":"https://www.github.careers/careers-home/jobs","industry":"other"}
 {"id":"gitlab_2","name":"GitLab","url":"https://about.gitlab.com/jobs/all-jobs/","industry":"other"}
 {"id":"gitlab_3","name":"GitLab","url":"https://job-boards.greenhouse.io/gitlab","industry":"other"}
 {"id":"gitpod","name":"Gitpod","url":"https://www.gitpod.io/careers","industry":"other"}
+{"id":"givve","name":"givve","url":"https://givve.com/de/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"glassboxltd","name":"Glassboxltd","url":"https://job-boards.greenhouse.io/glassboxltd","industry":"other"}
 {"id":"gleanwork","name":"Gleanwork","url":"https://job-boards.greenhouse.io/gleanwork","industry":"other"}
 {"id":"glow25","name":"Glow25","url":"https://jobs.ashbyhq.com/glow25","industry":"other"}
@@ -369,16 +461,21 @@
 {"id":"gostudent","name":"Gostudent","url":"https://job-boards.greenhouse.io/gostudent","industry":"other"}
 {"id":"gotion","name":"Gotion","url":"https://job-boards.greenhouse.io/gotion","industry":"other"}
 {"id":"gotphoto","name":"Gotphoto","url":"https://jobs.ashbyhq.com/gotphoto","industry":"other"}
+{"id":"govecs","name":"GOVECS","url":"https://www.govecs.de/","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"grafana_labs","name":"Grafana Labs","url":"https://grafana.com/about/careers/open-positions/","industry":"other"}
 {"id":"grafanalabs","name":"Grafanalabs","url":"https://job-boards.greenhouse.io/grafanalabs","industry":"other"}
 {"id":"grammarly","name":"Grammarly","url":"https://www.grammarly.com/jobs","industry":"other"}
 {"id":"granular_energy_com","name":"Granular Energy.com","url":"https://jobs.ashbyhq.com/granular-energy.com","industry":"other"}
 {"id":"graphitehq","name":"Graphitehq","url":"https://jobs.ashbyhq.com/graphitehq","industry":"other"}
+{"id":"groovy_web","name":"Groovy Web","url":"https://www.groovyweb.co","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"grover","name":"Grover","url":"https://job-boards.greenhouse.io/grover","industry":"other"}
 {"id":"growthx_ai","name":"Growthx AI","url":"https://jobs.ashbyhq.com/GrowthX AI","industry":"other"}
 {"id":"gruve","name":"Gruve","url":"https://job-boards.greenhouse.io/gruve","industry":"other"}
 {"id":"gt_hq","name":"GT HQ","url":"https://jobs.ashbyhq.com/gt-hq","industry":"other"}
+{"id":"guy_arthur_school_of_english","name":"Guy Arthur School of English","url":"https://guyarthurschool.com","industry":"education","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"gympass","name":"Gympass","url":"https://job-boards.greenhouse.io/gympass","industry":"other"}
+{"id":"hm_group","name":"H&M Group","url":"https://career.hm.com","industry":"retail_ecommerce"}
+{"id":"h_studio_berlin","name":"H-Studio Berlin","url":"https://www.h-studio-berlin.de","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"hannover_re","name":"Hannover Re","url":"https://www.hannover-re.com/careers","industry":"finance"}
 {"id":"hashicorp","name":"HashiCorp","url":"https://www.hashicorp.com/careers","industry":"other"}
 {"id":"hashicorp_2","name":"HashiCorp","url":"https://www.hashicorp.com/careers/open-positions","industry":"other"}
@@ -388,32 +485,40 @@
 {"id":"heidihealth_com_au","name":"Heidihealth.com.au","url":"https://jobs.ashbyhq.com/heidihealth.com.au","industry":"other"}
 {"id":"hellofresh","name":"HelloFresh","url":"https://jobs.hellofresh.com","industry":"retail_ecommerce"}
 {"id":"helsing","name":"Helsing","url":"https://job-boards.greenhouse.io/helsing","industry":"other"}
+{"id":"helsing","name":"Helsing","url":"https://jobs.ashbyhq.com/helsing","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
 {"id":"henkel","name":"Henkel","url":"https://www.henkel.com/careers","industry":"manufacturing"}
 {"id":"hensoldt","name":"Hensoldt","url":"https://www.hensoldt.net/careers","industry":"aerospace_defense"}
 {"id":"hercules","name":"Hercules","url":"https://jobs.ashbyhq.com/hercules","industry":"other"}
 {"id":"heygen","name":"Heygen","url":"https://job-boards.greenhouse.io/heygen","industry":"other"}
 {"id":"heyjobs","name":"HeyJobs","url":"https://www.heyjobs.co/en/career","industry":"other"}
 {"id":"hibu","name":"Hibu","url":"https://job-boards.greenhouse.io/hibu","industry":"other"}
+{"id":"hidden_brains_infotech_pvt__ltd","name":"Hidden Brains Infotech Pvt. Ltd.","url":"https://www.hiddenbrains.com","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"higharc","name":"Higharc","url":"https://jobs.ashbyhq.com/higharc","industry":"other"}
 {"id":"hightouch","name":"Hightouch","url":"https://job-boards.greenhouse.io/hightouch","industry":"other"}
 {"id":"hilberts","name":"Hilberts","url":"https://jobs.ashbyhq.com/hilberts","industry":"other"}
 {"id":"hirehire","name":"Hirehire","url":"https://jobs.ashbyhq.com/hirehire","industry":"other"}
 {"id":"hive","name":"Hive","url":"https://job-boards.greenhouse.io/hive","industry":"other"}
 {"id":"hivemq","name":"Hivemq","url":"https://jobs.ashbyhq.com/hivemq","industry":"other"}
-{"id":"hm_group","name":"H&M Group","url":"https://career.hm.com","industry":"retail_ecommerce"}
+{"id":"holert","name":"Holert","url":"https://www.holert.com/","industry":"consulting","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"home24","name":"home24","url":"https://www.home24.de","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"hometogo","name":"HomeToGo","url":"https://www.hometogo.com/careers/","industry":"other"}
 {"id":"horizon3ai","name":"Horizon3ai","url":"https://jobs.ashbyhq.com/horizon3ai","industry":"other"}
+{"id":"horv\u00e1th_ag","name":"Horv\u00e1th AG","url":"https://www.horvath-partners.com/","industry":"consulting","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"hostinger","name":"Hostinger","url":"https://jobs.ashbyhq.com/hostinger","industry":"other"}
 {"id":"hotjar","name":"Hotjar","url":"https://careers.hotjar.com/","industry":"other"}
 {"id":"housinganywhere","name":"Housinganywhere","url":"https://job-boards.greenhouse.io/housinganywhere","industry":"other"}
 {"id":"hubspot_2","name":"HubSpot","url":"https://www.hubspot.com/careers/jobs/all","industry":"other"}
 {"id":"hubspotjobs","name":"Hubspotjobs","url":"https://job-boards.greenhouse.io/hubspotjobs","industry":"other"}
+{"id":"huddlestock","name":"Huddlestock","url":"https://www.huddlestock.com","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"hugging_face","name":"Hugging Face","url":"https://apply.workable.com/huggingface/","industry":"other"}
 {"id":"hugo_boss","name":"Hugo Boss","url":"https://group.hugoboss.com/careers","industry":"retail_ecommerce"}
 {"id":"humanrightswatch","name":"Humanrightswatch","url":"https://job-boards.greenhouse.io/humanrightswatch","industry":"other"}
 {"id":"humansignal","name":"Humansignal","url":"https://job-boards.greenhouse.io/humansignal","industry":"other"}
 {"id":"hyperheat","name":"Hyperheat","url":"https://job-boards.greenhouse.io/hyperheat","industry":"other"}
+{"id":"hyphe_markets","name":"Hyphe Markets","url":"https://hyphe.com/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"hyphenconnect","name":"Hyphenconnect","url":"https://job-boards.greenhouse.io/hyphenconnect","industry":"other"}
+{"id":"hypo_real_estate","name":"Hypo Real Estate","url":"https://www.hyporealestate.com/","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"hypovereinsbank","name":"HypoVereinsbank","url":"https://www.hypovereinsbank.de","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"hyundai","name":"Hyundai Motor Company","url":"https://www.hyundai.com/worldwide/en/company/careers","industry":"automotive"}
 {"id":"ibm","name":"IBM","url":"https://www.ibm.com/careers","industry":"software_it"}
 {"id":"iceye","name":"Iceye","url":"https://jobs.ashbyhq.com/iceye","industry":"other"}
@@ -425,23 +530,28 @@
 {"id":"inceptive","name":"Inceptive","url":"https://job-boards.greenhouse.io/inceptive","industry":"other"}
 {"id":"indiecampers","name":"Indiecampers","url":"https://job-boards.greenhouse.io/indiecampers","industry":"other"}
 {"id":"industrious","name":"Industrious","url":"https://jobs.ashbyhq.com/industrious","industry":"other"}
-{"id":"infineon","name":"Infineon Technologies","url":"https://www.infineon.com/careers","industry":"software_it"}
 {"id":"infineon_2","name":"Infineon","url":"https://jobs.infineon.com/","industry":"other"}
+{"id":"infineon","name":"Infineon Technologies","url":"https://www.infineon.com/careers","industry":"software_it"}
 {"id":"inkitt","name":"Inkitt","url":"https://jobs.lever.co/inkitt","industry":"other"}
 {"id":"innatera","name":"Innatera","url":"https://jobs.ashbyhq.com/innatera","industry":"other"}
 {"id":"innovecs","name":"Innovecs","url":"https://job-boards.greenhouse.io/innovecs","industry":"other"}
+{"id":"instinctools","name":"Instinctools","url":"https://www.instinctools.com/","industry":"software_it","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"instructure","name":"Instructure","url":"https://www.instructure.com/about/careers","industry":"other"}
 {"id":"intercom","name":"Intercom","url":"https://job-boards.greenhouse.io/intercom","industry":"other"}
 {"id":"intersystems","name":"Intersystems","url":"https://job-boards.greenhouse.io/intersystems","industry":"other"}
 {"id":"interviewengineering","name":"Interviewengineering","url":"https://job-boards.greenhouse.io/interviewengineering","industry":"other"}
 {"id":"intrinsicrobotics","name":"Intrinsicrobotics","url":"https://job-boards.greenhouse.io/intrinsicrobotics","industry":"other"}
 {"id":"invert","name":"Invert","url":"https://jobs.ashbyhq.com/invert","industry":"other"}
+{"id":"investigate_europe","name":"Investigate Europe","url":"https://www.investigate-europe.eu/de","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"inworld_ai","name":"Inworld AI","url":"https://jobs.ashbyhq.com/inworld-ai","industry":"other"}
+{"id":"ionity","name":"Ionity","url":"https://ionity.eu/","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"ionq","name":"Ionq","url":"https://job-boards.greenhouse.io/ionq","industry":"other"}
 {"id":"ipfabric","name":"Ipfabric","url":"https://job-boards.greenhouse.io/ipfabric","industry":"other"}
+{"id":"isar_aerospace","name":"Isar Aerospace","url":"https://isaraerospace.com/careers/","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
 {"id":"isaraerospace","name":"Isaraerospace","url":"https://job-boards.greenhouse.io/isaraerospace","industry":"other"}
 {"id":"ivalua","name":"Ivalua","url":"https://job-boards.greenhouse.io/ivalua","industry":"other"}
 {"id":"iwoca_co_uk","name":"Iwoca.co.uk","url":"https://jobs.ashbyhq.com/iwoca.co.uk","industry":"other"}
+{"id":"jacasa","name":"JACASA","url":"https://www.jacasa.de/","industry":"real_estate","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"jamf","name":"Jamf","url":"https://job-boards.greenhouse.io/jamf","industry":"other"}
 {"id":"janes","name":"Janes","url":"https://job-boards.greenhouse.io/janes","industry":"other"}
 {"id":"jetbrains","name":"Jetbrains","url":"https://job-boards.greenhouse.io/jetbrains","industry":"other"}
@@ -453,8 +563,10 @@
 {"id":"kadmos3","name":"Kadmos3","url":"https://job-boards.greenhouse.io/kadmos3","industry":"other"}
 {"id":"kalepa","name":"Kalepa","url":"https://job-boards.greenhouse.io/kalepa","industry":"other"}
 {"id":"kao","name":"KAO","url":"https://job-boards.greenhouse.io/kao","industry":"other"}
+{"id":"karl_schuke_organs","name":"Karl Schuke organs","url":"https://schuke-berlin.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"kayak","name":"Kayak","url":"https://jobs.ashbyhq.com/kayak","industry":"other"}
 {"id":"keebo","name":"Keebo","url":"https://job-boards.greenhouse.io/keebo","industry":"other"}
+{"id":"kem\u00e9ny_boehme_consultants_inc","name":"Kem\u00e9ny Boehme Consultants Inc.","url":"https://kbc-consultants.com","industry":"consulting","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"kepler","name":"Kepler","url":"https://jobs.lever.co/kepler","industry":"other"}
 {"id":"kestra","name":"Kestra","url":"https://jobs.ashbyhq.com/kestra","industry":"other"}
 {"id":"ketryx","name":"Ketryx","url":"https://job-boards.greenhouse.io/ketryx","industry":"other"}
@@ -476,8 +588,10 @@
 {"id":"kota","name":"Kota","url":"https://jobs.ashbyhq.com/kota","industry":"other"}
 {"id":"kpmg","name":"KPMG","url":"https://home.kpmg/xx/en/home/careers.html","industry":"consulting"}
 {"id":"kraken123","name":"Kraken123","url":"https://jobs.lever.co/kraken123","industry":"other"}
+{"id":"krusche___company_gmbh","name":"Krusche & Company GmbH","url":"https://kruschecompany.com","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"kyanhealth","name":"Kyanhealth","url":"https://jobs.ashbyhq.com/kyanhealth","industry":"other"}
 {"id":"kyra","name":"Kyra","url":"https://jobs.ashbyhq.com/kyra","industry":"other"}
+{"id":"l_bank","name":"L-Bank","url":"https://www.l-bank.de/","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"lago","name":"Lago","url":"https://jobs.ashbyhq.com/lago","industry":"other"}
 {"id":"lakera_ai","name":"Lakera.ai","url":"https://jobs.ashbyhq.com/lakera.ai","industry":"other"}
 {"id":"lalamove","name":"Lalamove","url":"https://jobs.lever.co/lalamove","industry":"other"}
@@ -498,7 +612,9 @@
 {"id":"ledgy","name":"Ledgy","url":"https://job-boards.greenhouse.io/ledgy","industry":"other"}
 {"id":"lemonade","name":"Lemonade","url":"https://jobs.ashbyhq.com/lemonade","industry":"other"}
 {"id":"lenusehealth","name":"Lenusehealth","url":"https://job-boards.greenhouse.io/lenusehealth","industry":"other"}
+{"id":"leonardo_hotels","name":"Leonardo Hotels","url":"https://www.leonardo-hotels.de/","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"lexroom","name":"Lexroom","url":"https://jobs.ashbyhq.com/lexroom","industry":"other"}
+{"id":"lg_fashion_labs","name":"LG Fashion Labs","url":"https://lgfashionlabs.com","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"li_thermal_works","name":"LI Thermal Works","url":"https://job-boards.greenhouse.io/li-thermal-works","industry":"other"}
 {"id":"liberis","name":"Liberis","url":"https://job-boards.greenhouse.io/liberis","industry":"other"}
 {"id":"lidl","name":"Lidl","url":"https://jobs.lidl.com","industry":"retail_ecommerce"}
@@ -511,43 +627,66 @@
 {"id":"locusrobotics","name":"Locusrobotics","url":"https://job-boards.greenhouse.io/locusrobotics","industry":"other"}
 {"id":"loftorbital","name":"Loftorbital","url":"https://jobs.lever.co/loftorbital","industry":"other"}
 {"id":"logicmonitor","name":"Logicmonitor","url":"https://job-boards.greenhouse.io/logicmonitor","industry":"other"}
+{"id":"logisticoo_gmbh","name":"Logisticoo GmbH","url":"https://www.logisticoo.com","industry":"transportation_logistics","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"lokalise","name":"Lokalise","url":"https://job-boards.greenhouse.io/lokalise","industry":"other"}
+{"id":"lpg_biomarkt","name":"LPG BioMarkt","url":"https://www.lpg-biomarkt.de","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"lucanetgroup","name":"Lucanetgroup","url":"https://job-boards.greenhouse.io/lucanetgroup","industry":"other"}
 {"id":"lucid_software","name":"Lucid Software","url":"https://lucid.co/careers","industry":"other"}
 {"id":"lufthansa_group","name":"Lufthansa Group","url":"https://www.karriere.lufthansa.com","industry":"transportation_logistics"}
 {"id":"lumimeds","name":"Lumimeds","url":"https://job-boards.greenhouse.io/lumimeds","industry":"other"}
 {"id":"luminovo","name":"Luminovo","url":"https://jobs.ashbyhq.com/luminovo","industry":"other"}
+{"id":"luqom","name":"Luqom","url":"https://www.luqom.com/","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"lyric","name":"Lyric","url":"https://jobs.ashbyhq.com/lyric","industry":"other"}
+{"id":"m_net","name":"M-net","url":"https://www.m-net.de","industry":"telecommunications","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"magnetforensics","name":"Magnetforensics","url":"https://jobs.lever.co/magnetforensics","industry":"other"}
+{"id":"mahle_gmbh","name":"Mahle GmbH","url":"https://www.mahle.com/","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"make","name":"Make","url":"https://job-boards.greenhouse.io/make","industry":"other"}
+{"id":"makerverse","name":"MakerVerse","url":"https://www.makerverse.com/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"malt","name":"Malt","url":"https://jobs.lever.co/malt","industry":"other"}
+{"id":"maltego_technologies","name":"Maltego Technologies","url":"https://www.maltego.com/","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"mambu","name":"Mambu","url":"https://www.mambu.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"man_truck_bus","name":"MAN Truck & Bus","url":"https://www.man.eu/careers","industry":"automotive"}
 {"id":"mapbox","name":"Mapbox","url":"https://jobs.ashbyhq.com/mapbox","industry":"other"}
 {"id":"mattermost","name":"Mattermost","url":"https://job-boards.greenhouse.io/mattermost","industry":"other"}
 {"id":"maybellquantum","name":"Maybellquantum","url":"https://job-boards.greenhouse.io/maybellquantum","industry":"other"}
 {"id":"mazehq","name":"Mazehq","url":"https://jobs.ashbyhq.com/mazehq","industry":"other"}
 {"id":"mbarecruitingcra","name":"Mbarecruitingcra","url":"https://job-boards.greenhouse.io/mbarecruitingcra","industry":"other"}
+{"id":"mbition","name":"MBition","url":"https://mbition.io","industry":"automotive","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"mckesson_europe_ag","name":"McKesson Europe AG","url":"https://www.mckesson.eu/mck-en","industry":"manufacturing","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"mckinsey","name":"McKinsey & Company","url":"https://www.mckinsey.com/careers","industry":"consulting"}
+{"id":"mcpaper","name":"McPaper","url":"https://www.mcpaper.de/","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"medelitellc","name":"Medelitellc","url":"https://job-boards.greenhouse.io/medelitellc","industry":"other"}
+{"id":"media_sales___services_gmbh","name":"media sales & services GmbH","url":"https://www.mss-online.de/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"median_kliniken","name":"Median Kliniken","url":"https://www.median-kliniken.de/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"medico_academic_consultings__germany","name":"Medico-Academic Consultings (Germany)","url":"https://www.mediacc.de/","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"medicover","name":"Medicover","url":"https://www.medicover.com/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"megaport","name":"Megaport","url":"https://jobs.lever.co/megaport","industry":"other"}
+{"id":"meindentist","name":"MeinDentist","url":"https://meindentist.de","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"meininger_hotel_group","name":"Meininger Hotel Group","url":"https://www.meininger-hotels.com/","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"melotech","name":"Melotech","url":"https://jobs.ashbyhq.com/melotech","industry":"other"}
 {"id":"mendix","name":"Mendix","url":"https://www.mendix.com/careers/","industry":"other"}
 {"id":"menlosecurity","name":"Menlosecurity","url":"https://jobs.ashbyhq.com/menlosecurity","industry":"other"}
 {"id":"mento","name":"Mento","url":"https://jobs.ashbyhq.com/mento","industry":"other"}
+{"id":"mercedes_benz","name":"Mercedes-Benz","url":"https://www.mercedes-benz.com/en/","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"mercedes_benz_ag","name":"Mercedes-Benz AG","url":"https://www.mercedes-benz.de/","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"mercedes_benz","name":"Mercedes-Benz Group","url":"https://career.mercedes-benz.com","industry":"automotive"}
 {"id":"mercedes_benz_tech_innovation","name":"Mercedes-Benz Tech Innovation","url":"https://www.mercedes-benz-techinnovation.com/en/career/jobs/","industry":"other"}
 {"id":"merck_kgaa","name":"Merck KGaA","url":"https://www.merckgroup.com/careers","industry":"biotech_pharma"}
 {"id":"merge","name":"Merge","url":"https://jobs.ashbyhq.com/merge","industry":"other"}
+{"id":"meta_hotels_gmbh","name":"META Hotels GmbH","url":"https://www.meta-gmbh.de/","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"metabase","name":"Metabase","url":"https://jobs.lever.co/metabase","industry":"other"}
 {"id":"metro_ag","name":"Metro AG","url":"https://www.metroag.de/careers","industry":"retail_ecommerce"}
 {"id":"michelscorporation","name":"Michelscorporation","url":"https://job-boards.greenhouse.io/michelscorporation","industry":"other"}
 {"id":"microblink","name":"Microblink","url":"https://job-boards.greenhouse.io/microblink","industry":"other"}
 {"id":"microsoft_2","name":"Microsoft","url":"https://jobs.careers.microsoft.com/global/en","industry":"other"}
+{"id":"midge_medical_gmbh","name":"Midge Medical GmbH","url":"https://midgemedical.com/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"mimica","name":"Mimica","url":"https://jobs.ashbyhq.com/mimica","industry":"other"}
+{"id":"mimimi_productions","name":"Mimimi Productions","url":"https://www.mimimi.games","industry":"media_entertainment","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"minitab","name":"Minitab","url":"https://job-boards.greenhouse.io/minitab","industry":"other"}
 {"id":"mirakl","name":"Mirakl","url":"https://job-boards.greenhouse.io/mirakl","industry":"other"}
 {"id":"mirelo","name":"Mirelo","url":"https://jobs.ashbyhq.com/mirelo","industry":"other"}
 {"id":"miro","name":"Miro","url":"https://miro.com/careers/open-positions/","industry":"other"}
+{"id":"mister_spex","name":"Mister Spex","url":"https://www.misterspex.de/","industry":"retail_ecommerce","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"mistral_ai","name":"Mistral AI","url":"https://mistral.ai/careers","industry":"other"}
 {"id":"mitratech","name":"Mitratech","url":"https://job-boards.greenhouse.io/mitratech","industry":"other"}
 {"id":"mixpanel","name":"Mixpanel","url":"https://job-boards.greenhouse.io/mixpanel","industry":"other"}
@@ -558,38 +697,50 @@
 {"id":"mongodb_2","name":"MongoDB","url":"https://job-boards.greenhouse.io/mongodb","industry":"other"}
 {"id":"monks","name":"Monks","url":"https://job-boards.greenhouse.io/monks","industry":"other"}
 {"id":"montu_uk","name":"Montu UK","url":"https://jobs.ashbyhq.com/montu-uk","industry":"other"}
+{"id":"motel_one","name":"Motel One","url":"https://www.motel-one.com/en/","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"mozilla","name":"Mozilla","url":"https://job-boards.greenhouse.io/mozilla","industry":"other"}
 {"id":"mozilla_2","name":"Mozilla","url":"https://www.mozilla.org/en-US/careers/listings/","industry":"other"}
+{"id":"mrs_sporty","name":"Mrs.Sporty","url":"https://www.mrssporty.de","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"mtu_aero_engines","name":"MTU Aero Engines","url":"https://www.mtu.de/careers","industry":"aerospace_defense"}
 {"id":"munich_re","name":"Munich Re","url":"https://www.munichre.com/careers","industry":"finance"}
 {"id":"mural","name":"Mural","url":"https://jobs.ashbyhq.com/mural","industry":"other"}
+{"id":"mytheresa","name":"Mytheresa","url":"https://www.mytheresa.com/","industry":"retail_ecommerce","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"m\u00fcnchner_verkehrs__und_tarifverbund","name":"M\u00fcnchner Verkehrs- und Tarifverbund","url":"https://www.mvv-muenchen.de","industry":"transportation_logistics","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"m\u00fcnchner_verkehrsgesellschaft_mbh__mvg","name":"M\u00fcnchner Verkehrsgesellschaft mbH (MVG)","url":"https://www.mvg.de/","industry":"transportation_logistics","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"n26","name":"N26","url":"https://n26.com/careers","industry":"finance"}
 {"id":"n8n","name":"N8n","url":"https://jobs.ashbyhq.com/n8n","industry":"other"}
 {"id":"namespace","name":"Namespace","url":"https://jobs.ashbyhq.com/namespace","industry":"other"}
 {"id":"native_instruments","name":"Native Instruments","url":"https://www.native-instruments.com/en/company/careers/","industry":"other"}
 {"id":"navvis","name":"Navvis","url":"https://job-boards.greenhouse.io/navvis","industry":"other"}
+{"id":"nbb_netzgesellschaft_berlin_brandenburg","name":"NBB Netzgesellschaft Berlin-Brandenburg","url":"https://www.nbb-netzgesellschaft.de/","industry":"energy","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"neara","name":"Neara","url":"https://jobs.ashbyhq.com/neara","industry":"other"}
 {"id":"nebius","name":"Nebius","url":"https://job-boards.greenhouse.io/nebius","industry":"other"}
 {"id":"neko_health","name":"Neko Health","url":"https://jobs.ashbyhq.com/neko-health","industry":"other"}
+{"id":"neoplan","name":"Neoplan","url":"https://www.neoplan.com/","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"neotaste","name":"Neotaste","url":"https://jobs.ashbyhq.com/neotaste","industry":"other"}
 {"id":"netlify","name":"Netlify","url":"https://www.netlify.com/careers/","industry":"other"}
 {"id":"netlight","name":"Netlight","url":"https://jobs.lever.co/netlight","industry":"other"}
 {"id":"netskope","name":"Netskope","url":"https://job-boards.greenhouse.io/netskope","industry":"other"}
 {"id":"new_relic","name":"New Relic","url":"https://newrelic.com/careers","industry":"other"}
 {"id":"newrelic","name":"Newrelic","url":"https://job-boards.greenhouse.io/newrelic","industry":"other"}
+{"id":"nextcloud_gmbh","name":"Nextcloud GmbH","url":"https://nextcloud.com","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"nexxa","name":"Nexxa","url":"https://jobs.ashbyhq.com/nexxa","industry":"other"}
 {"id":"nice","name":"Nice","url":"https://job-boards.greenhouse.io/nice","industry":"other"}
 {"id":"nintex","name":"Nintex","url":"https://job-boards.greenhouse.io/nintex","industry":"other"}
 {"id":"nlcventures","name":"Nlcventures","url":"https://job-boards.greenhouse.io/nlcventures","industry":"other"}
 {"id":"nomos","name":"Nomos","url":"https://jobs.ashbyhq.com/nomos","industry":"other"}
+{"id":"nonplusultra","name":"nonplusultra","url":"https://nonplusultra.eu","industry":"retail_ecommerce","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"northflank_com","name":"Northflank.com","url":"https://jobs.ashbyhq.com/northflank.com","industry":"other"}
 {"id":"notion","name":"Notion","url":"https://jobs.ashbyhq.com/notion","industry":"other"}
 {"id":"notion_2","name":"Notion","url":"https://www.notion.so/careers","industry":"other"}
 {"id":"novaspace","name":"Novaspace","url":"https://jobs.lever.co/novaspace","industry":"other"}
+{"id":"noventi_health","name":"Noventi Health","url":"https://www.noventi.de/","industry":"healthcare","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"nozominetworks","name":"Nozominetworks","url":"https://job-boards.greenhouse.io/nozominetworks","industry":"other"}
 {"id":"nscaleoperationsukltd","name":"Nscaleoperationsukltd","url":"https://job-boards.greenhouse.io/nscaleoperationsukltd","industry":"other"}
 {"id":"ntconcepts","name":"Ntconcepts","url":"https://job-boards.greenhouse.io/ntconcepts","industry":"other"}
+{"id":"nubank","name":"Nubank","url":"https://nu.com.co/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"nuitee","name":"Nuitee","url":"https://job-boards.greenhouse.io/nuitee","industry":"other"}
+{"id":"numa","name":"Numa","url":"https://numastays.com/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"numagroupgmbh","name":"Numagroupgmbh","url":"https://job-boards.greenhouse.io/numagroupgmbh","industry":"other"}
 {"id":"obrio","name":"Obrio","url":"https://jobs.ashbyhq.com/obrio","industry":"other"}
 {"id":"octoenergy","name":"Octoenergy","url":"https://jobs.lever.co/octoenergy","industry":"other"}
@@ -617,9 +768,12 @@
 {"id":"orcristtechnologies","name":"Orcristtechnologies","url":"https://job-boards.greenhouse.io/orcristtechnologies","industry":"other"}
 {"id":"orkes","name":"Orkes","url":"https://job-boards.greenhouse.io/orkes","industry":"other"}
 {"id":"ostrom","name":"Ostrom","url":"https://jobs.ashbyhq.com/ostrom","industry":"other"}
+{"id":"ottobahn","name":"Ottobahn","url":"https://ottobahn.de/","industry":"transportation_logistics","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
+{"id":"ovalmedia_group","name":"OVALmedia Group","url":"https://www.oval.media","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"overview","name":"Overview","url":"https://jobs.ashbyhq.com/overview","industry":"other"}
 {"id":"pacvue","name":"Pacvue","url":"https://job-boards.greenhouse.io/pacvue","industry":"other"}
 {"id":"pagerduty","name":"PagerDuty","url":"https://www.pagerduty.com/careers/","industry":"other"}
+{"id":"paintbucket_games","name":"Paintbucket Games","url":"https://www.paintbucket.de","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"pallon_com","name":"Pallon.com","url":"https://jobs.ashbyhq.com/pallon.com","industry":"other"}
 {"id":"pandadoc","name":"Pandadoc","url":"https://job-boards.greenhouse.io/pandadoc","industry":"other"}
 {"id":"panoptyc","name":"Panoptyc","url":"https://jobs.ashbyhq.com/panoptyc","industry":"other"}
@@ -627,17 +781,20 @@
 {"id":"parloa","name":"Parloa","url":"https://job-boards.greenhouse.io/parloa","industry":"other"}
 {"id":"parsebiosciences","name":"Parsebiosciences","url":"https://job-boards.greenhouse.io/parsebiosciences","industry":"other"}
 {"id":"pathai","name":"Pathai","url":"https://job-boards.greenhouse.io/pathai","industry":"other"}
+{"id":"payrails","name":"Payrails","url":"https://www.payrails.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"peec","name":"Peec","url":"https://jobs.ashbyhq.com/Peec","industry":"other"}
 {"id":"pennylane","name":"Pennylane","url":"https://jobs.ashbyhq.com/pennylane","industry":"other"}
 {"id":"penumbrainc","name":"Penumbrainc","url":"https://jobs.lever.co/penumbrainc","industry":"other"}
 {"id":"percona","name":"Percona","url":"https://jobs.ashbyhq.com/percona","industry":"other"}
 {"id":"perforce","name":"Perforce","url":"https://jobs.lever.co/perforce","industry":"other"}
 {"id":"pergolux","name":"Pergolux","url":"https://jobs.ashbyhq.com/pergolux","industry":"other"}
+{"id":"periphere_computer_systeme","name":"Periphere Computer-Systeme","url":"https://www.pcs.com/","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"perk","name":"Perk","url":"https://jobs.ashbyhq.com/perk","industry":"other"}
 {"id":"perplexity","name":"Perplexity","url":"https://jobs.ashbyhq.com/perplexity","industry":"other"}
 {"id":"personio","name":"Personio","url":"https://www.personio.com/careers","industry":"software_it"}
 {"id":"personio_2","name":"Personio","url":"https://www.personio.com/about-personio/careers/","industry":"other"}
 {"id":"personio_3","name":"Personio","url":"https://www.personio.com/about-personio/careers/jobs/","industry":"other"}
+{"id":"pfando_s_cash___drive_gmbh","name":"Pfando's cash & drive GmbH","url":"https://www.pfando.de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"pfm","name":"PFM","url":"https://job-boards.greenhouse.io/pfm","industry":"other"}
 {"id":"phiture","name":"Phiture","url":"https://job-boards.greenhouse.io/phiture","industry":"other"}
 {"id":"phoenixcontact","name":"Phoenixcontact","url":"https://job-boards.greenhouse.io/phoenixcontact","industry":"other"}
@@ -647,15 +804,18 @@
 {"id":"pitch","name":"Pitch","url":"https://pitch.com/jobs","industry":"other"}
 {"id":"pixaera","name":"Pixaera","url":"https://jobs.ashbyhq.com/pixaera","industry":"other"}
 {"id":"plain","name":"Plain","url":"https://jobs.ashbyhq.com/plain","industry":"other"}
+{"id":"planetary_transportation_systems","name":"Planetary Transportation Systems","url":"https://pts.space/","industry":"aerospace_defense","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"planetlabs","name":"Planetlabs","url":"https://job-boards.greenhouse.io/planetlabs","industry":"other"}
 {"id":"planetscale","name":"Planetscale","url":"https://job-boards.greenhouse.io/planetscale","industry":"other"}
 {"id":"plasmidsaurus","name":"Plasmidsaurus","url":"https://jobs.ashbyhq.com/plasmidsaurus","industry":"other"}
 {"id":"platformsh","name":"Platformsh","url":"https://job-boards.greenhouse.io/platformsh","industry":"other"}
 {"id":"playbook","name":"Playbook","url":"https://jobs.ashbyhq.com/playbook","industry":"other"}
 {"id":"pleo","name":"Pleo","url":"https://jobs.ashbyhq.com/pleo","industry":"other"}
+{"id":"podigee","name":"Podigee","url":"https://www.podigee.com/en/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"polar","name":"Polar","url":"https://jobs.ashbyhq.com/polar","industry":"other"}
 {"id":"polaranalytics","name":"Polaranalytics","url":"https://jobs.ashbyhq.com/polaranalytics","industry":"other"}
 {"id":"poolside","name":"Poolside","url":"https://jobs.ashbyhq.com/poolside","industry":"other"}
+{"id":"porsche","name":"Porsche","url":"https://www.porsche.com","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"porsche_ag","name":"Porsche AG","url":"https://www.porsche.com/careers","industry":"automotive"}
 {"id":"portwest","name":"Portwest","url":"https://job-boards.greenhouse.io/portwest","industry":"other"}
 {"id":"posthog","name":"Posthog","url":"https://jobs.ashbyhq.com/posthog","industry":"other"}
@@ -670,9 +830,12 @@
 {"id":"preply","name":"Preply","url":"https://preply.com/en/careers","industry":"other"}
 {"id":"primer_io","name":"Primer.io","url":"https://jobs.ashbyhq.com/primer.io","industry":"other"}
 {"id":"prior_labs","name":"Prior Labs","url":"https://jobs.ashbyhq.com/prior-labs","industry":"other"}
+{"id":"private_packagist","name":"Private Packagist","url":"https://packagist.com/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"privateequityinsights","name":"Privateequityinsights","url":"https://job-boards.greenhouse.io/privateequityinsights","industry":"other"}
 {"id":"proalphagroup","name":"Proalphagroup","url":"https://job-boards.greenhouse.io/proalphagroup","industry":"other"}
+{"id":"probatix_health_gmbh","name":"Probatix Health GmbH","url":"https://probatix.com","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"procter_gamble","name":"Procter & Gamble","url":"https://www.pgcareers.com","industry":"manufacturing"}
+{"id":"professional_wiki","name":"Professional Wiki","url":"https://professional.wiki/","industry":"consulting","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"prosiebensat1","name":"ProSiebenSat.1 Media","url":"https://www.prosiebensat1.com/careers","industry":"media_entertainment"}
 {"id":"psiquantum","name":"Psiquantum","url":"https://job-boards.greenhouse.io/psiquantum","industry":"other"}
 {"id":"publiccloudgroup","name":"Publiccloudgroup","url":"https://jobs.ashbyhq.com/publiccloudgroup","industry":"other"}
@@ -688,8 +851,11 @@
 {"id":"quince","name":"Quince","url":"https://job-boards.greenhouse.io/quince","industry":"other"}
 {"id":"quixquantumbv","name":"Quixquantumbv","url":"https://job-boards.greenhouse.io/quixquantumbv","industry":"other"}
 {"id":"radformation","name":"Radformation","url":"https://jobs.lever.co/radformation","industry":"other"}
+{"id":"rarlab","name":"RARLAB","url":"https://www.rarlab.com/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"rbb_media_gmbh","name":"rbb media GmbH","url":"https://www.rbb-media.de/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"realtimeboardglobal","name":"Realtimeboardglobal","url":"https://job-boards.greenhouse.io/realtimeboardglobal","industry":"other"}
 {"id":"rebuy","name":"Rebuy","url":"https://jobs.ashbyhq.com/rebuy","industry":"other"}
+{"id":"recaro","name":"Recaro","url":"https://www.recaro.com","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"red_hat","name":"Red Hat","url":"https://www.redhat.com/en/jobs","industry":"other"}
 {"id":"redis","name":"Redis","url":"https://jobs.ashbyhq.com/redis","industry":"other"}
 {"id":"redwoodsoftware","name":"Redwoodsoftware","url":"https://job-boards.greenhouse.io/redwoodsoftware","industry":"other"}
@@ -698,10 +864,12 @@
 {"id":"reflow","name":"Reflow","url":"https://jobs.ashbyhq.com/reflow","industry":"other"}
 {"id":"relex","name":"Relex","url":"https://job-boards.greenhouse.io/relex","industry":"other"}
 {"id":"remote","name":"Remote","url":"https://remote.com/openings","industry":"other"}
+{"id":"remote_control_productions","name":"Remote Control Productions","url":"https://rcp.family/","industry":"media_entertainment","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"remotecom","name":"Remotecom","url":"https://job-boards.greenhouse.io/remotecom","industry":"other"}
 {"id":"remotepeople","name":"Remotepeople","url":"https://job-boards.greenhouse.io/remotepeople","industry":"other"}
 {"id":"remotereferralboardinternaluseonly","name":"Remotereferralboardinternaluseonly","url":"https://job-boards.greenhouse.io/remotereferralboardinternaluseonly","industry":"other"}
 {"id":"remotewoman","name":"Remotewoman","url":"https://job-boards.greenhouse.io/remotewoman","industry":"other"}
+{"id":"renafan_group","name":"Renafan Group","url":"https://www.renafan.de","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"reolink","name":"Reolink","url":"https://job-boards.greenhouse.io/reolink","industry":"other"}
 {"id":"reonic","name":"Reonic","url":"https://jobs.ashbyhq.com/reonic","industry":"other"}
 {"id":"replit","name":"Replit","url":"https://jobs.ashbyhq.com/replit","industry":"other"}
@@ -713,12 +881,17 @@
 {"id":"revolutionmedicines","name":"Revolutionmedicines","url":"https://job-boards.greenhouse.io/revolutionmedicines","industry":"other"}
 {"id":"rewe_group","name":"Rewe Group","url":"https://www.rewe-group.com/careers","industry":"retail_ecommerce"}
 {"id":"rheinmetall","name":"Rheinmetall","url":"https://www.rheinmetall.com/careers","industry":"aerospace_defense"}
+{"id":"rheinmetall_automotive","name":"Rheinmetall Automotive","url":"https://www.rheinmetall-automotive.com/","industry":"automotive","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"rheinmetall_man_military_vehicles","name":"Rheinmetall MAN Military Vehicles","url":"https://www.rheinmetall.com/de/unternehmen/tochtergesellschaften/rheinmetall-man-military-vehicles","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"rhoda_ai","name":"Rhoda AI","url":"https://jobs.ashbyhq.com/rhoda-ai","industry":"other"}
 {"id":"riotgames","name":"Riotgames","url":"https://job-boards.greenhouse.io/riotgames","industry":"other"}
 {"id":"rivianvw_tech","name":"Rivianvw.tech","url":"https://jobs.ashbyhq.com/rivianvw.tech","industry":"other"}
 {"id":"roadsurfer_com","name":"Roadsurfer.com","url":"https://jobs.ashbyhq.com/roadsurfer.com","industry":"other"}
+{"id":"bosch","name":"Robert Bosch GmbH","url":"https://www.bosch.com/careers","industry":"manufacturing"}
 {"id":"roboyo","name":"Roboyo","url":"https://job-boards.greenhouse.io/roboyo","industry":"other"}
+{"id":"rocks___birds_media_gmbh","name":"Rocks & Birds Media GmbH","url":"https://2b-local.com","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"rohlik","name":"Rohlik","url":"https://jobs.ashbyhq.com/rohlik","industry":"other"}
+{"id":"rolls_royce_deutschland","name":"Rolls-Royce Deutschland","url":"https://www.rolls-royce.com/country-sites/deutschland.aspx","industry":"aerospace_defense","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"roompricegenie","name":"Roompricegenie","url":"https://jobs.ashbyhq.com/roompricegenie","industry":"other"}
 {"id":"rootglobal","name":"Rootglobal","url":"https://jobs.ashbyhq.com/rootglobal","industry":"other"}
 {"id":"rtbhouse","name":"Rtbhouse","url":"https://job-boards.greenhouse.io/rtbhouse","industry":"other"}
@@ -747,7 +920,10 @@
 {"id":"searchable","name":"Searchable","url":"https://jobs.ashbyhq.com/searchable","industry":"other"}
 {"id":"searchapi","name":"Searchapi","url":"https://jobs.ashbyhq.com/searchapi","industry":"other"}
 {"id":"secfix","name":"Secfix","url":"https://jobs.ashbyhq.com/secfix","industry":"other"}
+{"id":"securing_energy_for_europe","name":"Securing Energy for Europe","url":"https://www.sefe-group.com/","industry":"energy","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"securityscorecard","name":"Securityscorecard","url":"https://job-boards.greenhouse.io/securityscorecard","industry":"other"}
+{"id":"seg_automotive","name":"SEG Automotive","url":"https://www.seg-automotive.com/","industry":"automotive","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"senjo_color_gmbh","name":"Senjo Color GmbH","url":"https://senjo-color.de/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"sensmore","name":"Sensmore","url":"https://jobs.ashbyhq.com/sensmore","industry":"other"}
 {"id":"sentinellabs","name":"Sentinellabs","url":"https://job-boards.greenhouse.io/sentinellabs","industry":"other"}
 {"id":"sentry","name":"Sentry","url":"https://sentry.io/careers/","industry":"other"}
@@ -762,7 +938,9 @@
 {"id":"showpad","name":"Showpad","url":"https://job-boards.greenhouse.io/showpad","industry":"other"}
 {"id":"siemens","name":"Siemens","url":"https://jobs.siemens.com","industry":"manufacturing"}
 {"id":"siemens_2","name":"Siemens","url":"https://jobs.siemens.com/careers","industry":"other"}
+{"id":"siemens_energy_ag","name":"Siemens Energy AG","url":"https://www.siemens-energy.com/","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"siemens_healthineers","name":"Siemens Healthineers","url":"https://www.siemens-healthineers.com/careers","industry":"healthcare"}
+{"id":"siemens_mobility","name":"Siemens Mobility","url":"https://www.mobility.siemens.com/","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"siena","name":"Siena","url":"https://jobs.ashbyhq.com/siena","industry":"other"}
 {"id":"sila","name":"Sila","url":"https://jobs.lever.co/sila","industry":"other"}
 {"id":"simscale","name":"Simscale","url":"https://job-boards.greenhouse.io/simscale","industry":"other"}
@@ -773,6 +951,8 @@
 {"id":"skillsoft","name":"Skillsoft","url":"https://job-boards.greenhouse.io/skillsoft","industry":"other"}
 {"id":"slack","name":"Slack","url":"https://slack.com/careers","industry":"other"}
 {"id":"slate","name":"Slate","url":"https://jobs.ashbyhq.com/slate","industry":"other"}
+{"id":"smart_insurtech_ag","name":"Smart InsurTech AG","url":"https://www.smartinsurtech.de","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"smartbroker","name":"Smartbroker","url":"https://www.smartbrokerplus.de/de-de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"smartcatplatforminc","name":"Smartcatplatforminc","url":"https://job-boards.greenhouse.io/smartcatplatforminc","industry":"other"}
 {"id":"smartlyio","name":"Smartlyio","url":"https://job-boards.greenhouse.io/smartlyio","industry":"other"}
 {"id":"smartsheet","name":"Smartsheet","url":"https://www.smartsheet.com/careers","industry":"other"}
@@ -782,6 +962,7 @@
 {"id":"socket","name":"Socket","url":"https://jobs.ashbyhq.com/socket","industry":"other"}
 {"id":"software_ag","name":"Software AG","url":"https://www.softwareag.com/careers","industry":"software_it"}
 {"id":"sohohouseco","name":"Sohohouseco","url":"https://job-boards.greenhouse.io/sohohouseco","industry":"other"}
+{"id":"solaris","name":"Solaris","url":"https://www.solarisgroup.com/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"soldejaneiro","name":"Soldejaneiro","url":"https://job-boards.greenhouse.io/soldejaneiro","industry":"other"}
 {"id":"soloioinc","name":"Soloioinc","url":"https://job-boards.greenhouse.io/soloioinc","industry":"other"}
 {"id":"sona","name":"Sona","url":"https://jobs.ashbyhq.com/sona","industry":"other"}
@@ -790,17 +971,20 @@
 {"id":"sonyinteractiveentertainmentglobal","name":"Sonyinteractiveentertainmentglobal","url":"https://job-boards.greenhouse.io/sonyinteractiveentertainmentglobal","industry":"other"}
 {"id":"sophos","name":"Sophos","url":"https://jobs.lever.co/sophos","industry":"other"}
 {"id":"sosafe","name":"Sosafe","url":"https://jobs.ashbyhq.com/sosafe","industry":"other"}
+{"id":"soulcialful_media","name":"Soulcialful Media","url":"https://soulcialful.de","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"soundcloud","name":"SoundCloud","url":"https://careers.soundcloud.com/","industry":"other"}
 {"id":"soundcloud71","name":"Soundcloud71","url":"https://job-boards.greenhouse.io/soundcloud71","industry":"other"}
 {"id":"sourceability","name":"Sourceability","url":"https://job-boards.greenhouse.io/sourceability","industry":"other"}
 {"id":"sourcegraph","name":"Sourcegraph","url":"https://sourcegraph.com/jobs","industry":"other"}
 {"id":"sparetech","name":"Sparetech","url":"https://job-boards.greenhouse.io/sparetech","industry":"other"}
+{"id":"sparkassen_finanzgruppe","name":"Sparkassen-Finanzgruppe","url":"https://www.dsgv.de/de/sparkassen-finanzgruppe/index.html","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"spearbio","name":"Spearbio","url":"https://jobs.ashbyhq.com/spearbio","industry":"other"}
 {"id":"speckle","name":"Speckle","url":"https://jobs.ashbyhq.com/speckle","industry":"other"}
 {"id":"speechify","name":"Speechify","url":"https://job-boards.greenhouse.io/speechify","industry":"other"}
 {"id":"spire","name":"Spire","url":"https://job-boards.greenhouse.io/spire","industry":"other"}
 {"id":"splitmetrics","name":"Splitmetrics","url":"https://jobs.ashbyhq.com/splitmetrics","industry":"other"}
 {"id":"splunk_2","name":"Splunk","url":"https://www.splunk.com/en_us/careers/search-jobs.html","industry":"other"}
+{"id":"spotcap","name":"Spotcap","url":"https://www.spotcap.com","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"spotify_2","name":"Spotify","url":"https://jobs.lever.co/spotify","industry":"other"}
 {"id":"spotme","name":"Spotme","url":"https://job-boards.greenhouse.io/spotme","industry":"other"}
 {"id":"spycloud","name":"Spycloud","url":"https://job-boards.greenhouse.io/spycloud","industry":"other"}
@@ -808,13 +992,19 @@
 {"id":"staffbase","name":"Staffbase","url":"https://job-boards.greenhouse.io/staffbase","industry":"other"}
 {"id":"stage","name":"Stage","url":"https://job-boards.greenhouse.io/stage","industry":"other"}
 {"id":"statista","name":"Statista","url":"https://jobs.ashbyhq.com/statista","industry":"other"}
+{"id":"stop_over_reisen","name":"Stop Over Reisen","url":"https://stopover.de","industry":"hospitality_travel","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"stora","name":"Stora","url":"https://jobs.ashbyhq.com/stora","industry":"other"}
 {"id":"storyblok","name":"Storyblok","url":"https://job-boards.greenhouse.io/storyblok","industry":"other"}
+{"id":"strabag_building_and_industrial_services","name":"Strabag Building and Industrial Services","url":"https://strabag-bis.de/","industry":"manufacturing","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"strato_gmbh","name":"Strato GmbH","url":"https://www.strato.de/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"strava","name":"Strava","url":"https://jobs.ashbyhq.com/strava","industry":"other"}
 {"id":"stream","name":"Stream","url":"https://jobs.ashbyhq.com/stream","industry":"other"}
+{"id":"str\u00f6er_media_brands_gmbh","name":"Str\u00f6er Media Brands GmbH","url":"https://www.stroeermediabrands.de/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"studio_100_media","name":"Studio 100 Media","url":"https://www.studio100group.com/","industry":"media_entertainment","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"suitsupply","name":"Suitsupply","url":"https://job-boards.greenhouse.io/suitsupply","industry":"other"}
 {"id":"sumologic","name":"Sumologic","url":"https://job-boards.greenhouse.io/sumologic","industry":"other"}
 {"id":"superchat","name":"Superchat","url":"https://job-boards.greenhouse.io/superchat","industry":"other"}
+{"id":"superglue","name":"superglue","url":"https://superglue.ai/","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"superside","name":"Superside","url":"https://jobs.lever.co/superside","industry":"other"}
 {"id":"surveymonkey","name":"SurveyMonkey","url":"https://www.surveymonkey.com/mp/jobs/","industry":"other"}
 {"id":"suse","name":"SUSE","url":"https://www.suse.com/careers","industry":"software_it"}
@@ -822,14 +1012,19 @@
 {"id":"swordhealth","name":"Swordhealth","url":"https://jobs.lever.co/swordhealth","industry":"other"}
 {"id":"symrise","name":"Symrise","url":"https://www.symrise.com/careers","industry":"manufacturing"}
 {"id":"syndigo","name":"Syndigo","url":"https://job-boards.greenhouse.io/syndigo","industry":"other"}
+{"id":"syneos_health__germany","name":"Syneos Health (Germany)","url":"https://www.syneoshealth.com/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"synthesia","name":"Synthesia","url":"https://jobs.ashbyhq.com/synthesia","industry":"other"}
 {"id":"synthflow","name":"Synthflow","url":"https://jobs.ashbyhq.com/synthflow","industry":"other"}
+{"id":"table_media","name":"Table Media","url":"https://table.media/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"tacto","name":"Tacto","url":"https://jobs.ashbyhq.com/tacto","industry":"software_it","company_type":"startup","funding_stage":"series_a"}
 {"id":"talanx","name":"Talanx","url":"https://www.talanx.com/careers","industry":"finance"}
 {"id":"talentful","name":"Talentful","url":"https://jobs.ashbyhq.com/talentful","industry":"other"}
 {"id":"talon_one","name":"Talon.One","url":"https://www.talon.one/careers","industry":"other"}
 {"id":"talonone","name":"Talonone","url":"https://job-boards.greenhouse.io/talonone","industry":"other"}
 {"id":"tandem_health","name":"Tandem Health","url":"https://jobs.ashbyhq.com/tandem-health","industry":"other"}
+{"id":"tangany","name":"Tangany","url":"https://www.tangany.com","industry":"finance","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"tanium","name":"Tanium","url":"https://job-boards.greenhouse.io/tanium","industry":"other"}
+{"id":"taxfix_se","name":"Taxfix SE","url":"https://taxfix.de/ueber-uns/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"taxfix_com","name":"Taxfix.com","url":"https://jobs.ashbyhq.com/taxfix.com","industry":"other"}
 {"id":"taxforce","name":"Taxforce","url":"https://jobs.ashbyhq.com/taxforce","industry":"other"}
 {"id":"teamviewer","name":"TeamViewer","url":"https://www.teamviewer.com/careers","industry":"software_it"}
@@ -841,30 +1036,42 @@
 {"id":"teneolinkedin","name":"Teneolinkedin","url":"https://job-boards.greenhouse.io/teneolinkedin","industry":"other"}
 {"id":"tenex","name":"Tenex","url":"https://jobs.ashbyhq.com/tenex","industry":"other"}
 {"id":"tenstorrent","name":"Tenstorrent","url":"https://job-boards.greenhouse.io/tenstorrent","industry":"other"}
+{"id":"tentamus_group","name":"Tentamus Group","url":"https://www.tentamus.com","industry":"biotech_pharma","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"terranets_bw","name":"Terranets BW","url":"https://www.terranets-bw.de","industry":"energy","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"tesla","name":"Tesla","url":"https://www.tesla.com/careers","industry":"automotive"}
 {"id":"testlio","name":"Testlio","url":"https://job-boards.greenhouse.io/testlio","industry":"other"}
+{"id":"teufel_audio","name":"Teufel Audio","url":"https://teufelaudio.be/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"teya","name":"Teya","url":"https://jobs.ashbyhq.com/teya","industry":"other"}
+{"id":"the_cloud_networks_germany","name":"The Cloud Networks Germany","url":"https://thecloud.eu","industry":"software_it","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"the_exploration_company","name":"THE Exploration Company","url":"https://jobs.ashbyhq.com/the-exploration-company","industry":"other"}
 {"id":"the_flex","name":"THE Flex","url":"https://jobs.ashbyhq.com/the-flex","industry":"other"}
 {"id":"the_global_talent_co","name":"THE Global Talent CO","url":"https://jobs.ashbyhq.com/the-global-talent-co","industry":"other"}
+{"id":"the_tourism_embassy","name":"The Tourism Embassy","url":"https://www.tourismus-botschaft.de","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"thea_care","name":"Thea Care","url":"https://www.theacare.de/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"thefork","name":"Thefork","url":"https://job-boards.greenhouse.io/thefork","industry":"other"}
 {"id":"thepacgroup","name":"Thepacgroup","url":"https://job-boards.greenhouse.io/thepacgroup","industry":"other"}
 {"id":"thequalitygroupgmbh1","name":"Thequalitygroupgmbh1","url":"https://job-boards.greenhouse.io/thequalitygroupgmbh1","industry":"other"}
 {"id":"thequalitygroupgmbh2","name":"Thequalitygroupgmbh2","url":"https://job-boards.greenhouse.io/thequalitygroupgmbh2","industry":"other"}
 {"id":"thiga","name":"Thiga","url":"https://jobs.lever.co/thiga","industry":"other"}
+{"id":"think_ahead_technologies_gmbh","name":"Think Ahead Technologies GmbH","url":"https://think-ahead.tech","industry":"software_it","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"thinkcellsoftware","name":"Thinkcellsoftware","url":"https://job-boards.greenhouse.io/thinkcellsoftware","industry":"other"}
 {"id":"thirstysprout","name":"Thirstysprout","url":"https://jobs.ashbyhq.com/thirstysprout","industry":"other"}
 {"id":"thoughtworks","name":"Thoughtworks","url":"https://job-boards.greenhouse.io/thoughtworks","industry":"other"}
 {"id":"thrivecart","name":"Thrivecart","url":"https://job-boards.greenhouse.io/thrivecart","industry":"other"}
 {"id":"thunes","name":"Thunes","url":"https://job-boards.greenhouse.io/thunes","industry":"other"}
+{"id":"th\u00fcga","name":"Th\u00fcga","url":"https://www.thuega.de","industry":"energy","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"tigerdata","name":"Tigerdata","url":"https://jobs.ashbyhq.com/tigerdata","industry":"other"}
 {"id":"tilthq","name":"Tilthq","url":"https://jobs.ashbyhq.com/tilthq","industry":"other"}
 {"id":"toggl","name":"Toggl","url":"https://toggl.com/jobs/","industry":"other"}
 {"id":"tonsser","name":"Tonsser","url":"https://jobs.lever.co/tonsser","industry":"other"}
 {"id":"toogoodtogo","name":"Toogoodtogo","url":"https://job-boards.greenhouse.io/toogoodtogo","industry":"other"}
+{"id":"torpor_games","name":"Torpor Games","url":"https://www.torporgames.com/","industry":"media_entertainment","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"tourlane","name":"Tourlane","url":"https://jobs.ashbyhq.com/tourlane","industry":"other"}
 {"id":"tracelinkinc","name":"Tracelinkinc","url":"https://job-boards.greenhouse.io/tracelinkinc","industry":"other"}
 {"id":"trade_republic","name":"Trade Republic","url":"https://traderepublic.com/careers","industry":"finance"}
+{"id":"transloadit_ii_gmbh","name":"Transloadit-II GmbH","url":"https://transloadit.com/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"transpress_publishing_house","name":"Transpress Publishing House","url":"https://motorbuch-versand.de/transpress","industry":"media_entertainment","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"traton","name":"Traton","url":"https://traton.com","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"trawa","name":"Trawa","url":"https://jobs.ashbyhq.com/trawa","industry":"other"}
 {"id":"tremendous","name":"Tremendous","url":"https://jobs.ashbyhq.com/tremendous","industry":"other"}
 {"id":"tripactions","name":"Tripactions","url":"https://job-boards.greenhouse.io/tripactions","industry":"other"}
@@ -877,10 +1084,12 @@
 {"id":"tulip","name":"Tulip","url":"https://job-boards.greenhouse.io/tulip","industry":"other"}
 {"id":"typeform","name":"Typeform","url":"https://job-boards.greenhouse.io/typeform","industry":"other"}
 {"id":"typeform_2","name":"Typeform","url":"https://www.typeform.com/careers/jobs/","industry":"other"}
+{"id":"uberall","name":"Uberall","url":"https://uberall.com","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"udemy","name":"Udemy","url":"https://about.udemy.com/careers/","industry":"other"}
 {"id":"uipath","name":"UiPath","url":"https://www.uipath.com/company/careers","industry":"other"}
 {"id":"unframe","name":"Unframe","url":"https://job-boards.greenhouse.io/unframe","industry":"other"}
 {"id":"unybrands","name":"Unybrands","url":"https://job-boards.greenhouse.io/unybrands","industry":"other"}
+{"id":"unzer_group","name":"Unzer Group","url":"https://www.unzer.com/de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"upbound","name":"Upbound","url":"https://job-boards.greenhouse.io/upbound","industry":"other"}
 {"id":"uplane","name":"Uplane","url":"https://jobs.ashbyhq.com/uplane","industry":"other"}
 {"id":"ups","name":"UPS","url":"https://www.jobs-ups.com","industry":"transportation_logistics"}
@@ -889,12 +1098,15 @@
 {"id":"valdera","name":"Valdera","url":"https://jobs.lever.co/valdera","industry":"other"}
 {"id":"valgenesis","name":"Valgenesis","url":"https://jobs.lever.co/valgenesis","industry":"other"}
 {"id":"valiantys","name":"Valiantys","url":"https://jobs.lever.co/valiantys","industry":"other"}
+{"id":"varta_ag","name":"VARTA AG","url":"https://www.varta-ag.com/","industry":"manufacturing","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"vauman","name":"Vauman","url":"https://www.vauman.com","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"vay","name":"VAY","url":"https://job-boards.greenhouse.io/vay","industry":"other"}
 {"id":"vclusterlabs","name":"Vclusterlabs","url":"https://jobs.ashbyhq.com/vclusterlabs","industry":"other"}
 {"id":"veeamsoftware","name":"Veeamsoftware","url":"https://job-boards.greenhouse.io/veeamsoftware","industry":"other"}
 {"id":"veeva","name":"Veeva","url":"https://jobs.lever.co/veeva","industry":"other"}
 {"id":"venturatravel","name":"Venturatravel","url":"https://job-boards.greenhouse.io/venturatravel","industry":"other"}
 {"id":"veo","name":"VEO","url":"https://jobs.lever.co/veo","industry":"other"}
+{"id":"veonet","name":"Veonet","url":"https://www.veonet-group.com/","industry":"healthcare","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"veracode","name":"Veracode","url":"https://job-boards.greenhouse.io/veracode","industry":"other"}
 {"id":"vercel","name":"Vercel","url":"https://job-boards.greenhouse.io/vercel","industry":"other"}
 {"id":"verifone","name":"Verifone","url":"https://job-boards.greenhouse.io/verifone","industry":"other"}
@@ -902,6 +1114,7 @@
 {"id":"verve","name":"Verve","url":"https://job-boards.greenhouse.io/verve","industry":"other"}
 {"id":"vestiairecollective","name":"Vestiairecollective","url":"https://jobs.lever.co/vestiairecollective","industry":"other"}
 {"id":"via","name":"VIA","url":"https://job-boards.greenhouse.io/via","industry":"other"}
+{"id":"viafintech","name":"viafintech","url":"https://www.viafintech.com/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"vic_ai","name":"Vic.ai","url":"https://jobs.ashbyhq.com/vic.ai","industry":"other"}
 {"id":"viktor","name":"Viktor","url":"https://jobs.ashbyhq.com/viktor","industry":"other"}
 {"id":"vinci4d","name":"Vinci4d","url":"https://jobs.ashbyhq.com/vinci4d","industry":"other"}
@@ -915,14 +1128,18 @@
 {"id":"vrey","name":"Vrey","url":"https://jobs.ashbyhq.com/vrey","industry":"other"}
 {"id":"wacker_chemie","name":"Wacker Chemie","url":"https://www.wacker.com/careers","industry":"manufacturing"}
 {"id":"walkme","name":"Walkme","url":"https://jobs.lever.co/walkme","industry":"other"}
+{"id":"wallstreet_online_capital_ag","name":"wallstreet:online capital AG","url":"https://wo-capital.de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"watchmakergenomics","name":"Watchmakergenomics","url":"https://job-boards.greenhouse.io/watchmakergenomics","industry":"other"}
 {"id":"wayfair_2","name":"Wayfair","url":"https://www.wayfair.com/careers/jobs","industry":"other"}
 {"id":"wayflyer","name":"Wayflyer","url":"https://jobs.ashbyhq.com/wayflyer","industry":"other"}
 {"id":"wayve","name":"Wayve","url":"https://job-boards.greenhouse.io/wayve","industry":"other"}
 {"id":"webershandwick","name":"Webershandwick","url":"https://job-boards.greenhouse.io/webershandwick","industry":"other"}
+{"id":"webid_solutions","name":"WebID Solutions","url":"https://www.webid-solutions.de/","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"wekatest","name":"Wekatest","url":"https://job-boards.greenhouse.io/wekatest","industry":"other"}
 {"id":"wemolo","name":"Wemolo","url":"https://jobs.ashbyhq.com/wemolo","industry":"other"}
 {"id":"whalarinc","name":"Whalarinc","url":"https://job-boards.greenhouse.io/whalarinc","industry":"other"}
+{"id":"wimdu","name":"Wimdu","url":"https://www.wimdu.com/","industry":"hospitality_travel","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"wirelane","name":"Wirelane","url":"https://www.wirelane.com/de","industry":"automotive","city":"geonames:2867714","src":"wikidata","batch":"2026-07-18"}
 {"id":"wizinc","name":"Wizinc","url":"https://job-boards.greenhouse.io/wizinc","industry":"other"}
 {"id":"wongdoody","name":"Wongdoody","url":"https://job-boards.greenhouse.io/wongdoody","industry":"other"}
 {"id":"wooga","name":"Wooga","url":"https://job-boards.greenhouse.io/wooga","industry":"other"}
@@ -933,14 +1150,20 @@
 {"id":"world_foundation","name":"World Foundation","url":"https://jobs.ashbyhq.com/world-foundation","industry":"other"}
 {"id":"worldly","name":"Worldly","url":"https://jobs.ashbyhq.com/worldly","industry":"other"}
 {"id":"wppmedia","name":"Wppmedia","url":"https://job-boards.greenhouse.io/wppmedia","industry":"other"}
+{"id":"wsw_portfoliomanagement","name":"wSw PortfolioManagement","url":"https://www.wsw-pm.de","industry":"finance","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
+{"id":"w\u00fcrttembergische_gemeinde_versicherung","name":"W\u00fcrttembergische Gemeinde-Versicherung","url":"https://www.wgv.de/","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"w\u00fcrttembergische_lebensversicherung","name":"W\u00fcrttembergische Lebensversicherung","url":"https://www.wuerttembergische.de/","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
+{"id":"w\u00fcstenrot___w\u00fcrttembergische","name":"W\u00fcstenrot & W\u00fcrttembergische","url":"https://ww-ag.com/","industry":"finance","city":"geonames:2825297","src":"wikidata","batch":"2026-07-18"}
 {"id":"xbowcareers","name":"Xbowcareers","url":"https://jobs.ashbyhq.com/xbowcareers","industry":"other"}
 {"id":"xsolla","name":"Xsolla","url":"https://jobs.lever.co/xsolla","industry":"other"}
 {"id":"y42","name":"Y42","url":"https://www.y42.com/careers","industry":"other"}
 {"id":"yazio","name":"Yazio","url":"https://jobs.ashbyhq.com/yazio","industry":"other"}
+{"id":"years_gmbh","name":"YEARS GmbH","url":"https://years.co/","industry":"healthcare","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"yepoda","name":"Yepoda","url":"https://jobs.ashbyhq.com/yepoda","industry":"other"}
 {"id":"yousician","name":"Yousician","url":"https://job-boards.greenhouse.io/yousician","industry":"other"}
 {"id":"zalando","name":"Zalando","url":"https://jobs.zalando.com","industry":"retail_ecommerce"}
 {"id":"zauber","name":"Zauber","url":"https://jobs.ashbyhq.com/zauber","industry":"other"}
+{"id":"zencap","name":"Zencap","url":"https://www.zencap.de/","industry":"software_it","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"zencoder","name":"Zencoder","url":"https://job-boards.greenhouse.io/zencoder","industry":"other"}
 {"id":"zencore","name":"Zencore","url":"https://jobs.lever.co/zencore","industry":"other"}
 {"id":"zendesk_2","name":"Zendesk","url":"https://www.zendesk.com/company/careers/","industry":"other"}
@@ -949,8 +1172,6 @@
 {"id":"zenrows","name":"Zenrows","url":"https://job-boards.greenhouse.io/zenrows","industry":"other"}
 {"id":"zetaglobal","name":"Zetaglobal","url":"https://job-boards.greenhouse.io/zetaglobal","industry":"other"}
 {"id":"zf_friedrichshafen","name":"ZF Friedrichshafen","url":"https://www.zf.com/careers","industry":"automotive"}
+{"id":"zolar","name":"zolar","url":"https://www.zolar.de","industry":"energy","city":"geonames:2950159","src":"wikidata","batch":"2026-07-18"}
 {"id":"zscaler","name":"Zscaler","url":"https://job-boards.greenhouse.io/zscaler","industry":"other"}
 {"id":"zuru","name":"Zuru","url":"https://jobs.ashbyhq.com/zuru","industry":"other"}
-{"id":"helsing","name":"Helsing","url":"https://jobs.ashbyhq.com/helsing","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
-{"id":"isar_aerospace","name":"Isar Aerospace","url":"https://isaraerospace.com/careers/","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
-{"id":"tacto","name":"Tacto","url":"https://jobs.ashbyhq.com/tacto","industry":"software_it","company_type":"startup","funding_stage":"series_a"}

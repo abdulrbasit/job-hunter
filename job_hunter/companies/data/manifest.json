@@ -12,7 +12,7 @@
     "CH": 30,
     "CN": 54,
     "CZ": 3,
-    "DE": 956,
+    "DE": 1177,
     "DK": 14,
     "EE": 1,
     "EG": 1,
@@ -62,6 +62,9 @@
     "US": 456,
     "VN": 16
   },
-  "total": 3866,
-  "version": "eacbc7c01b0f"
+  "review": {
+    "DE": 1091
+  },
+  "total": 4087,
+  "version": "03cc6e3fb481"
 }

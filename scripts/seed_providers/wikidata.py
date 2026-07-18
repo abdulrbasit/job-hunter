@@ -28,16 +28,28 @@ _QUERY = """SELECT DISTINCT ?companyLabel ?website ?hqLabel ?industryLabel WHERE
   ?company wdt:P31 ?cls ;
            wdt:P856 ?website ;
            wdt:P159 ?hq .
-  ?hq wdt:P17 ?country .
+  ?hq wdt:P17 ?country .{city_clause}
   OPTIONAL {{ ?company wdt:P452 ?industry . }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en" . }}
 }}
 LIMIT {limit}"""
 
 
+def _city_clause(country: str, city: str | None) -> str:
+    """Constrain hq to the city by exact English label (indexed lookup) — without this a
+    country-wide LIMIT slice can starve the requested city entirely. GeoNames-id matching
+    (P1566) is unreliable: Wikidata often links a different GeoNames entry for the same city."""
+    if not city:
+        return ""
+    from job_hunter.locations import city_by_name_exact
+
+    resolved = city_by_name_exact(country, city)
+    name = (resolved.name if resolved else city).replace('"', "")
+    return f'\n  ?hq rdfs:label "{name}"@en .'
+
+
 def fetch(country: str, city: str | None = None) -> list[dict]:
-    """One country-wide query; city filtering happens downstream on canonical city ids."""
-    query = _QUERY.format(country=country.upper(), limit=LIMIT)
+    query = _QUERY.format(country=country.upper(), limit=LIMIT, city_clause=_city_clause(country.upper(), city))
     response = None
     for attempt in (1, 2):
         response = requests.get(
@@ -46,7 +58,7 @@ def fetch(country: str, city: str | None = None) -> list[dict]:
             headers={"User-Agent": USER_AGENT},
             timeout=TIMEOUT_SECONDS,
         )
-        if response.status_code in (429, 500, 502, 503) and attempt == 1:
+        if response.status_code in (429, 500, 502, 503, 504) and attempt == 1:
             _sleep(10)
             continue
         response.raise_for_status()
