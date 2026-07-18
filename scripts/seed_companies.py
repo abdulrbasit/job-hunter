@@ -102,9 +102,11 @@ def _write_shard(path: Path, rows: list[dict]) -> None:
     path.write_text("".join(json.dumps(row, separators=(",", ":")) + "\n" for row in ordered), encoding="utf-8")
 
 
-def _write_manifest() -> None:
-    files = sorted(DATA_DIR.glob("[A-Z][A-Z].jsonl"))
-    review_files = sorted((DATA_DIR / "review").glob("[A-Z][A-Z].jsonl")) if (DATA_DIR / "review").is_dir() else []
+def _write_manifest(data_dir: Path) -> None:
+    """The one manifest writer — every maintainer tool that touches shards must call this
+    so the review counts and the version digest (main + review bytes) never go stale."""
+    files = sorted(data_dir.glob("[A-Z][A-Z].jsonl"))
+    review_files = sorted((data_dir / "review").glob("[A-Z][A-Z].jsonl")) if (data_dir / "review").is_dir() else []
 
     def count(path: Path) -> int:
         return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
@@ -115,7 +117,7 @@ def _write_manifest() -> None:
         "total": sum(count(path) for path in files),
         "version": hashlib.sha256(b"".join(path.read_bytes() for path in [*files, *review_files])).hexdigest()[:12],
     }
-    (DATA_DIR / "manifest.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (data_dir / "manifest.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _fetch_all(country: str, city: str | None) -> list[dict]:
@@ -220,7 +222,7 @@ def seed_country(country: str, city: str | None = None) -> dict:
 
     _write_shard(shard_path, shard)
     _write_shard(review_path, review)
-    _write_manifest()
+    _write_manifest(DATA_DIR)
     return {"fetched": len(fetched), "accepted": accepted_count, "review": review_count}
 
 

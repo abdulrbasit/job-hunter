@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -12,7 +11,6 @@ from urllib.parse import urlparse
 
 from job_hunter.companies.classification import classify_company
 from job_hunter.config.reference_data import country_codes
-from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.models import FundingStage
 
 DATA_DIR = Path(__file__).parents[1] / "job_hunter" / "companies" / "data"
@@ -27,11 +25,9 @@ def _read(path: Path) -> list[dict[str, Any]]:
 
 
 def _industry_ids() -> dict[str, str]:
-    result: dict[str, str] = {}
-    for item in load_filter_catalog().industries:
-        for value in (item.id, item.label, *item.aliases):
-            result[value.strip().casefold()] = item.id
-    return result
+    from scripts.seed_companies import _industry_aliases
+
+    return _industry_aliases()
 
 
 def _normalize(row: dict[str, Any], line: int) -> dict[str, Any]:
@@ -83,18 +79,11 @@ def import_file(path: Path) -> int:
             by_url[str(row["url"]).strip().rstrip("/").casefold()] = row
         ordered = sorted(by_url.values(), key=lambda row: (str(row["name"]).casefold(), str(row["id"])))
         shard.write_text("".join(json.dumps(row, separators=(",", ":")) + "\n" for row in ordered), encoding="utf-8")
-    _write_manifest()
+    # single shared manifest writer — keeps review counts and the version digest consistent
+    from scripts.seed_companies import _write_manifest
+
+    _write_manifest(DATA_DIR)
     return len(incoming)
-
-
-def _write_manifest() -> None:
-    files = sorted(DATA_DIR.glob("[A-Z][A-Z].jsonl"))
-    counts = {
-        path.stem: sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()) for path in files
-    }
-    digest = hashlib.sha256(b"".join(path.read_bytes() for path in files)).hexdigest()[:12]
-    payload = {"files": counts, "total": sum(counts.values()), "version": digest}
-    (DATA_DIR / "manifest.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> None:
