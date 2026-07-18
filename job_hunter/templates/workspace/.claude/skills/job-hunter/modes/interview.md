@@ -4,6 +4,9 @@ Single responsibility: produce a question bank and story mapping for ONE job int
 
 Slug: `$ARGUMENTS`
 
+**Preconditions:** `outputs/jobs/<slug>/score.yml` must exist. If missing, stop and print:
+"No score for `<slug>` — run `/job-hunter score <slug>` first."
+
 Run `job-hunter internal telemetry-mark --phase interview --skill interview --job <slug> --state start`.
 Telemetry failure is non-blocking and must not be printed.
 

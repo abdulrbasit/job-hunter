@@ -4,6 +4,9 @@ Write concise company research for one imported job.
 
 Slug: `$ARGUMENTS`
 
+**Preconditions:** `outputs/jobs/<slug>/` must exist. If missing, stop and print: "No job
+folder for `<slug>` — run `/job-hunter one <url>` or `/job-hunter batch` first."
+
 1. Run `job-hunter internal telemetry-mark --phase research --skill research --job <slug> --state start`, then
    `job-hunter internal agent-context score --mode full --job <slug>`.
 2. Run at most three targeted web searches: product/business, role challenge, recent signal.

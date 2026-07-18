@@ -4,6 +4,9 @@ Single responsibility: draft outreach for one job. Nothing is submitted or sent.
 
 Slug: `$ARGUMENTS`
 
+**Preconditions:** `outputs/jobs/<slug>/` must exist. If missing, stop and print: "No job
+folder for `<slug>` — run `/job-hunter one <url>` or `/job-hunter batch` first."
+
 Run `job-hunter internal telemetry-mark --phase outreach --skill outreach --job <slug> --state start`.
 Telemetry failure is non-blocking and must not be printed.
 

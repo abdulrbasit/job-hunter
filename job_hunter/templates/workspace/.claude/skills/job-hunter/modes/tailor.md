@@ -4,6 +4,14 @@ Produce application artifacts for one scored job.
 
 Slug: `$ARGUMENTS`
 
+## Preconditions
+
+- `outputs/jobs/<slug>/score.yml` must exist with `decision: APPLY`. If missing or `SKIP`,
+  stop and print: "No APPLY score for `<slug>` — run `/job-hunter score <slug>` first."
+- The configured `profile.resume_tex` file (`config/job_hunter.yml`) must exist. If missing,
+  stop and print: "Base resume not found at `<path>` — run `/setup resume` or the dashboard's
+  Career Profile panel first."
+
 ## Inputs
 
 - `job-hunter internal agent-context tailor-context --job <slug>` → tailoring_rules, positioning_rules,
