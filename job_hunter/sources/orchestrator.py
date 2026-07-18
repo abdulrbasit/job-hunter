@@ -21,7 +21,12 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
-from job_hunter.config.reference_data import resolve_experience_group_ids, resolve_title_exclusions, student_mode
+from job_hunter.config.reference_data import (
+    resolve_experience_group_ids,
+    resolve_title_exclusions,
+    startups_enabled,
+    student_mode,
+)
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
 from job_hunter.core.posting_types import detect_posting_signals, student_query_terms
 from job_hunter.filters import filter_values
@@ -168,7 +173,7 @@ def scrape_with_stats(
     policy = JobPolicy(config)
     groups = resolve_experience_group_ids(filter_values(config, "experience_levels"))
     is_student = student_mode(config)
-    include_startups = bool((config.get("companies") or {}).get("include_startups", False))
+    include_startups = startups_enabled(config)
     query_terms = student_query_terms(job_titles, groups)
     allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []

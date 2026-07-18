@@ -290,7 +290,29 @@ def query_page(
     }
 
 
-def candidate_companies(  # noqa: C901
+def _automatic_startup_rows(
+    conn: sqlite3.Connection, countries: list[str] | None, excluded: list[str], cap: int
+) -> list[dict[str, Any]]:
+    where = ["source = 'catalog'", "company_type IN ('startup', 'scaleup')"]
+    params: list[Any] = []
+    if countries is not None:
+        where.append(f"country IN ({','.join('?' * len(countries))})")
+        params.extend(countries)
+    if excluded:
+        where.append(f"industry NOT IN ({','.join('?' * len(excluded))})")
+        params.extend(excluded)
+    sql = f"SELECT * FROM companies WHERE {' AND '.join(where)} ORDER BY country, normalized_name"  # noqa: S608
+    counts: dict[str, int] = {}
+    result: list[dict[str, Any]] = []
+    for row in conn.execute(sql, params):
+        country = row["country"]
+        if counts.get(country, 0) < cap:
+            result.append(dict(row))
+            counts[country] = counts.get(country, 0) + 1
+    return result
+
+
+def candidate_companies(
     root: Path,
     *,
     countries: list[str] | None,
@@ -324,24 +346,7 @@ def candidate_companies(  # noqa: C901
     with _conn(root) as conn:
         rows = [dict(row) for row in conn.execute(sql, params).fetchall()]
         if include_startups:
-            startup_where = ["source = 'catalog'", "company_type IN ('startup', 'scaleup')"]
-            startup_params: list[Any] = []
-            if countries is not None:
-                startup_where.append(f"country IN ({','.join('?' * len(countries))})")
-                startup_params.extend(countries)
-            if excluded:
-                startup_where.append(f"industry NOT IN ({','.join('?' * len(excluded))})")
-                startup_params.extend(excluded)
-            startup_sql = (
-                f"SELECT * FROM companies WHERE {' AND '.join(startup_where)} ORDER BY country, normalized_name"  # noqa: S608
-            )
-            automatic = conn.execute(startup_sql, startup_params).fetchall()
-            counts: dict[str, int] = {}
-            for row in automatic:
-                country = row["country"]
-                if counts.get(country, 0) < startup_cap:
-                    rows.append(dict(row))
-                    counts[country] = counts.get(country, 0) + 1
+            rows.extend(_automatic_startup_rows(conn, countries, excluded, startup_cap))
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
         if row["source"] == "catalog":
