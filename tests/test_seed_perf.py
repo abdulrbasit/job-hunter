@@ -43,9 +43,7 @@ def _fake_bundle(monkeypatch, n_main: int, n_review: int, version: str = "perf-v
                 "reason": "industry_unmapped",
             }
 
-    monkeypatch.setattr(
-        seed, "manifest", lambda: {"files": {}, "review": {}, "total": n_main, "version": version}
-    )
+    monkeypatch.setattr(seed, "manifest", lambda: {"files": {}, "review": {}, "total": n_main, "version": version})
     monkeypatch.setattr(seed, "iter_seed_companies", main_rows)
     monkeypatch.setattr(seed, "iter_review_companies", review_rows)
 
@@ -69,9 +67,7 @@ def test_store_stays_fast_at_100k_seed_rows(monkeypatch, tmp_path: Path) -> None
     assert (
         _timed(
             "seed_progress",
-            lambda: store.seed_progress(
-                tmp_path, [{"country": "DE"}, {"country": "DE", "city": "geonames:2950159"}]
-            ),
+            lambda: store.seed_progress(tmp_path, [{"country": "DE"}, {"country": "DE", "city": "geonames:2950159"}]),
         )
         < 2.0
     )
