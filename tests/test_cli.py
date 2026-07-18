@@ -183,6 +183,13 @@ def test_agent_context_help_loads() -> None:
     assert "stories-final" in result.stdout
     assert "match-stories" in result.stdout
     assert "lifecycle" in result.stdout
+    assert "profile" in result.stdout
+
+
+def test_agent_context_score_help_advertises_no_profile_flag() -> None:
+    result = run_cli("internal", "agent-context", "score", "--help")
+    assert result.returncode == 0
+    assert "--no-profile" in result.stdout
 
 
 def test_internal_commands_remain_available_but_hidden() -> None:

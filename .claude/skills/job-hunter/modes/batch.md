@@ -29,7 +29,11 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
 
 1. `git pull origin main`.
 
-2. Build queue and freeze batch:
+2. Pre-load shared context once — never re-fetched per candidate or per phase:
+   - `job-hunter internal agent-context profile` — career context + resume + scoring config. Keep this in context for the whole batch; screening and every per-job score call below reuse it instead of reading `config/job_hunter.yml` or `career_context.md` directly.
+   - `job-hunter internal agent-context stories-final`
+
+3. Build queue and freeze batch:
    ```bash
    job-hunter internal telemetry-mark --phase screening --skill screening --state start
    job-hunter internal agent-context batch --scope briefing-backlog --batch-size 15 \
@@ -41,21 +45,17 @@ Status lines, non-blocking failures, and phase completions are **not** stopping 
    ```
    `screen-batch` discards every hard-screen skip itself (deterministic Python, status
    `discarded`) — no agent step marks these terminal.
-   Execute `screen.md` inline against every retained candidate. It ends by calling
-   `apply-judgment` once, which discards every semantic `SKIP` in the same deterministic way.
+   Execute `screen.md` inline against every retained candidate, using the profile already
+   loaded in step 2. It ends by calling `apply-judgment` once, which discards every semantic
+   `SKIP` in the same deterministic way.
    Run `job-hunter internal telemetry-mark --phase screening --state end`.
    Print only: `Batch <N> loaded, N hard-screen skips, M retained`.
-
-3. Pre-load shared context once:
-   - Read `config/job_hunter.yml`
-   - Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`
-   - `job-hunter internal agent-context stories-final`
 
 4. For each retained candidate, one at a time:
    - `job-hunter internal agent-context lifecycle --queue ... --candidate-id <id>`
    - `job-hunter internal import-job --queue ... --candidate-id <id>`
    - Lifecycle for the created job. If `webfetch_required`: WebFetch once → temp file → rerun with `--fallback-text-file`. Reimport only on `reimport_with_fallback`; else `job-hunter internal discard-job --job <slug>` (missing full JD).
-   - `job-hunter internal agent-context score --mode full --job <slug>`
+   - `job-hunter internal agent-context score --mode full --job <slug> --no-profile` (profile already loaded in step 2 — never re-fetch it per job).
    - Execute `score.md` inline — writes `score.yml` and `evaluation.md`.
    - `job-hunter internal agent-context validate-score --path outputs/jobs/<slug>/score.yml`
    - `job-hunter internal discard-job --job <slug>` for below-threshold jobs.

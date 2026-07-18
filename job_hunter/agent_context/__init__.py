@@ -12,7 +12,7 @@ from job_hunter.agent_context.evidence_context import evidence_context
 from job_hunter.agent_context.interview_context import interview_context
 from job_hunter.agent_context.lifecycle import candidate_lifecycle, validate_score_file
 from job_hunter.agent_context.outreach_context import outreach_context
-from job_hunter.agent_context.score_context import score_context
+from job_hunter.agent_context.score_context import profile_context, score_context
 from job_hunter.agent_context.stories import final_stories_text, match_stories, story_by_id, story_index
 from job_hunter.agent_context.tailor_context import tailor_context
 
@@ -29,6 +29,7 @@ __all__ = [
     "linkedin_weekly_context",
     "match_stories",
     "outreach_context",
+    "profile_context",
     "score_context",
     "screen_candidate_batch",
     "story_by_id",

@@ -6,8 +6,8 @@ import re
 
 from job_hunter.models import StoryBlock as StoryBlock
 
-MAX_SNIPPET_CHARS = 700
-MAX_JD_CHARS = 6000
+MAX_SNIPPET_CHARS = 500
+MAX_JD_CHARS = 3000
 DEFAULT_QUEUE_PATH = "outputs/state/agent_candidate_queue.json"
 DEFAULT_CANDIDATE_SCOPE = "briefing-backlog"
 JD_LIFECYCLE_IMPORT_STATUSES = {"thin", "fetch_failed", "page_noise"}

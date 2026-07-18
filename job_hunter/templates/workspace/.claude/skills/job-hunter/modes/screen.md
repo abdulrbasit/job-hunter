@@ -9,8 +9,8 @@ before reading inputs. Telemetry failure is non-blocking and must not be printed
 
 - `outputs/state/agent_candidate_queue.json`
 - `outputs/state/batch_screen.yml`
-- `config/job_hunter.yml`
-- `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`
+- The profile (career context + exclusions) already loaded once by the caller via
+  `job-hunter internal agent-context profile` — standalone, run that command yourself first.
 
 Python already removes objective failures: exact excluded title terms, exact excluded
 companies, duplicates, invalid URLs, clear stale dates/content, strong excluded-language

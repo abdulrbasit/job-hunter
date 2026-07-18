@@ -15,6 +15,7 @@ from job_hunter.agent_context import (
     final_stories_text,
     linkedin_weekly_context,
     match_stories,
+    profile_context,
     score_context,
     screen_candidate_batch,
     story_by_id,
@@ -754,6 +755,42 @@ Situation: relevant verified work.
     assert "APPLY" in " ".join(payload["decision_rules"])
     assert any(o["path"] == "outputs/jobs/job-slug/score.yml" for o in payload["required_outputs"])
     assert any(o["path"] == "outputs/jobs/job-slug/evaluation.md" for o in payload["required_outputs"])
+
+
+def test_score_context_omits_profile_when_not_included(tmp_path: Path) -> None:
+    """Batch scoring fetches the profile once via profile_context(), then passes
+    include_profile=False per job — the payload must not re-embed the profile bytes."""
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {"scoring": {}, "job_titles": [], "profile": {}},
+    )
+    job_dir = tmp_path / "outputs" / "jobs" / "job-slug"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(json.dumps({"company": "ExampleCo"}), encoding="utf-8")
+    (job_dir / "jd.md").write_text("JD text", encoding="utf-8")
+    _write_yaml(job_dir / "score.yml", {"status": "pending"})
+    (tmp_path / "profile").mkdir(exist_ok=True)
+    (tmp_path / "profile" / "career_context.md").write_text("Prefers concise cover letters.", encoding="utf-8")
+
+    payload = score_context(mode="full", root=tmp_path, job="job-slug", include_profile=False)
+
+    assert isinstance(payload["profile"], str)
+    assert "Prefers concise cover letters." not in payload["profile"]
+    assert payload["job"]["meta"]["company"] == "ExampleCo"
+
+
+def test_profile_context_matches_score_context_full_profile_block(tmp_path: Path) -> None:
+    _write_yaml(
+        tmp_path / "config" / "job_hunter.yml",
+        {"scoring": {}, "job_titles": ["Product Manager"], "profile": {}},
+    )
+    (tmp_path / "profile").mkdir(exist_ok=True)
+    (tmp_path / "profile" / "career_context.md").write_text("Prefers concise cover letters.", encoding="utf-8")
+
+    standalone = profile_context(tmp_path)
+
+    assert standalone["career_context"] == "Prefers concise cover letters."
+    assert standalone["target_titles"] == ["Product Manager"]
 
 
 def test_score_context_snippet_uses_no_story_bank(tmp_path: Path) -> None:

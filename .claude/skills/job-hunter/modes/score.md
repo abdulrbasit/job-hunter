@@ -2,7 +2,7 @@
 
 Score one imported job against bounded JD context, configured base resume, and verified Final stories.
 
-Run:
+Run (skip both if the caller — e.g. batch — already fetched this job's scoring context with `--no-profile`; reuse that payload plus the profile already loaded once for the batch):
 
 ```bash
 job-hunter internal telemetry-mark --phase scoring --skill scoring --job <slug> --state start

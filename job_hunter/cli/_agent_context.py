@@ -7,6 +7,7 @@ from pathlib import Path
 
 import typer
 
+from job_hunter.agent_context._types import MAX_JD_CHARS, MAX_SNIPPET_CHARS
 from job_hunter.cli.app import agent_context_app
 
 
@@ -17,7 +18,7 @@ def agent_context_candidates(
     today: bool = typer.Option(False, "--today"),
     scope: str = typer.Option("candidates", "--scope"),
     limit: int = typer.Option(50, "--limit"),
-    max_snippet_chars: int = typer.Option(500, "--max-snippet-chars"),
+    max_snippet_chars: int = typer.Option(MAX_SNIPPET_CHARS, "--max-snippet-chars"),
     write_queue: str = typer.Option("outputs/state/agent_candidate_queue.json", "--write-queue"),
     run_id: str = typer.Option("", "--run-id"),
 ) -> None:
@@ -57,7 +58,7 @@ def agent_context_batch(
     scope: str = typer.Option("candidates", "--scope"),
     today: bool = typer.Option(False, "--today"),
     limit: int = typer.Option(50, "--limit"),
-    max_snippet_chars: int = typer.Option(500, "--max-snippet-chars"),
+    max_snippet_chars: int = typer.Option(MAX_SNIPPET_CHARS, "--max-snippet-chars"),
     write_queue: str | None = typer.Option(None, "--write-queue"),
     write_batch: str = typer.Option("outputs/state/agent_candidate_batch.json", "--write-batch"),
     batch_size: int = typer.Option(15, "--batch-size"),
@@ -130,6 +131,15 @@ def agent_context_apply_judgment(
     typer.echo(json.dumps(result, indent=2))
 
 
+@agent_context_app.command("profile")
+def agent_context_profile() -> None:
+    """Print the profile block (career context + resume) score embeds in every job's
+    payload. Fetch this once per batch run, then pass --no-profile to `score` per job."""
+    from job_hunter import agent_context
+
+    typer.echo(json.dumps(agent_context.profile_context(), indent=2))
+
+
 @agent_context_app.command("score")
 def agent_context_score(
     mode: str = typer.Option("snippet", "--mode"),
@@ -137,7 +147,10 @@ def agent_context_score(
     queue: str | None = typer.Option(None, "--queue"),
     index: int = typer.Option(0, "--index"),
     candidate_id: str = typer.Option("", "--candidate-id"),
-    max_jd_chars: int = typer.Option(3000, "--max-jd-chars"),
+    max_jd_chars: int = typer.Option(MAX_JD_CHARS, "--max-jd-chars"),
+    no_profile: bool = typer.Option(
+        False, "--no-profile", help="Omit the profile block — already fetched once via `agent-context profile`"
+    ),
 ) -> None:
     """Build scoring context for a job."""
     from job_hunter import agent_context
@@ -149,6 +162,7 @@ def agent_context_score(
         index=index,
         candidate_id=candidate_id,
         max_jd_chars=max_jd_chars,
+        include_profile=not no_profile,
     )
     typer.echo(json.dumps(payload, indent=2))
 

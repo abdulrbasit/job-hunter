@@ -53,6 +53,13 @@ def _profile_context(root: Path) -> dict[str, Any]:
     }
 
 
+def profile_context(root: Path | None = None) -> dict[str, Any]:
+    """Public entry point for `agent-context profile` — the same profile block score_context
+    embeds, fetched once per batch run instead of once per job (see score_context's
+    include_profile parameter)."""
+    return _profile_context(_root(root))
+
+
 def _read_job_folder(root: Path, slug: str, max_jd_chars: int) -> dict[str, Any]:
     folder = root / "outputs" / "jobs" / slug
     meta = _read_json_or_yaml(folder / "meta.json") if (folder / "meta.json").exists() else {}
@@ -76,11 +83,16 @@ def score_context(
     index: int = 1,
     candidate_id: str = "",
     max_jd_chars: int = MAX_JD_CHARS,
+    include_profile: bool = True,
 ) -> dict[str, Any]:
     base = _root(root)
     payload: dict[str, Any] = {
         "mode": mode,
-        "profile": _profile_context(base),
+        "profile": (
+            _profile_context(base)
+            if include_profile
+            else "omitted — already fetched once this run via `agent-context profile`"
+        ),
         "story_policy": (
             "snippet mode uses no story bank; full mode starts with matched_stories as a "
             "keyword-ranked shortlist, may use story-index or stories-final for broader "
