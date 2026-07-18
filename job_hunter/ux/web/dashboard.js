@@ -1798,13 +1798,17 @@ async function bulkDeleteApplications() {
 }
 
 // ── Insights rendering ──
+// Single source of truth for status colors is the CSS custom properties in dashboard.css
+// (--s-tailored etc.) — referencing them here instead of a parallel hex palette means the
+// two can never drift out of sync.
 const STATUS_COLORS = {
-  tailored:  '#1f6feb',
-  applied:   '#d29922',
-  responded: '#f0883e',
-  interview: '#8957e5',
-  offer:     '#238636',
-  rejected:  '#6e7681',
+  candidate: 'var(--blue-fg)',
+  tailored:  'var(--s-tailored)',
+  applied:   'var(--s-applied)',
+  responded: 'var(--s-responded)',
+  interview: 'var(--s-interview)',
+  offer:     'var(--s-offer)',
+  rejected:  'var(--s-rejected)',
 };
 
 function renderInsights(data, container) {
@@ -1868,7 +1872,7 @@ function renderStatusBreakdown(byStatus, total) {
   return `<div class="bar-summary">${labels.map(status => {
     const count = byStatus[status] || 0;
     const pct = total > 0 ? Math.round(count / total * 100) : 0;
-    const color = STATUS_COLORS[status] || '#555';
+    const color = STATUS_COLORS[status] || 'var(--text-muted)';
     return `<div class="bar-summary-row">
       <span class="bar-summary-label">${esc(status)}</span>
       <div class="bar-summary-track"><div class="bar-summary-fill" style="width:${pct}%;background:${color};"></div></div>
@@ -1887,7 +1891,7 @@ function renderWeeklyBars(weekly) {
     const pct = Math.round(count / max * 100);
     return `<div class="bar-summary-row">
       <span class="bar-summary-label">${esc(week)}</span>
-      <div class="bar-summary-track"><div class="bar-summary-fill" style="width:${pct}%;background:#1f6feb;"></div></div>
+      <div class="bar-summary-track"><div class="bar-summary-fill" style="width:${pct}%;background:var(--blue);"></div></div>
       <span class="bar-summary-count">${count}</span>
     </div>`;
   }).join('')}</div>`;
@@ -1895,9 +1899,9 @@ function renderWeeklyBars(weekly) {
 
 function renderFunnel(funnel) {
   const stages = [
-    { key: 'found', label: 'Found', color: '#8b949e' },
-    { key: 'screened', label: 'Screened', color: STATUS_COLORS.candidate || '#1f6feb' },
-    { key: 'scored', label: 'Scored', color: '#d29922' },
+    { key: 'found', label: 'Found', color: 'var(--text-muted)' },
+    { key: 'screened', label: 'Screened', color: STATUS_COLORS.candidate },
+    { key: 'scored', label: 'Scored', color: STATUS_COLORS.applied },
     { key: 'tailored', label: 'Tailored', color: STATUS_COLORS.tailored },
     { key: 'applied', label: 'Applied', color: STATUS_COLORS.applied },
     { key: 'interview', label: 'Interview', color: STATUS_COLORS.interview },
