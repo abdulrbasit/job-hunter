@@ -67,6 +67,15 @@ def test_ux_does_not_depend_on_cli() -> None:
     _assert_no_dependency(_PACKAGE_ROOT / "ux", "job_hunter.cli")
 
 
+def test_workspace_does_not_depend_on_ux_cli_or_agent_context() -> None:
+    """workspace/finalize.py's run_finalize_core is shared by cli/, ux/, and the public
+    `job-hunter finalize` command — it must stay callable from ux/ (which must not depend
+    on cli/), so it takes verify_errors/validate_score_file as caller-supplied parameters
+    instead of importing job_hunter.ux.health or job_hunter.agent_context itself."""
+    for banned in ("job_hunter.ux", "job_hunter.cli", "job_hunter.agent_context"):
+        _assert_no_dependency(_PACKAGE_ROOT / "workspace", banned)
+
+
 def test_filters_do_not_depend_on_config() -> None:
     """Package filter definitions and resources sit below user config loading."""
     _assert_no_dependency(_PACKAGE_ROOT / "filters", "job_hunter.config")
