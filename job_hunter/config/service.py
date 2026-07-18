@@ -17,6 +17,7 @@ import os
 import tempfile
 from contextlib import suppress
 from copy import deepcopy
+from importlib import resources
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -93,17 +94,23 @@ def validate_job_hunter_yaml(data: Any, root: Path) -> list[str]:
             errors.append(f"Unknown filter type(s): {', '.join(unknown)}")
     canonical = canonicalize_filter_config(data)
     errors.extend(validate_filter_choices(data))
-    schema_path = root / "config" / "schemas" / "job_hunter.schema.json"
-    if schema_path.exists():
-        try:
-            import jsonschema
+    # Validate against the schema bundled with the running package, never the
+    # workspace's config/schemas/ copy — that copy is editor tooling refreshed on
+    # workspace update and may lag arbitrarily behind the code doing the validating
+    # (a stale copy rejected every dashboard save once the form grew posting_types).
+    try:
+        import jsonschema
 
-            schema = json.loads(schema_path.read_text(encoding="utf-8"))
-            jsonschema.validate(instance=canonical, schema=schema)
-        except jsonschema.ValidationError as exc:
-            errors.append(exc.message)
-        except ImportError:
-            pass
+        schema = json.loads(
+            resources.files("job_hunter.templates")
+            .joinpath("workspace", "config", "schemas", "job_hunter.schema.json")
+            .read_text(encoding="utf-8")
+        )
+        jsonschema.validate(instance=canonical, schema=schema)
+    except jsonschema.ValidationError as exc:
+        errors.append(exc.message)
+    except ImportError:
+        pass
     return errors
 
 

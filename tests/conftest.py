@@ -70,6 +70,10 @@ config_dir.mkdir(parents=True)
           excluded_industries:
             description: Excluded industries
             entries: []
+          experience_levels:
+            description: Experience levels
+            entries:
+              - value: mid
         scoring:
           min_fit_score: 70
           batch_size: 15

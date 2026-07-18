@@ -86,6 +86,36 @@ def test_validate_job_hunter_yaml_accepts_linkedin_enabled_block(tmp_path: Path)
     assert service.validate_job_hunter_yaml(data, tmp_path) == []
 
 
+def test_validate_job_hunter_yaml_ignores_stale_workspace_schema_copy(tmp_path: Path) -> None:
+    """Regression: validation ran against the workspace's config/schemas/ copy, so a
+    workspace scaffolded before `filters.posting_types` existed rejected every dashboard
+    save with "Additional properties are not allowed ('posting_types' was unexpected)".
+    Validation must use the schema bundled with the running package — the workspace copy
+    is editor tooling, refreshed on workspace update, and may lag arbitrarily."""
+    import json
+
+    schema_dir = tmp_path / "config" / "schemas"
+    schema_dir.mkdir(parents=True)
+    canonical = Path(__file__).parents[1] / "config" / "schemas" / "job_hunter.schema.json"
+    stale = json.loads(canonical.read_text(encoding="utf-8"))
+    del stale["properties"]["filters"]["properties"]["posting_types"]
+    (schema_dir / "job_hunter.schema.json").write_text(json.dumps(stale), encoding="utf-8")
+    data = dict(_VALID_CONFIG)
+    data["filters"] = {**_VALID_CONFIG["filters"], "posting_types": ["internship"]}
+
+    assert service.validate_job_hunter_yaml(data, tmp_path) == []
+
+
+def test_validate_job_hunter_yaml_uses_packaged_schema_without_workspace_copy(tmp_path: Path) -> None:
+    """No config/schemas/ in the workspace at all — schema validation must still run."""
+    data = dict(_VALID_CONFIG)
+    data["mode"] = "not-a-real-mode"
+
+    errors = service.validate_job_hunter_yaml(data, tmp_path)
+
+    assert any("not-a-real-mode" in e for e in errors)
+
+
 def test_validate_job_hunter_yaml_rejects_removed_keys(tmp_path: Path) -> None:
     _copy_schema(tmp_path)
     data = dict(_VALID_CONFIG)

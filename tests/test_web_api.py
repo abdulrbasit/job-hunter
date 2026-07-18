@@ -207,9 +207,14 @@ def test_save_onboarding_preferences_updates_config(tmp_path: Path) -> None:
         yaml.safe_dump(
             {
                 "mode": "agent",
+                "profile": {
+                    "resume_tex": "profile/resume.tex",
+                    "story_bank": "profile/story_bank.md",
+                    "career_context": "profile/career_context.md",
+                },
                 "job_titles": [],
                 "regions": {"primary": {"enabled": True, "country": "DE", "location": "Your City"}},
-                "filters": {},
+                "filters": {"hunt_languages": ["en"], "experience_levels": ["mid"]},
                 "scoring": {"min_fit_score": 70, "batch_size": 15},
                 "llm": {"default_provider": "anthropic"},
             }

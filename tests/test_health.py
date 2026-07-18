@@ -326,7 +326,9 @@ def test_doctor_passes_when_skill_files_present(tmp_path: Path) -> None:
     assert checks[".agents/skills/job-hunter/SKILL.md"]["ok"] is True
 
 
-def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:
+def test_doctor_schema_validation_ignores_workspace_schema_copy(tmp_path: Path) -> None:
+    """Validation runs against the packaged schema; a stale/bogus workspace copy under
+    config/schemas/ must not change the result (a lagging copy used to reject every save)."""
     _write_minimal_repo(tmp_path)
     schema_dir = tmp_path / "config" / "schemas"
     schema_dir.mkdir()
@@ -338,8 +340,9 @@ def test_doctor_runs_json_schema_validation(tmp_path: Path) -> None:
     payload = doctor(tmp_path)
     schema = next(check for check in payload["checks"] if check["name"] == "config_schema")
 
-    assert schema["ok"] is False
-    assert "required_key" in schema["detail"]
+    assert "required_key" not in schema["detail"]
+    assert schema["ok"] is False  # the minimal repo config is genuinely stale (removed keys)
+    assert "Removed job_hunter.yml key" in schema["detail"]
 
 
 def _hooks_json(command: str) -> str:
