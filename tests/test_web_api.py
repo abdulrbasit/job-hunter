@@ -2740,3 +2740,95 @@ def test_job_feed_country_filter_uses_hunt_scoped_countries_not_full_universe() 
 
     assert "get_hunt_countries" in html
     assert "loadFeedCountries" in html
+
+
+def _fake_company_seed(monkeypatch, main_rows: list, review_rows: list, version: str = "t1") -> None:
+    from job_hunter.companies import seed as companies_seed
+
+    monkeypatch.setattr(
+        companies_seed, "manifest", lambda: {"files": {}, "review": {}, "total": len(main_rows), "version": version}
+    )
+    monkeypatch.setattr(companies_seed, "iter_seed_companies", lambda: iter(list(main_rows)))
+    monkeypatch.setattr(companies_seed, "iter_review_companies", lambda: iter(list(review_rows)))
+
+
+def test_review_queue_accept_moves_row_into_catalog(monkeypatch, tmp_path: Path) -> None:
+    from job_hunter.models import Company
+
+    good = Company(
+        catalog_id="good", name="Good Co", career_url="https://good.example", country="DE", industry="software_it"
+    )
+    gapped = {
+        "id": "gap",
+        "name": "Gap Co",
+        "url": "https://gap.example",
+        "country": "DE",
+        "industry": "",
+        "reason": "industry_unmapped",
+    }
+    _fake_company_seed(monkeypatch, [good], [gapped])
+    api = DashAPI(tmp_path)
+
+    page = api.get_review_page()
+    assert page["data"]["total"] == 1
+    row = page["data"]["items"][0]
+    assert row["review_reason"] == "industry_unmapped"
+    # review rows never leak into the catalog browse
+    assert all(item["name"] != "Gap Co" for item in api.get_catalog_page()["data"]["items"])
+
+    assert api.resolve_review_company(row["id"], industry="not_a_real_industry")["ok"] is False
+    assert api.resolve_review_company(row["id"], industry="software_it")["ok"] is True
+    assert api.get_review_page()["data"]["total"] == 0
+    assert any(item["name"] == "Gap Co" for item in api.get_catalog_page()["data"]["items"])
+
+
+def test_seed_progress_is_scoped_to_enabled_regions(monkeypatch, tmp_path: Path) -> None:
+    _fake_company_seed(monkeypatch, [], [])
+    _write_regions_config(
+        tmp_path,
+        {
+            "berlin": {"enabled": True, "country": "DE", "scope": "city", "city_id": "geonames:2950159"},
+            "qatar": {"enabled": True, "country": "QA", "scope": "country"},
+            "paris": {"enabled": False, "country": "FR", "scope": "country"},
+        },
+    )
+
+    result = DashAPI(tmp_path).get_seed_progress()
+
+    assert result["ok"] is True
+    targets = {(entry["country"], entry["city"]) for entry in result["progress"]}
+    assert targets == {("DE", "geonames:2950159"), ("QA", "")}
+    berlin = next(e for e in result["progress"] if e["city"])
+    assert berlin["city_name"] == "Berlin"
+    assert berlin["target"] == 1000
+    assert "count" in berlin
+
+
+def test_grow_catalog_imports_newer_bundle_and_reports_counts(monkeypatch, tmp_path: Path) -> None:
+    from job_hunter.models import Company
+
+    one = Company(catalog_id="one", name="One", career_url="https://one.example", country="DE", industry="software_it")
+    _fake_company_seed(monkeypatch, [one], [], version="v1")
+    api = DashAPI(tmp_path)
+
+    first = api.grow_catalog()
+    assert first["data"] == {"changed": True, "before": 0, "after": 1}
+    assert api.grow_catalog()["data"]["changed"] is False  # same version — no-op
+
+    two = Company(catalog_id="two", name="Two", career_url="https://two.example", country="DE", industry="software_it")
+    _fake_company_seed(monkeypatch, [one, two], [], version="v2")
+    grown = api.grow_catalog()
+    assert grown["data"] == {"changed": True, "before": 1, "after": 2}
+
+
+def test_company_hunt_has_needs_review_tab_progress_strip_and_grow_button() -> None:
+    html = _dashboard_source()
+
+    assert 'data-companies-view="review"' in html
+    assert 'id="review-count-badge"' in html
+    assert 'id="grow-catalog-btn"' in html
+    assert 'id="seed-progress"' in html
+    assert "get_review_page" in html
+    assert "resolve_review_company" in html
+    assert "grow_catalog" in html
+    assert "get_seed_progress" in html

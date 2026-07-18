@@ -1498,10 +1498,75 @@ class DashAPI:
             city=city,
             company_type=company_type,
             funding_stage=funding_stage,
+            needs_review=False,
             page=page,
             page_size=page_size,
         )
         return {"ok": True, "data": result}
+
+    def get_review_page(self, page: int = 1) -> dict[str, Any]:
+        """Server-paginated review queue: bundled rows that failed the seed quality gates."""
+        from job_hunter.companies import store
+
+        store.ensure_seeded(self._root)
+        result = store.query_page(self._root, source="catalog", needs_review=True, page=page, page_size=50)
+        return {"ok": True, "data": result}
+
+    def resolve_review_company(self, company_id: int, industry: str = "", url: str = "") -> dict[str, Any]:
+        """One-click accept/fix for a review-queue row — re-checks the gates server-side."""
+        from job_hunter.companies import store
+
+        result = store.resolve_review(self._root, int(company_id), industry=industry.strip(), url=url.strip())
+        return {"ok": result["ok"], "errors": result["errors"], "warnings": []}
+
+    def get_seed_progress(self) -> dict[str, Any]:
+        """Catalog coverage per *enabled region* vs the 1000-per-city growth target.
+
+        Config-scoped by design: the strip answers "how covered is MY hunt", so it only
+        shows the user's enabled regions — the full catalog stays browsable in its tab."""
+        from job_hunter.companies import store
+        from job_hunter.config.loader import get_job_hunter_config_for_root
+        from job_hunter.locations import enabled_locations
+
+        config = get_job_hunter_config_for_root(self._root)
+        targets: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+        for location in enabled_locations(config):
+            key = (location.country, location.city.id if location.city else "")
+            if not location.country or key in seen:
+                continue
+            seen.add(key)
+            targets.append({"country": location.country, "city": key[1]})
+        store.ensure_seeded(self._root)
+        progress = store.seed_progress(self._root, targets)
+        for entry in progress:
+            entry["country_name"] = self._country_name(entry["country"])
+            entry["city_name"] = self._city_name(entry["country"], entry["city"])
+        return {"ok": True, "progress": progress}
+
+    @staticmethod
+    def _country_name(code: str) -> str:
+        from job_hunter.locations import countries
+
+        return next((c["name"] for c in countries() if c["code"] == code), code)
+
+    @staticmethod
+    def _city_name(country: str, city_id: str) -> str:
+        from job_hunter.locations import city_by_id
+
+        if not city_id:
+            return ""
+        city = city_by_id(country, city_id)
+        return city.name if city else city_id
+
+    def grow_catalog(self) -> dict[str, Any]:
+        """Import newer package-bundled seed data into the runtime store (no workspace writes)."""
+        from job_hunter.companies import store
+
+        before = store.company_count(self._root, source="catalog")
+        changed = store.ensure_seeded(self._root)
+        after = store.company_count(self._root, source="catalog")
+        return {"ok": True, "data": {"changed": changed, "before": before, "after": after}}
 
     def save_catalog_enabled_ids(self, ids: list[int], enabled: bool) -> dict[str, Any]:
         """Bulk enable/disable the currently-selected catalog rows (by store id)."""

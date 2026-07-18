@@ -596,21 +596,25 @@ document.querySelectorAll('#company-hunt-subtabs .status-tab').forEach(tab => {
     document.getElementById('company-hunt-run-view').style.display = isManage ? 'none' : 'flex';
     document.getElementById('company-hunt-manage-view').style.display = isManage ? 'flex' : 'none';
     if (isManage && !companiesLoaded) loadCompanies();
+    if (isManage) loadReviewBadge();
   });
 });
 
-// My Companies / Shared Catalog sub-tabs within Manage Companies
+// My Companies / Shared Catalog / Needs Review sub-tabs within Manage Companies
 document.querySelectorAll('#companies-view-tabs .status-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('#companies-view-tabs .status-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    const isCatalog = tab.dataset.companiesView === 'catalog';
-    document.getElementById('companies-mine-view').style.display = isCatalog ? 'none' : '';
-    document.getElementById('companies-catalog-view').style.display = isCatalog ? '' : 'none';
-    if (isCatalog) {
+    const view = tab.dataset.companiesView;
+    document.getElementById('companies-mine-view').style.display = view === 'mine' ? '' : 'none';
+    document.getElementById('companies-catalog-view').style.display = view === 'catalog' ? '' : 'none';
+    document.getElementById('companies-review-view').style.display = view === 'review' ? '' : 'none';
+    if (view === 'catalog') {
       if (!catalogIndustriesLoaded) loadCatalogIndustries();
       loadCatalogPage();
+      loadSeedProgress();
     }
+    if (view === 'review') loadReviewPage();
   });
 });
 
@@ -688,6 +692,7 @@ document.getElementById('feed-cards').addEventListener('change', (e) => {
   ['catalog-bulk-disable-btn', () => bulkSetCatalogEnabled(false)],
   ['catalog-enable-shown-btn', () => setCatalogShownEnabled(true)],
   ['catalog-disable-shown-btn', () => setCatalogShownEnabled(false)],
+  ['grow-catalog-btn', growCatalog],
   ['open-config-folder-btn', openConfigFolder],
   ['undo-company-targets-btn', undoCompanyTargets],
   ['add-region-btn', () => addRegionRow()],
@@ -3340,4 +3345,110 @@ function esc(str) {
 function safeUrl(url) {
   const value = String(url || '').trim();
   return /^https?:\/\//i.test(value) ? esc(value) : '#';
+}
+
+// ── Needs Review + seed coverage (Company Hunt → Manage Companies) ──
+let reviewPage = 1;
+
+async function loadReviewBadge() {
+  try {
+    const result = await window.pywebview.api.get_review_page(1);
+    const total = (result.data && result.data.total) || 0;
+    document.getElementById('review-count-badge').textContent = total ? `(${total})` : '';
+  } catch(_) {}
+}
+
+function reviewReasonLabel(reason) {
+  const labels = { url_not_https: 'URL is not https', industry_unmapped: 'No matching industry' };
+  return (reason || '').split(',').filter(Boolean).map(r => labels[r] || r).join(', ') || '—';
+}
+
+async function loadReviewPage() {
+  const tbody = document.getElementById('review-tbody');
+  try {
+    if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
+    const result = await window.pywebview.api.get_review_page(reviewPage);
+    const data = result.data;
+    reviewPage = data.page;
+    const industryOptions = (filterOptions.industries || [])
+      .map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`).join('');
+    tbody.innerHTML = data.items.length ? data.items.map(row => `
+      <tr data-review-id="${row.id}">
+        <td>${esc(row.name)}</td>
+        <td>${esc(row.country)}</td>
+        <td><input type="text" class="review-url" value="${esc(row.url)}"></td>
+        <td><select class="review-industry"><option value="">Pick industry…</option>${industryOptions}</select></td>
+        <td>${esc(reviewReasonLabel(row.review_reason))}</td>
+        <td><button class="btn btn-primary" data-review-accept="${row.id}">Accept</button></td>
+      </tr>`).join('')
+      : `<tr><td colspan="6">${emptyStateHtml('✅', 'Nothing needs review', 'Shared-pool companies with gaps will land here after a catalog Grow.')}</td></tr>`;
+    data.items.forEach(row => {
+      const select = tbody.querySelector(`tr[data-review-id="${row.id}"] .review-industry`);
+      if (select && row.industry && row.industry !== 'other') select.value = row.industry;
+    });
+    renderPager(document.getElementById('review-pager'), data, reviewPage);
+    loadReviewBadge();
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="no-data">Review queue could not be loaded.</div></td></tr>';
+  }
+}
+
+async function acceptReviewCompany(id) {
+  const row = document.querySelector(`tr[data-review-id="${id}"]`);
+  const msg = document.getElementById('review-msg');
+  const industry = row.querySelector('.review-industry').value;
+  const url = row.querySelector('.review-url').value.trim();
+  try {
+    const result = await window.pywebview.api.resolve_review_company(id, industry, url);
+    if (!result.ok) {
+      msg.textContent = '✗ ' + ((result.errors && result.errors[0]) || 'Could not accept.');
+      msg.style.color = 'var(--red-fg)';
+      return;
+    }
+    msg.textContent = '✓ Moved to Shared Catalog';
+    msg.style.color = 'var(--green-fg)';
+    setTimeout(() => { msg.textContent = ''; }, 2000);
+    loadReviewPage();
+  } catch(_) {
+    msg.textContent = '✗ Could not accept. Retry, then run job-hunter doctor if the problem continues.';
+    msg.style.color = 'var(--red-fg)';
+  }
+}
+
+document.getElementById('review-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-review-accept]');
+  if (btn) acceptReviewCompany(Number(btn.dataset.reviewAccept));
+});
+document.getElementById('review-pager').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page-delta]');
+  if (btn && !btn.disabled) { reviewPage += Number(btn.dataset.pageDelta); loadReviewPage(); }
+});
+
+async function loadSeedProgress() {
+  const el = document.getElementById('seed-progress');
+  try {
+    const result = await window.pywebview.api.get_seed_progress();
+    el.innerHTML = (result.progress || []).map(p => {
+      const label = p.city_name ? `${p.city_name}, ${p.country}` : (p.country_name || p.country);
+      const pct = Math.min(100, Math.round((p.count / p.target) * 100));
+      return `<div class="seed-progress-item"><span>${esc(label)}</span>
+        <div class="seed-progress-bar"><div class="seed-progress-fill" style="width:${pct}%"></div></div>
+        <span>${p.count} / ${p.target}</span></div>`;
+    }).join('');
+  } catch(_) { el.innerHTML = ''; }
+}
+
+async function growCatalog() {
+  const btn = document.getElementById('grow-catalog-btn');
+  btn.disabled = true;
+  try {
+    const result = await window.pywebview.api.grow_catalog();
+    const d = result.data;
+    showToast(d.changed ? `Catalog grown: ${d.before} → ${d.after} companies` : 'Catalog already up to date');
+    if (d.changed) { loadCatalogPage(); loadSeedProgress(); loadReviewBadge(); }
+  } catch(_) {
+    showToast('Could not grow the catalog.');
+  } finally {
+    btn.disabled = false;
+  }
 }

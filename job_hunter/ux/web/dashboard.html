@@ -274,6 +274,7 @@
           <div class="status-tabs" id="companies-view-tabs">
             <button class="status-tab active" data-companies-view="mine">My Companies</button>
             <button class="status-tab" data-companies-view="catalog">Shared Catalog</button>
+            <button class="status-tab" data-companies-view="review">Needs Review <span id="review-count-badge"></span></button>
           </div>
 
           <!-- My Companies: config/job_hunter.yml's companies.targets, enabled by default -->
@@ -336,6 +337,8 @@
                per-company or per-filter — off by default, unlike your own added companies. -->
           <div id="companies-catalog-view" style="display:none">
             <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Bundled companies shared with every Job Hunter user. None of these run until you enable them, one at a time or a whole filtered set.</span>
+            <!-- Coverage per enabled region only — config-scoped, the catalog below stays browse-everything -->
+            <div class="seed-progress" id="seed-progress"></div>
             <div class="filter-bar">
               <input class="search-input" type="text" id="catalog-search" placeholder="Search shared catalog…">
               <select class="filter-select" id="catalog-country-filter">
@@ -367,6 +370,7 @@
               <button class="btn" id="catalog-bulk-disable-btn" style="display:none">Disable selected</button>
               <button class="btn btn-primary" id="catalog-enable-shown-btn">Enable all shown</button>
               <button class="btn" id="catalog-disable-shown-btn">Disable all shown</button>
+              <button class="btn" id="grow-catalog-btn" title="Import newer bundled seed data into your local catalog">Grow</button>
               <span class="topbar-subtitle" id="catalog-total-count">0 companies</span>
             </div>
 
@@ -388,6 +392,31 @@
               </table>
             </div>
             <div class="pager" id="catalog-pager"></div>
+          </div>
+
+          <!-- Needs Review: bundled rows that failed the seed quality gates (missing industry,
+               non-https URL). Fix inline and Accept — accepted rows join the Shared Catalog. -->
+          <div id="companies-review-view" style="display:none">
+            <span style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">Companies from the shared pool with gaps the pipeline couldn't fill. Fix the gap and Accept to move one into the Shared Catalog.</span>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Country</th>
+                    <th>Career URL</th>
+                    <th>Industry</th>
+                    <th>Why it's here</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="review-tbody">
+                  <tr><td colspan="6"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pager" id="review-pager"></div>
+            <span class="save-msg" id="review-msg"></span>
           </div>
         </div>
       </div>
