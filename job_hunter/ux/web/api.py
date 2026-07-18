@@ -1215,6 +1215,24 @@ class DashAPI:
 
         return {"ok": True, "countries": countries()}
 
+    def get_hunt_countries(self) -> dict[str, Any]:
+        """Countries the user is actually hunting in — the enabled regions' distinct
+        country values, not the full package location universe. Job Feed filters over
+        the user's own jobs.db, which is already confined to these regions, so offering
+        ~190 country options there would be noise, not choice."""
+        from job_hunter.config.loader import get_job_hunter_config_for_root
+        from job_hunter.locations import countries
+
+        config = get_job_hunter_config_for_root(self._root)
+        regions = config.get("regions") or {}
+        codes = {
+            str(region.get("country")).upper()
+            for region in regions.values()
+            if isinstance(region, dict) and region.get("enabled") and region.get("country")
+        }
+        matched = [c for c in countries() if c["code"] in codes]
+        return {"ok": True, "countries": matched}
+
     def get_filter_options(self) -> dict[str, Any]:
         from job_hunter.filters import filter_options
 

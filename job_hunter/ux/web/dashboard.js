@@ -1095,7 +1095,7 @@ async function loadFeedCountries() {
   if (feedCountriesLoaded) return;
   feedCountriesLoaded = true;
   try {
-    const payload = await window.pywebview.api.get_location_countries();
+    const payload = await window.pywebview.api.get_hunt_countries();
     const select = document.getElementById('candidate-country');
     select.insertAdjacentHTML('beforeend',
       (payload.countries || []).map(c => `<option value="${esc(c.code)}">${esc(c.name)}</option>`).join(''));

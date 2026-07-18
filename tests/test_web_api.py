@@ -2671,3 +2671,67 @@ def test_kanban_and_detail_panel_have_accessible_labels() -> None:
     assert 'aria-label="Close details"' in html
     assert 'role="list"' in html
     assert 'role="listitem"' in html
+
+
+# ── Job Feed country filter must be scoped to the user's configured regions ──
+
+
+def _write_regions_config(root: Path, regions: dict) -> None:
+    (root / "profile").mkdir(exist_ok=True)
+    for name in ("resume.tex", "story_bank.md", "career_context.md"):
+        (root / "profile" / name).write_text("x", encoding="utf-8")
+    (root / "config").mkdir(exist_ok=True)
+    (root / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "mode": "agent",
+                "profile": {
+                    "resume_tex": "profile/resume.tex",
+                    "story_bank": "profile/story_bank.md",
+                    "career_context": "profile/career_context.md",
+                },
+                "job_titles": ["Product Manager"],
+                "regions": regions,
+                "filters": {"hunt_languages": ["en"], "experience_levels": ["mid"]},
+                "scoring": {"min_fit_score": 70, "batch_size": 10},
+                "llm": {"default_provider": "anthropic"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_get_hunt_countries_only_returns_enabled_region_countries(tmp_path: Path) -> None:
+    _write_regions_config(
+        tmp_path,
+        {
+            "berlin": {"enabled": True, "country": "DE", "scope": "country"},
+            "london": {"enabled": True, "country": "GB", "scope": "country"},
+            "paris": {"enabled": False, "country": "FR", "scope": "country"},
+            "anywhere": {"enabled": True, "scope": "remote_global"},
+        },
+    )
+
+    result = DashAPI(tmp_path).get_hunt_countries()
+
+    assert result["ok"] is True
+    codes = {c["code"] for c in result["countries"]}
+    assert codes == {"DE", "GB"}
+    # not the ~190-country package universe
+    assert len(result["countries"]) < 10
+
+
+def test_get_hunt_countries_empty_when_no_region_resolves_a_country(tmp_path: Path) -> None:
+    _write_regions_config(tmp_path, {"anywhere": {"enabled": True, "scope": "remote_global"}})
+
+    result = DashAPI(tmp_path).get_hunt_countries()
+
+    assert result == {"ok": True, "countries": []}
+
+
+def test_job_feed_country_filter_uses_hunt_scoped_countries_not_full_universe() -> None:
+    html = _dashboard_source()
+
+    assert "get_hunt_countries" in html
+    assert "loadFeedCountries" in html
