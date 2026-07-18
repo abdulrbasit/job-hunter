@@ -974,7 +974,7 @@ class DashAPI:
         sort: str = "date",
         direction: str = "desc",
     ) -> dict[str, Any]:
-        from job_hunter.tracking.repository import get_jobs_page
+        from job_hunter.tracking.repository import count_by_status, get_jobs_page
 
         status_groups = {
             "active": ("candidate", "discovered"),
@@ -996,15 +996,10 @@ class DashAPI:
             require_identity=True,
         )
         items = [self._feed_item(job) for job in rows]
+        # One GROUP BY query for every scope's count instead of one COUNT query per scope.
+        status_totals = count_by_status(self._root, require_identity=True)
         counts = {
-            name: get_jobs_page(
-                self._root,
-                statuses=statuses,
-                page=1,
-                page_size=1,
-                require_identity=True,
-            )[1]
-            for name, statuses in status_groups.items()
+            name: sum(status_totals.get(status, 0) for status in statuses) for name, statuses in status_groups.items()
         }
         counts["total"] = counts["active"] + counts["shortlisted"] + counts["discarded"]
         size = min(200, max(1, int(page_size)))

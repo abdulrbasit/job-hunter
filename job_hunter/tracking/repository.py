@@ -1096,11 +1096,13 @@ def count_active(root: Path) -> int:
     return row["n"] if row else 0
 
 
-def count_by_status(root: Path) -> dict[str, int]:
+def count_by_status(root: Path, *, require_identity: bool = False) -> dict[str, int]:
     """All jobs grouped by (display-normalized) status — the raw material for a funnel:
-    every row ever discovered, regardless of how far it advanced."""
+    every row ever discovered, regardless of how far it advanced. One GROUP BY query
+    replaces N per-status COUNT queries (e.g. the dashboard's candidate/feed scope tabs)."""
+    where = "WHERE TRIM(COALESCE(title, '')) != '' AND TRIM(COALESCE(company, '')) != ''" if require_identity else ""
     with _conn(root) as conn:
-        rows = conn.execute("SELECT status, COUNT(*) as n FROM jobs GROUP BY status").fetchall()
+        rows = conn.execute(f"SELECT status, COUNT(*) as n FROM jobs {where} GROUP BY status").fetchall()  # noqa: S608
     counts: dict[str, int] = {}
     for row in rows:
         status = display_status(str(row["status"] or ""))
