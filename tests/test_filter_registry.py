@@ -33,12 +33,14 @@ def test_package_registry_defines_known_filter_types_and_modes() -> None:
         "excluded_industries",
         "hunt_languages",
         "experience_levels",
+        "posting_types",
     }
     assert FILTER_TYPES["excluded_companies"].mode == FilterMatchMode.CONTAINS
     assert FILTER_TYPES["excluded_titles"].mode == FilterMatchMode.CONTAINS
     assert FILTER_TYPES["excluded_industries"].mode == FilterMatchMode.CONTAINS
     assert FILTER_TYPES["hunt_languages"].mode == FilterMatchMode.EXACT
     assert FILTER_TYPES["experience_levels"].mode == FilterMatchMode.EXACT
+    assert FILTER_TYPES["posting_types"].mode == FilterMatchMode.EXACT
 
 
 def test_scalar_choices_bind_to_package_matching_logic() -> None:

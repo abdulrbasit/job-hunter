@@ -850,6 +850,7 @@ class DashAPI:
         page: int = 1,
         page_size: int = 50,
         search: str = "",
+        posting_type: str = "",
         sort: str = "date",
         direction: str = "desc",
     ) -> dict[str, Any]:
@@ -866,6 +867,7 @@ class DashAPI:
             page=page,
             page_size=page_size,
             search=search,
+            posting_type=posting_type,
             sort=sort,
             direction=direction,
             require_identity=True,
@@ -876,6 +878,7 @@ class DashAPI:
                 "company": job.get("company"),
                 "title": job.get("title"),
                 "location": job.get("location"),
+                "posting_type": job.get("posting_type"),
                 "status": display_status(str(job.get("status") or "")),
                 "url": job.get("url"),
                 "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],

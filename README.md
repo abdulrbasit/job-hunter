@@ -59,6 +59,16 @@ In `agent` mode, open the workspace in VS Code with Claude Code or Codex and use
 
 In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover letter → PDF → tracker in one pipeline.
 
+## For Students
+
+1. Run `job-hunter dash`, open onboarding, and enable **Student mode**.
+2. Choose target roles and locations; internships, working-student roles, thesis
+   positions, graduate programs, and trainee roles are selected automatically.
+3. Run `job-hunter hunt`, then review the posting-type-filtered Candidates feed.
+
+Student scoring emphasizes verified education, coursework, projects, internships, and
+transferable skills. Posting types and the automatic score threshold remain editable.
+
 ## Company Hunt
 
 For company career pages that need a real browser, add your own companies or

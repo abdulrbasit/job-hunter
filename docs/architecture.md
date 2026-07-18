@@ -65,6 +65,11 @@ Hunt flow:
 5. Persist job/application state, generated artifacts, README summaries, and
    telemetry.
 
+Posting type is detected before screening, stored additively on the canonical job row,
+and preserved by upserts and database merges. Experience selections are allowlists: a
+confident title group wins over overlapping years; years are the fallback. Expert and
+Management are independent tracks.
+
 Agent mode exits after discovery/state preparation. Bundled `job-hunter`
 skills continue the same lifecycle through hidden CLI contracts under
 `job-hunter internal ...`.

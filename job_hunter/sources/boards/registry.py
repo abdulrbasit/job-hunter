@@ -20,6 +20,7 @@ from job_hunter.sources.boards.jobbank import JobBankSource
 from job_hunter.sources.boards.jobicy import JobicySource
 from job_hunter.sources.boards.jobspy import JobSpySource
 from job_hunter.sources.boards.jobstreet import JobStreetSource
+from job_hunter.sources.boards.jobteaser import JobTeaserSource
 from job_hunter.sources.boards.mycareersfuture import MyCareersFutureSource
 from job_hunter.sources.boards.reed import ReedSource
 from job_hunter.sources.boards.remoteok import RemoteOKSource
@@ -41,6 +42,7 @@ BOARD_REGISTRY: dict[str, type] = {
     "jobicy": JobicySource,
     "jobspy": JobSpySource,
     "jobstreet": JobStreetSource,
+    "jobteaser": JobTeaserSource,
     "mycareersfuture": MyCareersFutureSource,
     "reed": ReedSource,
     "remoteok": RemoteOKSource,
@@ -64,6 +66,7 @@ __all__ = [
     "JobicySource",
     "JobSpySource",
     "JobStreetSource",
+    "JobTeaserSource",
     "MyCareersFutureSource",
     "ReedSource",
     "RemoteOKSource",

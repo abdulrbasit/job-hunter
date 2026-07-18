@@ -173,6 +173,14 @@
     <div class="app-panel">
       <div class="filter-bar">
         <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…">
+        <select id="candidate-posting-type" aria-label="Filter by posting type">
+          <option value="">All posting types</option>
+          <option value="internship">Internship</option>
+          <option value="working_student">Working student</option>
+          <option value="thesis">Thesis</option>
+          <option value="graduate_program">Graduate program</option>
+          <option value="trainee">Trainee</option>
+        </select>
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
@@ -188,13 +196,14 @@
               <th>Company</th>
               <th>Title</th>
               <th>Location</th>
+              <th>Posting type</th>
               <th>Status</th>
               <th>Date</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="unprocessed-tbody">
-            <tr><td colspan="7"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
+            <tr><td colspan="8"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -415,6 +424,7 @@
         <div class="settings-section" id="settings-section-filters">
           <h3>Filters</h3>
           <p class="settings-help">Languages are an allowlist. Other groups exclude matching results. Matching is automatic; add values and optional notes.</p>
+          <label class="filter-check"><input type="checkbox" id="student-mode"><span>Student mode</span></label>
           <div id="cfg-filter-groups"></div>
         </div>
         <span id="anchor-settings-section-filters" style="display:none"></span>

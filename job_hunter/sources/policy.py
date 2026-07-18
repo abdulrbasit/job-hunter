@@ -9,7 +9,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from job_hunter.config.reference_data import resolve_experience_range, resolve_title_exclusions
+from job_hunter.config.reference_data import (
+    resolve_experience_group_ids,
+    resolve_experience_range,
+    resolve_title_exclusions,
+    student_mode,
+)
 from job_hunter.core.builtin_filters import (
     CONTRACT_PHRASES,
     EXCLUDED_LISTING_URL_PATTERNS,
@@ -21,6 +26,7 @@ from job_hunter.core.builtin_filters import (
 )
 from job_hunter.core.experience import detect_experience
 from job_hunter.core.language import detect_language
+from job_hunter.core.posting_types import detect_posting_signals
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.filters import FilterSet
 from job_hunter.locations import COUNTRY_NAME_TO_CODE
@@ -310,7 +316,23 @@ class JobPolicy:
             return "missing_identity"
         if str(title).strip().lower() == "unknown role" or str(company).strip().lower() == "unknown company":
             return "missing_identity"
-        if title_filters and not title_is_allowed(title, title_filters, self.excluded_title_terms):
+        relaxed = (
+            student_mode(self.config) and detect_posting_signals(str(title), str(snippet)).posting_type is not None
+        )
+        selected_posting_types = set(self.filters.values("posting_types")) if self.filters else set()
+        if selected_posting_types:
+            detected_posting_type = (
+                job.get("posting_type") or detect_posting_signals(str(title), str(snippet)).posting_type
+            )
+            detected_value = str(detected_posting_type or "")
+            if detected_value not in selected_posting_types:
+                return "excluded_posting_type"
+        if title_filters and not title_is_allowed(
+            title,
+            title_filters,
+            self.excluded_title_terms,
+            relaxed_student=relaxed,
+        ):
             logger.info("[skip] Title not in filters: %s", title[:60])
             return "excluded_title"
         if self.is_excluded_company(company):
@@ -426,6 +448,15 @@ class JobPolicy:
         detection = detect_experience(title, description)
         if not detection.confident or detection.min_years is None:
             return False, None, True
+        selected_groups = resolve_experience_group_ids(self.filters.values("experience_levels") if self.filters else [])
+        if detection.group_id and selected_groups:
+            detail = ExperienceScreenDetail(
+                detection.level_id,
+                detection.min_years,
+                detection.max_years,
+                *resolve_experience_range(self.config),
+            )
+            return detection.group_id not in selected_groups, detail, False
         detected_min, detected_max = detection.min_years, detection.max_years
         overlaps = detected_min <= (user_max if user_max is not None else detected_min) and user_min <= (
             detected_max if detected_max is not None else user_min

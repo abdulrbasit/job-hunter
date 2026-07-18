@@ -193,7 +193,7 @@ class JobSpySource(JobSourceAdapter):
 
         jobs: list[JobPosting] = []
 
-        for title in params.job_titles:
+        for title in params.query_terms or params.job_titles:
             # python-jobspy's own docs: Google Jobs needs a natural-language search
             # string ("<title> jobs near <location>"), not a bare title — a bare
             # title returns few/no results even though search_term=title works fine
@@ -261,7 +261,12 @@ class JobSpySource(JobSourceAdapter):
                 before = len(jobs)
                 for _, row in df.iterrows():
                     row_title = _str(row.get("title"))
-                    if not title_is_allowed(row_title, params.job_titles, params.excluded_title_terms):
+                    if not title_is_allowed(
+                        row_title,
+                        params.job_titles,
+                        params.excluded_title_terms,
+                        relaxed_student=params.student_mode,
+                    ):
                         continue
                     job_dict = _row_to_job(row, params.region_key)
                     if job_dict:

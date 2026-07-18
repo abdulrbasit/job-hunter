@@ -660,6 +660,7 @@ document.getElementById('dp-artifact-tabs').addEventListener('click', (e) => {
 
 document.getElementById('search-input').addEventListener('input', debouncedLoadApplications);
 document.getElementById('candidate-search').addEventListener('input', debouncedLoadCandidates);
+document.getElementById('candidate-posting-type').addEventListener('change', debouncedLoadCandidates);
 document.getElementById('company-search').addEventListener('input', renderCompanies);
 document.getElementById('catalog-search').addEventListener('input', debouncedLoadCatalog);
 document.getElementById('catalog-industry-filter').addEventListener('change', () => {
@@ -695,6 +696,18 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
 });
 document.getElementById('settings-raw-yaml').addEventListener('input', markRawDirty);
 document.getElementById('settings-career-context').addEventListener('input', markCareerContextDirty);
+document.getElementById('student-mode').addEventListener('change', (event) => {
+  const enabled = event.target.checked;
+  const student = document.querySelector('[data-name="experience_levels"] input[value="student"]');
+  if (student) student.checked = enabled;
+  document.querySelectorAll('[data-name="posting_types"] input[type="checkbox"]').forEach(option => {
+    option.checked = enabled;
+  });
+  const score = document.getElementById('cfg-min-fit-score');
+  if (enabled && Number(score.value) === 70) score.value = 60;
+  if (!enabled && Number(score.value) === 60) score.value = 70;
+  markConfigDirty();
+});
 
 document.getElementById('app-select-all').addEventListener('change', (e) => toggleSelectAllApps(e.target.checked));
 document.getElementById('candidate-select-all').addEventListener('change', (e) => toggleSelectAll(e.target.checked));
@@ -868,7 +881,8 @@ async function loadUnprocessed() {
       candidateScope,
       candidatePage,
       50,
-      document.getElementById('candidate-search').value
+      document.getElementById('candidate-search').value,
+      document.getElementById('candidate-posting-type').value
     );
     candidatePage = candidateData.page;
     document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
@@ -876,7 +890,7 @@ async function loadUnprocessed() {
     document.getElementById('candidate-total-count').textContent = `${candidateData.counts.total} candidates`;
     renderCandidates();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7">${errorHtml('Candidates could not be loaded.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">${errorHtml('Candidates could not be loaded.')}</td></tr>`;
   }
 }
 
@@ -885,7 +899,7 @@ function renderCandidates() {
   const jobs = candidateData.items || [];
   document.getElementById('candidate-select-all').style.visibility = candidateScope === 'active' ? 'visible' : 'hidden';
   if (!jobs.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
     updateDiscardButton();
     renderCandidatePager();
     return;
@@ -895,6 +909,7 @@ function renderCandidates() {
       <td class="td-company">${esc(job.company || '—')}</td>
       <td class="td-title">${job.url ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
+      <td>${esc((job.posting_type || '—').replaceAll('_', ' '))}</td>
       <td><span class="badge badge-${candidateScope === 'discarded' ? 'discarded' : 'candidate'}">${candidateScope === 'discarded' ? 'Discarded' : 'Candidate'}</span></td>
       <td class="td-date">${esc(job.date || '')}</td>
       <td>${candidateScope === 'active' ? `<button class="btn btn-danger" data-delete-id="${job.id}">🗑</button>` : ''}</td>
@@ -2069,6 +2084,7 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
+  document.getElementById('student-mode').checked = (form.filters.experience_levels || []).includes('student');
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -2098,7 +2114,8 @@ function renderFilterGroups(filters) {
     group.dataset.name = name;
     const options = name === 'excluded_industries' ? (filterOptions.industries || []).map(item => ({value: item.id, label: item.label}))
       : name === 'hunt_languages' ? (filterOptions.languages || []).map(item => ({value: item.code, label: `${item.name} (${item.code})`}))
-      : name === 'experience_levels' ? (filterOptions.experience_levels || []).map(item => ({value: item.id, label: item.label})) : null;
+      : name === 'experience_levels' ? (filterOptions.experience_levels || []).map(item => ({value: item.id, label: item.label}))
+      : name === 'posting_types' ? (filterOptions.posting_types || []).map(item => ({value: item.id, label: item.label})) : null;
     // Catalog-backed groups (industries/languages/experience levels) render as a
     // searchable checkbox list — native <select multiple> requires ctrl/cmd-click and
     // gives no visual feedback on what's selected, which is a real usability problem

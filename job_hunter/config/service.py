@@ -342,7 +342,7 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     return merged
 
 
-def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[str, Any]:
+def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[str, Any]:  # noqa: C901
     """Apply the compact Get-Started search-setup fields onto existing job_hunter.yml data.
 
     Touches only mode, experience_levels, job_titles, the "primary" region, and
@@ -378,9 +378,25 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     industries = [str(i).strip() for i in (prefs.get("excluded_industries") or []) if str(i).strip()]
     filters = dict(merged.get("filters") or {})
     filters["excluded_industries"] = industries
+    from job_hunter.config.reference_data import resolve_experience_group_ids
+    from job_hunter.core.posting_types import STUDENT_POSTING_TYPES
+
+    previous_levels = [str(v) for v in filters.get("experience_levels", []) or []]
+    was_student = "student" in resolve_experience_group_ids(previous_levels)
     experience_levels = [str(v).strip() for v in (prefs.get("experience_levels") or []) if str(v).strip()]
     if experience_levels:
         filters["experience_levels"] = experience_levels
+        is_student = "student" in resolve_experience_group_ids(experience_levels)
+        scoring = dict(merged.get("scoring") or {})
+        if is_student and not was_student:
+            filters["posting_types"] = list(STUDENT_POSTING_TYPES)
+            if scoring.get("min_fit_score", 70) == 70:
+                scoring["min_fit_score"] = 60
+        elif was_student and not is_student:
+            filters.pop("posting_types", None)
+            if scoring.get("min_fit_score") == 60:
+                scoring["min_fit_score"] = 70
+        merged["scoring"] = scoring
     hunt_languages = [str(v).strip() for v in (prefs.get("hunt_languages") or []) if str(v).strip()]
     if hunt_languages:
         filters["hunt_languages"] = hunt_languages

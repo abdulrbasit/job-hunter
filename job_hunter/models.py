@@ -42,6 +42,14 @@ class LocationScope(StrEnum):
     REMOTE_GLOBAL = "remote_global"
 
 
+class PostingType(StrEnum):
+    INTERNSHIP = "internship"
+    WORKING_STUDENT = "working_student"
+    THESIS = "thesis"
+    GRADUATE_PROGRAM = "graduate_program"
+    TRAINEE = "trainee"
+
+
 class CanonicalCity(BaseModel):
     """Stable city identity from package-owned bundled data."""
 
@@ -104,6 +112,7 @@ class JobPosting(BaseModel):
     location_restrictions: list[str] = Field(default_factory=list)
     timezone_restrictions: list[float] = Field(default_factory=list)
     employment_type: str = ""
+    posting_type: PostingType | None = None
     seniority: list[str] = Field(default_factory=list)
     job_description_fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
     llm_posting_status_check: str = ""  # advisory: "open"|"closed"|"unknown" — set for posting_date_status="missing"
@@ -197,6 +206,8 @@ class SearchParams(BaseModel):
     job_titles: list[str]
     max_results: int = 50
     excluded_title_terms: list[str] = Field(default_factory=list)
+    query_terms: list[str] = Field(default_factory=list)
+    student_mode: bool = False
 
 
 class ScrapeStats(BaseModel):

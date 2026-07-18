@@ -57,6 +57,47 @@ def experience_level_names() -> list[str]:
     return [level.id for level in load_experience_levels()]
 
 
+EXPERIENCE_GROUP_MEMBERS: dict[str, tuple[str, ...]] = {
+    "student": ("student_intern", "student_working_student", "student_thesis"),
+    "entry": ("entry", "junior", "associate"),
+    "mid": ("mid",),
+    "senior": ("senior",),
+    "expert": ("lead", "staff", "principal", "expert"),
+    "management": ("manager", "director"),
+    "executive": ("vp", "c_level"),
+}
+
+
+def experience_group_names() -> list[str]:
+    return list(EXPERIENCE_GROUP_MEMBERS)
+
+
+def resolve_experience_group_ids(values: list[str]) -> set[str]:
+    """Resolve public group IDs and legacy detailed IDs without rewriting config."""
+    resolved: set[str] = set()
+    for value in values:
+        if value in EXPERIENCE_GROUP_MEMBERS:
+            resolved.add(value)
+            continue
+        resolved.update(group for group, members in EXPERIENCE_GROUP_MEMBERS.items() if value in members)
+    return resolved
+
+
+def expanded_experience_level_ids(values: list[str]) -> list[str]:
+    expand_groups = all(value in EXPERIENCE_GROUP_MEMBERS for value in values)
+    expanded: list[str] = []
+    for value in values:
+        members = EXPERIENCE_GROUP_MEMBERS.get(value, (value,)) if expand_groups else (value,)
+        expanded.extend(members)
+    return list(dict.fromkeys(expanded))
+
+
+def student_mode(config: dict) -> bool:
+    from job_hunter.filters import filter_values
+
+    return "student" in resolve_experience_group_ids(filter_values(config, "experience_levels"))
+
+
 def experience_level(level_id: str) -> ExperienceLevel | None:
     return next((level for level in load_experience_levels() if level.id == level_id), None)
 
@@ -74,7 +115,7 @@ def resolve_experience_range(config: dict) -> tuple[int, int | None]:
     """
     from job_hunter.filters import filter_values
 
-    selected = filter_values(config, "experience_levels") or experience_level_names()
+    selected = expanded_experience_level_ids(filter_values(config, "experience_levels")) or experience_level_names()
     levels = [level for level in (experience_level(level_id) for level_id in selected) if level is not None]
     if not levels:
         return 0, None

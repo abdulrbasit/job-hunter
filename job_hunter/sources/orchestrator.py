@@ -19,8 +19,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
-from job_hunter.config.reference_data import resolve_title_exclusions
+from job_hunter.config.reference_data import resolve_experience_group_ids, resolve_title_exclusions, student_mode
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
+from job_hunter.core.posting_types import detect_posting_signals, student_query_terms
+from job_hunter.filters import filter_values
 from job_hunter.locations import (
     canonical_locations_for_job,
     enabled_locations,
@@ -66,6 +68,8 @@ def _params_for_region(
     *,
     max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
     default_search_lang: str = "en",
+    query_terms: list[str] | None = None,
+    is_student: bool = False,
 ) -> SearchParams:
     canonical = location_from_region(region_config)
     query_location = (
@@ -82,6 +86,8 @@ def _params_for_region(
         job_titles=job_titles,
         max_results=max_results,
         excluded_title_terms=excluded_title_terms,
+        query_terms=query_terms or [],
+        student_mode=is_student,
     )
 
 
@@ -118,6 +124,9 @@ def scrape_with_stats(
     seen_urls: set[str] = set()
     cached_urls = load_cached_candidate_urls()
     policy = JobPolicy(config)
+    groups = resolve_experience_group_ids(filter_values(config, "experience_levels"))
+    is_student = student_mode(config)
+    query_terms = student_query_terms(job_titles, groups)
     allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []
     rejected: Counter[str] = Counter()
@@ -141,6 +150,9 @@ def scrape_with_stats(
         stats.total_fetched += len(postings)
         stats.by_source[source] = stats.by_source.get(source, 0) + len(postings)
         for jp in postings:
+            signals = detect_posting_signals(jp.title, jp.snippet)
+            if signals.posting_type is not None and jp.posting_type is None:
+                jp = jp.model_copy(update={"posting_type": signals.posting_type})
             region_key = jp.region or "unknown"
             stats.fetched_by_region[region_key] = stats.fetched_by_region.get(region_key, 0) + 1
             url = canonicalize_url(jp.url or "")
@@ -218,6 +230,8 @@ def scrape_with_stats(
             job_titles=job_titles,
             max_results=max_results,
             excluded_title_terms=excluded_title_terms,
+            query_terms=query_terms,
+            student_mode=is_student,
         )
         with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
             futures = {pool.submit(adapter.fetch, global_params): adapter.source_name for adapter in global_adapters}
@@ -238,6 +252,8 @@ def scrape_with_stats(
                 excluded_title_terms,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
+                query_terms=query_terms,
+                is_student=is_student,
             )
             with ThreadPoolExecutor(max_workers=min(len(global_adapters), 4)) as pool:
                 futures = {pool.submit(adapter.fetch, params): adapter.source_name for adapter in global_adapters}
@@ -259,6 +275,8 @@ def scrape_with_stats(
                 excluded_title_terms,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
+                query_terms=query_terms,
+                is_student=is_student,
             )
             eligible_adapters = [
                 adapter

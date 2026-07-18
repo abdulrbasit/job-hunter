@@ -84,6 +84,7 @@ matching modes, normalization, and taxonomy expansion are package-owned in
 filters:
   hunt_languages: [en, de]
   experience_levels: [associate, mid, senior]
+  posting_types: [internship, working_student]
   excluded_titles: [intern, trainee]
   excluded_companies: ["Recruiter Corp"]
   excluded_industries: [aerospace_defense]
@@ -108,6 +109,16 @@ levels' combined range; low-confidence/no-signal postings fail open and are flag
 `experience_unknown` for scoring to judge instead. This replaces the retired
 `career_stage` key; `job-hunter doctor` migrates an existing `career_stage` value into
 an equivalent `experience_levels` selection once.
+
+The seven public career groups are `student`, `entry`, `mid`, `senior`, `expert`,
+`management`, and `executive`; existing detailed IDs remain valid aliases. `expert`
+is the advanced individual-contributor track (Lead, Staff, Principal, Distinguished,
+Fellow), parallel to Management.
+
+`posting_types` is optional and accepts `internship`, `working_student`, `thesis`,
+`graduate_program`, and `trainee`; missing or empty means unrestricted. First enabling
+Student mode selects all five and changes the standard score threshold from 70 to 60,
+while preserving custom thresholds.
 
 `excluded_industries` contains IDs from the bundled industry taxonomy.
 Dashboard controls read all three taxonomies from package resources. New package

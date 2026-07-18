@@ -45,6 +45,12 @@ FILTER_TYPES: dict[str, FilterType] = {
         mode=FilterMatchMode.EXACT,
         taxonomy="experience_levels",
     ),
+    "posting_types": FilterType(
+        name="posting_types",
+        description="Student posting types to include; empty includes every type",
+        mode=FilterMatchMode.EXACT,
+        taxonomy="posting_types",
+    ),
 }
 
 _LANG_NAME_TO_CODE: dict[str, str] = {}
@@ -100,8 +106,19 @@ def validate_filter_choices(config: dict[str, Any]) -> list[str]:
     valid_industries = {industry.id for industry in load_filter_catalog().industries}
     invalid_industries = sorted(set(filters.get("excluded_industries", [])) - valid_industries)
     invalid_languages = sorted(set(filters.get("hunt_languages", [])) - set(LANG_CODE_TO_NAME))
-    valid_levels = {level.id for level in load_experience_levels()}
+    from job_hunter.core.posting_types import STUDENT_POSTING_TYPES
+
+    valid_levels = {level.id for level in load_experience_levels()} | {
+        "student",
+        "entry",
+        "mid",
+        "senior",
+        "expert",
+        "management",
+        "executive",
+    }
     invalid_levels = sorted(set(filters.get("experience_levels", [])) - valid_levels)
+    invalid_posting_types = sorted(set(filters.get("posting_types", [])) - set(STUDENT_POSTING_TYPES))
     errors: list[str] = []
     if invalid_industries:
         errors.append(f"filters.excluded_industries contains unknown package IDs: {', '.join(invalid_industries)}")
@@ -109,6 +126,8 @@ def validate_filter_choices(config: dict[str, Any]) -> list[str]:
         errors.append(f"filters.hunt_languages contains unknown ISO codes: {', '.join(invalid_languages)}")
     if invalid_levels:
         errors.append(f"filters.experience_levels contains unknown package IDs: {', '.join(invalid_levels)}")
+    if invalid_posting_types:
+        errors.append(f"filters.posting_types contains unknown package IDs: {', '.join(invalid_posting_types)}")
     return errors
 
 
@@ -125,13 +144,16 @@ def filter_options() -> dict[str, Any]:
         "languages": languages,
         "experience_levels": [
             {
-                "id": level.id,
-                "label": level.label,
-                "track": level.track,
-                "min_years": level.min_years,
-                "max_years": level.max_years,
+                "id": group,
+                "label": group.replace("_", " ").title(),
             }
-            for level in load_experience_levels()
+            for group in ("student", "entry", "mid", "senior", "expert", "management", "executive")
+        ],
+        "posting_types": [
+            {"id": value, "label": value.replace("_", " ").title()}
+            for value in __import__(
+                "job_hunter.core.posting_types", fromlist=["STUDENT_POSTING_TYPES"]
+            ).STUDENT_POSTING_TYPES
         ],
     }
 

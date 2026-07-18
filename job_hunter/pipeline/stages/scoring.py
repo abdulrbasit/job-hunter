@@ -16,7 +16,7 @@ from job_hunter.constants import LLM_REPAIR_INPUT_CHARS
 from job_hunter.core.latex_utils import compact_latex_resume as _compact_latex_resume
 from job_hunter.llm.client import get_client as get_llm_client
 from job_hunter.llm.prompts.scoring import OPEN_CHECK_SYSTEM as _OPEN_CHECK_SYSTEM
-from job_hunter.llm.prompts.scoring import REPAIR_PROMPT
+from job_hunter.llm.prompts.scoring import REPAIR_PROMPT, scoring_guidance
 from job_hunter.llm.prompts.scoring import SYSTEM_BASE as _SYSTEM_BASE
 from job_hunter.llm.providers import resolve_model_config
 from job_hunter.llm.stage import LLMStage
@@ -44,6 +44,7 @@ def _build_scoring_prompt(jd_context: str, config: dict) -> str:
     max_kw = int(prompt_config.get("max_matched_keywords", 10))
     max_gaps = int(prompt_config.get("max_gaps", 5))
     return (
+        f"SCORING GUIDANCE:\n{scoring_guidance(config)}\n\n"
         f"Score this candidate's resume against the job description.\n\n"
         f"JOB DESCRIPTION:\n{jd_context}\n\n"
         f"Rules:\n"

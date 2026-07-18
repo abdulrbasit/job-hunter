@@ -2219,10 +2219,12 @@ def test_get_filter_options_uses_package_taxonomies() -> None:
         "excluded_industries",
         "hunt_languages",
         "experience_levels",
+        "posting_types",
     }
     assert any(item["id"] == "aerospace_defense" for item in result["industries"])
     assert any(item == {"code": "en", "name": "English"} for item in result["languages"])
     assert any(item["id"] == "senior" for item in result["experience_levels"])
+    assert any(item["id"] == "internship" for item in result["posting_types"])
 
 
 def _seed_catalog(root: Path) -> None:

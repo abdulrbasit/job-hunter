@@ -46,6 +46,7 @@ def test_board_registry_has_exactly_the_expected_source_names() -> None:
         "jobbank",
         "jobicy",
         "jobspy",
+        "jobteaser",
         "jobstreet",
         "mycareersfuture",
         "reed",

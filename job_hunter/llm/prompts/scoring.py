@@ -1,5 +1,8 @@
 """Static prompt text for the scoring role."""
 
+from job_hunter.config.reference_data import student_mode
+from job_hunter.core.posting_types import evidence_scoring_guidance
+
 SYSTEM_BASE = (
     "You are a recruiter scoring job fit. "
     "Return ONLY valid JSON with no markdown fences, no explanation. "
@@ -28,3 +31,8 @@ OPEN_CHECK_SYSTEM = (
     "Set open=false if it shows signs of being closed, filled, or expired. "
     "Set open=null if genuinely uncertain."
 )
+
+
+def scoring_guidance(config: dict) -> str:
+    """Return concise evidence-weighting guidance for the selected career track."""
+    return evidence_scoring_guidance(is_student=student_mode(config))

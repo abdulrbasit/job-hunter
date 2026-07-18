@@ -76,9 +76,47 @@ def has_excluded_title_term(title: str, excluded_terms: list[str] | None) -> boo
     return False
 
 
-def title_is_allowed(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
+_GENERIC_ROLE_TOKENS = {
+    "associate",
+    "entry",
+    "expert",
+    "intern",
+    "internship",
+    "jr",
+    "junior",
+    "lead",
+    "manager",
+    "mid",
+    "principal",
+    "senior",
+    "specialist",
+    "staff",
+    "student",
+    "trainee",
+}
+
+
+def _relaxed_student_title_match(title: str, job_titles: list[str]) -> bool:
+    title_tokens = set(re.findall(r"\w+", title.casefold())) - _GENERIC_ROLE_TOKENS
+    for target in job_titles:
+        target_tokens = set(re.findall(r"\w+", target.casefold())) - _GENERIC_ROLE_TOKENS
+        meaningful = {token for token in target_tokens if len(token) >= 3}
+        if meaningful and meaningful & title_tokens:
+            return True
+    return False
+
+
+def title_is_allowed(
+    title: str,
+    job_titles: list[str],
+    excluded_terms: list[str] | None = None,
+    *,
+    relaxed_student: bool = False,
+) -> bool:
     """True when title matches a target role and carries no excluded term (word-order independent)."""
-    if not title_matches_any_role(title, job_titles):
+    if not title_matches_any_role(title, job_titles) and not (
+        relaxed_student and _relaxed_student_title_match(title, job_titles)
+    ):
         return False
     return not has_excluded_title_term(title, excluded_terms)
 

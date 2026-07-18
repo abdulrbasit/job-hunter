@@ -121,6 +121,7 @@ def _match_keyword(text: str, hunt_language: str) -> ExperienceLevel | None:
 @dataclass(frozen=True)
 class ExperienceDetection:
     level_id: str | None
+    group_id: str | None
     min_years: int | None
     max_years: int | None
     confident: bool
@@ -143,19 +144,25 @@ def detect_experience(title: str, description: str, hunt_language: str = "en") -
     title = title.strip()
     description = description.strip()
     if not title and not description:
-        return ExperienceDetection(None, None, None, False)
+        return ExperienceDetection(None, None, None, None, False)
 
     years = _extract_years(f"{description}\n{title}".strip(), hunt_language)
     if years is not None:
-        return ExperienceDetection(None, years[0], years[1], True)
+        return ExperienceDetection(None, None, years[0], years[1], True)
 
     if title:
         level = _match_keyword(title, hunt_language)
         if level is not None:
-            return ExperienceDetection(level.id, level.min_years, level.max_years, True)
+            from job_hunter.config.reference_data import resolve_experience_group_ids
+
+            groups = resolve_experience_group_ids([level.id])
+            return ExperienceDetection(level.id, next(iter(groups), None), level.min_years, level.max_years, True)
     if description:
         level = _match_keyword(description, hunt_language)
         if level is not None:
-            return ExperienceDetection(level.id, level.min_years, level.max_years, True)
+            from job_hunter.config.reference_data import resolve_experience_group_ids
 
-    return ExperienceDetection(None, None, None, False)
+            groups = resolve_experience_group_ids([level.id])
+            return ExperienceDetection(level.id, next(iter(groups), None), level.min_years, level.max_years, True)
+
+    return ExperienceDetection(None, None, None, None, False)

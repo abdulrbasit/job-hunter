@@ -62,11 +62,17 @@ class ArbeitsagenturSource(JobSourceAdapter):
         wo_location = _DE_CITY_NAMES.get(location, location)
         jobs: list[JobPosting] = []
 
-        for title in params.job_titles:
+        for title in params.query_terms or params.job_titles:
             try:
                 resp = requests.get(
                     _SEARCH_URL,
-                    params={"was": title, "wo": wo_location, "page": 1, "size": size},
+                    params={
+                        "was": title,
+                        "wo": wo_location,
+                        "page": 1,
+                        "size": size,
+                        **({"angebotsart": 34} if params.student_mode else {}),
+                    },
                     headers={"X-API-Key": "jobboerse-jobsuche"},
                     timeout=timeout,
                 )
@@ -82,7 +88,12 @@ class ArbeitsagenturSource(JobSourceAdapter):
             for item in postings:
                 job_title = str(item.get("titel") or "")
                 job_location = _location(item)
-                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(
+                    job_title,
+                    params.job_titles,
+                    params.excluded_title_terms,
+                    relaxed_student=params.student_mode,
+                ):
                     continue
                 if location and job_location and not location_matches(job_location, location):
                     continue

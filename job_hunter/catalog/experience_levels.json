@@ -96,7 +96,7 @@
       "min_years": 7,
       "max_years": 12,
       "keywords": {
-        "en": ["tech lead", "team lead"],
+        "en": ["tech lead", "team lead", "design lead", "research lead", "lead consultant", "lead scientist"],
         "de": ["teamleitung", "teamleiter"]
       }
     },
@@ -107,7 +107,7 @@
       "min_years": 7,
       "max_years": 12,
       "keywords": {
-        "en": ["staff"],
+        "en": ["staff engineer", "staff scientist", "staff designer", "staff researcher", "staff architect"],
         "de": []
       }
     },
@@ -118,8 +118,8 @@
       "min_years": 10,
       "max_years": null,
       "keywords": {
-        "en": ["principal"],
-        "de": ["principal"]
+        "en": ["principal engineer", "principal consultant", "principal scientist", "principal researcher", "principal designer", "principal architect", "principal adviser", "principal advisor"],
+        "de": ["principal consultant", "principal engineer"]
       }
     },
     {
@@ -129,8 +129,8 @@
       "min_years": 10,
       "max_years": null,
       "keywords": {
-        "en": [],
-        "de": []
+        "en": ["subject matter expert", "domain expert", "distinguished engineer", "distinguished scientist", "research fellow", "technical fellow"],
+        "de": ["fachexperte", "fachexpertin", "sachverständiger", "sachverständige"]
       }
     },
     {

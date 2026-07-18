@@ -10,6 +10,7 @@ Each adapter has a `tier`: `"free"` (no key needed) or `"api"` (needs a key).
 | Source | Tier | Notes |
 |---|---|---|
 | `arbeitnow`, `arbeitsagentur` | free | Arbeitsagentur is Germany-only |
+| `jobteaser` | free | Bounded public EU student and graduate listings |
 | `bayt`, `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
 | `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` (free key) |
 | `reed` | api | UK only, needs `REED_API_KEY` (free key) |
@@ -18,6 +19,11 @@ Every adapter implements `sources/base.py::JobSourceAdapter`: a
 `source_name`, `tier`, `is_enabled(api_config)`, and `_fetch(params)`.
 `fetch()` wraps `_fetch()` and never raises — one source failing does not
 stop the run.
+
+Student mode adds bounded internship, new-graduate, thesis, working-student, and
+trainee queries to JobSpy. Arbeitsagentur uses its dedicated student offer category.
+Handshake and Stellenwerk remain inactive standard-interface adapters. StudentJob and
+Jobmensa were evaluated and deferred behind these higher-value public sources.
 
 Each adapter lives in `sources/boards/<name>.py`, e.g.
 `sources/boards/arbeitnow.py`.
