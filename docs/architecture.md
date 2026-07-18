@@ -144,6 +144,16 @@ INPUT is CSV or JSONL with required `name`, `career_url`, `country`, `industry` 
 unknown taxonomy values, deduplicate by normalized URL/country, sort shards, and regenerate
 the manifest. This script writes package seed files only; it is never run during init/update.
 
+Bulk growth runs through `scripts/seed_companies.py <CC> [--city X] [--rotate-daily]` —
+pluggable providers in `scripts/seed_providers/` (Wikidata SPARQL, curated CSV drops in
+`scripts/seed_data/`) feed quality gates (name, https URL, known country, taxonomy-mapped
+industry). Passing rows merge into `data/<CC>.jsonl`; failing rows land in
+`data/review/<CC>.jsonl`, surface in the dashboard's Companies → Needs Review tab, and join
+the catalog once accepted there. The `seed-companies.yml` workflow runs one rotation bucket
+(~1/7 of all package countries) daily and commits changed data back to main. End users never
+run seeding — the dashboard's Grow button just re-imports newer bundled data into their
+runtime store.
+
 ## Shared writing policy
 
 `job_hunter/writing/` is code-owned and mode-agnostic: `rules.py` exposes

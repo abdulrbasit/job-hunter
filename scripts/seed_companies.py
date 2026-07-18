@@ -18,6 +18,7 @@ import hashlib
 import json
 import sys
 from datetime import UTC, date, datetime
+from functools import cache
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -55,6 +56,7 @@ _KEYWORD_INDUSTRIES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+@cache
 def _industry_aliases() -> dict[str, str]:
     result: dict[str, str] = {}
     for item in load_filter_catalog().industries:
