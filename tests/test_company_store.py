@@ -271,3 +271,94 @@ def test_set_enabled_by_catalog_ids(tmp_path: Path) -> None:
 
     assert n >= 1
     assert store.get_by_id(tmp_path, row["id"])["enabled"] == 1
+
+
+def _fake_seed(monkeypatch, main_rows: list[dict], review_rows: list[dict], version: str = "v-test") -> None:
+    from job_hunter.companies import seed
+    from job_hunter.models import Company
+
+    monkeypatch.setattr(
+        seed, "manifest", lambda: {"files": {}, "review": {}, "total": len(main_rows), "version": version}
+    )
+    monkeypatch.setattr(seed, "iter_seed_companies", lambda: iter([Company(**row) for row in main_rows]))
+    monkeypatch.setattr(seed, "iter_review_companies", lambda: iter(list(review_rows)))
+
+
+_MAIN = {
+    "name": "Good Co",
+    "career_url": "https://good.example/careers",
+    "country": "DE",
+    "industry": "software_it",
+    "city": "geonames:2950159",
+    "catalog_id": "good_co",
+}
+_REVIEW = {
+    "id": "gap_co",
+    "name": "Gap Co",
+    "url": "https://gap.example",
+    "country": "DE",
+    "industry": "",
+    "reason": "industry_unmapped",
+}
+
+
+def test_ensure_seeded_imports_review_rows_flagged_and_disabled(monkeypatch, tmp_path: Path) -> None:
+    _fake_seed(monkeypatch, [_MAIN], [_REVIEW])
+
+    assert store.ensure_seeded(tmp_path) is True
+
+    good = store.query_page(tmp_path, search="Good Co")["items"][0]
+    assert good["needs_review"] == 0
+    assert good["city"] == "geonames:2950159"  # catalog rows now carry their bundled city
+    gap = store.query_page(tmp_path, needs_review=True)["items"][0]
+    assert gap["name"] == "Gap Co"
+    assert gap["enabled"] == 0
+    assert gap["review_reason"] == "industry_unmapped"
+    assert store.company_count(tmp_path, needs_review=True) == 1
+    # review rows never enter the huntable pool
+    assert store.candidate_companies(tmp_path, countries=None) == []
+
+
+def test_resolve_review_validates_fixes_and_clears_flag(monkeypatch, tmp_path: Path) -> None:
+    _fake_seed(monkeypatch, [], [_REVIEW])
+    store.ensure_seeded(tmp_path)
+    row = store.query_page(tmp_path, needs_review=True)["items"][0]
+
+    bad = store.resolve_review(tmp_path, row["id"], industry="not_a_real_industry")
+    assert bad["ok"] is False and bad["errors"]
+
+    good = store.resolve_review(tmp_path, row["id"], industry="software_it")
+    assert good == {"ok": True, "errors": []}
+    fixed = store.get_by_id(tmp_path, row["id"])
+    assert fixed["needs_review"] == 0
+    assert fixed["industry"] == "software_it"
+    assert store.company_count(tmp_path, needs_review=True) == 0
+
+
+def test_reseed_preserves_resolved_review_rows(monkeypatch, tmp_path: Path) -> None:
+    _fake_seed(monkeypatch, [], [_REVIEW], version="v1")
+    store.ensure_seeded(tmp_path)
+    row = store.query_page(tmp_path, needs_review=True)["items"][0]
+    store.resolve_review(tmp_path, row["id"], industry="software_it")
+    store.set_enabled(tmp_path, [row["id"]], True)
+
+    _fake_seed(monkeypatch, [], [_REVIEW], version="v2")
+    assert store.ensure_seeded(tmp_path) is True
+
+    kept = store.query_page(tmp_path, search="Gap Co")["items"][0]
+    assert kept["needs_review"] == 0
+    assert kept["industry"] == "software_it"
+    assert kept["enabled"] == 1
+
+
+def test_seed_progress_counts_catalog_rows_per_target(monkeypatch, tmp_path: Path) -> None:
+    other_city = {**_MAIN, "name": "Elsewhere Co", "career_url": "https://elsewhere.example", "city": ""}
+    _fake_seed(monkeypatch, [_MAIN, other_city], [_REVIEW])
+    store.ensure_seeded(tmp_path)
+
+    progress = store.seed_progress(tmp_path, [{"country": "DE"}, {"country": "DE", "city": "geonames:2950159"}])
+
+    assert progress == [
+        {"country": "DE", "city": "", "count": 2, "target": 1000},
+        {"country": "DE", "city": "geonames:2950159", "count": 1, "target": 1000},
+    ]

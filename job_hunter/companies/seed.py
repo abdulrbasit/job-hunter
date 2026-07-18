@@ -46,7 +46,18 @@ def iter_seed_companies() -> Iterator[Company]:
                     name=row["name"],
                     career_url=row["url"],
                     country=country,
+                    city=row.get("city") or "",
                     industry=row.get("industry") or "other",
                     company_type=row.get("company_type") or "unknown",
                     funding_stage=row.get("funding_stage"),
                 )
+
+
+def iter_review_companies() -> Iterator[dict[str, Any]]:
+    """Yield raw review-queue rows (data/review/<CC>.jsonl) — incomplete by definition."""
+    data_dir = resources.files("job_hunter.companies").joinpath("data", "review")
+    for country in sorted(manifest().get("review") or {}):
+        text = data_dir.joinpath(f"{country}.jsonl").read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if line.strip():
+                yield {**json.loads(line), "country": country}

@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS companies (
     source          TEXT NOT NULL CHECK (source IN ('catalog', 'user')),
     batch           TEXT NOT NULL DEFAULT '',
     enabled         INTEGER NOT NULL DEFAULT 0,
+    needs_review    INTEGER NOT NULL DEFAULT 0,
+    review_reason   TEXT NOT NULL DEFAULT '',
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL,
     UNIQUE (normalized_url, country, source)
@@ -76,7 +78,12 @@ def _conn(root: Path) -> sqlite3.Connection:
         conn.execute("ALTER TABLE companies ADD COLUMN company_type TEXT NOT NULL DEFAULT 'unknown'")
     if "funding_stage" not in existing:
         conn.execute("ALTER TABLE companies ADD COLUMN funding_stage TEXT")
+    if "needs_review" not in existing:
+        conn.execute("ALTER TABLE companies ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0")
+    if "review_reason" not in existing:
+        conn.execute("ALTER TABLE companies ADD COLUMN review_reason TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_companies_type_stage ON companies(company_type, funding_stage)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_companies_needs_review ON companies(needs_review)")
     return conn
 
 
@@ -120,38 +127,101 @@ def ensure_seeded(root: Path) -> bool:
                 "SELECT normalized_url, country FROM companies WHERE source = 'catalog' AND enabled = 1"
             )
         }
+        # Rows the user resolved out of the review queue carry local fixes (industry/url)
+        # the bundle doesn't have — preserve them across the re-seed, keyed like `enabled`.
+        resolved = {
+            (row["normalized_url"], row["country"]): dict(row)
+            for row in conn.execute("SELECT * FROM companies WHERE source = 'catalog' AND needs_review = 0")
+        }
         conn.execute("DELETE FROM companies WHERE source = 'catalog'")
         rows = []
+        main_keys: set[tuple[str, str]] = set()
         for company in seed.iter_seed_companies():
-            catalog_id = company.catalog_id
-            name = company.name
             url = company.career_url
             country = company.country
             normalized_url = _normalize_url(url)
+            main_keys.add((normalized_url, country))
             enabled = 1 if (normalized_url, country) in enabled_keys else 0
             rows.append(
                 (
-                    catalog_id,
-                    name,
-                    _normalize_name(name),
+                    company.catalog_id,
+                    company.name,
+                    _normalize_name(company.name),
                     url,
                     normalized_url,
                     country,
+                    company.city or None,
                     company.industry,
                     company.company_type.value,
                     company.funding_stage.value if company.funding_stage else None,
                     "catalog",
                     version,
                     enabled,
+                    0,
+                    "",
+                    now,
+                    now,
+                )
+            )
+        for item in seed.iter_review_companies():
+            url = str(item.get("url") or "")
+            country = str(item.get("country") or "")
+            normalized_url = _normalize_url(url)
+            key = (normalized_url, country)
+            if key in main_keys:
+                continue  # the bundle promoted this row out of review
+            main_keys.add(key)
+            prior = resolved.get(key)
+            if prior is not None:
+                rows.append(
+                    (
+                        prior["catalog_id"],
+                        prior["name"],
+                        prior["normalized_name"],
+                        prior["url"],
+                        prior["normalized_url"],
+                        country,
+                        prior["city"],
+                        prior["industry"],
+                        prior["company_type"],
+                        prior["funding_stage"],
+                        "catalog",
+                        version,
+                        prior["enabled"],
+                        0,
+                        "",
+                        now,
+                        now,
+                    )
+                )
+                continue
+            name = str(item.get("name") or "")
+            rows.append(
+                (
+                    str(item.get("id") or "") or None,
+                    name,
+                    _normalize_name(name),
+                    url,
+                    normalized_url,
+                    country,
+                    str(item.get("city") or "") or None,
+                    str(item.get("industry") or "") or "other",
+                    str(item.get("company_type") or "") or "unknown",
+                    str(item.get("funding_stage") or "") or None,
+                    "catalog",
+                    version,
+                    0,
+                    1,
+                    str(item.get("reason") or ""),
                     now,
                     now,
                 )
             )
         conn.executemany(
             """INSERT INTO companies
-               (catalog_id, name, normalized_name, url, normalized_url, country, industry, company_type, funding_stage,
-                source, batch, enabled, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (catalog_id, name, normalized_name, url, normalized_url, country, city, industry, company_type,
+                funding_stage, source, batch, enabled, needs_review, review_reason, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
         _meta_set(conn, "seed_version", version)
@@ -219,6 +289,7 @@ def _build_where(
     search: str = "",
     company_type: str = "",
     funding_stage: str = "",
+    needs_review: bool | None = None,
 ) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -240,6 +311,9 @@ def _build_where(
     if enabled is not None:
         clauses.append("enabled = ?")
         params.append(1 if enabled else 0)
+    if needs_review is not None:
+        clauses.append("needs_review = ?")
+        params.append(1 if needs_review else 0)
     if source:
         clauses.append("source = ?")
         params.append(source)
@@ -260,6 +334,7 @@ def query_page(
     search: str = "",
     company_type: str = "",
     funding_stage: str = "",
+    needs_review: bool | None = None,
     page: int = 1,
     page_size: int = 100,
 ) -> dict[str, Any]:
@@ -272,6 +347,7 @@ def query_page(
         search=search,
         company_type=company_type,
         funding_stage=funding_stage,
+        needs_review=needs_review,
     )
     page = max(1, page)
     page_size = min(500, max(1, page_size))
@@ -329,7 +405,7 @@ def candidate_companies(
     """
     if countries is not None and not countries:
         return []
-    where = ["enabled = 1"]
+    where = ["enabled = 1", "needs_review = 0"]
     params: list[Any] = []
     if countries is not None:
         where.append(f"country IN ({','.join('?' * len(countries))})")
@@ -437,7 +513,53 @@ def distinct_countries(root: Path, *, source: str = "") -> list[str]:
     return [row[0] for row in rows]
 
 
-def company_count(root: Path, *, enabled: bool | None = None, source: str = "", industry: str = "") -> int:
-    where, params = _build_where(enabled=enabled, source=source, industry=industry)
+def company_count(
+    root: Path, *, enabled: bool | None = None, source: str = "", industry: str = "", needs_review: bool | None = None
+) -> int:
+    where, params = _build_where(enabled=enabled, source=source, industry=industry, needs_review=needs_review)
     with _conn(root) as conn:
         return conn.execute(f"SELECT COUNT(*) FROM companies WHERE {where}", params).fetchone()[0]  # noqa: S608
+
+
+def resolve_review(root: Path, company_id: int, *, industry: str = "", url: str = "") -> dict[str, Any]:
+    """Apply fixes to a review-queue row, re-check the quality gates, clear the flag."""
+    from job_hunter.filters.catalog import load_filter_catalog
+
+    with _conn(root) as conn:
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        if row is None or not row["needs_review"]:
+            return {"ok": False, "errors": ["No review row with that id."]}
+        new_url = (url or row["url"]).strip()
+        new_industry = (industry or row["industry"] or "").strip()
+        errors = []
+        if not new_url.startswith("https://"):
+            errors.append("URL must be https.")
+        if new_industry not in {item.id for item in load_filter_catalog().industries}:
+            errors.append("Pick an industry from the taxonomy.")
+        if errors:
+            return {"ok": False, "errors": errors}
+        conn.execute(
+            """UPDATE companies SET url = ?, normalized_url = ?, industry = ?, needs_review = 0,
+               review_reason = '', updated_at = ? WHERE id = ?""",
+            (new_url, _normalize_url(new_url), new_industry, _now(), company_id),
+        )
+    return {"ok": True, "errors": []}
+
+
+def seed_progress(root: Path, targets: list[dict[str, Any]], *, target_count: int = 1000) -> list[dict[str, Any]]:
+    """Catalog coverage per hunt target ({country, city?}) vs the per-city growth goal."""
+    results = []
+    with _conn(root) as conn:
+        for target in targets:
+            country = str(target.get("country") or "")
+            city = str(target.get("city") or "")
+            if not country:
+                continue  # remote_global targets have no coverage denominator
+            where = "source = 'catalog' AND needs_review = 0 AND country = ?"
+            params: list[Any] = [country]
+            if city:
+                where += " AND city = ?"
+                params.append(city)
+            count = conn.execute(f"SELECT COUNT(*) FROM companies WHERE {where}", params).fetchone()[0]  # noqa: S608
+            results.append({"country": country, "city": city, "count": count, "target": target_count})
+    return results
