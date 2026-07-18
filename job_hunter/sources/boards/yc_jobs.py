@@ -14,6 +14,7 @@ _URL = "https://www.ycombinator.com/jobs"
 
 class YCJobsSource(JobSourceAdapter):
     startup_source = True
+    once_per_run = True
 
     @property
     def source_name(self) -> str:

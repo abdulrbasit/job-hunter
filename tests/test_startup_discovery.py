@@ -118,6 +118,9 @@ def test_startup_adapters_parse_bounded_public_listings(monkeypatch, source, bod
 def test_start_munich_is_germany_only() -> None:
     assert StartMunichSource().supports_country("DE")
     assert not StartMunichSource().supports_country("US")
+    assert not StartMunichSource().once_per_run
+    assert StartupJobsSource().once_per_run
+    assert YCJobsSource().once_per_run
 
 
 def test_same_company_fuzzy_dedup_never_crosses_company_boundary() -> None:
@@ -151,6 +154,9 @@ def test_job_metadata_persists_and_feed_filters(tmp_path: Path) -> None:
     assert rows[0]["funding_stage"] == "seed"
     assert rows[0]["experience_unknown"] == 1
     assert rows[0]["source_url"] == "https://startup.jobs/feeds/jobs"
+    db = tmp_path / "outputs" / "state" / "jobs.db"
+    with sqlite3.connect(db) as conn:
+        assert "idx_jobs_status_company_type" in {row[1] for row in conn.execute("PRAGMA index_list(jobs)")}
 
 
 def test_maintainer_importer_writes_only_package_shards(monkeypatch, tmp_path: Path) -> None:

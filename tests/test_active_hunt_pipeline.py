@@ -197,6 +197,41 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
     assert [job.region for job in jobs] == ["berlin"]
 
 
+def test_startup_run_once_source_is_fetched_once_for_multiple_regions(monkeypatch) -> None:
+    config = {
+        "job_titles": ["Product Manager"],
+        "companies": {"include_startups": True},
+        "filters": {"experience_levels": ["mid"], "hunt_languages": ["en"]},
+        "regions": {
+            "germany": {"enabled": True, "country": "DE", "scope": "country"},
+            "usa": {"enabled": True, "country": "US", "scope": "country"},
+            "france": {"enabled": True, "country": "FR", "scope": "country"},
+        },
+    }
+
+    class StartupSource:
+        source_name = "startup"
+        startup_source = True
+        once_per_run = True
+        calls = 0
+
+        def fetch(self, params):
+            self.calls += 1
+            return [_posting(location="Berlin, Germany", region=params.region_key)]
+
+    source = StartupSource()
+    monkeypatch.setattr(orchestrator, "load_search_config", lambda: config)
+    monkeypatch.setattr(orchestrator, "resolve_regions", lambda _config, _region: config["regions"])
+    monkeypatch.setattr(orchestrator, "board_adapters", lambda: [source])
+    monkeypatch.setattr(orchestrator, "probe_search_providers", lambda: set())
+    monkeypatch.setattr(orchestrator, "load_cached_candidate_urls", lambda: set())
+
+    jobs, _stats = orchestrator.scrape_with_stats(depth="fast")
+
+    assert source.calls == 1
+    assert [job.region for job in jobs] == ["startup_global"]
+
+
 def test_ats_discovery_jobs_counted_under_source_region_not_unknown(monkeypatch) -> None:
     """ATS-discovered jobs must carry region="berlin" so stats attribute them to
     the region that was actually searched, not the "unknown" fallback bucket

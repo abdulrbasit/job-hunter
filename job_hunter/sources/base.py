@@ -30,6 +30,7 @@ class JobSourceAdapter(ABC):
     global_feed: bool = False
     supported_countries: frozenset[str] = frozenset()
     startup_source: bool = False
+    once_per_run: bool = False
 
     @property
     @abstractmethod

@@ -15,6 +15,7 @@ _URL = "https://startup.jobs/feeds/jobs"
 
 class StartupJobsSource(JobSourceAdapter):
     startup_source = True
+    once_per_run = True
 
     @property
     def source_name(self) -> str:

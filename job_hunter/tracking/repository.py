@@ -74,7 +74,6 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_status        ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_run_id        ON jobs(run_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_region        ON jobs(region);
-CREATE INDEX IF NOT EXISTS idx_jobs_canonical_url ON jobs(canonical_url);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_processed_at ON jobs(status, processed_at);
 
 -- Tombstones for hard-deleted jobs. jobs.db is merged (not replaced) across machines on
@@ -130,6 +129,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_company_type ON jobs(status, company_type)")
+    conn.execute("DROP INDEX IF EXISTS idx_jobs_canonical_url")  # UNIQUE(canonical_url) already owns this index.
 
 
 class _AutoCloseConnection(sqlite3.Connection):

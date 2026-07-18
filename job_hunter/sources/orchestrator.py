@@ -268,8 +268,32 @@ def scrape_with_stats(
 
     adapters = board_adapters() if include_boards else []
     adapters = [adapter for adapter in adapters if include_startups or not getattr(adapter, "startup_source", False)]
+    once_adapters = [adapter for adapter in adapters if getattr(adapter, "once_per_run", False)]
+    adapters = [adapter for adapter in adapters if not getattr(adapter, "once_per_run", False)]
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
     regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
+
+    if once_adapters:
+        once_params = SearchParams(
+            region_key="startup_global",
+            country="",
+            location="",
+            search_lang=default_search_lang,
+            job_titles=job_titles,
+            max_results=max_results,
+            excluded_title_terms=excluded_title_terms,
+            query_terms=query_terms,
+            student_mode=is_student,
+        )
+        with ThreadPoolExecutor(max_workers=len(once_adapters)) as pool:
+            futures = {pool.submit(adapter.fetch, once_params): adapter.source_name for adapter in once_adapters}
+            for future in as_completed(futures):
+                source = futures[future]
+                try:
+                    _add_unique(future.result(), source)
+                except Exception as exc:
+                    stats.failed_sources.append(source)
+                    logger.warning("[orchestrator] %s raised: %s", source, exc)
 
     remote_allowed = any(
         location.scope.value in {"country", "remote_country", "remote_global"} for location in allowed_locations
