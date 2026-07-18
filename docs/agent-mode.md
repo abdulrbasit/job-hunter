@@ -101,6 +101,11 @@ start owned runs; coding/review prompts, repository mentions, and raw URLs are i
 Telemetry errors never block job processing. Remove legacy polluted rows once with
 `job-hunter internal telemetry-prune --unattributed`.
 
+Batch's profile-once-per-run change (see above) cut the scoring-context bytes shipped
+across a 15-job batch by ~59% in a measured simulation — see
+[docs/testing/skill-token-audit.tdd.md](testing/skill-token-audit.tdd.md) for the numbers
+and methodology.
+
 `job-hunter init` configures project hooks automatically. Codex requires its OTel
 exporter in `$CODEX_HOME/config.toml` (normally `~/.codex/config.toml`); an existing
 unrelated `[otel]` section is preserved and reported instead of overwritten.
