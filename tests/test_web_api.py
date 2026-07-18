@@ -887,7 +887,7 @@ def test_get_unprocessed_separates_real_candidates_from_history_and_hides_url_ca
 
     assert [job["company"] for job in payload["items"]] == ["Active Co"]
     assert [job["company"] for job in DashAPI(tmp_path).get_unprocessed("discarded")["items"]] == ["Past Co"]
-    assert payload["counts"] == {"active": 1, "discarded": 1, "total": 2}
+    assert payload["counts"] == {"active": 1, "shortlisted": 0, "discarded": 1, "total": 2}
 
 
 def test_discard_unprocessed_moves_a_candidate_to_discarded(tmp_path: Path) -> None:
@@ -1786,15 +1786,16 @@ def test_dashboard_contains_diagnostics_tab_with_doctor_and_analytics() -> None:
     assert "function renderAnalytics" in html
 
 
-def test_today_tab_removed_manual_hunt_lives_in_diagnostics() -> None:
-    """Regression: hunting runs on GitHub Actions' schedule, not by a user clicking a
-    button — Today was a standalone landing tab nobody used for that. The manual/local
-    run trigger still exists (for testing config changes) but now lives inside Settings →
-    Diagnostics, not as a top-level nav destination or the default view."""
+def test_today_is_a_triage_feed_and_manual_hunt_stays_in_diagnostics() -> None:
+    """Today is the triage home — fresh matches ranked by fit with one-click
+    shortlist/dismiss — NOT a hunt launcher. The manual/local run trigger stays inside
+    Settings → Diagnostics (hunting normally runs on GitHub Actions' schedule)."""
     html = _dashboard_source()
 
-    assert 'data-view="today"' not in html
-    assert 'id="view-today"' not in html
+    assert 'data-view="today"' in html
+    assert 'id="view-today"' in html
+    assert 'id="today-cards"' in html
+    assert "get_today(" in html
     assert 'id="find-jobs-btn"' in html
     assert 'id="today-hunt-status-value"' in html
     assert '<div class="settings-panel" id="settings-panel-diagnostics">' in html
@@ -1809,11 +1810,33 @@ def test_today_tab_removed_manual_hunt_lives_in_diagnostics() -> None:
     assert "get_hunt_status" in html
 
 
-def test_applications_is_the_default_landing_view() -> None:
+def test_today_is_the_default_landing_view() -> None:
     html = _dashboard_source()
 
-    assert '<button class="nav-btn active" data-view="applications">' in html
-    assert '<section id="view-applications" class="view active">' in html
+    assert '<button class="nav-btn active" data-view="today">' in html
+    assert '<section id="view-today" class="view active">' in html
+
+
+def test_feed_cards_offer_shortlist_and_dismiss_with_reason() -> None:
+    """Feed/Today cards drive the same status updates as the CLI: shortlist →
+    status shortlisted, dismiss → discarded with a queryable reason code, with an
+    optional one-click 'never show this company again' config exclusion."""
+    html = _dashboard_source()
+
+    assert "shortlist_candidate" in html
+    assert "dismiss_candidate" in html
+    assert "data-shortlist-id" in html
+    assert "data-dismiss-id" in html
+    assert "data-reason" in html
+    assert "excludeCompany" in html
+
+
+def test_feed_keyboard_shortcuts_wired() -> None:
+    html = _dashboard_source()
+
+    assert "keydown" in html
+    for key in ("'j'", "'k'", "'s'", "'x'"):
+        assert key in html
 
 
 def test_dashboard_contains_setup_wizard_with_reparented_guided_sections() -> None:
@@ -2452,3 +2475,114 @@ def test_load_catalog_page_unwraps_the_ok_data_envelope() -> None:
 
     assert "catalogPageData = result.data" in body
     assert "catalogPageData = await window.pywebview.api.get_catalog_page" not in body
+
+
+# ── Today / Feed triage (Home screen) ──
+
+
+def _seed_candidates(root: Path, n: int = 3) -> list[int]:
+    insert_jobs(
+        root,
+        [
+            {
+                "url": f"https://example.com/cand/{i}",
+                "title": f"Product Manager {i}",
+                "company": f"Acme {i}",
+                "country_code": "DE",
+            }
+            for i in range(n)
+        ],
+    )
+    from job_hunter.tracking.repository import get_jobs
+
+    return [job["id"] for job in get_jobs(root, status="candidate")]
+
+
+def test_get_today_ranks_scored_candidates_first(tmp_path: Path) -> None:
+    ids = _seed_candidates(tmp_path, 3)
+    with sqlite3.connect(tmp_path / "outputs" / "state" / "jobs.db") as conn:
+        conn.execute("UPDATE jobs SET score=88 WHERE id=?", (ids[2],))
+        conn.execute("UPDATE jobs SET score=71 WHERE id=?", (ids[0],))
+
+    payload = DashAPI(tmp_path).get_today()
+
+    assert payload["total"] == 3
+    scores = [item["score"] for item in payload["items"]]
+    assert scores[:2] == [88, 71]
+    assert scores[2] is None  # unscored trail the ranked matches
+    json.dumps(payload["items"])
+
+
+def test_shortlist_candidate_moves_to_shortlisted_scope(tmp_path: Path) -> None:
+    ids = _seed_candidates(tmp_path, 1)
+    api = DashAPI(tmp_path)
+
+    assert api.shortlist_candidate(ids[0]) == {"ok": True, "error": ""}
+
+    shortlisted = api.get_unprocessed(scope="shortlisted")
+    assert shortlisted["total"] == 1
+    assert shortlisted["items"][0]["status"] == "shortlisted"
+    assert api.get_unprocessed(scope="active")["total"] == 0
+    assert shortlisted["counts"]["shortlisted"] == 1
+
+
+def test_dismiss_candidate_records_reason(tmp_path: Path) -> None:
+    ids = _seed_candidates(tmp_path, 1)
+    api = DashAPI(tmp_path)
+
+    result = api.dismiss_candidate(ids[0], reason="wrong_role")
+
+    assert result["ok"] is True
+    discarded = api.get_unprocessed(scope="discarded")
+    assert discarded["total"] == 1
+    assert discarded["items"][0]["rejection_reason"] == "wrong_role"
+
+
+def test_dismiss_candidate_can_exclude_company_via_guarded_config_save(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    for name in ("resume.tex", "story_bank.md", "career_context.md"):
+        (tmp_path / "profile" / name).write_text("x", encoding="utf-8")
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "job_hunter.yml").write_text(
+        yaml.safe_dump(
+            {
+                "mode": "agent",
+                "profile": {
+                    "resume_tex": "profile/resume.tex",
+                    "story_bank": "profile/story_bank.md",
+                    "career_context": "profile/career_context.md",
+                },
+                "job_titles": ["Product Manager"],
+                "regions": {"primary": {"enabled": True, "country": "DE", "scope": "country"}},
+                "filters": {"hunt_languages": ["en"], "experience_levels": ["mid"], "excluded_companies": []},
+                "scoring": {"min_fit_score": 70, "batch_size": 10},
+                "llm": {"default_provider": "anthropic"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    ids = _seed_candidates(tmp_path, 1)
+    api = DashAPI(tmp_path)
+
+    result = api.dismiss_candidate(ids[0], reason="excluded_company", exclude_company=True)
+
+    assert result["ok"] is True
+    assert result["excluded_company"] == "Acme 0"
+    saved = yaml.safe_load((tmp_path / "config" / "job_hunter.yml").read_text(encoding="utf-8"))
+    assert "Acme 0" in saved["filters"]["excluded_companies"]
+
+
+def test_get_unprocessed_filters_by_country(tmp_path: Path) -> None:
+    insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/de", "title": "PM", "company": "Acme", "country_code": "DE"},
+            {"url": "https://example.com/us", "title": "PM", "company": "Acme", "country_code": "US"},
+        ],
+    )
+
+    payload = DashAPI(tmp_path).get_unprocessed(country="DE")
+
+    assert payload["total"] == 1
+    assert payload["items"][0]["country_code"] == "DE"

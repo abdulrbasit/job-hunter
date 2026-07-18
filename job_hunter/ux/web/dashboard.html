@@ -16,17 +16,17 @@
     <span class="logo-text" id="sidebar-name">Job Hunter</span>
   </div>
   <nav>
-    <button class="nav-btn" data-view="get-started">
-      <span class="nav-icon">🚀</span>
-      <span class="nav-label">Get Started</span>
-    </button>
-    <button class="nav-btn active" data-view="applications">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">Applications</span>
+    <button class="nav-btn active" data-view="today">
+      <span class="nav-icon">☀️</span>
+      <span class="nav-label">Today</span>
     </button>
     <button class="nav-btn" data-view="unprocessed">
       <span class="nav-icon">📥</span>
-      <span class="nav-label">Candidates</span>
+      <span class="nav-label">Job Feed</span>
+    </button>
+    <button class="nav-btn" data-view="applications">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Applications</span>
     </button>
     <button class="nav-btn" data-view="company-hunt">
       <span class="nav-icon">🏢</span>
@@ -40,6 +40,10 @@
       <span class="nav-icon">⚙️</span>
       <span class="nav-label">Settings</span>
     </button>
+    <button class="nav-btn" data-view="get-started">
+      <span class="nav-icon">🚀</span>
+      <span class="nav-label">Get Started</span>
+    </button>
   </nav>
   <div class="sidebar-footer">
     <span class="badge-count" id="total-count">—</span>
@@ -52,18 +56,34 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <span class="topbar-title" id="view-title">Applications</span>
+    <span class="topbar-title" id="view-title">Today</span>
     <span class="topbar-subtitle" id="view-sub"></span>
     <span class="streak-badge" id="streak-badge" style="display:none"></span>
     <span class="topbar-spacer"></span>
+    <button class="btn" id="theme-toggle" title="Toggle light/dark theme" aria-label="Toggle light or dark theme">🌓</button>
     <button class="btn" id="sync-btn" title="Merge and push your job data to GitHub — no git commands needed">⇅ Sync</button>
     <button class="btn" id="finalize-btn" title="Validate and commit durable outputs (README, config, profile, job/LinkedIn outputs, jobs.db)">✓ Finalize</button>
     <button class="btn" id="refresh-btn">↺ Refresh</button>
   </div>
   <div class="onboarding-banner" id="onboarding-banner" style="display:none"></div>
 
+  <!-- Today view: fresh matches ranked by fit, one-click triage -->
+  <section id="view-today" class="view active">
+    <div class="app-panel">
+      <div class="filter-bar">
+        <span class="topbar-subtitle" id="today-summary">New matches from the last 3 days, best fit first.</span>
+        <span class="topbar-spacer"></span>
+        <span class="shortcut-hint" aria-hidden="true"><kbd>j</kbd>/<kbd>k</kbd> move · <kbd>s</kbd> shortlist · <kbd>x</kbd> dismiss · <kbd>o</kbd> open</span>
+      </div>
+      <div class="job-cards" id="today-cards" role="list" aria-label="Today's new matches">
+        <div class="loading-wrap"><span class="spinner"></span> Loading…</div>
+      </div>
+      <div class="pager" id="today-pager"></div>
+    </div>
+  </section>
+
   <!-- Applications view -->
-  <section id="view-applications" class="view active">
+  <section id="view-applications" class="view">
     <div class="app-panel">
       <div class="filter-bar">
         <input class="search-input" type="text" id="search-input" placeholder="Search company or title…">
@@ -168,12 +188,15 @@
     </div>
   </section>
 
-  <!-- Unprocessed view -->
+  <!-- Job Feed view (section id kept from the old Candidates table view) -->
   <section id="view-unprocessed" class="view">
     <div class="app-panel">
       <div class="filter-bar">
-        <input class="search-input" type="text" id="candidate-search" placeholder="Search candidates…">
-        <select id="candidate-posting-type" aria-label="Filter by posting type">
+        <input class="search-input" type="text" id="candidate-search" placeholder="Search company or title…">
+        <select class="filter-select" id="candidate-country" aria-label="Filter by country">
+          <option value="">All countries</option>
+        </select>
+        <select class="filter-select" id="candidate-posting-type" aria-label="Filter by posting type">
           <option value="">All posting types</option>
           <option value="internship">Internship</option>
           <option value="working_student">Working student</option>
@@ -181,36 +204,22 @@
           <option value="graduate_program">Graduate program</option>
           <option value="trainee">Trainee</option>
         </select>
-        <select id="candidate-company-type" aria-label="Filter by company type">
+        <select class="filter-select" id="candidate-company-type" aria-label="Filter by company type">
           <option value="">All company types</option><option value="startup">Startup</option>
           <option value="scaleup">Scaleup</option><option value="sme">SME</option>
           <option value="enterprise">Enterprise</option><option value="unknown">Unknown</option>
         </select>
-        <div class="status-tabs">
-          <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
-          <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
+        <div class="status-tabs" role="tablist" aria-label="Feed scope">
+          <button class="status-tab active" data-candidate-scope="active">New <span id="candidate-active-count">0</span></button>
+          <button class="status-tab" data-candidate-scope="shortlisted">Shortlisted <span id="candidate-shortlisted-count">0</span></button>
+          <button class="status-tab" data-candidate-scope="discarded">Dismissed <span id="candidate-discarded-count">0</span></button>
         </div>
+        <label class="filter-check"><input type="checkbox" id="candidate-select-all" aria-label="Select all shown"> All</label>
         <button class="btn btn-danger" id="discard-selected-btn" style="display:none">Discard selected</button>
         <span class="topbar-subtitle" id="candidate-total-count">0 candidates</span>
       </div>
-      <div class="table-wrap" id="candidate-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="td-num"><input type="checkbox" id="candidate-select-all"></th>
-              <th>Company</th>
-              <th>Title</th>
-              <th>Location</th>
-              <th>Posting type</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="unprocessed-tbody">
-            <tr><td colspan="8"><div class="loading-wrap"><span class="spinner"></span> Loading…</div></td></tr>
-          </tbody>
-        </table>
+      <div class="job-cards" id="feed-cards" role="list" aria-label="Job feed">
+        <div class="loading-wrap"><span class="spinner"></span> Loading…</div>
       </div>
       <div class="pager" id="candidate-pager"></div>
     </div>

@@ -100,9 +100,23 @@ _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("jobs", "funding_stage", "TEXT"),
     ("jobs", "experience_unknown", "INTEGER NOT NULL DEFAULT 0"),
     ("jobs", "source_url", "TEXT NOT NULL DEFAULT ''"),
+    ("jobs", "rejection_reason", "TEXT NOT NULL DEFAULT ''"),
 )
 
-PIPELINE_STATUSES = ("candidate", "discarded", "tailored", "applied", "responded", "interview", "offer", "rejected")
+# "shortlisted" sits between candidate and discarded: discarding a shortlisted job is
+# still a forward move, and upsert_job's rank guard never lets a re-scrape downgrade a
+# shortlisted job back to plain candidate.
+PIPELINE_STATUSES = (
+    "candidate",
+    "shortlisted",
+    "discarded",
+    "tailored",
+    "applied",
+    "responded",
+    "interview",
+    "offer",
+    "rejected",
+)
 CANONICAL_STATUSES = ("tailored", "applied", "responded", "interview", "offer", "rejected")
 ACTIVE_STATUSES = {"tailored", "applied", "responded", "interview", "offer"}
 _STATUS_RANK = {status: rank for rank, status in enumerate(PIPELINE_STATUSES)}
@@ -548,8 +562,9 @@ def mark_candidates_discarded(root: Path, entries: list[dict[str, Any]]) -> int:
                 notes.append(reason)
             conn.execute(
                 """UPDATE jobs SET status = 'discarded', notes = ?,
+                   rejection_reason = CASE WHEN rejection_reason = '' THEN ? ELSE rejection_reason END,
                    processed_at = COALESCE(processed_at, ?), updated_at = ? WHERE id = ?""",
-                (json.dumps(notes), now, now, row["id"]),
+                (json.dumps(notes), reason, now, now, row["id"]),
             )
             marked += 1
     return marked
@@ -840,28 +855,29 @@ def update_job_status(root: Path, slug: str, status: str, note: str = "") -> dic
     return get_job_by_slug(root, slug) or {}
 
 
-def set_status_by_id(root: Path, job_id: int, status: str) -> None:
+def set_status_by_id(root: Path, job_id: int, status: str, reason: str = "") -> None:
     """Update status for a job by DB id — used for candidates that have no slug yet
-    (e.g. discarding from the dashboard before tailoring)."""
+    (e.g. shortlisting or discarding from the dashboard before tailoring). A non-empty
+    reason is stored in rejection_reason so Insights can aggregate why jobs were dismissed."""
     now = _now()
     with _conn(root) as conn:
-        row = conn.execute("SELECT processed_at FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute("SELECT processed_at, rejection_reason FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
             raise KeyError(f"job not found: id={job_id}")
         processed_at = now if status == "discarded" and not row["processed_at"] else row["processed_at"]
         conn.execute(
-            "UPDATE jobs SET status=?, processed_at=?, updated_at=? WHERE id=?",
-            (status, processed_at, now, job_id),
+            "UPDATE jobs SET status=?, processed_at=?, rejection_reason=?, updated_at=? WHERE id=?",
+            (status, processed_at, reason or row["rejection_reason"], now, job_id),
         )
 
 
-def discard_job_ids(root: Path, job_ids: list[int]) -> dict[str, Any]:
+def discard_job_ids(root: Path, job_ids: list[int], reason: str = "") -> dict[str, Any]:
     """Batch-discard candidate DB ids in one connection — the dashboard's bulk-discard
     action must be one backend call, not N single-id RPCs each opening its own connection.
 
-    Only rows still at status in ('candidate', 'discovered') are touched — same downgrade
-    guard as mark_candidates_discarded — so a stale id for a job already advanced past the
-    candidate stage is skipped, never clobbered.
+    Only rows still at status in ('candidate', 'discovered', 'shortlisted') are touched —
+    same downgrade guard as mark_candidates_discarded — so a stale id for a job already
+    advanced past the candidate stage is skipped, never clobbered.
     """
     now = _now()
     discarded = 0
@@ -869,7 +885,7 @@ def discard_job_ids(root: Path, job_ids: list[int]) -> dict[str, Any]:
     with _conn(root) as conn:
         for job_id in job_ids:
             row = conn.execute(
-                "SELECT processed_at FROM jobs WHERE id = ? AND status IN ('candidate', 'discovered')",
+                "SELECT processed_at FROM jobs WHERE id = ? AND status IN ('candidate', 'discovered', 'shortlisted')",
                 (job_id,),
             ).fetchone()
             if not row:
@@ -877,8 +893,10 @@ def discard_job_ids(root: Path, job_ids: list[int]) -> dict[str, Any]:
                 continue
             processed_at = now if not row["processed_at"] else row["processed_at"]
             conn.execute(
-                "UPDATE jobs SET status='discarded', processed_at=?, updated_at=? WHERE id=?",
-                (processed_at, now, job_id),
+                """UPDATE jobs SET status='discarded', processed_at=?,
+                   rejection_reason = CASE WHEN rejection_reason = '' THEN ? ELSE rejection_reason END,
+                   updated_at=? WHERE id=?""",
+                (processed_at, reason, now, job_id),
             )
             discarded += 1
     return {"discarded": discarded, "skipped": skipped}
@@ -917,8 +935,9 @@ def get_jobs(
 
 
 _JOB_LIST_COLUMNS = (
-    "id, slug, company, title, location, region, posting_type, company_type, funding_stage, "
-    "experience_unknown, source, source_url, status, url, score, discovered_at, created_at"
+    "id, slug, company, title, location, country_code, region, posting_type, company_type, funding_stage, "
+    "experience_unknown, employment_type, source, source_url, status, url, score, rejection_reason, "
+    "discovered_at, created_at"
 )
 _JOB_LIST_SORTS = {
     "company": "company",
@@ -939,6 +958,8 @@ def get_jobs_page(
     search: str = "",
     posting_type: str = "",
     company_type: str = "",
+    country: str = "",
+    since: str = "",
     sort: str = "date",
     direction: str = "desc",
     require_identity: bool = False,
@@ -964,6 +985,12 @@ def get_jobs_page(
     if company_type.strip():
         clauses.append("company_type = ?")
         params.append(company_type.strip())
+    if country.strip():
+        clauses.append("UPPER(COALESCE(country_code, '')) = ?")
+        params.append(country.strip().upper())
+    if since.strip():
+        clauses.append("COALESCE(discovered_at, created_at) >= ?")
+        params.append(since.strip())
     where = " AND ".join(clauses)
     order_column = _JOB_LIST_SORTS.get(sort, _JOB_LIST_SORTS["date"])
     order_direction = "ASC" if direction.lower() == "asc" else "DESC"
@@ -993,6 +1020,12 @@ def get_jobs_summary(root: Path, *, statuses: tuple[str, ...]) -> list[dict[str,
 def get_job_by_slug(root: Path, slug: str) -> dict[str, Any] | None:
     with _conn(root) as conn:
         row = conn.execute("SELECT * FROM jobs WHERE slug = ?", (slug,)).fetchone()
+    return _row_to_dict(row) if row else None
+
+
+def get_job_by_id(root: Path, job_id: int) -> dict[str, Any] | None:
+    with _conn(root) as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
     return _row_to_dict(row) if row else None
 
 

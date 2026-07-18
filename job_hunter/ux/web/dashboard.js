@@ -12,10 +12,13 @@ let insightsLoaded = false;
 let analyticsLoaded = false;
 let activeArtifact = null;
 let artifactObjectUrl = null;
-let candidateData = { items: [], counts: { active: 0, discarded: 0, total: 0 }, page: 1, page_size: 50, pages: 1 };
+let candidateData = { items: [], counts: { active: 0, shortlisted: 0, discarded: 0, total: 0 }, page: 1, page_size: 50, pages: 1 };
 let candidatePage = 1;
 let candidateScope = 'active';
 let selectedCandidateIds = new Set();
+let todayData = { items: [], total: 0, page: 1, pages: 1 };
+let todayPage = 1;
+let feedCountriesLoaded = false;
 let settingsLoaded = false;
 let cfgRevision = null;
 let cfgRawRevision = null;
@@ -109,6 +112,22 @@ async function checkMilestones() {
     }
   } catch(_) { /* milestones are a nice-to-have — never block the save flow */ }
 }
+
+// ── Theme — manual toggle persisted in localStorage, OS preference as default ──
+function initTheme() {
+  let theme = null;
+  try { theme = localStorage.getItem('jh-theme'); } catch(_) {}
+  if (theme !== 'light' && theme !== 'dark') {
+    theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  document.documentElement.dataset.theme = theme;
+}
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('jh-theme', next); } catch(_) {}
+}
+initTheme();
 
 // ── Init ──
 window.addEventListener('pywebviewready', () => { initAll(); });
@@ -446,6 +465,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
+    if (view === 'today') loadToday();
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'company-hunt') refreshCompanyHuntPanel();
     if (view === 'insights' && !insightsLoaded) loadInsights();
@@ -590,12 +610,34 @@ document.getElementById('app-tbody').addEventListener('change', (e) => {
   }
 });
 
-document.getElementById('unprocessed-tbody').addEventListener('click', (e) => {
-  const deleteBtn = e.target.closest('[data-delete-id]');
-  if (deleteBtn) deleteUnprocessed(Number(deleteBtn.dataset.deleteId));
-});
+// Today + Feed cards share one delegated handler per container: shortlist, dismiss
+// (opens the reason menu), reason picks, tailor-command copy, delete, open link.
+function cardActionHandler(reload) {
+  return (e) => {
+    const shortlistBtn = e.target.closest('[data-shortlist-id]');
+    const dismissBtn = e.target.closest('[data-dismiss-id]');
+    const reasonBtn = e.target.closest('[data-reason]');
+    const tailorBtn = e.target.closest('[data-tailor-url]');
+    const deleteBtn = e.target.closest('[data-delete-id]');
+    if (shortlistBtn) shortlistCandidate(Number(shortlistBtn.dataset.shortlistId), reload);
+    else if (reasonBtn) {
+      dismissCandidate(
+        Number(reasonBtn.closest('.dismiss-menu').dataset.forId),
+        reasonBtn.dataset.reason,
+        reasonBtn.dataset.excludeCompany === '1',
+        reload
+      );
+    }
+    else if (dismissBtn) toggleDismissMenu(dismissBtn);
+    else if (tailorBtn) copyTailorCommand(tailorBtn.dataset.tailorUrl);
+    else if (deleteBtn) deleteUnprocessed(Number(deleteBtn.dataset.deleteId));
+    else closeDismissMenus();
+  };
+}
+document.getElementById('feed-cards').addEventListener('click', cardActionHandler(() => loadUnprocessed()));
+document.getElementById('today-cards').addEventListener('click', cardActionHandler(() => loadToday()));
 
-document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
+document.getElementById('feed-cards').addEventListener('change', (e) => {
   if (e.target.classList.contains('candidate-checkbox')) {
     toggleCandidateSelected(Number(e.target.dataset.id), e.target.checked);
   }
@@ -605,6 +647,7 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
 // CSP script-src dropped 'unsafe-inline'; ids below are 1:1 with the removed attributes.
 [
   ['refresh-btn', refreshAll],
+  ['theme-toggle', toggleTheme],
   ['sync-btn', () => runSync({ silent: false })],
   ['finalize-btn', () => runFinalize()],
   ['find-jobs-btn', findJobs],
@@ -662,6 +705,11 @@ document.getElementById('search-input').addEventListener('input', debouncedLoadA
 document.getElementById('candidate-search').addEventListener('input', debouncedLoadCandidates);
 document.getElementById('candidate-posting-type').addEventListener('change', debouncedLoadCandidates);
 document.getElementById('candidate-company-type').addEventListener('change', debouncedLoadCandidates);
+document.getElementById('candidate-country').addEventListener('change', debouncedLoadCandidates);
+document.getElementById('today-pager').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page-delta]');
+  if (btn && !btn.disabled) changeTodayPage(Number(btn.dataset.pageDelta));
+});
 document.getElementById('company-search').addEventListener('input', renderCompanies);
 document.getElementById('catalog-search').addEventListener('input', debouncedLoadCatalog);
 document.getElementById('catalog-industry-filter').addEventListener('change', () => {
@@ -739,6 +787,7 @@ async function refreshAll() {
   companiesLoaded = false;
   await loadApplications();
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
+  if (activeView === 'today') await loadToday();
   if (activeView === 'insights') await loadInsights();
   if (activeView === 'unprocessed') await loadUnprocessed();
   if (activeView === 'company-hunt') {
@@ -879,8 +928,160 @@ async function pollCompanyHuntStatus() {
   }
 }
 
+// ── Job cards (shared by Today and the Feed) ──
+function scorePillHtml(score) {
+  if (score == null || score === '') return '';
+  const cls = score >= 80 ? 'score-high' : score >= 60 ? 'score-mid' : 'score-low';
+  return `<span class="score-pill ${cls}" title="Fit score">${score}</span>`;
+}
+
+function jobCardChips(job) {
+  const chips = [];
+  if (job.location) chips.push(job.location);
+  else if (job.country_code) chips.push(job.country_code);
+  if (job.posting_type) chips.push(job.posting_type.replaceAll('_', ' '));
+  if (job.employment_type) chips.push(job.employment_type.replaceAll('_', ' '));
+  if (job.company_type && job.company_type !== 'unknown') chips.push(job.company_type.replaceAll('_', ' '));
+  if (job.source) chips.push(job.source);
+  if (job.experience_unknown) chips.push('experience unknown');
+  if (job.rejection_reason) chips.push(`dismissed: ${job.rejection_reason.replaceAll('_', ' ')}`);
+  return chips.map(c => `<span class="chip">${esc(c)}</span>`).join('');
+}
+
+function jobCardActions(job, scope) {
+  if (scope === 'discarded') {
+    return `<button class="btn btn-danger" data-delete-id="${job.id}" title="Delete from database" aria-label="Delete">🗑</button>`;
+  }
+  const shortlist = scope === 'active'
+    ? `<button class="btn" data-shortlist-id="${job.id}" title="Shortlist (s)" aria-label="Shortlist">⭐ Save</button>`
+    : '';
+  const tailor = job.url
+    ? `<button class="btn" data-tailor-url="${safeUrl(job.url)}" title="Copy the tailor command for your agent chat" aria-label="Copy tailor command">✂ Tailor</button>`
+    : '';
+  return `${shortlist}${tailor}
+    <button class="btn" data-dismiss-id="${job.id}" title="Dismiss with reason (x)" aria-label="Dismiss">✕</button>`;
+}
+
+function jobCardHtml(job, { scope = 'active', checkbox = false } = {}) {
+  const check = checkbox
+    ? `<input type="checkbox" class="candidate-checkbox job-card-check" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''} aria-label="Select job">`
+    : '';
+  const title = job.url
+    ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>`
+    : esc(job.title || '—');
+  return `<div class="job-card" role="listitem" data-card-id="${job.id}" data-url="${job.url ? safeUrl(job.url) : ''}">
+    ${check}
+    <div class="job-card-main">
+      <div class="job-card-title">${title}</div>
+      <div class="job-card-company">${esc(job.company || '—')}${job.date ? ` · ${esc(job.date)}` : ''}</div>
+      <div class="job-card-chips">${jobCardChips(job)}</div>
+    </div>
+    <div class="job-card-side">
+      ${scorePillHtml(job.score)}
+      <div class="job-card-actions">${jobCardActions(job, scope)}</div>
+    </div>
+  </div>`;
+}
+
+function emptyStateHtml(icon, title, hint) {
+  return `<div class="empty-state"><span class="empty-icon">${icon}</span>
+    <span class="empty-title">${esc(title)}</span><span>${esc(hint)}</span></div>`;
+}
+
+// ── Dismiss-with-reason menu ──
+const DISMISS_REASONS = [
+  ['not_interested', 'Not interested'],
+  ['wrong_role', 'Wrong role'],
+  ['wrong_location', 'Wrong location'],
+  ['experience_mismatch', 'Wrong experience level'],
+];
+
+function closeDismissMenus() {
+  document.querySelectorAll('.dismiss-menu').forEach(menu => menu.remove());
+}
+
+function toggleDismissMenu(btn) {
+  const wasOpen = btn.parentElement.querySelector('.dismiss-menu');
+  closeDismissMenus();
+  if (wasOpen) return;
+  const menu = document.createElement('div');
+  menu.className = 'dismiss-menu';
+  menu.dataset.forId = btn.dataset.dismissId;
+  menu.innerHTML = DISMISS_REASONS.map(([code, label]) => `<button data-reason="${code}">${label}</button>`).join('')
+    + `<button data-reason="excluded_company" data-exclude-company="1" class="danger">Never show this company</button>`;
+  btn.parentElement.appendChild(menu);
+}
+
+async function shortlistCandidate(id, reload) {
+  const result = await window.pywebview.api.shortlist_candidate(id);
+  if (!result.ok) { showToast(result.error || 'Could not shortlist.'); return; }
+  showToast('Saved to shortlist');
+  loadApplicationStreak();
+  reload();
+}
+
+async function dismissCandidate(id, reason, excludeCompany, reload) {
+  closeDismissMenus();
+  const result = await window.pywebview.api.dismiss_candidate(id, reason, excludeCompany);
+  if (!result.ok) { showToast(result.error || 'Could not dismiss.'); return; }
+  if (result.warnings && result.warnings.length) showToast(result.warnings[0]);
+  else showToast(result.excluded_company ? `Dismissed — ${result.excluded_company} excluded from future hunts` : 'Dismissed');
+  reload();
+}
+
+async function copyTailorCommand(url) {
+  await copyTextToClipboard(`/job-hunter tailor ${url}`);
+  showToast('Tailor command copied — paste it into your agent chat');
+}
+
+// ── Today view ──
+async function loadToday() {
+  const container = document.getElementById('today-cards');
+  try {
+    todayData = await window.pywebview.api.get_today(todayPage, 20);
+    todayPage = todayData.page;
+    if (!todayData.items.length) {
+      container.innerHTML = emptyStateHtml('☀️', 'No new matches right now',
+        'Hunts run on schedule. Check the Job Feed for older candidates, or run a manual hunt from Settings → Diagnostics.');
+    } else {
+      container.innerHTML = todayData.items.map(job => jobCardHtml(job, { scope: 'active' })).join('');
+    }
+    document.getElementById('today-summary').textContent =
+      `${todayData.total} new match${todayData.total === 1 ? '' : 'es'} from the last 3 days, best fit first.`;
+    renderPager(document.getElementById('today-pager'), todayData, todayPage);
+  } catch(e) {
+    container.innerHTML = errorHtml('Today view could not be loaded.');
+  }
+}
+
+function changeTodayPage(delta) {
+  const next = todayPage + delta;
+  if (next < 1 || next > (todayData.pages || 1)) return;
+  todayPage = next;
+  loadToday();
+}
+
+function renderPager(el, data, page) {
+  el.innerHTML = `<button class="btn" data-page-delta="-1" ${page <= 1 ? 'disabled' : ''}>Previous</button>
+    <span>Page ${data.page || 1} of ${data.pages || 1} · ${data.total || 0} results</span>
+    <button class="btn" data-page-delta="1" ${page >= (data.pages || 1) ? 'disabled' : ''}>Next</button>`;
+}
+
+// ── Feed (candidates) ──
+async function loadFeedCountries() {
+  if (feedCountriesLoaded) return;
+  feedCountriesLoaded = true;
+  try {
+    const payload = await window.pywebview.api.get_location_countries();
+    const select = document.getElementById('candidate-country');
+    select.insertAdjacentHTML('beforeend',
+      (payload.countries || []).map(c => `<option value="${esc(c.code)}">${esc(c.name)}</option>`).join(''));
+  } catch(_) { feedCountriesLoaded = false; }
+}
+
 async function loadUnprocessed() {
-  const tbody = document.getElementById('unprocessed-tbody');
+  const container = document.getElementById('feed-cards');
+  loadFeedCountries();
   try {
     candidateData = await window.pywebview.api.get_unprocessed(
       candidateScope,
@@ -888,38 +1089,37 @@ async function loadUnprocessed() {
       50,
       document.getElementById('candidate-search').value,
       document.getElementById('candidate-posting-type').value,
-      document.getElementById('candidate-company-type').value
+      document.getElementById('candidate-company-type').value,
+      document.getElementById('candidate-country').value
     );
     candidatePage = candidateData.page;
     document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
+    document.getElementById('candidate-shortlisted-count').textContent = candidateData.counts.shortlisted;
     document.getElementById('candidate-discarded-count').textContent = candidateData.counts.discarded;
     document.getElementById('candidate-total-count').textContent = `${candidateData.counts.total} candidates`;
     renderCandidates();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="8">${errorHtml('Candidates could not be loaded.')}</td></tr>`;
+    container.innerHTML = errorHtml('The job feed could not be loaded.');
   }
 }
 
 function renderCandidates() {
-  const tbody = document.getElementById('unprocessed-tbody');
+  const container = document.getElementById('feed-cards');
   const jobs = candidateData.items || [];
-  document.getElementById('candidate-select-all').style.visibility = candidateScope === 'active' ? 'visible' : 'hidden';
+  const selectable = candidateScope !== 'discarded';
+  document.getElementById('candidate-select-all').parentElement.style.visibility = selectable ? 'visible' : 'hidden';
   if (!jobs.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="no-data">No ${candidateScope} candidates</div></td></tr>`;
+    const empty = {
+      active: ['📥', 'No new candidates', 'Run a hunt from Settings → Diagnostics or enable companies under Company Hunt.'],
+      shortlisted: ['⭐', 'Nothing shortlisted yet', 'Save promising jobs from Today or the feed — they appear here.'],
+      discarded: ['🗑', 'Nothing dismissed', 'Dismissed jobs land here with the reason you picked.'],
+    }[candidateScope] || ['📥', 'Nothing here', ''];
+    container.innerHTML = emptyStateHtml(...empty);
     updateDiscardButton();
     renderCandidatePager();
     return;
   }
-  tbody.innerHTML = jobs.map((job, i) => `<tr data-id="${job.id}">
-      <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''}>` : i + 1}</td>
-      <td class="td-company">${esc(job.company || '—')}<div class="meta-chips"><span class="badge">${esc((job.company_type || 'unknown').replaceAll('_', ' '))}</span>${job.source ? `<span class="badge">${esc(job.source)}</span>` : ''}${job.experience_unknown ? '<span class="badge">experience unknown</span>' : ''}</div></td>
-      <td class="td-title">${job.url ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
-      <td>${esc(job.location || '—')}</td>
-      <td>${esc((job.posting_type || '—').replaceAll('_', ' '))}</td>
-      <td><span class="badge badge-${candidateScope === 'discarded' ? 'discarded' : 'candidate'}">${candidateScope === 'discarded' ? 'Discarded' : 'Candidate'}</span></td>
-      <td class="td-date">${esc(job.date || '')}</td>
-      <td>${candidateScope === 'active' ? `<button class="btn btn-danger" data-delete-id="${job.id}">🗑</button>` : ''}</td>
-    </tr>`).join('');
+  container.innerHTML = jobs.map(job => jobCardHtml(job, { scope: candidateScope, checkbox: selectable })).join('');
   updateDiscardButton();
   renderCandidatePager();
 }
@@ -954,9 +1154,46 @@ function toggleSelectAll(checked) {
 
 function updateDiscardButton() {
   const btn = document.getElementById('discard-selected-btn');
-  btn.style.display = (candidateScope === 'active' && selectedCandidateIds.size) ? '' : 'none';
+  btn.style.display = (candidateScope !== 'discarded' && selectedCandidateIds.size) ? '' : 'none';
   btn.textContent = `Discard selected (${selectedCandidateIds.size})`;
 }
+
+// ── Review-flow keyboard shortcuts: j/k navigate, s shortlist, x dismiss, o open ──
+function activeCardsContainer() {
+  const view = document.querySelector('.nav-btn.active')?.dataset.view;
+  if (view === 'today') return document.getElementById('today-cards');
+  if (view === 'unprocessed' && candidateScope !== 'discarded') return document.getElementById('feed-cards');
+  return null;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeDismissMenus(); return; }
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const container = activeCardsContainer();
+  if (!container) return;
+  const cards = [...container.querySelectorAll('.job-card')];
+  if (!cards.length) return;
+  const reload = container.id === 'today-cards' ? () => loadToday() : () => loadUnprocessed();
+  let idx = cards.findIndex(card => card.classList.contains('focused'));
+  if (e.key === 'j' || e.key === 'k') {
+    idx = e.key === 'j' ? Math.min(idx + 1, cards.length - 1) : Math.max(idx - 1, 0);
+    cards.forEach(card => card.classList.remove('focused'));
+    cards[idx].classList.add('focused');
+    cards[idx].scrollIntoView({ block: 'nearest' });
+    e.preventDefault();
+    return;
+  }
+  if (idx < 0) return;
+  const id = Number(cards[idx].dataset.cardId);
+  if (e.key === 's' && candidateScope !== 'shortlisted') { shortlistCandidate(id, reload); e.preventDefault(); }
+  if (e.key === 'x') { dismissCandidate(id, 'not_interested', false, reload); e.preventDefault(); }
+  if (e.key === 'o' || e.key === 'Enter') {
+    const url = cards[idx].dataset.url;
+    if (url) window.open(url, '_blank', 'noopener');
+    e.preventDefault();
+  }
+});
 
 async function discardSelected() {
   const ids = [...selectedCandidateIds];

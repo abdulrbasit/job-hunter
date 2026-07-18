@@ -47,6 +47,8 @@ def utc_now() -> str:
 def normalize_status(status: str) -> str:
     normalized = str(status or "").strip().lower().replace("-", "_")
     aliases = {
+        "saved": "shortlisted",
+        "shortlist": "shortlisted",
         "evaluate": "tailored",
         "evaluated": "tailored",
         "tailor": "tailored",

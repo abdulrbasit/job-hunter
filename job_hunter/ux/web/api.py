@@ -844,6 +844,118 @@ class DashAPI:
             "warnings": result["warnings"],
         }
 
+    @staticmethod
+    def _feed_item(job: dict[str, Any]) -> dict[str, Any]:
+        from job_hunter.tracking.repository import display_status
+
+        return {
+            "id": job.get("id"),
+            "company": job.get("company"),
+            "title": job.get("title"),
+            "location": job.get("location"),
+            "country_code": job.get("country_code"),
+            "posting_type": job.get("posting_type"),
+            "company_type": job.get("company_type"),
+            "funding_stage": job.get("funding_stage"),
+            "experience_unknown": bool(job.get("experience_unknown")),
+            "employment_type": job.get("employment_type"),
+            "source": job.get("source"),
+            "source_url": job.get("source_url"),
+            "status": display_status(str(job.get("status") or "")),
+            "score": job.get("score"),
+            "rejection_reason": job.get("rejection_reason") or "",
+            "url": job.get("url"),
+            "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
+        }
+
+    def get_today(self, page: int = 1, page_size: int = 20) -> dict[str, Any]:
+        """Today view: fresh candidates from the last 3 days, best fit first.
+
+        Sorted score DESC — SQLite sorts NULLs last on DESC, so scored jobs lead and
+        unscored ones trail in discovery order.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        from job_hunter.tracking.repository import get_jobs_page
+
+        since = (datetime.now(UTC) - timedelta(days=3)).date().isoformat()
+        rows, total = get_jobs_page(
+            self._root,
+            statuses=("candidate", "discovered"),
+            page=page,
+            page_size=page_size,
+            since=since,
+            sort="score",
+            direction="desc",
+            require_identity=True,
+        )
+        size = min(200, max(1, int(page_size)))
+        return {
+            "items": [self._feed_item(job) for job in rows],
+            "total": total,
+            "page": max(1, int(page)),
+            "page_size": size,
+            "pages": max(1, (total + size - 1) // size),
+            "since": since,
+        }
+
+    def shortlist_candidate(self, job_id: int) -> dict[str, Any]:
+        """Save a candidate for later — the kanban's Saved column."""
+        from job_hunter.tracking.repository import set_status_by_id
+
+        try:
+            set_status_by_id(self._root, int(job_id), "shortlisted")
+        except Exception:  # noqa: BLE001
+            return self._mutation_error(
+                "Candidate could not be shortlisted.",
+                "Reload the feed and retry.",
+            )
+        return {"ok": True, "error": ""}
+
+    def dismiss_candidate(self, job_id: int, reason: str = "", exclude_company: bool = False) -> dict[str, Any]:
+        """Dismiss with a reason code; optionally never see this company again.
+
+        The company exclusion goes through the same revision-guarded config save as
+        Settings — read fresh, append to filters.excluded_companies, write atomically.
+        """
+        import yaml
+
+        from job_hunter.config import service
+        from job_hunter.tracking.repository import get_job_by_id, set_status_by_id
+
+        job_id = int(job_id)
+        company = ""
+        if exclude_company:
+            company = str((get_job_by_id(self._root, job_id) or {}).get("company") or "").strip()
+        try:
+            set_status_by_id(self._root, job_id, "discarded", reason=str(reason or "dismissed"))
+        except Exception:  # noqa: BLE001
+            return self._mutation_error(
+                "Candidate could not be dismissed.",
+                "Reload the feed and retry.",
+            )
+        if not exclude_company or not company:
+            return {"ok": True, "error": "", "excluded_company": ""}
+        raw = service.read_job_hunter_config(self._root)
+        try:
+            parsed = yaml.safe_load(raw["data"]) or {}
+        except yaml.YAMLError:
+            return {
+                "ok": True,
+                "error": "",
+                "excluded_company": "",
+                "warnings": ["Config is invalid YAML — company not excluded."],
+            }
+        filters = parsed.setdefault("filters", {}) if isinstance(parsed, dict) else {}
+        excluded = filters.setdefault("excluded_companies", [])
+        if isinstance(excluded, list) and company.lower() not in {str(c).strip().lower() for c in excluded}:
+            excluded.append(company)
+            new_text = yaml.safe_dump(parsed, sort_keys=False, allow_unicode=True)
+            result = service.save_job_hunter_config(self._root, new_text, raw["revision"])
+            if not result["ok"]:
+                return {"ok": True, "error": "", "excluded_company": "", "warnings": result["errors"]}
+        return {"ok": True, "error": "", "excluded_company": company}
+
     def get_unprocessed(
         self,
         scope: str = "active",
@@ -852,13 +964,15 @@ class DashAPI:
         search: str = "",
         posting_type: str = "",
         company_type: str = "",
+        country: str = "",
         sort: str = "date",
         direction: str = "desc",
     ) -> dict[str, Any]:
-        from job_hunter.tracking.repository import display_status, get_jobs_page
+        from job_hunter.tracking.repository import get_jobs_page
 
         status_groups = {
             "active": ("candidate", "discovered"),
+            "shortlisted": ("shortlisted",),
             "discarded": ("discarded", "processed"),
         }
         selected_statuses = status_groups.get(scope, status_groups["active"])
@@ -870,28 +984,12 @@ class DashAPI:
             search=search,
             posting_type=posting_type,
             company_type=company_type,
+            country=country,
             sort=sort,
             direction=direction,
             require_identity=True,
         )
-        items = [
-            {
-                "id": job.get("id"),
-                "company": job.get("company"),
-                "title": job.get("title"),
-                "location": job.get("location"),
-                "posting_type": job.get("posting_type"),
-                "company_type": job.get("company_type"),
-                "funding_stage": job.get("funding_stage"),
-                "experience_unknown": bool(job.get("experience_unknown")),
-                "source": job.get("source"),
-                "source_url": job.get("source_url"),
-                "status": display_status(str(job.get("status") or "")),
-                "url": job.get("url"),
-                "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
-            }
-            for job in rows
-        ]
+        items = [self._feed_item(job) for job in rows]
         counts = {
             name: get_jobs_page(
                 self._root,
@@ -902,7 +1000,7 @@ class DashAPI:
             )[1]
             for name, statuses in status_groups.items()
         }
-        counts["total"] = counts["active"] + counts["discarded"]
+        counts["total"] = counts["active"] + counts["shortlisted"] + counts["discarded"]
         size = min(200, max(1, int(page_size)))
         return {
             "items": items,

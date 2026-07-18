@@ -260,3 +260,72 @@ def test_get_company_hunt_candidates_selects_only_pending_career_page_rows(tmp_p
     candidates = repository.get_company_hunt_candidates(tmp_path)
 
     assert [job["url"] for job in candidates] == ["https://example.com/company"]
+
+
+def test_shortlisted_status_sits_between_candidate_and_discarded() -> None:
+    assert "shortlisted" in repository.PIPELINE_STATUSES
+    ranks = {status: i for i, status in enumerate(repository.PIPELINE_STATUSES)}
+    assert ranks["candidate"] < ranks["shortlisted"] < ranks["discarded"]
+    # Saved jobs are not applications: canonical/active vocab is unchanged.
+    assert "shortlisted" not in repository.CANONICAL_STATUSES
+    assert "shortlisted" not in repository.ACTIVE_STATUSES
+
+
+def test_set_status_by_id_shortlists_and_stores_dismiss_reason(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/job/9", "title": "PM", "company": "Acme"}])
+    job = repository.get_job_by_url(tmp_path, "https://example.com/job/9")
+    assert job is not None
+
+    repository.set_status_by_id(tmp_path, job["id"], "shortlisted")
+    assert repository.get_job_by_id(tmp_path, job["id"])["status"] == "shortlisted"
+
+    repository.set_status_by_id(tmp_path, job["id"], "discarded", reason="not_interested")
+    updated = repository.get_job_by_id(tmp_path, job["id"])
+    assert updated["status"] == "discarded"
+    assert updated["rejection_reason"] == "not_interested"
+
+
+def test_discard_job_ids_discards_shortlisted_and_keeps_first_reason(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/job/10", "title": "PM", "company": "Acme"}])
+    job = repository.get_job_by_url(tmp_path, "https://example.com/job/10")
+    repository.set_status_by_id(tmp_path, job["id"], "shortlisted")
+
+    result = repository.discard_job_ids(tmp_path, [job["id"]], reason="wrong_role")
+
+    assert result == {"discarded": 1, "skipped": []}
+    updated = repository.get_job_by_id(tmp_path, job["id"])
+    assert updated["status"] == "discarded"
+    assert updated["rejection_reason"] == "wrong_role"
+
+    # A later blanket discard never overwrites the recorded reason.
+    repository.set_status_by_id(tmp_path, job["id"], "candidate")
+    repository.discard_job_ids(tmp_path, [job["id"]], reason="other")
+    assert repository.get_job_by_id(tmp_path, job["id"])["rejection_reason"] == "wrong_role"
+
+
+def test_mark_candidates_discarded_persists_queryable_rejection_reason(tmp_path: Path) -> None:
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/job/11", "title": "PM", "company": "Acme"}])
+
+    repository.mark_candidates_discarded(tmp_path, [{"url": "https://example.com/job/11", "reason": "wrong_location"}])
+
+    job = repository.get_job_by_url(tmp_path, "https://example.com/job/11")
+    assert job["rejection_reason"] == "wrong_location"
+
+
+def test_get_jobs_page_filters_by_country_and_since(tmp_path: Path) -> None:
+    repository.insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/de", "title": "PM", "company": "Acme", "country_code": "DE"},
+            {"url": "https://example.com/us", "title": "PM", "company": "Acme", "country_code": "US"},
+        ],
+    )
+
+    rows, total = repository.get_jobs_page(tmp_path, statuses=("candidate",), country="de")
+    assert total == 1
+    assert rows[0]["country_code"] == "DE"
+
+    _rows, total_since = repository.get_jobs_page(tmp_path, statuses=("candidate",), since="2000-01-01")
+    assert total_since == 2
+    _rows, total_future = repository.get_jobs_page(tmp_path, statuses=("candidate",), since="2999-01-01")
+    assert total_future == 0
