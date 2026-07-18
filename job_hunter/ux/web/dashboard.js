@@ -19,6 +19,9 @@ let selectedCandidateIds = new Set();
 let todayData = { items: [], total: 0, page: 1, pages: 1 };
 let todayPage = 1;
 let feedCountriesLoaded = false;
+let boardMode = true;
+let kanbanData = {}; // status -> { items, total, page, pages }
+let draggedCard = null; // { status, slug, id }
 let settingsLoaded = false;
 let cfgRevision = null;
 let cfgRawRevision = null;
@@ -466,6 +469,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent = btn.querySelector('.nav-label').textContent;
     if (view === 'today') loadToday();
+    if (view === 'applications') { if (boardMode) loadBoard(); else loadApplications(); }
     if (view === 'unprocessed') loadUnprocessed();
     if (view === 'company-hunt') refreshCompanyHuntPanel();
     if (view === 'insights' && !insightsLoaded) loadInsights();
@@ -546,13 +550,28 @@ document.querySelectorAll('#settings-tabs .status-tab').forEach(tab => {
   });
 });
 
-// Status tab filter
+// Status tab filter (table view only)
 document.querySelectorAll('#status-tabs .status-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('#status-tabs .status-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     activeStatus = tab.dataset.status;
     applyFilters();
+  });
+});
+
+// Board / Table toggle for Applications
+document.querySelectorAll('#app-view-tabs .status-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#app-view-tabs .status-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    boardMode = tab.dataset.appView === 'board';
+    document.getElementById('kanban-strip').style.display = boardMode ? '' : 'none';
+    document.getElementById('kanban-board').style.display = boardMode ? '' : 'none';
+    document.getElementById('app-table-wrap').style.display = boardMode ? 'none' : '';
+    document.getElementById('app-pager').style.display = boardMode ? 'none' : '';
+    document.getElementById('status-tabs').style.display = boardMode ? 'none' : '';
+    if (boardMode) loadBoard(); else loadApplications();
   });
 });
 
@@ -785,9 +804,10 @@ async function refreshAll() {
   analyticsLoaded = false;
   settingsLoaded = false;
   companiesLoaded = false;
-  await loadApplications();
+  await loadApplications(); // also keeps the sidebar total-count badge in sync regardless of active view
   const activeView = document.querySelector('.nav-btn.active')?.dataset.view;
   if (activeView === 'today') await loadToday();
+  if (activeView === 'applications' && boardMode) await loadBoard();
   if (activeView === 'insights') await loadInsights();
   if (activeView === 'unprocessed') await loadUnprocessed();
   if (activeView === 'company-hunt') {
@@ -1307,6 +1327,129 @@ function changeAppPage(delta) {
   loadApplications();
 }
 
+// ── Applications kanban board ──
+const KANBAN_COLUMNS = [
+  { status: 'shortlisted', label: 'Saved' },
+  { status: 'tailored', label: 'Tailored' },
+  { status: 'applied', label: 'Applied' },
+  { status: 'responded', label: 'Responded' },
+  { status: 'interview', label: 'Interview' },
+  { status: 'offer', label: 'Offer' },
+  { status: 'rejected', label: 'Rejected' },
+];
+const KANBAN_PAGE_SIZE = 50;
+
+async function loadKanbanColumn(status, page = 1) {
+  const data = status === 'shortlisted'
+    ? await window.pywebview.api.get_unprocessed('shortlisted', page, KANBAN_PAGE_SIZE)
+    : await window.pywebview.api.get_applications(page, KANBAN_PAGE_SIZE, '', status, 'date', 'desc');
+  kanbanData[status] = data;
+  return data;
+}
+
+async function loadBoard() {
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = KANBAN_COLUMNS.map(col => `
+    <div class="kanban-column" data-status="${col.status}">
+      <div class="kanban-column-header"><span>${esc(col.label)}</span><span class="kanban-column-count" id="kanban-count-${col.status}">…</span></div>
+      <div class="kanban-cards" id="kanban-cards-${col.status}" data-status="${col.status}"></div>
+    </div>`).join('');
+  wireKanbanColumnDrop();
+  await Promise.all(KANBAN_COLUMNS.map(col => loadKanbanColumn(col.status).then(() => renderKanbanColumn(col.status))));
+  renderKanbanStrip();
+}
+
+function kanbanCardHtml(app, status) {
+  const key = app.slug || app.id;
+  const score = scorePillHtml(app.score);
+  return `<div class="kanban-card" draggable="true" data-drag-key="${esc(String(key))}" data-slug="${esc(app.slug || '')}" data-id="${app.id ?? ''}">
+    <div class="kanban-card-title">${esc(app.title || '—')}</div>
+    <div class="kanban-card-company">${esc(app.company || '—')}</div>
+    <div class="kanban-card-footer">${score || '<span></span>'}<button class="btn" data-open-slug="${esc(app.slug || '')}" ${app.slug ? '' : 'disabled'} title="Open details" aria-label="Open details">Open</button></div>
+  </div>`;
+}
+
+function renderKanbanColumn(status) {
+  const data = kanbanData[status] || { items: [], total: 0, page: 1, pages: 1 };
+  const container = document.getElementById(`kanban-cards-${status}`);
+  document.getElementById(`kanban-count-${status}`).textContent = data.total || 0;
+  if (!container) return;
+  const cards = data.items.map(app => kanbanCardHtml(app, status)).join('');
+  const loadMore = data.page < (data.pages || 1)
+    ? `<button class="btn kanban-load-more" data-load-more="${status}">Load more</button>`
+    : '';
+  container.innerHTML = cards || emptyStateHtml('📋', 'Empty', 'Nothing here yet.');
+  wireKanbanCardDrag(container);
+  const columnEl = container.closest('.kanban-column');
+  const existingMore = columnEl.querySelector('.kanban-load-more');
+  if (existingMore) existingMore.remove();
+  if (loadMore) columnEl.insertAdjacentHTML('beforeend', loadMore);
+}
+
+function wireKanbanCardDrag(container) {
+  container.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', () => {
+      draggedCard = { fromStatus: container.dataset.status, slug: card.dataset.slug, id: card.dataset.id };
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+}
+
+function wireKanbanColumnDrop() {
+  document.querySelectorAll('.kanban-cards').forEach(container => {
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      container.closest('.kanban-column').classList.add('drag-over');
+    });
+    container.addEventListener('dragleave', () => container.closest('.kanban-column').classList.remove('drag-over'));
+    container.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      container.closest('.kanban-column').classList.remove('drag-over');
+      if (!draggedCard) return;
+      const toStatus = container.dataset.status;
+      const card = draggedCard;
+      draggedCard = null;
+      if (card.fromStatus === toStatus) return;
+      await moveKanbanCard(card, toStatus);
+    });
+  });
+}
+
+async function moveKanbanCard(card, toStatus) {
+  // Saved (shortlisted, id-only) cards have no artifacts to become an application from —
+  // moving them onto the pipeline is a real workflow action (tailor), not a drag.
+  if (card.fromStatus === 'shortlisted' || toStatus === 'shortlisted') {
+    showToast('Tailor the job first — use the ✂ Tailor action on the Saved card.');
+    return;
+  }
+  const result = await window.pywebview.api.update_status(card.slug, toStatus);
+  if (result.error) { showToast(result.error); return; }
+  showToast(`Moved to ${toStatus}`);
+  insightsLoaded = false;
+  await Promise.all([card.fromStatus, toStatus].map(s => loadKanbanColumn(s).then(() => renderKanbanColumn(s))));
+  renderKanbanStrip();
+}
+
+function renderKanbanStrip() {
+  const strip = document.getElementById('kanban-strip');
+  strip.innerHTML = KANBAN_COLUMNS.map(col =>
+    `<div class="strip-stat">${esc(col.label)} <strong>${(kanbanData[col.status] || {}).total || 0}</strong></div>`
+  ).join('');
+}
+
+document.getElementById('kanban-board').addEventListener('click', async (e) => {
+  const openBtn = e.target.closest('[data-open-slug]');
+  if (openBtn && openBtn.dataset.openSlug) { selectApp(openBtn.dataset.openSlug); return; }
+  const moreBtn = e.target.closest('[data-load-more]');
+  if (!moreBtn) return;
+  const status = moreBtn.dataset.loadMore;
+  const current = kanbanData[status] || { items: [], page: 1 };
+  const next = await loadKanbanColumn(status, current.page + 1);
+  kanbanData[status] = { ...next, items: [...current.items, ...next.items] };
+  renderKanbanColumn(status);
+});
+
 // ── Detail panel ──
 async function selectApp(slug) {
   activeSlug = slug;
@@ -1385,6 +1528,21 @@ function populateDetail(slug, detail) {
     notesEl.innerHTML = '';
     document.getElementById('dp-notes-section').style.display = 'none';
   }
+
+  renderTimeline(detail.timeline || {}, notes);
+}
+
+function renderTimeline(timeline, notes) {
+  const el = document.getElementById('dp-timeline');
+  const entries = [];
+  if (timeline.created_at) entries.push(['Discovered', timeline.created_at]);
+  if (timeline.processed_at) entries.push(['Screened', timeline.processed_at]);
+  notes.forEach(n => entries.push(['Note', String(n)]));
+  if (timeline.updated_at) entries.push(['Last updated', timeline.updated_at]);
+  if (!entries.length) { el.innerHTML = ''; return; }
+  el.innerHTML = entries.map(([label, value]) =>
+    `<div class="timeline-item"><span class="timeline-label">${esc(label)}</span><span>${esc(value)}</span></div>`
+  ).join('');
 }
 
 function clearArtifactPreview() {

@@ -2586,3 +2586,55 @@ def test_get_unprocessed_filters_by_country(tmp_path: Path) -> None:
 
     assert payload["total"] == 1
     assert payload["items"][0]["country_code"] == "DE"
+
+
+# ── Applications kanban board + drawer timeline ──
+
+
+def test_get_job_detail_includes_timeline(tmp_path: Path) -> None:
+    _write_job(tmp_path)
+    upsert_application_from_job("2026-06-12_acme_pm", root=tmp_path)
+
+    detail = DashAPI(tmp_path).get_job_detail("2026-06-12_acme_pm")
+
+    assert detail["timeline"]["status"] == "tailored"
+    assert detail["timeline"]["created_at"]
+    assert detail["timeline"]["updated_at"]
+
+
+def test_kanban_board_markup_has_all_columns_and_drag_drop_wiring() -> None:
+    html = _dashboard_source()
+
+    assert 'id="kanban-board"' in html
+    assert 'id="kanban-strip"' in html
+    for status in ("shortlisted", "tailored", "applied", "responded", "interview", "offer", "rejected"):
+        assert f"status: '{status}'" in html or f'"{status}"' in html
+    assert "draggable=" in html
+    assert "dragstart" in html
+    assert "addEventListener('drop'" in html
+    assert 'data-app-view="board"' in html
+    assert 'data-app-view="table"' in html
+
+
+def test_kanban_saved_column_uses_get_unprocessed_others_use_get_applications() -> None:
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    start = js.index("async function loadKanbanColumn(")
+    end = js.index("\n}\n", start)
+    body = js[start:end]
+
+    assert "get_unprocessed('shortlisted'" in body
+    assert "get_applications(page" in body
+
+
+def test_kanban_drag_to_shortlisted_is_blocked_not_a_status_transition() -> None:
+    """Saved (shortlisted) cards have no tailored artifacts — dragging onto or off the
+    Saved column must never silently fabricate a status transition via update_status."""
+    js = (_WEB_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    start = js.index("async function moveKanbanCard(")
+    end = js.index("\n}\n", start)
+    body = js[start:end]
+
+    assert "shortlisted" in body
+    assert "return;" in body

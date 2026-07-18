@@ -709,6 +709,12 @@ class DashAPI:
                 "jd": (record.get("jd_text") or "")[:4000],
                 "notes": record.get("notes") or [],
                 "artifacts": self._artifacts(slug),
+                "timeline": {
+                    "status": record.get("status"),
+                    "created_at": record.get("created_at"),
+                    "processed_at": record.get("processed_at"),
+                    "updated_at": record.get("updated_at"),
+                },
             }
 
         # Fallback: job folder exists on disk but hasn't been synced to jobs.db yet

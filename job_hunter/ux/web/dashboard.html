@@ -87,7 +87,7 @@
     <div class="app-panel">
       <div class="filter-bar">
         <input class="search-input" type="text" id="search-input" placeholder="Search company or title…">
-        <div class="status-tabs" id="status-tabs">
+        <div class="status-tabs" id="status-tabs" style="display:none">
           <button class="status-tab active" data-status="">All</button>
           <button class="status-tab" data-status="tailored">Tailored</button>
           <button class="status-tab" data-status="applied">Applied</button>
@@ -96,9 +96,21 @@
           <button class="status-tab" data-status="offer">Offer</button>
           <button class="status-tab" data-status="rejected">Rejected</button>
         </div>
+        <div class="status-tabs" id="app-view-tabs">
+          <button class="status-tab active" data-app-view="board">Board</button>
+          <button class="status-tab" data-app-view="table">Table</button>
+        </div>
         <button class="btn btn-danger" id="app-bulk-delete-btn" style="display:none">Delete selected</button>
       </div>
-      <div class="table-wrap">
+
+      <!-- Board view: kanban across the application pipeline -->
+      <div class="kanban-strip" id="kanban-strip"></div>
+      <div class="kanban-board" id="kanban-board">
+        <div class="loading-wrap"><span class="spinner"></span> Loading…</div>
+      </div>
+
+      <!-- Table view -->
+      <div class="table-wrap" id="app-table-wrap" style="display:none">
         <table>
           <thead>
             <tr>
@@ -117,7 +129,7 @@
           </tbody>
         </table>
       </div>
-      <div class="pager" id="app-pager"></div>
+      <div class="pager" id="app-pager" style="display:none"></div>
     </div>
 
     <!-- Detail panel -->
@@ -178,6 +190,10 @@
         <div id="dp-notes-section">
           <div class="detail-section-title">Notes</div>
           <div class="notes-list" id="dp-notes"></div>
+        </div>
+        <div id="dp-timeline-section">
+          <div class="detail-section-title">Timeline</div>
+          <div class="timeline-list" id="dp-timeline"></div>
         </div>
       </div>
       <div class="detail-footer">
