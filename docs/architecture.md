@@ -120,6 +120,8 @@ compare canonical IDs and scopes.
   and `industry`). `ensure_seeded()` (re-)imports the seed on a version bump,
   preserving each catalog row's `enabled` flag by `(normalized_url, country)`;
   `sync_user_targets()` mirrors `config/job_hunter.yml`'s `companies.targets`
+  and additive `company_type` / `funding_stage` metadata. The startup toggle unions at
+  most 100 package startup/scaleup rows per enabled country without rewriting opt-ins.
   as `source='user'` rows on every hunt/dashboard read.
 - `gating.py` derives eligible countries from enabled regions (`None` for a
   remote_global region = every country; `[]` for no enabled regions = nothing)
@@ -135,6 +137,12 @@ compare canonical IDs and scopes.
 `companies.db` is regenerable (seed + config mirror) and gitignored — unlike
 `jobs.db`, it is never synced across machines. `config/job_hunter.yml`'s
 `companies.targets` is the durable, git-synced record of a user's own targets.
+
+Maintainers import startup lists with `scripts/import_startup_companies.py INPUT`, where
+INPUT is CSV or JSONL with required `name`, `career_url`, `country`, `industry` and optional
+`id`, `company_type`, `funding_stage`, `headcount`, `status`, `ecosystem`. Imports reject
+unknown taxonomy values, deduplicate by normalized URL/country, sort shards, and regenerate
+the manifest. This script writes package seed files only; it is never run during init/update.
 
 ## Shared writing policy
 

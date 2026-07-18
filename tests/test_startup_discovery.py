@@ -14,6 +14,7 @@ from job_hunter.sources.boards.startup_jobs import StartupJobsSource
 from job_hunter.sources.boards.yc_jobs import YCJobsSource
 from job_hunter.sources.orchestrator import deduplicate_company_titles
 from job_hunter.tracking.repository import get_jobs_page, insert_jobs
+from scripts import import_startup_companies
 
 
 class _Response:
@@ -140,10 +141,39 @@ def test_job_metadata_persists_and_feed_filters(tmp_path: Path) -> None:
                 "company_type": "startup",
                 "funding_stage": "seed",
                 "experience_unknown": True,
+                "source": "Startup.jobs",
+                "source_url": "https://startup.jobs/feeds/jobs",
             }
         ],
     )
-    rows, total = get_jobs_page(tmp_path, company_type="startup")
+    rows, total = get_jobs_page(tmp_path, statuses=("candidate",), company_type="startup")
     assert total == 1
     assert rows[0]["funding_stage"] == "seed"
     assert rows[0]["experience_unknown"] == 1
+    assert rows[0]["source_url"] == "https://startup.jobs/feeds/jobs"
+
+
+def test_maintainer_importer_writes_only_package_shards(monkeypatch, tmp_path: Path) -> None:
+    data_dir = tmp_path / "package-data"
+    data_dir.mkdir()
+    (data_dir / "DE.jsonl").write_text("", encoding="utf-8")
+    source = tmp_path / "startups.csv"
+    source.write_text(
+        "name,career_url,country,industry,funding_stage\nAcme,https://acme.test/careers,DE,software_it,seed\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(import_startup_companies, "DATA_DIR", data_dir)
+    assert import_startup_companies.import_file(source) == 1
+    row = (data_dir / "DE.jsonl").read_text(encoding="utf-8")
+    assert '"company_type":"startup"' in row
+    assert not (tmp_path / "config").exists()
+
+
+def test_dashboard_exposes_startup_and_unknown_experience_controls() -> None:
+    web = Path("job_hunter/ux/web")
+    html = (web / "dashboard.html").read_text(encoding="utf-8")
+    javascript = (web / "dashboard.js").read_text(encoding="utf-8")
+    assert 'id="include-startups"' in html
+    assert 'id="candidate-company-type"' in html
+    assert 'id="catalog-funding-stage-filter"' in html
+    assert "experience unknown" in javascript

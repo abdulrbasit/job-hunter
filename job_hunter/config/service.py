@@ -275,6 +275,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "strategic_overrides": deepcopy(scoring.get("strategic_overrides") or []),
         },
         "llm_default_provider": llm.get("default_provider", "anthropic"),
+        "include_startups": bool((data.get("companies") or {}).get("include_startups", False)),
     }
 
 
@@ -333,6 +334,13 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     merged.pop("exclusions", None)
     merged.pop("career_stage", None)
     merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
+
+    companies = dict(merged.get("companies") or {})
+    companies["include_startups"] = bool(form.get("include_startups", False))
+    if companies.get("targets") or companies["include_startups"]:
+        merged["companies"] = companies
+    else:
+        merged.pop("companies", None)
 
     llm = dict(merged.get("llm") or {})
     if form.get("llm_default_provider"):
@@ -402,6 +410,11 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
         filters["hunt_languages"] = hunt_languages
     merged["filters"] = filters
 
+    if "include_startups" in prefs:
+        companies = dict(merged.get("companies") or {})
+        companies["include_startups"] = bool(prefs["include_startups"])
+        merged["companies"] = companies
+
     return merged
 
 
@@ -425,6 +438,12 @@ def _normalize_targets(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         industry = str(entry.get("industry") or "").strip()
         if industry:
             item["industry"] = industry
+        company_type = str(entry.get("company_type") or "").strip()
+        if company_type:
+            item["company_type"] = company_type
+        funding_stage = str(entry.get("funding_stage") or "").strip()
+        if funding_stage:
+            item["funding_stage"] = funding_stage
         if entry.get("enabled", True) is False:
             item["enabled"] = False
         normalized.append(item)
@@ -459,9 +478,16 @@ def save_company_targets(root: Path, targets: list[dict[str, Any]], expected_rev
 
     normalized = _normalize_targets(targets)
     if normalized:
-        data["companies"] = {"targets": normalized}
+        companies = dict(data.get("companies") or {})
+        companies["targets"] = normalized
+        data["companies"] = companies
     else:
-        data.pop("companies", None)
+        companies = dict(data.get("companies") or {})
+        companies.pop("targets", None)
+        if companies:
+            data["companies"] = companies
+        else:
+            data.pop("companies", None)
 
     schema_errors = validate_job_hunter_yaml(data, root)
     if schema_errors:

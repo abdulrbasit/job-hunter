@@ -29,6 +29,7 @@ class JobSourceAdapter(ABC):
     tier: str = "free"  # override per adapter; used by --depth filtering
     global_feed: bool = False
     supported_countries: frozenset[str] = frozenset()
+    startup_source: bool = False
 
     @property
     @abstractmethod
@@ -36,8 +37,9 @@ class JobSourceAdapter(ABC):
         """Unique identifier used in JobPosting.source and log messages."""
 
     def is_enabled(self, api_config: dict) -> bool:
-        """Return True by default; sources may override to check config flags."""
-        return True
+        """Honor the standard per-board enabled flag; adapters may add key checks."""
+        boards = (api_config or {}).get("http", {}).get("job_boards", {}) or {}
+        return bool((boards.get(self.source_name) or {}).get("enabled", True))
 
     def supports_country(self, country: str) -> bool:
         return not self.supported_countries or country.upper() in self.supported_countries

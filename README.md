@@ -69,6 +69,13 @@ In `llm-api` mode, `job-hunter hunt` runs scrape → score → tailor → cover 
 Student scoring emphasizes verified education, coursework, projects, internships, and
 transferable skills. Posting types and the automatic score threshold remain editable.
 
+## For Startups
+
+1. Run `job-hunter dash`, open onboarding, and enable **Include startups**.
+2. Choose regions and titles; Startup.jobs, Y Combinator Jobs, Start Munich (Germany),
+   and up to 100 verified package startups per enabled country join discovery.
+3. Run `job-hunter hunt`, then filter Candidates by the startup or scaleup chip.
+
 ## Company Hunt
 
 For company career pages that need a real browser, add your own companies or

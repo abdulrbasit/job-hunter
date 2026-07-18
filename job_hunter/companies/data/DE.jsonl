@@ -951,3 +951,6 @@
 {"id":"zf_friedrichshafen","name":"ZF Friedrichshafen","url":"https://www.zf.com/careers","industry":"automotive"}
 {"id":"zscaler","name":"Zscaler","url":"https://job-boards.greenhouse.io/zscaler","industry":"other"}
 {"id":"zuru","name":"Zuru","url":"https://jobs.ashbyhq.com/zuru","industry":"other"}
+{"id":"helsing","name":"Helsing","url":"https://jobs.ashbyhq.com/helsing","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
+{"id":"isar_aerospace","name":"Isar Aerospace","url":"https://isaraerospace.com/careers/","industry":"aerospace_defense","company_type":"scaleup","funding_stage":"series_c_plus"}
+{"id":"tacto","name":"Tacto","url":"https://jobs.ashbyhq.com/tacto","industry":"software_it","company_type":"startup","funding_stage":"series_a"}

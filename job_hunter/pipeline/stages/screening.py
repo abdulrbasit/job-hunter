@@ -107,6 +107,12 @@ def screen_jobs_by_rules(
                 }
             )
             continue
-        kept.append({**job, **({"_judgment_signals": judgment_signals} if judgment_signals else {})})
+        kept.append(
+            {
+                **job,
+                **({"experience_unknown": True} if judgment_signals.get("experience_unknown") else {}),
+                **({"_judgment_signals": judgment_signals} if judgment_signals else {}),
+            }
+        )
 
     return kept, rejected

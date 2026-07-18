@@ -851,6 +851,7 @@ class DashAPI:
         page_size: int = 50,
         search: str = "",
         posting_type: str = "",
+        company_type: str = "",
         sort: str = "date",
         direction: str = "desc",
     ) -> dict[str, Any]:
@@ -868,6 +869,7 @@ class DashAPI:
             page_size=page_size,
             search=search,
             posting_type=posting_type,
+            company_type=company_type,
             sort=sort,
             direction=direction,
             require_identity=True,
@@ -879,6 +881,11 @@ class DashAPI:
                 "title": job.get("title"),
                 "location": job.get("location"),
                 "posting_type": job.get("posting_type"),
+                "company_type": job.get("company_type"),
+                "funding_stage": job.get("funding_stage"),
+                "experience_unknown": bool(job.get("experience_unknown")),
+                "source": job.get("source"),
+                "source_url": job.get("source_url"),
                 "status": display_status(str(job.get("status") or "")),
                 "url": job.get("url"),
                 "date": str(job.get("discovered_at") or job.get("created_at") or "")[:10],
@@ -1354,6 +1361,8 @@ class DashAPI:
         enabled_filter: str = "",
         country: str = "",
         city: str = "",
+        company_type: str = "",
+        funding_stage: str = "",
     ) -> dict[str, Any]:
         """Server-paginated browse of the bundled catalog with current opt-in state.
 
@@ -1370,6 +1379,8 @@ class DashAPI:
             enabled=self._enabled_filter_bool(enabled_filter),
             country=country,
             city=city,
+            company_type=company_type,
+            funding_stage=funding_stage,
             page=page,
             page_size=page_size,
         )
@@ -1397,7 +1408,15 @@ class DashAPI:
         return {"ok": True}
 
     def set_catalog_filter_enabled(
-        self, industry: str, search: str, enabled_filter: str, country: str, city: str, enabled: bool
+        self,
+        industry: str,
+        search: str,
+        enabled_filter: str,
+        country: str,
+        city: str,
+        enabled: bool,
+        company_type: str = "",
+        funding_stage: str = "",
     ) -> dict[str, Any]:
         """Enable/disable every catalog company matching the current browse filter in one
         query — avoids shipping N ids for "enable all shown" at 100k-company scale."""
@@ -1411,6 +1430,8 @@ class DashAPI:
             enabled=self._enabled_filter_bool(enabled_filter),
             country=country,
             city=city,
+            company_type=company_type,
+            funding_stage=funding_stage,
             new_enabled=enabled,
         )
         return {"ok": True, "data": {"count": n}, "errors": [], "warnings": []}

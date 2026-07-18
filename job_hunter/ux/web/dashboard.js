@@ -661,6 +661,7 @@ document.getElementById('dp-artifact-tabs').addEventListener('click', (e) => {
 document.getElementById('search-input').addEventListener('input', debouncedLoadApplications);
 document.getElementById('candidate-search').addEventListener('input', debouncedLoadCandidates);
 document.getElementById('candidate-posting-type').addEventListener('change', debouncedLoadCandidates);
+document.getElementById('candidate-company-type').addEventListener('change', debouncedLoadCandidates);
 document.getElementById('company-search').addEventListener('input', renderCompanies);
 document.getElementById('catalog-search').addEventListener('input', debouncedLoadCatalog);
 document.getElementById('catalog-industry-filter').addEventListener('change', () => {
@@ -683,6 +684,9 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
   catalogPage = 1;
   loadCatalogPage();
 });
+['catalog-company-type-filter', 'catalog-funding-stage-filter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { catalogPage = 1; loadCatalogPage(); });
+});
 
 ['cfg-mode', 'cfg-llm-provider'].forEach(id => {
   document.getElementById(id).addEventListener('change', markConfigDirty);
@@ -694,6 +698,7 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', markConfigDirty);
 });
+document.getElementById('include-startups').addEventListener('change', markConfigDirty);
 document.getElementById('settings-raw-yaml').addEventListener('input', markRawDirty);
 document.getElementById('settings-career-context').addEventListener('input', markCareerContextDirty);
 document.getElementById('student-mode').addEventListener('change', (event) => {
@@ -882,7 +887,8 @@ async function loadUnprocessed() {
       candidatePage,
       50,
       document.getElementById('candidate-search').value,
-      document.getElementById('candidate-posting-type').value
+      document.getElementById('candidate-posting-type').value,
+      document.getElementById('candidate-company-type').value
     );
     candidatePage = candidateData.page;
     document.getElementById('candidate-active-count').textContent = candidateData.counts.active;
@@ -906,7 +912,7 @@ function renderCandidates() {
   }
   tbody.innerHTML = jobs.map((job, i) => `<tr data-id="${job.id}">
       <td class="td-num">${candidateScope === 'active' ? `<input type="checkbox" class="candidate-checkbox" data-id="${job.id}" ${selectedCandidateIds.has(job.id) ? 'checked' : ''}>` : i + 1}</td>
-      <td class="td-company">${esc(job.company || '—')}</td>
+      <td class="td-company">${esc(job.company || '—')}<div class="meta-chips"><span class="badge">${esc((job.company_type || 'unknown').replaceAll('_', ' '))}</span>${job.source ? `<span class="badge">${esc(job.source)}</span>` : ''}${job.experience_unknown ? '<span class="badge">experience unknown</span>' : ''}</div></td>
       <td class="td-title">${job.url ? `<a href="${safeUrl(job.url)}" target="_blank" rel="noopener">${esc(job.title || '—')}</a>` : esc(job.title || '—')}</td>
       <td>${esc(job.location || '—')}</td>
       <td>${esc((job.posting_type || '—').replaceAll('_', ' '))}</td>
@@ -2085,6 +2091,7 @@ async function renderGuidedForm(form) {
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
   document.getElementById('student-mode').checked = (form.filters.experience_levels || []).includes('student');
+  document.getElementById('include-startups').checked = Boolean(form.include_startups);
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -2343,6 +2350,7 @@ function collectGuidedForm() {
       strategic_overrides,
     },
     llm_default_provider: document.getElementById('cfg-llm-provider').value,
+    include_startups: document.getElementById('include-startups').checked,
   };
 }
 
@@ -2795,7 +2803,7 @@ function catalogRowHtml(company) {
   const checked = selectedCatalogIds.has(company.id) ? 'checked' : '';
   return `<tr data-id="${esc(company.id)}">
     <td class="td-num"><input type="checkbox" class="catalog-checkbox" data-id="${esc(company.id)}" ${checked}></td>
-    <td class="td-company">${esc(company.name || '—')}</td>
+    <td class="td-company">${esc(company.name || '—')}<div class="meta-chips"><span class="badge">${esc((company.company_type || 'unknown').replaceAll('_', ' '))}</span>${company.funding_stage ? `<span class="badge">${esc(company.funding_stage.replaceAll('_', ' '))}</span>` : ''}</div></td>
     <td class="td-title"><a href="#" data-open-url="${esc(company.url)}">${esc(company.url)}</a></td>
     <td>${esc(company.country || '—')}</td>
     <td>${esc(industryLabel(company.industry))}</td>
@@ -2810,7 +2818,9 @@ async function loadCatalogPage() {
     const search = document.getElementById('catalog-search').value;
     const country = document.getElementById('catalog-country-filter').value;
     const city = document.getElementById('catalog-city-filter').value;
-    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 300, catalogEnabledFilter, country, city);
+    const companyType = document.getElementById('catalog-company-type-filter').value;
+    const fundingStage = document.getElementById('catalog-funding-stage-filter').value;
+    const result = await window.pywebview.api.get_catalog_page(catalogIndustry, search, catalogPage, 300, catalogEnabledFilter, country, city, companyType, fundingStage);
     if (!result.ok) throw new Error('not ok');
     catalogPageData = result.data;
     document.getElementById('catalog-total-count').textContent = `${catalogPageData.total} companies`;
@@ -2896,8 +2906,10 @@ async function setCatalogShownEnabled(enabled) {
     const search = document.getElementById('catalog-search').value;
     const country = document.getElementById('catalog-country-filter').value;
     const city = document.getElementById('catalog-city-filter').value;
+    const companyType = document.getElementById('catalog-company-type-filter').value;
+    const fundingStage = document.getElementById('catalog-funding-stage-filter').value;
     const result = await window.pywebview.api.set_catalog_filter_enabled(
-      catalogIndustry, search, catalogEnabledFilter, country, city, enabled
+      catalogIndustry, search, catalogEnabledFilter, country, city, enabled, companyType, fundingStage
     );
     if (!result.ok) { alert((result.errors && result.errors[0]) || 'Could not update the shared catalog.'); return; }
     loadCatalogPage();

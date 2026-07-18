@@ -181,6 +181,11 @@
           <option value="graduate_program">Graduate program</option>
           <option value="trainee">Trainee</option>
         </select>
+        <select id="candidate-company-type" aria-label="Filter by company type">
+          <option value="">All company types</option><option value="startup">Startup</option>
+          <option value="scaleup">Scaleup</option><option value="sme">SME</option>
+          <option value="enterprise">Enterprise</option><option value="unknown">Unknown</option>
+        </select>
         <div class="status-tabs">
           <button class="status-tab active" data-candidate-scope="active">Active <span id="candidate-active-count">0</span></button>
           <button class="status-tab" data-candidate-scope="discarded">Discarded <span id="candidate-discarded-count">0</span></button>
@@ -316,6 +321,17 @@
               <select class="filter-select" id="catalog-industry-filter">
                 <option value="">All industries</option>
               </select>
+              <select class="filter-select" id="catalog-company-type-filter">
+                <option value="">All company types</option><option value="startup">Startup</option>
+                <option value="scaleup">Scaleup</option><option value="sme">SME</option>
+                <option value="enterprise">Enterprise</option><option value="unknown">Unknown</option>
+              </select>
+              <select class="filter-select" id="catalog-funding-stage-filter">
+                <option value="">All funding stages</option><option value="pre_seed">Pre-seed</option>
+                <option value="seed">Seed</option><option value="series_a">Series A</option>
+                <option value="series_b">Series B</option><option value="series_c_plus">Series C+</option>
+                <option value="growth">Growth</option><option value="bootstrapped">Bootstrapped</option>
+              </select>
               <div class="status-tabs" id="catalog-filter-tabs">
                 <button class="status-tab active" data-catalog-filter="">All</button>
                 <button class="status-tab" data-catalog-filter="enabled">Enabled</button>
@@ -425,6 +441,7 @@
           <h3>Filters</h3>
           <p class="settings-help">Languages are an allowlist. Other groups exclude matching results. Matching is automatic; add values and optional notes.</p>
           <label class="filter-check"><input type="checkbox" id="student-mode"><span>Student mode</span></label>
+          <label class="filter-check"><input type="checkbox" id="include-startups"><span>Include startups</span></label>
           <div id="cfg-filter-groups"></div>
         </div>
         <span id="anchor-settings-section-filters" style="display:none"></span>

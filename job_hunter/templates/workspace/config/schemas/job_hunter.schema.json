@@ -150,6 +150,7 @@
     "companies": {
       "type": "object",
       "properties": {
+        "include_startups": {"type": "boolean"},
         "targets": {
           "type": "array",
           "items": {
@@ -161,6 +162,8 @@
               "country": {"type": "string", "minLength": 2, "maxLength": 2},
               "city": {"type": "string"},
               "industry": {"type": "string"},
+              "company_type": {"enum": ["startup", "scaleup", "sme", "enterprise", "unknown"]},
+              "funding_stage": {"enum": ["pre_seed", "seed", "series_a", "series_b", "series_c_plus", "growth", "bootstrapped"]},
               "enabled": {"type": "boolean"}
             },
             "additionalProperties": false

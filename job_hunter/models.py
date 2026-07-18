@@ -50,6 +50,24 @@ class PostingType(StrEnum):
     TRAINEE = "trainee"
 
 
+class CompanyType(StrEnum):
+    STARTUP = "startup"
+    SCALEUP = "scaleup"
+    SME = "sme"
+    ENTERPRISE = "enterprise"
+    UNKNOWN = "unknown"
+
+
+class FundingStage(StrEnum):
+    PRE_SEED = "pre_seed"
+    SEED = "seed"
+    SERIES_A = "series_a"
+    SERIES_B = "series_b"
+    SERIES_C_PLUS = "series_c_plus"
+    GROWTH = "growth"
+    BOOTSTRAPPED = "bootstrapped"
+
+
 class CanonicalCity(BaseModel):
     """Stable city identity from package-owned bundled data."""
 
@@ -113,6 +131,9 @@ class JobPosting(BaseModel):
     timezone_restrictions: list[float] = Field(default_factory=list)
     employment_type: str = ""
     posting_type: PostingType | None = None
+    company_type: CompanyType = CompanyType.UNKNOWN
+    funding_stage: FundingStage | None = None
+    experience_unknown: bool = False
     seniority: list[str] = Field(default_factory=list)
     job_description_fetch_status: Literal["full", "thin", "fetch_failed", "page_noise", "position_closed", ""] = ""
     llm_posting_status_check: str = ""  # advisory: "open"|"closed"|"unknown" — set for posting_date_status="missing"
@@ -128,6 +149,8 @@ class Company(BaseModel):
     country: str = ""
     search_lang: str = ""
     ats: str = ""
+    company_type: CompanyType = CompanyType.UNKNOWN
+    funding_stage: FundingStage | None = None
 
 
 class FilterMatchMode(StrEnum):

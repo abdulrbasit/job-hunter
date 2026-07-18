@@ -56,6 +56,9 @@ scoring:
   #   bypass_max_years_experience: true
   #   reason: "Strategic target"
 
+companies:
+  include_startups: false
+
 llm:
   default_provider: anthropic
   providers:

@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS companies (
     country         TEXT NOT NULL,
     city            TEXT,
     industry        TEXT NOT NULL,
+    company_type    TEXT NOT NULL DEFAULT 'unknown',
+    funding_stage   TEXT,
     source          TEXT NOT NULL CHECK (source IN ('catalog', 'user')),
     batch           TEXT NOT NULL DEFAULT '',
     enabled         INTEGER NOT NULL DEFAULT 0,
@@ -69,6 +71,12 @@ def _conn(root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(root), timeout=10, factory=AutoCloseConnection)
     conn.row_factory = sqlite3.Row
     conn.executescript(_DDL)
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(companies)")}
+    if "company_type" not in existing:
+        conn.execute("ALTER TABLE companies ADD COLUMN company_type TEXT NOT NULL DEFAULT 'unknown'")
+    if "funding_stage" not in existing:
+        conn.execute("ALTER TABLE companies ADD COLUMN funding_stage TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_companies_type_stage ON companies(company_type, funding_stage)")
     return conn
 
 
@@ -114,7 +122,11 @@ def ensure_seeded(root: Path) -> bool:
         }
         conn.execute("DELETE FROM companies WHERE source = 'catalog'")
         rows = []
-        for catalog_id, name, url, country, industry in seed.iter_seed_rows():
+        for company in seed.iter_seed_companies():
+            catalog_id = company["id"]
+            name = company["name"]
+            url = company["url"]
+            country = company["country"]
             normalized_url = _normalize_url(url)
             enabled = 1 if (normalized_url, country) in enabled_keys else 0
             rows.append(
@@ -125,7 +137,9 @@ def ensure_seeded(root: Path) -> bool:
                     url,
                     normalized_url,
                     country,
-                    industry,
+                    company.get("industry") or "other",
+                    company.get("company_type") or "unknown",
+                    company.get("funding_stage"),
                     "catalog",
                     version,
                     enabled,
@@ -135,9 +149,9 @@ def ensure_seeded(root: Path) -> bool:
             )
         conn.executemany(
             """INSERT INTO companies
-               (catalog_id, name, normalized_name, url, normalized_url, country, industry,
+               (catalog_id, name, normalized_name, url, normalized_url, country, industry, company_type, funding_stage,
                 source, batch, enabled, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
         _meta_set(conn, "seed_version", version)
@@ -175,6 +189,8 @@ def sync_user_targets(root: Path, targets: list[dict[str, Any]]) -> None:
                 country,
                 city,
                 industry,
+                str(target.get("company_type") or "unknown"),
+                str(target.get("funding_stage") or "") or None,
                 "user",
                 "config",
                 enabled,
@@ -186,9 +202,9 @@ def sync_user_targets(root: Path, targets: list[dict[str, Any]]) -> None:
         conn.execute("DELETE FROM companies WHERE source = 'user'")
         conn.executemany(
             """INSERT INTO companies
-               (catalog_id, name, normalized_name, url, normalized_url, country, city, industry,
+               (catalog_id, name, normalized_name, url, normalized_url, country, city, industry, company_type, funding_stage,
                 source, batch, enabled, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
 
@@ -201,6 +217,8 @@ def _build_where(
     enabled: bool | None = None,
     source: str = "",
     search: str = "",
+    company_type: str = "",
+    funding_stage: str = "",
 ) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -213,6 +231,12 @@ def _build_where(
     if industry:
         clauses.append("industry = ?")
         params.append(industry)
+    if company_type:
+        clauses.append("company_type = ?")
+        params.append(company_type)
+    if funding_stage:
+        clauses.append("funding_stage = ?")
+        params.append(funding_stage)
     if enabled is not None:
         clauses.append("enabled = ?")
         params.append(1 if enabled else 0)
@@ -234,11 +258,20 @@ def query_page(
     enabled: bool | None = None,
     source: str = "",
     search: str = "",
+    company_type: str = "",
+    funding_stage: str = "",
     page: int = 1,
     page_size: int = 100,
 ) -> dict[str, Any]:
     where, params = _build_where(
-        country=country, city=city, industry=industry, enabled=enabled, source=source, search=search
+        country=country,
+        city=city,
+        industry=industry,
+        enabled=enabled,
+        source=source,
+        search=search,
+        company_type=company_type,
+        funding_stage=funding_stage,
     )
     page = max(1, page)
     page_size = min(500, max(1, page_size))
@@ -257,8 +290,13 @@ def query_page(
     }
 
 
-def candidate_companies(
-    root: Path, *, countries: list[str] | None, excluded_industries: Iterable[str] = ()
+def candidate_companies(  # noqa: C901
+    root: Path,
+    *,
+    countries: list[str] | None,
+    excluded_industries: Iterable[str] = (),
+    include_startups: bool = False,
+    startup_cap: int = 100,
 ) -> list[dict[str, Any]]:
     """Enabled companies eligible for a hunt: gated by country and industry exclusion.
 
@@ -285,6 +323,25 @@ def candidate_companies(
     sql = f"SELECT * FROM companies WHERE {' AND '.join(where)}"  # noqa: S608
     with _conn(root) as conn:
         rows = [dict(row) for row in conn.execute(sql, params).fetchall()]
+        if include_startups:
+            startup_where = ["source = 'catalog'", "company_type IN ('startup', 'scaleup')"]
+            startup_params: list[Any] = []
+            if countries is not None:
+                startup_where.append(f"country IN ({','.join('?' * len(countries))})")
+                startup_params.extend(countries)
+            if excluded:
+                startup_where.append(f"industry NOT IN ({','.join('?' * len(excluded))})")
+                startup_params.extend(excluded)
+            startup_sql = (
+                f"SELECT * FROM companies WHERE {' AND '.join(startup_where)} ORDER BY country, normalized_name"  # noqa: S608
+            )
+            automatic = conn.execute(startup_sql, startup_params).fetchall()
+            counts: dict[str, int] = {}
+            for row in automatic:
+                country = row["country"]
+                if counts.get(country, 0) < startup_cap:
+                    rows.append(dict(row))
+                    counts[country] = counts.get(country, 0) + 1
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
         if row["source"] == "catalog":
@@ -316,9 +373,18 @@ def set_enabled_where(
     enabled: bool | None = None,
     source: str = "",
     search: str = "",
+    company_type: str = "",
+    funding_stage: str = "",
 ) -> int:
     where, params = _build_where(
-        country=country, city=city, industry=industry, enabled=enabled, source=source, search=search
+        country=country,
+        city=city,
+        industry=industry,
+        enabled=enabled,
+        source=source,
+        search=search,
+        company_type=company_type,
+        funding_stage=funding_stage,
     )
     with _conn(root) as conn:
         cursor = conn.execute(

@@ -51,8 +51,22 @@ def hunt_candidates(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
     store.sync_user_targets(root, read_company_targets(root)["data"]["targets"])
 
     excluded = excluded_industry_ids(filter_values(config, "excluded_industries"))
-    rows = store.candidate_companies(root, countries=enabled_countries(config), excluded_industries=excluded)
+    include_startups = bool((config.get("companies") or {}).get("include_startups", False))
+    rows = store.candidate_companies(
+        root,
+        countries=enabled_countries(config),
+        excluded_industries=excluded,
+        include_startups=include_startups,
+        startup_cap=100,
+    )
     return [
-        {"name": row["name"], "career_url": row["url"], "location": _location_text(row), "source": row["source"]}
+        {
+            "name": row["name"],
+            "career_url": row["url"],
+            "location": _location_text(row),
+            "source": row["source"],
+            "company_type": row["company_type"],
+            "funding_stage": row["funding_stage"],
+        }
         for row in rows
     ]

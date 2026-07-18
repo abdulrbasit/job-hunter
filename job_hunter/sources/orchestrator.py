@@ -13,9 +13,11 @@ Flow:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from difflib import SequenceMatcher
 from typing import Any
 
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
@@ -46,6 +48,46 @@ from job_hunter.sources.source_config import load_search_config
 from job_hunter.tracking.discovery_cache import load_cached_candidate_urls
 
 logger = logging.getLogger(__name__)
+
+_COMPANY_SUFFIXES = re.compile(r"\b(?:inc|llc|ltd|limited|gmbh|ag|ug|corp|corporation)\b", re.I)
+_TITLE_MODIFIERS = re.compile(r"\s*[([](?:m/f/d|f/m/d|all genders|gn)[)\]]\s*", re.I)
+
+
+def _dedup_text(value: str, *, company: bool = False) -> str:
+    text = _COMPANY_SUFFIXES.sub(" ", value) if company else _TITLE_MODIFIERS.sub(" ", value)
+    return " ".join(re.sub(r"[^\w]+", " ", text.casefold()).split())
+
+
+def deduplicate_company_titles(postings: list[JobPosting], threshold: float = 0.92) -> list[JobPosting]:
+    """Fuzzy-match titles only inside an exact normalized-company bucket."""
+    kept: list[JobPosting] = []
+    buckets: dict[str, list[tuple[str, int]]] = {}
+    for posting in postings:
+        company = _dedup_text(posting.company, company=True)
+        title = _dedup_text(posting.title)
+        titles = buckets.setdefault(company, [])
+        duplicate_index = next(
+            (
+                index
+                for other, index in titles
+                if company and title and SequenceMatcher(None, title, other).ratio() >= threshold
+            ),
+            None,
+        )
+        if duplicate_index is not None:
+            original = kept[duplicate_index]
+            fields = ("location", "snippet", "posted_date_text", "source_url", "funding_stage")
+            updates = {
+                field: getattr(posting, field)
+                for field in fields
+                if not getattr(original, field) and getattr(posting, field)
+            }
+            if updates:
+                kept[duplicate_index] = original.model_copy(update=updates)
+            continue
+        titles.append((title, len(kept)))
+        kept.append(posting)
+    return kept
 
 
 def board_adapters() -> list[Any]:
@@ -126,6 +168,7 @@ def scrape_with_stats(
     policy = JobPolicy(config)
     groups = resolve_experience_group_ids(filter_values(config, "experience_levels"))
     is_student = student_mode(config)
+    include_startups = bool((config.get("companies") or {}).get("include_startups", False))
     query_terms = student_query_terms(job_titles, groups)
     allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []
@@ -173,7 +216,10 @@ def scrape_with_stats(
             if reason:
                 reject(reason, region_key)
                 continue
-            if policy.experience_screen(jp.title or "", jp.snippet or "")[0]:
+            experience_excluded, _experience_detail, experience_unknown = policy.experience_screen(
+                jp.title or "", jp.snippet or ""
+            )
+            if experience_excluded:
                 reject("experience_out_of_range", region_key)
                 continue
             if policy.language_screen(jp.title or "", jp.snippet or "")[0]:
@@ -203,6 +249,7 @@ def scrape_with_stats(
                         "employment_type": normalize_employment_type(jp.employment_type),
                         "country_code": derive_country_code(jp.location),
                         "canonical_locations": canonical_locations,
+                        "experience_unknown": experience_unknown,
                     }
                 )
             )
@@ -215,6 +262,7 @@ def scrape_with_stats(
             stats.rejected_by_source[source] = dict(source_rejected)
 
     adapters = board_adapters() if include_boards else []
+    adapters = [adapter for adapter in adapters if include_startups or not getattr(adapter, "startup_source", False)]
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]
     regional_adapters = [adapter for adapter in adapters if not getattr(adapter, "global_feed", False)]
 
@@ -333,6 +381,7 @@ def scrape_with_stats(
         stats.failed_sources,
         stats.duration_seconds,
     )
+    results = deduplicate_company_titles(results)
     return results, stats
 
 

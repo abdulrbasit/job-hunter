@@ -452,3 +452,5 @@
 {"id":"zions_bancorporation","name":"Zions Bancorporation","url":"https://www.zionsbancorporation.com/careers","industry":"finance"}
 {"id":"zoom_communications","name":"Zoom Communications","url":"https://careers.zoom.us","industry":"software_it"}
 {"id":"zurich_insurance","name":"Zurich Insurance Group","url":"https://www.zurich.com/careers","industry":"finance"}
+{"id":"rippling","name":"Rippling","url":"https://ats.rippling.com/rippling/jobs","industry":"software_it","company_type":"scaleup","funding_stage":"growth"}
+{"id":"stripe","name":"Stripe","url":"https://stripe.com/jobs/search","industry":"finance","company_type":"scaleup","funding_stage":"growth"}

@@ -11,6 +11,8 @@ Each adapter has a `tier`: `"free"` (no key needed) or `"api"` (needs a key).
 |---|---|---|
 | `arbeitnow`, `arbeitsagentur` | free | Arbeitsagentur is Germany-only |
 | `jobteaser` | free | Bounded public EU student and graduate listings |
+| `startup_jobs`, `yc_jobs` | free | Bounded public startup listings; enabled by `companies.include_startups` |
+| `start_munich` | free | Public Munich startup listings; Germany only and startup-toggle gated |
 | `bayt`, `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
 | `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` (free key) |
 | `reed` | api | UK only, needs `REED_API_KEY` (free key) |
@@ -24,6 +26,11 @@ Student mode adds bounded internship, new-graduate, thesis, working-student, and
 trainee queries to JobSpy. Arbeitsagentur uses its dedicated student offer category.
 Handshake and Stellenwerk remain inactive standard-interface adapters. StudentJob and
 Jobmensa were evaluated and deferred behind these higher-value public sources.
+
+Startup discovery uses Startup.jobs RSS with canonical attribution, public Y Combinator
+job pages, and Start Munich's public Getro board. Wellfound and JOIN were rejected because
+their terms prohibit automated extraction; Startbase, EU-Startups, and Built in Europe
+were deferred because current access or structure is not stable enough for an adapter.
 
 Each adapter lives in `sources/boards/<name>.py`, e.g.
 `sources/boards/arbeitnow.py`.

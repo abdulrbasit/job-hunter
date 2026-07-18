@@ -148,6 +148,7 @@ def run(  # noqa: C901
 
     exclusions = resolve_title_exclusions(config)
     enabled_companies = hunt_candidates(root, config)
+    metadata_by_url = {str(company["career_url"]): company for company in enabled_companies}
 
     if not enabled_companies:
         logger.info("[browser-hunt] no companies enabled — nothing to do")
@@ -194,8 +195,14 @@ def run(  # noqa: C901
             finish_failed(task, "took too long to respond", duration)
             return
         scoped_jobs = []
+        company_metadata = metadata_by_url.get(str(task["career_url"]), {})
         for job in jobs:
-            scoped = {**job, "location": job.get("location") or task["location"]}
+            scoped = {
+                **job,
+                "location": job.get("location") or task["location"],
+                "company_type": company_metadata.get("company_type", "unknown"),
+                "funding_stage": company_metadata.get("funding_stage"),
+            }
             scoped["canonical_locations"] = [item.model_dump() for item in canonical_locations_for_job(scoped)]
             scoped_jobs.append(scoped)
         kept, rejected = screen_jobs_by_rules(scoped_jobs, config)

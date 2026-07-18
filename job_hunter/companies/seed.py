@@ -29,3 +29,13 @@ def iter_seed_rows() -> Iterator[tuple[str, str, str, str, str | None]]:
                 continue
             row = json.loads(line)
             yield row["id"], row["name"], row["url"], country, row.get("industry") or "other"
+
+
+def iter_seed_companies() -> Iterator[dict[str, Any]]:
+    """Yield full package-owned company rows while keeping iter_seed_rows compatible."""
+    data_dir = resources.files("job_hunter.companies").joinpath("data")
+    for country in sorted(manifest()["files"]):
+        text = data_dir.joinpath(f"{country}.jsonl").read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if line.strip():
+                yield {"country": country, **json.loads(line)}

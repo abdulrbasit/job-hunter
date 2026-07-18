@@ -67,6 +67,9 @@ JOB_BOARD_SOURCE_NAMES: tuple[str, ...] = (
     "arbeitsagentur",
     "arbeitnow",
     "jobteaser",
+    "startup_jobs",
+    "yc_jobs",
+    "start_munich",
 )
 
 ATS_DISCOVERY_SOURCES: tuple[str, ...] = (

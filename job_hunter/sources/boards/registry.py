@@ -25,9 +25,12 @@ from job_hunter.sources.boards.mycareersfuture import MyCareersFutureSource
 from job_hunter.sources.boards.reed import ReedSource
 from job_hunter.sources.boards.remoteok import RemoteOKSource
 from job_hunter.sources.boards.remotive import RemotiveSource
+from job_hunter.sources.boards.start_munich import StartMunichSource
+from job_hunter.sources.boards.startup_jobs import StartupJobsSource
 from job_hunter.sources.boards.the_muse import TheMuseSource
 from job_hunter.sources.boards.weworkremotely import WeWorkRemotelySource
 from job_hunter.sources.boards.workingnomads import WorkingNomadsSource
+from job_hunter.sources.boards.yc_jobs import YCJobsSource
 
 BOARD_REGISTRY: dict[str, type] = {
     "adzuna": AdzunaSource,
@@ -50,6 +53,9 @@ BOARD_REGISTRY: dict[str, type] = {
     "the_muse": TheMuseSource,
     "weworkremotely": WeWorkRemotelySource,
     "workingnomads": WorkingNomadsSource,
+    "startup_jobs": StartupJobsSource,
+    "yc_jobs": YCJobsSource,
+    "start_munich": StartMunichSource,
 }
 
 __all__ = [
@@ -74,4 +80,7 @@ __all__ = [
     "TheMuseSource",
     "WeWorkRemotelySource",
     "WorkingNomadsSource",
+    "StartupJobsSource",
+    "YCJobsSource",
+    "StartMunichSource",
 ]

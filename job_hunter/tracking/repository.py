@@ -32,12 +32,16 @@ CREATE TABLE IF NOT EXISTS jobs (
     country_code        TEXT,
     snippet             TEXT,
     source              TEXT,
+    source_url          TEXT,
     posted_date_text    TEXT,
     posting_date_status TEXT,
     region              TEXT,
     search_query        TEXT,
     employment_type     TEXT,
     posting_type        TEXT,
+    company_type        TEXT NOT NULL DEFAULT 'unknown',
+    funding_stage       TEXT,
+    experience_unknown  INTEGER NOT NULL DEFAULT 0,
     job_description_fetch_status TEXT,
     location_restrictions TEXT,
     ats_platform        TEXT,
@@ -93,6 +97,10 @@ CREATE INDEX IF NOT EXISTS idx_deleted_jobs_canonical_url ON deleted_jobs(canoni
 _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("jobs", "extraction_method", "TEXT NOT NULL DEFAULT ''"),
     ("jobs", "posting_type", "TEXT NOT NULL DEFAULT ''"),
+    ("jobs", "company_type", "TEXT NOT NULL DEFAULT 'unknown'"),
+    ("jobs", "funding_stage", "TEXT"),
+    ("jobs", "experience_unknown", "INTEGER NOT NULL DEFAULT 0"),
+    ("jobs", "source_url", "TEXT NOT NULL DEFAULT ''"),
 )
 
 PIPELINE_STATUSES = ("candidate", "discarded", "tailored", "applied", "responded", "interview", "offer", "rejected")
@@ -297,6 +305,9 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
             gaps = job.get("gaps")
             employment_type = str(job.get("employment_type") or "")
             posting_type = str(job.get("posting_type") or "")
+            company_type = str(job.get("company_type") or "unknown")
+            funding_stage = str(job.get("funding_stage") or "")
+            experience_unknown = 1 if job.get("experience_unknown") else 0
             country_code = str(job.get("country_code") or "")
             snippet = str(job.get("snippet") or "")
             fetch_status = str(job.get("job_description_fetch_status") or "")
@@ -307,18 +318,19 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                 conn.execute(
                     """INSERT INTO jobs (
                         url, canonical_url, status, run_id,
-                        title, company, location, country_code, snippet, source,
+                        title, company, location, country_code, snippet, source, source_url,
                         posted_date_text, posting_date_status, region, search_query,
-                        employment_type, posting_type, job_description_fetch_status,
+                        employment_type, posting_type, company_type, funding_stage, experience_unknown,
+                        job_description_fetch_status,
                         location_restrictions, ats_platform, enrichment_source,
                         score, matched_keywords, gaps,
                         jd_text, llm_posting_status_check, extraction_method,
                         discovered_at, created_at, updated_at
                     ) VALUES (
                         ?, ?, 'candidate', ?,
-                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?,
-                        ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?,
                         ?, ?, ?,
                         ?, ?, ?,
                         ?, ?, ?,
@@ -327,6 +339,10 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         run_id          = COALESCE(excluded.run_id, jobs.run_id),
                         employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
                         posting_type    = COALESCE(NULLIF(excluded.posting_type, ''), jobs.posting_type),
+                        company_type    = COALESCE(NULLIF(excluded.company_type, 'unknown'), jobs.company_type),
+                        funding_stage   = COALESCE(NULLIF(excluded.funding_stage, ''), jobs.funding_stage),
+                        experience_unknown = MAX(excluded.experience_unknown, jobs.experience_unknown),
+                        source_url      = COALESCE(NULLIF(excluded.source_url, ''), jobs.source_url),
                         country_code    = COALESCE(NULLIF(excluded.country_code, ''), jobs.country_code),
                         snippet         = COALESCE(excluded.snippet, jobs.snippet),
                         job_description_fetch_status    = COALESCE(excluded.job_description_fetch_status, jobs.job_description_fetch_status),
@@ -343,12 +359,16 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         country_code,
                         snippet,
                         str(job.get("source") or ""),
+                        str(job.get("source_url") or ""),
                         str(job.get("posted_date_text") or ""),
                         str(job.get("posting_date_status") or ""),
                         str(job.get("region") or ""),
                         str(job.get("search_query") or ""),
                         employment_type,
                         posting_type,
+                        company_type,
+                        funding_stage,
+                        experience_unknown,
                         fetch_status,
                         json.dumps(loc_r) if loc_r is not None else None,
                         str(job.get("ats_platform") or ""),
@@ -375,6 +395,10 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         run_id          = COALESCE(?, run_id),
                         employment_type = COALESCE(NULLIF(?, ''), employment_type),
                         posting_type    = COALESCE(NULLIF(?, ''), posting_type),
+                        company_type    = COALESCE(NULLIF(?, 'unknown'), company_type),
+                        funding_stage   = COALESCE(NULLIF(?, ''), funding_stage),
+                        experience_unknown = MAX(?, experience_unknown),
+                        source_url      = COALESCE(NULLIF(?, ''), source_url),
                         country_code    = COALESCE(NULLIF(?, ''), country_code),
                         snippet         = COALESCE(NULLIF(?, ''), snippet),
                         job_description_fetch_status = COALESCE(NULLIF(?, ''), job_description_fetch_status),
@@ -386,6 +410,10 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         run_id or None,
                         employment_type,
                         posting_type,
+                        company_type,
+                        funding_stage,
+                        experience_unknown,
+                        str(job.get("source_url") or ""),
                         country_code,
                         snippet,
                         fetch_status,
@@ -560,6 +588,9 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     location        = COALESCE(NULLIF(?, ''), location),
                     region          = COALESCE(NULLIF(?, ''), region),
                     posting_type    = COALESCE(NULLIF(?, ''), posting_type),
+                    company_type    = COALESCE(NULLIF(?, 'unknown'), company_type),
+                    funding_stage   = COALESCE(NULLIF(?, ''), funding_stage),
+                    experience_unknown = MAX(?, experience_unknown),
                     score           = COALESCE(?, score),
                     decision        = COALESCE(NULLIF(?, ''), decision),
                     job_description_fetch_status    = COALESCE(NULLIF(?, ''), job_description_fetch_status),
@@ -578,6 +609,9 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     str(entry.get("location") or ""),
                     str(entry.get("region") or ""),
                     str(entry.get("posting_type") or ""),
+                    str(entry.get("company_type") or "unknown"),
+                    str(entry.get("funding_stage") or ""),
+                    1 if entry.get("experience_unknown") else 0,
                     entry.get("score"),
                     str(entry.get("decision") or ""),
                     str(entry.get("job_description_fetch_status") or ""),
@@ -598,11 +632,11 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
         conn.execute(
             """INSERT OR IGNORE INTO jobs (
                 url, canonical_url, slug, status,
-                title, company, location, region, posting_type,
+                title, company, location, region, posting_type, company_type, funding_stage, experience_unknown,
                 score, decision, job_description_fetch_status, jd_text,
                 resume_pdf_path, resume_tex_path,
                 notes, discovered_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 url,
                 canonical,
@@ -613,6 +647,9 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                 str(entry.get("location") or ""),
                 str(entry.get("region") or ""),
                 str(entry.get("posting_type") or ""),
+                str(entry.get("company_type") or "unknown"),
+                str(entry.get("funding_stage") or "") or None,
+                1 if entry.get("experience_unknown") else 0,
                 entry.get("score"),
                 str(entry.get("decision") or ""),
                 str(entry.get("job_description_fetch_status") or ""),
@@ -879,7 +916,8 @@ def get_jobs(
 
 
 _JOB_LIST_COLUMNS = (
-    "id, slug, company, title, location, region, posting_type, status, url, score, discovered_at, created_at"
+    "id, slug, company, title, location, region, posting_type, company_type, funding_stage, "
+    "experience_unknown, source, source_url, status, url, score, discovered_at, created_at"
 )
 _JOB_LIST_SORTS = {
     "company": "company",
@@ -899,6 +937,7 @@ def get_jobs_page(
     page_size: int = 50,
     search: str = "",
     posting_type: str = "",
+    company_type: str = "",
     sort: str = "date",
     direction: str = "desc",
     require_identity: bool = False,
@@ -921,6 +960,9 @@ def get_jobs_page(
     if posting_type.strip():
         clauses.append("posting_type = ?")
         params.append(posting_type.strip())
+    if company_type.strip():
+        clauses.append("company_type = ?")
+        params.append(company_type.strip())
     where = " AND ".join(clauses)
     order_column = _JOB_LIST_SORTS.get(sort, _JOB_LIST_SORTS["date"])
     order_direction = "ASC" if direction.lower() == "asc" else "DESC"
