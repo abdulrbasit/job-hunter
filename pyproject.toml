@@ -87,7 +87,7 @@ include = ["job_hunter", "job_hunter.*"]
 "job_hunter.ux.web" = ["*.html", "*.css", "*.js"]
 "job_hunter.catalog" = ["countries.json", "filters.json", "experience_levels.json", "job_titles.json"]
 "job_hunter.locations" = ["data/*.json", "data/*.md", "data/cities/*.json"]
-"job_hunter.companies" = ["data/*.jsonl", "data/manifest.json"]
+"job_hunter.companies" = ["data/*.jsonl", "data/review/*.jsonl", "data/manifest.json"]
 
 [tool.setuptools.exclude-package-data]
 "job_hunter.templates" = [
