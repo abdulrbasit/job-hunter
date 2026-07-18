@@ -1664,6 +1664,69 @@ def test_undo_career_context_restores_previous_save(tmp_path: Path) -> None:
     assert (tmp_path / "profile" / "career_context.md").read_text(encoding="utf-8") == "original"
 
 
+_ALTACV_TEX = (
+    "\\documentclass[10pt,a4paper,ragged2e,withhyper]{altacv}\n"
+    "\\definecolor{PrimaryColor}{HTML}{1B2A4E}\n"
+    "\\definecolor{SecondaryColor}{HTML}{1B2A4E}\n"
+    "\\definecolor{ThirdColor}{HTML}{1B2A4E}\n"
+    "\\definecolor{BodyColor}{HTML}{1A1A1A}\n"
+    "\\definecolor{EmphasisColor}{HTML}{1B2A4E}\n"
+    "\\definecolor{AccentColor}{HTML}{7A8DA8}\n"
+    "\\columnratio{0.70}\n"
+    "\\begin{document}\ncontent\n\\end{document}\n"
+)
+
+
+def test_get_resume_style_reads_current_template_values(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(_ALTACV_TEX, encoding="utf-8")
+
+    result = DashAPI(tmp_path).get_resume_style()
+
+    assert result["ok"] is True
+    assert result["data"]["template"] == "altacv"
+    assert result["data"]["heading_color"] == "1B2A4E"
+    assert "revision" in result["data"]
+
+
+def test_save_resume_style_writes_only_requested_fields(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(_ALTACV_TEX, encoding="utf-8")
+    api = DashAPI(tmp_path)
+    loaded = api.get_resume_style()
+
+    result = api.save_resume_style({"heading_color": "#000000"}, loaded["data"]["revision"])
+
+    assert result["ok"] is True
+    saved = (tmp_path / "profile" / "resume_double_column.tex").read_text(encoding="utf-8")
+    assert "\\definecolor{PrimaryColor}{HTML}{000000}" in saved
+    assert "\\definecolor{AccentColor}{HTML}{7A8DA8}" in saved  # untouched
+
+
+def test_save_resume_style_rejects_stale_revision(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(_ALTACV_TEX, encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    result = api.save_resume_style({"heading_color": "#000000"}, "0" * 64)
+
+    assert result["ok"] is False
+    saved = (tmp_path / "profile" / "resume_double_column.tex").read_text(encoding="utf-8")
+    assert "\\definecolor{PrimaryColor}{HTML}{1B2A4E}" in saved  # unchanged
+
+
+def test_save_resume_style_rejects_invalid_choice(tmp_path: Path) -> None:
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "resume_double_column.tex").write_text(_ALTACV_TEX, encoding="utf-8")
+    api = DashAPI(tmp_path)
+    loaded = api.get_resume_style()
+
+    result = api.save_resume_style({"font": "comic-sans"}, loaded["data"]["revision"])
+
+    assert result["ok"] is False
+    assert result["errors"]
+
+
 def test_dashboard_contains_settings_nav_and_panels() -> None:
     html = _dashboard_source()
 

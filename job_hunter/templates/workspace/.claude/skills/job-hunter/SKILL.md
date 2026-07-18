@@ -103,7 +103,7 @@ Job Hunter Command Center
 /job-hunter setup              One-time onboarding for a fresh workspace
 /job-hunter doctor             Run the health checker and show setup status
 /job-hunter add-region         Add/remove a region — dash → Settings → Guided → Regions
-/job-hunter style              Change resume color scheme or font
+/job-hunter style              Change resume color/font — dash → Settings → Resume Style
 ```
 
 ## Output Rules

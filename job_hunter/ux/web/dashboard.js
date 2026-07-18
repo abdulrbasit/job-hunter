@@ -635,6 +635,7 @@ document.getElementById('unprocessed-tbody').addEventListener('change', (e) => {
   ['save-raw-config-btn', saveRawConfig],
   ['undo-raw-config-btn', undoJobHunterConfig],
   ['save-career-context-btn', saveCareerContext],
+  ['save-resume-style-btn', saveResumeStyle],
   ['undo-career-context-btn', undoCareerContext],
   ['apply-quick-career-context-btn', applyQuickCareerContext],
   ['save-api-key-btn', saveApiKey],
@@ -1677,10 +1678,112 @@ function clearSettingsMessages() {
 async function loadSettings() {
   settingsLoaded = true;
   await Promise.all([
-    loadGuidedConfig(), loadRawConfig(), loadCareerContextSettings(),
+    loadGuidedConfig(), loadRawConfig(), loadCareerContextSettings(), loadResumeStyleSettings(),
     loadApiKeyStatus(), loadGetStartedActionsGuide(),
   ]);
 }
+
+// ── Resume style (dashboard replacement for the old /setup style skill) ──
+let resumeStyleRevision = null;
+let resumeStyleTemplate = null;
+let resumeStylePresets = {};
+
+async function loadResumeStyleSettings() {
+  try {
+    const result = await window.pywebview.api.get_resume_style();
+    const unavailable = document.getElementById('resume-style-unavailable');
+    const form = document.getElementById('resume-style-form');
+    if (!result.ok) {
+      form.style.display = 'none';
+      unavailable.style.display = 'block';
+      unavailable.textContent = (result.errors && result.errors[0]) || 'Resume style unavailable.';
+      return;
+    }
+    unavailable.style.display = 'none';
+    form.style.display = 'block';
+
+    const data = result.data;
+    resumeStyleRevision = data.revision;
+    resumeStyleTemplate = data.template;
+    resumeStylePresets = data.presets || {};
+
+    document.getElementById('resume-style-template').textContent =
+      data.template === 'altacv' ? 'AltaCV (double column)' : 'Single column';
+
+    document.getElementById('resume-style-preset').innerHTML = '<option value="">Keep current colors</option>' +
+      Object.entries(resumeStylePresets).map(([id, p]) => `<option value="${id}">${esc(p.label)}</option>`).join('');
+
+    document.getElementById('resume-style-heading').value = data.heading_color ? `#${data.heading_color}` : '';
+    document.getElementById('resume-style-accent').value = data.accent_color ? `#${data.accent_color}` : '';
+
+    document.getElementById('resume-style-font').innerHTML = '<option value="">Keep current font</option>' +
+      data.fonts.map(f => `<option value="${esc(f)}" ${f === data.font ? 'selected' : ''}>${esc(f)}</option>`).join('');
+
+    document.getElementById('resume-style-font-size').innerHTML =
+      data.font_sizes.map(s => `<option value="${s}" ${s === data.font_size ? 'selected' : ''}>${s}</option>`).join('');
+
+    document.getElementById('resume-style-paper').value = data.paper || 'a4';
+
+    const ratioWrap = document.getElementById('resume-style-ratio-wrap');
+    if (data.column_ratios && data.column_ratios.length) {
+      ratioWrap.style.display = '';
+      document.getElementById('resume-style-ratio').innerHTML = data.column_ratios
+        .map(r => `<option value="${r}" ${r === data.column_ratio ? 'selected' : ''}>${r}</option>`).join('');
+    } else {
+      ratioWrap.style.display = 'none';
+    }
+  } catch(e) {
+    reportFailure('Resume style could not be loaded.');
+  }
+}
+
+function applyResumeStylePreset() {
+  const presetId = document.getElementById('resume-style-preset').value;
+  const preset = resumeStylePresets[presetId];
+  if (!preset) return;
+  document.getElementById('resume-style-heading').value = `#${preset.heading}`;
+  document.getElementById('resume-style-accent').value = `#${preset.accent}`;
+}
+
+async function saveResumeStyle() {
+  const btn = document.getElementById('save-resume-style-btn');
+  const msg = document.getElementById('resume-style-msg');
+  btn.disabled = true;
+  msg.textContent = '';
+  try {
+    const choices = {
+      font_size: document.getElementById('resume-style-font-size').value,
+      paper: document.getElementById('resume-style-paper').value,
+    };
+    const heading = document.getElementById('resume-style-heading').value.trim();
+    if (heading) choices.heading_color = heading;
+    const accent = document.getElementById('resume-style-accent').value.trim();
+    if (accent) choices.accent_color = accent;
+    const font = document.getElementById('resume-style-font').value;
+    if (font) choices.font = font;
+    if (resumeStyleTemplate === 'altacv') {
+      choices.column_ratio = document.getElementById('resume-style-ratio').value;
+    }
+
+    const result = await window.pywebview.api.save_resume_style(choices, resumeStyleRevision);
+    if (!result.ok) {
+      msg.textContent = (result.errors && result.errors[0]) || 'Save failed.';
+      msg.style.color = '#f85149';
+      return;
+    }
+    msg.textContent = '✓ Saved';
+    msg.style.color = '#56d364';
+    await loadResumeStyleSettings();
+    setTimeout(() => { msg.textContent = ''; }, 2000);
+  } catch(e) {
+    msg.textContent = 'Resume style could not be saved.';
+    msg.style.color = '#f85149';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('resume-style-preset').addEventListener('change', applyResumeStylePreset);
 
 // ── Get Started wizard ──
 // Basics/Region/Filters steps mount the real Settings → Guided sections in place (same

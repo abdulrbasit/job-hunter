@@ -205,7 +205,7 @@ If it fails, show the last 30 lines of `profile/<filename>.log` and tell the use
 Tell the user:
 
 > Base resume is ready. Next steps:
-> 1. Run `/setup style` to adjust colors or font if needed.
+> 1. Open `job-hunter dash` → Settings → Resume Style to adjust colors or font if needed.
 > 2. Run `/setup doctor` to confirm everything is green.
 > 3. Run `job-hunter hunt --region primary` to start finding jobs.
 >

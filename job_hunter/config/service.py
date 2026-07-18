@@ -562,6 +562,26 @@ def save_resume_tex(root: Path, text: str, expected_revision: str) -> dict[str, 
     return _safe_replace(root, "resume_tex", rel, text.encode("utf-8"), expected_revision)
 
 
+def save_resume_style(root: Path, text: str, expected_revision: str) -> dict[str, Any]:
+    """Write a preamble-only resume .tex change (dashboard Settings -> Resume Style form).
+
+    Sanity check: the detected template type (AltaCV vs article) must be unchanged —
+    looser than save_resume_tex's exact-documentclass-line check, since a style change
+    legitimately edits that line's font-size/paper options.
+    """
+    from job_hunter.config.resume_style import detect_template
+
+    rel = _resume_tex_rel(root)
+    path = root / rel
+    errors = _validate_profile_text(text, path.name)
+    previous = path.read_text(encoding="utf-8") if path.exists() else ""
+    if detect_template(previous) != detect_template(text):
+        errors.append("Resume template type changed unexpectedly — refusing to save.")
+    if errors:
+        return {"ok": False, "errors": errors, "warnings": [], "revision": get_revision(path)}
+    return _safe_replace(root, "resume_tex", rel, text.encode("utf-8"), expected_revision)
+
+
 # ---------------------------------------------------------------------------
 # Undo
 # ---------------------------------------------------------------------------

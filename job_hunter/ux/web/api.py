@@ -1198,6 +1198,33 @@ class DashAPI:
             "warnings": result["warnings"],
         }
 
+    def get_resume_style(self) -> dict[str, Any]:
+        from job_hunter.config import service
+        from job_hunter.config.resume_style import read_resume_style
+
+        resume = service.read_resume_tex(self._root)
+        style = read_resume_style(resume["data"])
+        if not style["ok"]:
+            return {"ok": False, "data": None, "errors": [style["error"]], "warnings": []}
+        return {"ok": True, "data": {**style, "revision": resume["revision"]}, "errors": [], "warnings": []}
+
+    def save_resume_style(self, choices: dict[str, Any], revision: str) -> dict[str, Any]:
+        from job_hunter.config import service
+        from job_hunter.config.resume_style import apply_resume_style
+
+        resume = service.read_resume_tex(self._root)
+        try:
+            new_text = apply_resume_style(resume["data"], choices)
+        except ValueError as exc:
+            return {"ok": False, "data": None, "errors": [str(exc)], "warnings": []}
+        result = service.save_resume_style(self._root, new_text, revision)
+        return {
+            "ok": result["ok"],
+            "data": {"revision": result["revision"]} if result["ok"] else None,
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+        }
+
     def _companies_with_latest_result(
         self, companies: list[dict[str, Any]], url_key: str = "career_url"
     ) -> list[dict[str, Any]]:

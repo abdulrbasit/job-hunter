@@ -357,6 +357,7 @@
         <button class="status-tab active" data-settings-tab="guided">Guided</button>
         <button class="status-tab" data-settings-tab="advanced">Advanced YAML</button>
         <button class="status-tab" data-settings-tab="career-context">Career Context</button>
+        <button class="status-tab" data-settings-tab="resume-style">Resume Style</button>
         <button class="status-tab" data-settings-tab="diagnostics">Diagnostics</button>
       </div>
 
@@ -470,6 +471,51 @@
           <button class="btn" id="undo-career-context-btn">Undo last save</button>
           <span class="settings-dirty-flag" id="settings-career-context-dirty" style="display:none">Unsaved changes</span>
           <span class="save-msg" id="settings-career-context-msg"></span>
+        </div>
+      </div>
+
+      <!-- Resume style -->
+      <div class="settings-panel" id="settings-panel-resume-style">
+        <div id="resume-style-unavailable" class="no-data" style="display:none"></div>
+        <div id="resume-style-form" style="display:none">
+          <p class="settings-help">Detected template: <span id="resume-style-template"></span>. Only the preamble (colors, font, size, layout) changes — your content is never touched.</p>
+          <div class="settings-field">
+            <label for="resume-style-preset">Color preset</label>
+            <select id="resume-style-preset">
+              <option value="">Keep current colors</option>
+            </select>
+          </div>
+          <div class="settings-field" id="resume-style-heading-wrap">
+            <label for="resume-style-heading">Heading color (hex)</label>
+            <input type="text" id="resume-style-heading" maxlength="7" placeholder="#1B2A4E">
+          </div>
+          <div class="settings-field" id="resume-style-accent-wrap">
+            <label for="resume-style-accent">Accent color (hex)</label>
+            <input type="text" id="resume-style-accent" maxlength="7" placeholder="#7A8DA8">
+          </div>
+          <div class="settings-field">
+            <label for="resume-style-font">Font</label>
+            <select id="resume-style-font"><option value="">Keep current font</option></select>
+          </div>
+          <div class="settings-field">
+            <label for="resume-style-font-size">Font size</label>
+            <select id="resume-style-font-size"></select>
+          </div>
+          <div class="settings-field">
+            <label for="resume-style-paper">Paper</label>
+            <select id="resume-style-paper">
+              <option value="a4">A4</option>
+              <option value="letter">US Letter</option>
+            </select>
+          </div>
+          <div class="settings-field" id="resume-style-ratio-wrap">
+            <label for="resume-style-ratio">Column ratio (AltaCV only)</label>
+            <select id="resume-style-ratio"></select>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="save-resume-style-btn">Save</button>
+            <span class="save-msg" id="resume-style-msg"></span>
+          </div>
         </div>
       </div>
 
