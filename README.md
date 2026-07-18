@@ -81,6 +81,7 @@ sector; companies you add yourself stay enabled by default.
 - `job-hunter doctor` — check setup health
 - `job-hunter hunt` — discover and enrich jobs
 - `job-hunter tailor` — tailor resume for one or more job postings
+- `job-hunter finalize` — validate and commit durable outputs (README, config, profile, job/LinkedIn outputs, jobs.db); `--push` to also push. Same action as the dashboard's Finalize button
 - `job-hunter dash` — open the desktop app in a native window (Applications, Insights, Analytics)
 - `job-hunter applications update <job> <status>` — update an application's lifecycle status from a script
 - `job-hunter hunt --from-db-candidates` — process pending company-hunt candidates in `llm-api` mode
@@ -98,7 +99,7 @@ See [DATA_CONTRACT.md](DATA_CONTRACT.md) for the full contract.
 
 ## Safety Boundaries
 
-Job Hunter never submits applications, posts on LinkedIn, or contacts anyone automatically. It writes files under `outputs/` for you to review. `/job-hunter finalize` and `job-hunter update` only touch system-owned paths — see the data contract above.
+Job Hunter never submits applications, posts on LinkedIn, or contacts anyone automatically. It writes files under `outputs/` for you to review. `job-hunter finalize` and `job-hunter update` only touch system-owned paths — see the data contract above.
 
 ## Development
 

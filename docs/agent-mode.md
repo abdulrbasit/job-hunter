@@ -30,20 +30,24 @@ under `.claude/skills/job-hunter/modes/`:
 | `batch` | Process up to `scoring.batch_size` frozen candidates end-to-end. |
 | `one <url>` | Process a single job URL outside the batch flow |
 | `screen` | Pre-screen a frozen batch against config exclusion rules only |
-| `finalize` | Validate durable outputs, then ask before commit/push |
+| `finalize` | No mode file — routes straight to `job-hunter finalize`, the same validate/commit/push logic behind the dashboard's Finalize button |
 | `tailor <job>`, `score <job>`, `research <job>`, `interview <job>`, `outreach <job>` | Per-job actions |
 | `stories` | Turn raw notes into rated STAR stories |
 | `linkedin ...` | Routes into `.claude/skills/linkedin/SKILL.md` |
-| `setup ...` | Routes into `.claude/skills/setup/SKILL.md` |
+| `setup ...` | Routes into `.claude/skills/setup/SKILL.md` — `doctor`/`region`/`style` have no mode files either, and point at `job-hunter doctor` or the dashboard |
 
 ## Batch, concretely
 
-`batch.md`'s steps, in order: pull, build+freeze a batch via
-`job-hunter internal agent-context batch`, screen it, then per candidate:
-import → lifecycle check → score → validate-score → discard if below
-threshold. Then, for every job scored APPLY: optional company research →
-tailor → update README → mark processed. No commits or pushes happen
-during batch — that's `/job-hunter finalize`'s job, and only on request.
+`batch.md`'s steps, in order: pull, fetch the profile context (career
+context + resume) once via `job-hunter internal agent-context profile` —
+kept in context for the whole run, never re-fetched per candidate — then
+build+freeze a batch via `job-hunter internal agent-context batch`, screen
+it, then per candidate: import → lifecycle check → score with
+`--no-profile` (reuses the already-fetched profile) → validate-score →
+discard if below threshold. Then, for every job scored APPLY: optional
+company research → tailor → update README → mark processed. No commits or
+pushes happen during batch — that's `job-hunter finalize`'s job (CLI or the
+dashboard's Finalize button), and only on request.
 
 ## Non-interactive contract
 
