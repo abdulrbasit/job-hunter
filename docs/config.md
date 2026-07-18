@@ -233,9 +233,17 @@ prompt internals, and fixed secret env-var names live in code, not config
 
 ## Dashboard editing and Undo
 
-`job-hunter dash` opens the native web dashboard. Settings provides a guided
-form with a generic Filters editor, Advanced YAML, and the career-context
-editor. Saves validate the raw
+`job-hunter dash` opens the native web dashboard. Sidebar order: Today (default
+landing — fresh candidates from the last 3 days ranked by fit score, with
+one-click shortlist/dismiss/tailor and `j`/`k`/`s`/`x`/`o` keyboard shortcuts),
+Job Feed (card list over all candidates, filterable by country/posting
+type/company type, with New/Shortlisted/Dismissed scope tabs), Applications
+(kanban board by default — Saved/Tailored/Applied/Responded/Interview/Offer/
+Rejected columns, drag-and-drop between them, with a Table toggle for the
+original sortable list), Company Hunt, Insights, Settings, and Get Started.
+
+Settings provides a guided form with a generic Filters editor, Advanced YAML,
+and the career-context editor. Saves validate the raw
 user file, use a revision token to reject stale edits, and never write merged
 runtime defaults back into YAML. Undo restores the exact previous bytes for
 the most recent save. Validation errors do not replace the current file.
@@ -246,3 +254,22 @@ the selected country. The Company Hunt tab's Manage Companies view edits
 `companies.targets` (My Companies, revision-guarded like the rest of
 `job_hunter.yml`) and the runtime store's catalog opt-ins (Shared Catalog,
 server-paginated, filterable by country/city/industry/enabled/source).
+
+### Statuses, shortlisting, and dismiss reasons
+
+The pipeline status vocabulary is `candidate → shortlisted | discarded →
+tailored → applied → responded → interview → offer | rejected`. `shortlisted`
+("Saved" in the UI) is a candidate that's been kept for later — it has no
+tailored artifacts yet, is not counted as an active application, and does not
+affect the applications streak. `applications update <job> saved` (CLI) and
+the Today/Feed "⭐ Save" action both set it; `applications update <job>
+shortlist` is an accepted alias.
+
+Dismissing a candidate from Today or the Job Feed records a reason code
+(`not_interested`, `wrong_role`, `wrong_location`, `experience_mismatch`, or
+`excluded_company`) in a queryable `rejection_reason` column — Insights'
+"Why Jobs Were Dismissed" chart aggregates these. Picking "Never show this
+company" additionally appends the company name to `filters.excluded_companies`
+through the same revision-guarded config save Settings uses; a stale revision
+or invalid YAML fails the exclusion (the dismiss itself still succeeds) and
+surfaces a warning toast instead of silently dropping the edit.

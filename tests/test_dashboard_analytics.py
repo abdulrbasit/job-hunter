@@ -49,3 +49,27 @@ def test_analyze_pipeline_reports_counts_and_followups(tmp_path: Path) -> None:
     assert report["low_score_reasons"][0]["slug"] == "low"
     assert report["followups"][0]["slug"] == "applied"
     assert any(item["slug"] == "low" for item in report["stale_postings"])
+
+
+def test_analyze_pipeline_reports_funnel_exclusions_and_response_rate(tmp_path: Path) -> None:
+    from job_hunter.tracking.repository import insert_jobs, mark_candidates_discarded
+
+    insert_jobs(
+        tmp_path,
+        [
+            {"url": "https://example.com/1", "title": "PM", "company": "Acme"},
+            {"url": "https://example.com/2", "title": "PM", "company": "Acme"},
+            {"url": "https://example.com/3", "title": "PM", "company": "Acme"},
+        ],
+    )
+    mark_candidates_discarded(tmp_path, [{"url": "https://example.com/1", "reason": "wrong_location"}])
+    upsert_application({"slug": "applied", "status": "applied", "score": 82, "url": "https://x/a"}, root=tmp_path)
+    upsert_application({"slug": "responded", "status": "responded", "score": 70, "url": "https://x/b"}, root=tmp_path)
+
+    report = analyze_pipeline(tmp_path)
+
+    assert report["funnel"]["found"] == 5  # 3 candidates + 2 applications
+    assert report["funnel"]["screened"] == 4  # minus the 1 discarded
+    assert report["funnel"]["applied"] == 2
+    assert report["exclusion_reasons"] == {"wrong_location": 1}
+    assert report["response_rate"] == 0.5  # 1 of 2 applied reached responded+

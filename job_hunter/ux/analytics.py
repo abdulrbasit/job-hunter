@@ -29,7 +29,52 @@ def analyze_pipeline(root: Path, *, days: int = 14) -> dict[str, Any]:
         "low_score_reasons": low_scores,
         "stale_postings": stale,
         "followups": followups,
+        "funnel": _funnel(root),
+        "exclusion_reasons": _exclusion_reasons(root),
+        "response_rate": _response_rate(root),
     }
+
+
+def _funnel(root: Path) -> dict[str, int]:
+    """found → screened → scored → tailored → applied → interview, each stage a count
+    of jobs that reached at least that far (a superset of every later stage)."""
+    from job_hunter.tracking.repository import count_by_status, count_scored
+
+    counts = count_by_status(root)
+    found = sum(counts.values())
+    discarded = counts.get("discarded", 0)
+    tailored = counts.get("tailored", 0)
+    applied = counts.get("applied", 0)
+    responded = counts.get("responded", 0)
+    interview = counts.get("interview", 0)
+    offer = counts.get("offer", 0)
+    rejected = counts.get("rejected", 0)
+    return {
+        "found": found,
+        "screened": found - discarded,
+        "scored": count_scored(root),
+        "tailored": tailored + applied + responded + interview + offer + rejected,
+        "applied": applied + responded + interview + offer + rejected,
+        "interview": interview + offer,
+    }
+
+
+def _exclusion_reasons(root: Path) -> dict[str, int]:
+    from job_hunter.tracking.repository import count_by_rejection_reason
+
+    return dict(sorted(count_by_rejection_reason(root).items(), key=lambda kv: -kv[1]))
+
+
+def _response_rate(root: Path) -> float:
+    """(responded + interview + offer) / applied — 0 when nothing has been applied to yet."""
+    from job_hunter.tracking.repository import count_by_status
+
+    counts = count_by_status(root)
+    applied = (
+        counts.get("applied", 0) + counts.get("responded", 0) + counts.get("interview", 0) + counts.get("offer", 0)
+    )
+    responded_or_further = counts.get("responded", 0) + counts.get("interview", 0) + counts.get("offer", 0)
+    return round(responded_or_further / applied, 3) if applied else 0.0
 
 
 def _source_host(url: str) -> str:

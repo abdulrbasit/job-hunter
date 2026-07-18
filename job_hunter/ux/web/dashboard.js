@@ -865,6 +865,9 @@ function renderCompanyHuntSummary(summary) {
   const messageEl = document.getElementById('company-hunt-message');
   const run = summary.run;
 
+  document.getElementById('ch-last-run').textContent = run
+    ? (summary.running ? 'Running…' : (run.finished_at ? run.finished_at.replace('T', ' ').slice(0, 16) : '—'))
+    : '—';
   document.getElementById('ch-checked').textContent = run ? `${(run.succeeded || 0) + (run.failed || 0)} / ${run.total || 0}` : '—';
   document.getElementById('ch-found').textContent = run ? (run.jobs_inserted ?? 0) : '—';
   document.getElementById('ch-issues').textContent = run ? (run.failed ?? 0) : '—';
@@ -1352,7 +1355,7 @@ async function loadBoard() {
   board.innerHTML = KANBAN_COLUMNS.map(col => `
     <div class="kanban-column" data-status="${col.status}">
       <div class="kanban-column-header"><span>${esc(col.label)}</span><span class="kanban-column-count" id="kanban-count-${col.status}">…</span></div>
-      <div class="kanban-cards" id="kanban-cards-${col.status}" data-status="${col.status}"></div>
+      <div class="kanban-cards" id="kanban-cards-${col.status}" data-status="${col.status}" role="list" aria-label="${esc(col.label)} applications"></div>
     </div>`).join('');
   wireKanbanColumnDrop();
   await Promise.all(KANBAN_COLUMNS.map(col => loadKanbanColumn(col.status).then(() => renderKanbanColumn(col.status))));
@@ -1362,7 +1365,7 @@ async function loadBoard() {
 function kanbanCardHtml(app, status) {
   const key = app.slug || app.id;
   const score = scorePillHtml(app.score);
-  return `<div class="kanban-card" draggable="true" data-drag-key="${esc(String(key))}" data-slug="${esc(app.slug || '')}" data-id="${app.id ?? ''}">
+  return `<div class="kanban-card" role="listitem" draggable="true" data-drag-key="${esc(String(key))}" data-slug="${esc(app.slug || '')}" data-id="${app.id ?? ''}">
     <div class="kanban-card-title">${esc(app.title || '—')}</div>
     <div class="kanban-card-company">${esc(app.company || '—')}</div>
     <div class="kanban-card-footer">${score || '<span></span>'}<button class="btn" data-open-slug="${esc(app.slug || '')}" ${app.slug ? '' : 'disabled'} title="Open details" aria-label="Open details">Open</button></div>
@@ -1814,19 +1817,22 @@ function renderInsights(data, container) {
   const total = data.total || 0;
   const byStatus = data.by_status || {};
   const weekly = data.weekly || {};
-
-  const applied = (byStatus.applied || 0) + (byStatus.responded || 0) + (byStatus.interview || 0) + (byStatus.offer || 0);
-  const responded = (byStatus.responded || 0) + (byStatus.interview || 0) + (byStatus.offer || 0);
+  const funnel = data.funnel || {};
+  const exclusionReasons = data.exclusion_reasons || {};
   const offers = byStatus.offer || 0;
-  const respRate = applied ? Math.round(responded / applied * 100) : 0;
-  const offerRate = applied ? Math.round(offers / applied * 100) : 0;
+  const respRatePct = Math.round((data.response_rate || 0) * 100);
 
   container.innerHTML = `
     <div class="stats-cards">
-      <div class="stat-card blue"><div class="stat-label">Total</div><div class="stat-value">${total}</div><div class="stat-sub">applications tracked</div></div>
-      <div class="stat-card orange"><div class="stat-label">Applied</div><div class="stat-value">${applied}</div><div class="stat-sub">of ${total} tailored</div></div>
-      <div class="stat-card purple"><div class="stat-label">Response Rate</div><div class="stat-value">${respRate}%</div><div class="stat-sub">${responded} responses</div></div>
-      <div class="stat-card green"><div class="stat-label">Offers</div><div class="stat-value">${offers}</div><div class="stat-sub">${offerRate}% of applied</div></div>
+      <div class="stat-card blue"><div class="stat-label">Found</div><div class="stat-value">${funnel.found ?? total}</div><div class="stat-sub">jobs discovered</div></div>
+      <div class="stat-card orange"><div class="stat-label">Applied</div><div class="stat-value">${funnel.applied ?? 0}</div><div class="stat-sub">of ${total} tailored</div></div>
+      <div class="stat-card purple"><div class="stat-label">Response Rate</div><div class="stat-value">${respRatePct}%</div><div class="stat-sub">of applications</div></div>
+      <div class="stat-card green"><div class="stat-label">Offers</div><div class="stat-value">${offers}</div><div class="stat-sub">total</div></div>
+    </div>
+
+    <div class="funnel-section">
+      <h3>Funnel</h3>
+      ${renderFunnel(funnel)}
     </div>
 
     <div class="charts-row">
@@ -1841,10 +1847,25 @@ function renderInsights(data, container) {
     </div>
 
     <div class="funnel-section">
-      <h3>Conversion Funnel</h3>
-      ${renderFunnel(byStatus, total)}
+      <h3>Why Jobs Were Dismissed</h3>
+      ${renderExclusionReasons(exclusionReasons)}
     </div>
   `;
+}
+
+function renderExclusionReasons(reasons) {
+  const labels = Object.keys(reasons);
+  if (!labels.length) return '<div class="no-data">Nothing dismissed yet</div>';
+  const max = Math.max(1, ...Object.values(reasons));
+  return `<div class="bar-summary">${labels.map(reason => {
+    const count = reasons[reason] || 0;
+    const pct = Math.round(count / max * 100);
+    return `<div class="bar-summary-row">
+      <span class="bar-summary-label">${esc(reason.replaceAll('_', ' '))}</span>
+      <div class="bar-summary-track"><div class="bar-summary-fill" style="width:${pct}%;background:var(--red-fg);"></div></div>
+      <span class="bar-summary-count">${count}</span>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderStatusBreakdown(byStatus, total) {
@@ -1878,26 +1899,20 @@ function renderWeeklyBars(weekly) {
   }).join('')}</div>`;
 }
 
-function renderFunnel(byStatus, total) {
+function renderFunnel(funnel) {
   const stages = [
+    { key: 'found', label: 'Found', color: '#8b949e' },
+    { key: 'screened', label: 'Screened', color: STATUS_COLORS.candidate || '#1f6feb' },
+    { key: 'scored', label: 'Scored', color: '#d29922' },
     { key: 'tailored', label: 'Tailored', color: STATUS_COLORS.tailored },
     { key: 'applied', label: 'Applied', color: STATUS_COLORS.applied },
-    { key: 'responded', label: 'Responded', color: STATUS_COLORS.responded },
     { key: 'interview', label: 'Interview', color: STATUS_COLORS.interview },
-    { key: 'offer', label: 'Offer', color: STATUS_COLORS.offer },
   ];
-  // Cumulative counts (each stage includes stages beyond it)
-  const counts = {
-    tailored: total,
-    applied: (byStatus.applied||0)+(byStatus.responded||0)+(byStatus.interview||0)+(byStatus.offer||0),
-    responded: (byStatus.responded||0)+(byStatus.interview||0)+(byStatus.offer||0),
-    interview: (byStatus.interview||0)+(byStatus.offer||0),
-    offer: byStatus.offer||0,
-  };
+  const base = funnel.found || 0;
   return stages.map(s => {
-    const count = counts[s.key] || 0;
-    const pct = total > 0 ? Math.round(count / total * 100) : 0;
-    const barWidth = total > 0 ? Math.max(2, Math.round(count / total * 100)) : 0;
+    const count = funnel[s.key] || 0;
+    const pct = base > 0 ? Math.round(count / base * 100) : 0;
+    const barWidth = base > 0 ? Math.max(count ? 2 : 0, pct) : 0;
     return `<div class="funnel-row">
       <span class="funnel-label">${s.label}</span>
       <div class="funnel-bar-wrap">

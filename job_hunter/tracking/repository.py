@@ -1096,6 +1096,33 @@ def count_active(root: Path) -> int:
     return row["n"] if row else 0
 
 
+def count_by_status(root: Path) -> dict[str, int]:
+    """All jobs grouped by (display-normalized) status — the raw material for a funnel:
+    every row ever discovered, regardless of how far it advanced."""
+    with _conn(root) as conn:
+        rows = conn.execute("SELECT status, COUNT(*) as n FROM jobs GROUP BY status").fetchall()
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = display_status(str(row["status"] or ""))
+        counts[status] = counts.get(status, 0) + row["n"]
+    return counts
+
+
+def count_scored(root: Path) -> int:
+    with _conn(root) as conn:
+        row = conn.execute("SELECT COUNT(*) as n FROM jobs WHERE score IS NOT NULL").fetchone()
+    return row["n"] if row else 0
+
+
+def count_by_rejection_reason(root: Path) -> dict[str, int]:
+    """Discarded/rejected jobs grouped by their recorded reason code (empty reason excluded)."""
+    with _conn(root) as conn:
+        rows = conn.execute(
+            "SELECT rejection_reason, COUNT(*) as n FROM jobs WHERE rejection_reason != '' GROUP BY rejection_reason"
+        ).fetchall()
+    return {str(row["rejection_reason"]): row["n"] for row in rows}
+
+
 def sync_from_job_folders(root: Path) -> int:
     """Back-fill DB from outputs/jobs/*/meta.json (migration aid)."""
     import json as _json

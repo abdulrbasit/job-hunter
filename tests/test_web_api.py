@@ -2638,3 +2638,36 @@ def test_kanban_drag_to_shortlisted_is_blocked_not_a_status_transition() -> None
 
     assert "shortlisted" in body
     assert "return;" in body
+
+
+# ── Insights funnel, company-hunt last-run, accessibility ──
+
+
+def test_insights_renders_funnel_and_exclusion_reasons() -> None:
+    html = _dashboard_source()
+
+    assert "function renderFunnel" in html
+    assert "function renderExclusionReasons" in html
+    assert "data.funnel" in html
+    assert "data.exclusion_reasons" in html
+    assert "data.response_rate" in html
+
+
+def test_company_hunt_shows_last_run_timestamp() -> None:
+    html = _dashboard_source()
+
+    assert 'id="ch-last-run"' in html
+    assert "run.finished_at" in html
+
+
+def test_get_insights_report_has_funnel_keys(tmp_path: Path) -> None:
+    report = DashAPI(tmp_path).get_insights()
+    assert set(report["funnel"]) >= {"found", "screened", "scored", "tailored", "applied", "interview"}
+
+
+def test_kanban_and_detail_panel_have_accessible_labels() -> None:
+    html = _dashboard_source()
+
+    assert 'aria-label="Close details"' in html
+    assert 'role="list"' in html
+    assert 'role="listitem"' in html
