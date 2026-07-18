@@ -398,9 +398,9 @@ function addJobTitleFromSuggestion() {
 async function removeLegacyLocationOrFilterFiles() {
   const msg = document.getElementById('diag-remove-legacy-msg');
   const result = await window.pywebview.api.remove_legacy_location_or_filter_files();
-  if (!result.ok) { msg.textContent = 'Could not remove legacy files.'; msg.style.color = '#f85149'; return; }
+  if (!result.ok) { msg.textContent = 'Could not remove legacy files.'; msg.style.color = 'var(--red-fg)'; return; }
   msg.textContent = result.data.removed.length ? `✓ Removed ${result.data.removed.length} file(s)` : 'Nothing to remove.';
-  msg.style.color = '#56d364';
+  msg.style.color = 'var(--green-fg)';
   loadDiagnosticsChecklist();
 }
 
@@ -410,7 +410,7 @@ async function startChromiumInstall() {
   const msg = document.getElementById('diag-install-chromium-msg');
   const btn = document.getElementById('diag-install-chromium-btn');
   const result = await window.pywebview.api.start_chromium_install();
-  if (!result.ok) { msg.textContent = result.error || 'Could not start the install.'; msg.style.color = '#f85149'; return; }
+  if (!result.ok) { msg.textContent = result.error || 'Could not start the install.'; msg.style.color = 'var(--red-fg)'; return; }
   btn.disabled = true;
   msg.textContent = 'Installing…';
   msg.style.color = '';
@@ -442,10 +442,10 @@ async function runWorkspaceUpdate() {
   msg.style.color = '';
   try {
     const result = await window.pywebview.api.run_update();
-    if (!result.ok) { msg.textContent = 'Update failed.'; msg.style.color = '#f85149'; return; }
+    if (!result.ok) { msg.textContent = 'Update failed.'; msg.style.color = 'var(--red-fg)'; return; }
     const d = result.data;
     msg.textContent = `✓ Updated ${d.assets} asset(s), ${d.skills} skill(s), ${d.workflows} workflow(s)`;
-    msg.style.color = '#56d364';
+    msg.style.color = 'var(--green-fg)';
     loadDiagnosticsChecklist();
   } finally {
     btn.disabled = false;
@@ -1148,10 +1148,7 @@ function renderCandidates() {
 }
 
 function renderCandidatePager() {
-  const el = document.getElementById('candidate-pager');
-  el.innerHTML = `<button class="btn" data-page-delta="-1" ${candidatePage <= 1 ? 'disabled' : ''}>Previous</button>
-    <span>Page ${candidateData.page || 1} of ${candidateData.pages || 1} · ${candidateData.total || 0} results</span>
-    <button class="btn" data-page-delta="1" ${candidatePage >= (candidateData.pages || 1) ? 'disabled' : ''}>Next</button>`;
+  renderPager(document.getElementById('candidate-pager'), candidateData, candidatePage);
 }
 
 function changeCandidatePage(delta) {
@@ -1317,10 +1314,7 @@ function renderTable() {
 }
 
 function renderAppPager() {
-  const el = document.getElementById('app-pager');
-  el.innerHTML = `<button class="btn" data-page-delta="-1" ${appPage <= 1 ? 'disabled' : ''}>Previous</button>
-    <span>Page ${appPageData.page || 1} of ${appPageData.pages || 1} · ${appPageData.total || 0} results</span>
-    <button class="btn" data-page-delta="1" ${appPage >= (appPageData.pages || 1) ? 'disabled' : ''}>Next</button>`;
+  renderPager(document.getElementById('app-pager'), appPageData, appPage);
 }
 
 function changeAppPage(delta) {
@@ -1729,10 +1723,10 @@ async function saveStatus() {
   const previousStatus = idx >= 0 ? allApps[idx].status : null;
   try {
     const result = await window.pywebview.api.update_status(activeSlug, status, note);
-    if (result.error) { msg.textContent = '✗ ' + result.error; msg.style.color = '#f85149'; return; }
+    if (result.error) { msg.textContent = '✗ ' + result.error; msg.style.color = 'var(--red-fg)'; return; }
     // update local cache
     if (idx >= 0) { allApps[idx] = { ...allApps[idx], ...result }; }
-    msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
+    msg.textContent = '✓ Saved'; msg.style.color = 'var(--green-fg)';
     loadApplications(); // reload the current page in place — a status edit must not bump the user back to page 1
     setTimeout(() => { msg.textContent = ''; }, 2000);
     document.getElementById('dp-note').value = '';
@@ -1744,7 +1738,7 @@ async function saveStatus() {
     checkMilestones();
   } catch(e) {
     msg.textContent = '✗ Status could not be saved. Retry, then run job-hunter doctor if the problem continues.';
-    msg.style.color = '#f85149';
+    msg.style.color = 'var(--red-fg)';
   }
 }
 
@@ -2199,16 +2193,16 @@ async function saveResumeStyle() {
     const result = await window.pywebview.api.save_resume_style(choices, resumeStyleRevision);
     if (!result.ok) {
       msg.textContent = (result.errors && result.errors[0]) || 'Save failed.';
-      msg.style.color = '#f85149';
+      msg.style.color = 'var(--red-fg)';
       return;
     }
     msg.textContent = '✓ Saved';
-    msg.style.color = '#56d364';
+    msg.style.color = 'var(--green-fg)';
     await loadResumeStyleSettings();
     setTimeout(() => { msg.textContent = ''; }, 2000);
   } catch(e) {
     msg.textContent = 'Resume style could not be saved.';
-    msg.style.color = '#f85149';
+    msg.style.color = 'var(--red-fg)';
   } finally {
     btn.disabled = false;
   }
@@ -2351,7 +2345,7 @@ document.getElementById('gs-step-career').addEventListener('click', async (e) =>
     if (!result.ok) {
       const msg = document.querySelector(`[data-msg="${artifact}"]`);
       msg.textContent = (result.errors || []).join(' ') || 'Could not build the prompt.';
-      msg.style.color = '#f85149';
+      msg.style.color = 'var(--red-fg)';
       return;
     }
     await copyTextToClipboard(result.data.prompt);
@@ -2367,13 +2361,13 @@ document.getElementById('gs-step-career').addEventListener('click', async (e) =>
     const result = await window.pywebview.api[CAREER_ARTIFACTS[artifact].importReply](textarea.value);
     if (result.ok) {
       msg.textContent = '✓ Imported';
-      msg.style.color = '#56d364';
+      msg.style.color = 'var(--green-fg)';
       textarea.value = '';
       await loadOnboarding();
       await renderCareerPanel();
     } else {
       msg.textContent = (result.errors || []).join(' ') || 'Could not import.';
-      msg.style.color = '#f85149';
+      msg.style.color = 'var(--red-fg)';
     }
   }
 });
@@ -2390,7 +2384,7 @@ function applyQuickCareerContext() {
   let text = document.getElementById('settings-career-context').value;
   if (!text) {
     msg.textContent = 'Open Settings → Career Context once first, then come back.';
-    msg.style.color = '#ffa657';
+    msg.style.color = 'var(--orange-fg)';
     return;
   }
   const fields = [
@@ -2406,7 +2400,7 @@ function applyQuickCareerContext() {
   careerContextDirty = true;
   updateDirtyFlag('career-context');
   msg.textContent = '✓ Applied — review and Save in Settings → Career Context';
-  msg.style.color = '#56d364';
+  msg.style.color = 'var(--green-fg)';
   setTimeout(() => { msg.textContent = ''; }, 3000);
 }
 
@@ -2428,15 +2422,15 @@ async function saveApiKey() {
   const value = input.value;
   try {
     const result = await window.pywebview.api.save_api_key(value);
-    if (!result.ok) { msg.textContent = result.error || 'Could not save the key.'; msg.style.color = '#f85149'; return; }
+    if (!result.ok) { msg.textContent = result.error || 'Could not save the key.'; msg.style.color = 'var(--red-fg)'; return; }
     input.value = '';
     msg.textContent = '✓ Saved to OS keyring';
-    msg.style.color = '#56d364';
+    msg.style.color = 'var(--green-fg)';
     setTimeout(() => { msg.textContent = ''; }, 3000);
     await loadApiKeyStatus();
   } catch(_) {
     msg.textContent = 'Could not save the key.';
-    msg.style.color = '#f85149';
+    msg.style.color = 'var(--red-fg)';
   }
 }
 
@@ -2792,7 +2786,7 @@ async function saveGuidedConfig() {
     cfgDirty = false;
     updateDirtyFlag('guided');
     showSettingsWarnings(result.warnings);
-    msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
+    msg.textContent = '✓ Saved'; msg.style.color = 'var(--green-fg)';
     setTimeout(() => { msg.textContent = ''; }, 2000);
     await loadRawConfig();
     return true;
@@ -2837,7 +2831,7 @@ async function saveRawConfig() {
     cfgRawDirty = false;
     updateDirtyFlag('raw');
     showSettingsWarnings(result.warnings);
-    msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
+    msg.textContent = '✓ Saved'; msg.style.color = 'var(--green-fg)';
     setTimeout(() => { msg.textContent = ''; }, 2000);
     await loadGuidedConfig();
   } catch(e) {
@@ -2890,7 +2884,7 @@ async function saveCareerContext() {
     careerContextRevision = result.data.revision;
     careerContextDirty = false;
     updateDirtyFlag('career-context');
-    msg.textContent = '✓ Saved'; msg.style.color = '#56d364';
+    msg.textContent = '✓ Saved'; msg.style.color = 'var(--green-fg)';
     setTimeout(() => { msg.textContent = ''; }, 2000);
     loadOnboarding();
   } catch(e) {
@@ -3103,7 +3097,7 @@ async function submitCompanyForm() {
     const result = await window.pywebview.api.save_company_targets(next, companiesRevision);
     if (!result.ok) {
       msg.textContent = '✗ ' + ((result.errors && result.errors[0]) || 'Save failed.');
-      msg.style.color = '#f85149';
+      msg.style.color = 'var(--red-fg)';
       return;
     }
     companiesData = result.data.companies;
@@ -3112,7 +3106,7 @@ async function submitCompanyForm() {
     renderCompanies();
   } catch(e) {
     msg.textContent = '✗ Company could not be saved. Retry, then run job-hunter doctor if the problem continues.';
-    msg.style.color = '#f85149';
+    msg.style.color = 'var(--red-fg)';
   } finally {
     btn.disabled = false;
   }
