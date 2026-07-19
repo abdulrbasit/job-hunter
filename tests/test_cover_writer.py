@@ -112,3 +112,22 @@ def test_cover_writer_system_prompt_keeps_universal_rules_despite_config() -> No
     system = cover_writer._build_system(permissive_config, "candidate background", 6000)
     for rule in universal_cover_letter_rules():
         assert rule in system
+
+
+def test_write_cover_matches_resume_output_language_and_suffixes_filename(tmp_path, mock_llm_client) -> None:
+    captured = {}
+
+    def capture_complete(req, **kwargs):
+        captured["user"] = req.prompt
+        captured["system"] = req.system or ""
+        return MagicMock(content=BODY)
+
+    mock = MagicMock()
+    mock.complete.side_effect = capture_complete
+    with patch("job_hunter.pipeline.cover_writer.get_llm_client", return_value=mock):
+        md_path = cover_writer.write_cover({**MATCH, "output_language": "de"}, str(tmp_path), CONFIG)
+
+    assert md_path.endswith("cover_letter.de.md")
+    assert os.path.exists(md_path)
+    assert "Write the letter in German." in captured["user"]
+    assert "German" not in captured["system"]  # system stays language-invariant for caching

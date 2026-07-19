@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from functools import cache
 from pathlib import Path
@@ -46,8 +47,30 @@ def update_readme(matches: list[dict[str, Any]]) -> None:
     write_readme_table(matches, ROOT, _today())
 
 
-def _copy_latex_assets(job_dir: Path) -> None:
-    _match_processor.copy_latex_assets(job_dir, profile_path)
+def _lang_profile_path(lang: str) -> Callable[[str, str], Path]:
+    """profile_path lookalike bound to the resume entry serving `lang` — per-language
+    latex_class/profile_image overrides flow into asset copying and tex rewriting.
+    Falls back to the plain profile_path (base entry / legacy semantics) whenever the
+    map form isn't configured or the entry leaves the key empty."""
+    from job_hunter.config.loader import get_job_hunter_config
+    from job_hunter.config.resumes import resume_spec_for
+
+    profile = get_job_hunter_config().get("profile", {})
+    _chosen, spec = resume_spec_for(profile, lang)
+    map_form = isinstance(profile.get("resumes"), dict)
+
+    def resolver(key: str, default: str) -> Path:
+        value = spec.get(key, "")
+        if map_form and value:
+            path = Path(value)
+            return path if path.is_absolute() else REPO_ROOT / path
+        return profile_path(key, default)
+
+    return resolver
+
+
+def _copy_latex_assets(job_dir: Path, lang: str = "") -> None:
+    _match_processor.copy_latex_assets(job_dir, _lang_profile_path(lang))
 
 
 def _screen_by_config(
@@ -69,8 +92,8 @@ def _write_company_research(job: dict[str, Any], job_dir: Path) -> None:
     )
 
 
-def _make_generated_tex_self_contained(tex: str) -> str:
-    return _match_processor.make_generated_tex_self_contained(tex, profile_path)
+def _make_generated_tex_self_contained(tex: str, lang: str = "") -> str:
+    return _match_processor.make_generated_tex_self_contained(tex, _lang_profile_path(lang))
 
 
 def _process_match(match: dict[str, Any]) -> bool:

@@ -165,6 +165,13 @@ def write_cover(
     # Variable content (JD, company, title) stays in the user message.
     system = _build_system(cover_config, candidate_background, story_limit)
     prompt = _build_user_prompt(cover_config, job["snippet"], job["company"], job["title"])
+    target = str(match_result.get("output_language") or "")
+    if target:
+        # Cover language always matches the resume output language. User prompt, not
+        # system — the system prompt stays language-invariant for prompt caching.
+        from job_hunter.writing.language import cover_language_line
+
+        prompt += "\n\n" + cover_language_line(target)
 
     try:
         body = stage.complete(
@@ -185,7 +192,9 @@ def write_cover(
     date_line = f"{today}\n" if today else ""
     letter = f"{date_line}{salutation}\n\n{body}\n\n{closing_format}"
 
-    md_path = os.path.join(output_dir, "cover_letter.md")
+    from job_hunter.writing.language import artifact_suffix
+
+    md_path = os.path.join(output_dir, f"cover_letter{artifact_suffix(target)}.md")
     try:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(letter)

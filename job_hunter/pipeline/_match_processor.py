@@ -10,6 +10,23 @@ from typing import Any
 
 from job_hunter.llm.prompts.company_research import PROMPT as _RESEARCH_PROMPT
 from job_hunter.llm.prompts.company_research import SYSTEM as _RESEARCH_SYSTEM
+from job_hunter.writing.language import artifact_suffix, resolve_output_language
+
+
+def _route_output_language(job: dict[str, Any]) -> str:
+    """Deterministic routing: persisted posting language (re-detected as a fallback for
+    legacy rows) → output language, gated by hunt_languages, defaulting to the base."""
+    from job_hunter.config.loader import get_config
+    from job_hunter.config.resumes import normalized_resumes
+    from job_hunter.core.language import detect_language
+    from job_hunter.filters import filter_values
+
+    job_lang = str(job.get("language") or "")
+    if not job_lang:
+        job_lang = detect_language(str(job.get("title") or ""), str(job.get("snippet") or "")).code or ""
+    config = get_config("job_hunter")
+    base_lang, _ = normalized_resumes(config.get("profile") or {})
+    return resolve_output_language(job_lang, filter_values(config, "hunt_languages"), base_lang)
 
 
 def copy_latex_assets(job_dir: Path, profile_path: Callable[[str, str], Path]) -> None:
@@ -79,8 +96,8 @@ def process_match(
     write_match_artifacts: Callable[..., None],
     write_company_research: Callable[[dict[str, Any], Path], None],
     tailor: Callable[[dict[str, Any]], str],
-    make_tex_self_contained: Callable[[str], str],
-    copy_latex_assets: Callable[[Path], None],
+    make_tex_self_contained: Callable[[str, str], str],
+    copy_latex_assets: Callable[[Path, str], None],
     compile_tex: Callable[[str, str], str | None],
     write_cover: Callable[[dict[str, Any], str], None],
     logger: Any,
@@ -95,6 +112,9 @@ def process_match(
     job_dir = jobs_dir / slug
     job_dir.mkdir(exist_ok=True)
 
+    match["output_language"] = _route_output_language(job)
+    suffix = artifact_suffix(match["output_language"])
+
     write_match_artifacts(match, job_dir, today=today())
 
     logger.info("  Researching company...")
@@ -102,9 +122,9 @@ def process_match(
 
     logger.info("  Tailoring resume...")
     try:
-        tex_path = job_dir / "resume_tailored.tex"
-        tex_path.write_text(make_tex_self_contained(tailor(match)), encoding="utf-8")
-        copy_latex_assets(job_dir)
+        tex_path = job_dir / f"resume_tailored{suffix}.tex"
+        tex_path.write_text(make_tex_self_contained(tailor(match), match["output_language"]), encoding="utf-8")
+        copy_latex_assets(job_dir, match["output_language"])
         logger.info("  resume tailored")
     except Exception as exc:
         logger.error("  tailoring failed: %s", exc)

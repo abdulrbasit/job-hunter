@@ -85,7 +85,7 @@ def _run_match(
         stack.enter_context(patch(f"{_MODULE}.compile_tex", side_effect=_pdf))
         stack.enter_context(patch(f"{_MODULE}._write_company_research"))
         stack.enter_context(patch(f"{_MODULE}._copy_latex_assets"))
-        stack.enter_context(patch(f"{_MODULE}._make_generated_tex_self_contained", side_effect=lambda t: t))
+        stack.enter_context(patch(f"{_MODULE}._make_generated_tex_self_contained", side_effect=lambda t, lang="": t))
         return processing._process_match(match or _match())
 
 
@@ -126,7 +126,7 @@ def test_process_match_writes_resume_tex(tmp_path: Path) -> None:
     _run_match(tmp_path)
 
     job_dir = next(tmp_path.iterdir())
-    assert (job_dir / "resume_tailored.tex").exists()
+    assert (job_dir / "resume_tailored.en.tex").exists()  # always language-suffixed
 
 
 def test_process_match_tailor_failure_returns_false(tmp_path: Path) -> None:
@@ -140,4 +140,4 @@ def test_process_match_cover_failure_returns_false(tmp_path: Path) -> None:
 def test_process_match_pdf_failure_is_non_critical(tmp_path: Path) -> None:
     assert _run_match(tmp_path, pdf_raises=True) is True
     job_dir = next(tmp_path.iterdir())
-    assert (job_dir / "resume_tailored.tex").exists()
+    assert (job_dir / "resume_tailored.en.tex").exists()  # always language-suffixed

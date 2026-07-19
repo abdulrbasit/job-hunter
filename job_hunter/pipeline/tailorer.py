@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 @cache
-def _get_base_tex() -> str:
-    return profile_path("resume_tex", "resume.tex").read_text(encoding="utf-8")
+def _get_base_tex(lang: str = "") -> str:
+    """Source resume text for the given output language (its own base or the fallback)."""
+    from job_hunter.config.resumes import resume_paths_for
+
+    return resume_paths_for(lang)[1]["resume_tex"].read_text(encoding="utf-8")
 
 
 def _build_tailoring_rules(tailoring_config: dict) -> str:
@@ -166,6 +169,11 @@ def tailor(match_result: dict) -> str:
         Modified LaTeX resume text (falls back to base resume on error).
     """
     job = match_result["job"]
+    target = str(match_result.get("output_language") or "")
+    from job_hunter.config.resumes import resume_paths_for
+
+    chosen = resume_paths_for(target)[0] if target else ""
+    base_tex = _get_base_tex(target)
     keywords = ", ".join(match_result.get("matched_keywords", []))
     gaps = ", ".join(match_result.get("gaps", []))
     tailoring_config = _load_runtime_config()
@@ -182,7 +190,7 @@ def tailor(match_result: dict) -> str:
         story_bank = _filter_story_bank(story_bank, matched_ids)
     tailoring_rules = _build_tailoring_rules(tailoring_config)
     positioning_rules = _build_positioning_rules(tailoring_config)
-    project_rules = _build_project_rules(tailoring_config, _get_base_tex(), story_bank)
+    project_rules = _build_project_rules(tailoring_config, base_tex, story_bank)
 
     stage = LLMStage(
         "tailoring",
@@ -205,10 +213,17 @@ def tailor(match_result: dict) -> str:
 
     prompt = PROMPT.format(
         keywords=keywords,
-        tex=_get_base_tex(),
+        tex=base_tex,
         jd=job["snippet"],
         gaps=gaps,
     )
+    if target and chosen != target:
+        # No base resume in the target language — translate-and-tailor. Lives in the USER
+        # prompt: the system prompt must stay language-invariant (cache_system=True).
+        from job_hunter.writing.language import language_name, translation_rules
+        from job_hunter.writing.rules import as_prompt_block
+
+        prompt += "\n\n" + as_prompt_block(f"OUTPUT LANGUAGE — {language_name(target)}", translation_rules(target))
 
     try:
         tailored_text = stage.complete(
@@ -223,4 +238,4 @@ def tailor(match_result: dict) -> str:
         return tailored_text
     except Exception as e:
         logger.error(f"[tailor] Error: {e} — returning base resume")
-        return _get_base_tex()
+        return base_tex

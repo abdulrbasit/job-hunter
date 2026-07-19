@@ -173,3 +173,56 @@ def test_tailor_system_prompt_keeps_universal_rules_despite_career_context(mock_
 
     assert "Never fabricate or modify employers" in captured["system"]
     assert rogue_career_context in captured["system"]
+
+
+def _routing_config(tmp_path, monkeypatch, *, german_base: bool):
+    import job_hunter.config.loader as loader
+    from job_hunter.pipeline import tailorer as _t
+
+    _t._get_base_tex.cache_clear()
+    (tmp_path / "resume.tex").write_text(SAMPLE_LATEX, encoding="utf-8")
+    resumes = {"en": {"resume_tex": "resume.tex", "base": True}}
+    if german_base:
+        (tmp_path / "resume_de.tex").write_text(SAMPLE_LATEX.replace("Experience", "Berufserfahrung"), encoding="utf-8")
+        resumes["de"] = {"resume_tex": "resume_de.tex"}
+    monkeypatch.setattr(loader, "get_job_hunter_config", lambda: {"profile": {"resumes": resumes}})
+    monkeypatch.setattr("job_hunter.config.paths.ROOT", tmp_path)
+
+
+def _captured_tailor(match):
+    captured = {}
+
+    def capture_complete(req, **kwargs):
+        captured["user"] = req.prompt
+        captured["system"] = req.system or ""
+        return MagicMock(content=SAMPLE_LATEX)
+
+    mock = MagicMock()
+    mock.complete.side_effect = capture_complete
+    with patch("job_hunter.pipeline.tailorer.get_llm_client", return_value=mock):
+        tailorer.tailor(match)
+    return captured
+
+
+def test_german_job_english_base_gets_translation_block_in_user_prompt_only(monkeypatch, tmp_path) -> None:
+    _routing_config(tmp_path, monkeypatch, german_base=False)
+
+    de = _captured_tailor({**MATCH, "output_language": "de"})
+    en = _captured_tailor({**MATCH, "output_language": "en"})
+    tailorer._get_base_tex.cache_clear()
+
+    assert "OUTPUT LANGUAGE — German" in de["user"]
+    assert "Produce ALL output text in German" in de["user"]
+    assert "OUTPUT LANGUAGE" not in en["user"]
+    # cache guard: the system prompt must be byte-identical across job languages
+    assert de["system"] == en["system"]
+
+
+def test_german_job_with_german_base_tailors_from_it_without_translation_block(monkeypatch, tmp_path) -> None:
+    _routing_config(tmp_path, monkeypatch, german_base=True)
+
+    de = _captured_tailor({**MATCH, "output_language": "de"})
+    tailorer._get_base_tex.cache_clear()
+
+    assert "Berufserfahrung" in de["user"]  # the German base is the source tex
+    assert "OUTPUT LANGUAGE" not in de["user"]

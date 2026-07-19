@@ -9,6 +9,7 @@ apply their own defaults, exactly as they did for the flat profile keys.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 SPEC_KEYS = ("resume_tex", "latex_class", "profile_image")
@@ -39,6 +40,28 @@ def resume_spec_for(profile: dict[str, Any], lang: str) -> tuple[str, dict[str, 
     if lang in specs:
         return lang, specs[lang]
     return base, specs.get(base) or dict.fromkeys(SPEC_KEYS, "")
+
+
+def resume_paths_for(lang: str = "") -> tuple[str, dict[str, Path]]:
+    """Runtime path resolution for the resume serving `lang` (its own base or the fallback).
+
+    Returns (chosen_lang, absolute paths). Defaults mirror the historical per-caller
+    defaults: resume.tex / altacv.cls / empty profile image."""
+    from job_hunter.config.loader import get_job_hunter_config
+    from job_hunter.config.paths import ROOT
+
+    profile = get_job_hunter_config().get("profile", {})
+    chosen, spec = resume_spec_for(profile, lang)
+
+    def _path(value: str, default: str) -> Path:
+        path = Path(value or default)
+        return path if path.is_absolute() else ROOT / path
+
+    return chosen, {
+        "resume_tex": _path(spec.get("resume_tex", ""), "resume.tex"),
+        "latex_class": _path(spec.get("latex_class", ""), "altacv.cls"),
+        "profile_image": _path(spec.get("profile_image", ""), ""),
+    }
 
 
 def validate_resumes(profile: dict[str, Any]) -> list[str]:
