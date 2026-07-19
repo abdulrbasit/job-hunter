@@ -9,24 +9,29 @@ from job_hunter.locations import enabled_locations, job_matches_enabled_location
 from job_hunter.sources.policy import JobPolicy, format_experience_reason_detail
 
 
-def _screen_experience_and_language(policy: JobPolicy, title: str, description: str) -> tuple[str, dict[str, Any], str]:
-    """The two content-based deterministic gates, both fail-open on ambiguous reads."""
+def _screen_experience_and_language(
+    policy: JobPolicy, title: str, description: str
+) -> tuple[str, dict[str, Any], str, str]:
+    """The two content-based deterministic gates, both fail-open on ambiguous reads.
+
+    Also surfaces the detected posting language so it can be persisted — tailoring
+    routes the output language from it."""
     judgment_signals: dict[str, Any] = {}
 
     excluded, exp_detail, experience_unknown = policy.experience_screen(title, description)
     if excluded:
         detail = format_experience_reason_detail(exp_detail) if exp_detail else ""
-        return "experience_out_of_range", judgment_signals, detail
+        return "experience_out_of_range", judgment_signals, detail, ""
     if experience_unknown:
         judgment_signals["experience_unknown"] = True
 
-    excluded, _detected_code, language_uncertain = policy.language_screen(title, description)
+    excluded, detected_code, language_uncertain = policy.language_screen(title, description)
     if excluded:
-        return "language_not_hunted", judgment_signals, ""
+        return "language_not_hunted", judgment_signals, "", ""
     if language_uncertain:
         judgment_signals["language_uncertain"] = True
 
-    return "", judgment_signals, ""
+    return "", judgment_signals, "", detected_code or ""
 
 
 def _screen_job(
@@ -69,16 +74,19 @@ def _screen_job(
     if not reason and policy.is_location_restricted(title, snippet):
         reason = "location_restricted"
 
+    detected_language = ""
     if not reason:
         description = str(job.get("full_job_description") or snippet)
-        reason, extra_signals, rejection_detail = _screen_experience_and_language(policy, title, description)
+        reason, extra_signals, rejection_detail, detected_language = _screen_experience_and_language(
+            policy, title, description
+        )
         judgment_signals.update(extra_signals)
 
     if not reason:
         signals = [term for term in industries if term in snippet_lower]
         if signals:
             judgment_signals["industry_terms"] = signals
-    return reason, judgment_signals, rejection_detail
+    return reason, judgment_signals, rejection_detail, detected_language
 
 
 def screen_jobs_by_rules(
@@ -95,7 +103,7 @@ def screen_jobs_by_rules(
     rejected: list[dict[str, Any]] = []
 
     for job in jobs:
-        reason, judgment_signals, rejection_detail = _screen_job(
+        reason, judgment_signals, rejection_detail, detected_language = _screen_job(
             job, policy, regions, industries, title_filters, allowed_locations
         )
         if reason:
@@ -110,6 +118,7 @@ def screen_jobs_by_rules(
         kept.append(
             {
                 **job,
+                **({"language": detected_language} if detected_language else {}),
                 **({"experience_unknown": True} if judgment_signals.get("experience_unknown") else {}),
                 **({"_judgment_signals": judgment_signals} if judgment_signals else {}),
             }

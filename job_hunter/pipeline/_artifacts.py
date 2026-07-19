@@ -23,6 +23,8 @@ def write_match_artifacts(match: dict[str, Any], job_dir: Path, *, today: str) -
         "matched_keywords": match.get("matched", match.get("matched_keywords", [])),
         "gaps": match.get("gaps", []),
         "source": job.get("source", "scraped"),
+        "language": str(job.get("language") or ""),
+        "output_language": str(match.get("output_language") or ""),
     }
     (job_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 

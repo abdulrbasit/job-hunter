@@ -456,3 +456,43 @@ def test_excluded_title_jobs_never_reach_llm_scoring() -> None:
     scored_titles = [job["title"] for job in scored_inputs[0]]
     assert "Staff Product Manager" not in scored_titles
     assert good["title"] in scored_titles
+
+
+def test_hard_screen_stamps_detected_language_on_kept_jobs() -> None:
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    jobs = [
+        {
+            "title": "Produktmanager",
+            "company": "Workflow SaaS",
+            "snippet": "Wir suchen einen erfahrenen Produktmanager fuer unser Team in Berlin. "
+            "Du verantwortest die Produktstrategie und arbeitest eng mit Entwicklung zusammen.",
+            "location": "Berlin, Germany",
+            "region": "de",
+        }
+    ]
+    config = {
+        "job_titles": ["Produktmanager"],
+        "filters": {"hunt_languages": ["en", "de"]},
+        "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+    }
+
+    kept, rejected = screen_jobs_by_rules(jobs, config)
+
+    assert rejected == []
+    assert kept[0]["language"] == "de"
+
+
+def test_insert_jobs_persists_detected_language(tmp_path) -> None:
+    import sqlite3
+
+    from job_hunter.tracking.repository import insert_jobs
+
+    insert_jobs(tmp_path, [{"url": "https://x.example/j1", "title": "PM", "company": "X", "language": "de"}])
+
+    db = tmp_path / "outputs" / "state" / "jobs.db"
+    with sqlite3.connect(db) as conn:
+        row = conn.execute(
+            "SELECT language, output_language FROM jobs WHERE url = ?", ("https://x.example/j1",)
+        ).fetchone()
+    assert row == ("de", "")

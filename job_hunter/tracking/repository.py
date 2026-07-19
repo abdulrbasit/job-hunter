@@ -101,6 +101,8 @@ _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("jobs", "experience_unknown", "INTEGER NOT NULL DEFAULT 0"),
     ("jobs", "source_url", "TEXT NOT NULL DEFAULT ''"),
     ("jobs", "rejection_reason", "TEXT NOT NULL DEFAULT ''"),
+    ("jobs", "language", "TEXT NOT NULL DEFAULT ''"),
+    ("jobs", "output_language", "TEXT NOT NULL DEFAULT ''"),
 )
 
 # "shortlisted" sits between candidate and discarded: discarding a shortlisted job is
@@ -336,7 +338,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         title, company, location, country_code, snippet, source, source_url,
                         posted_date_text, posting_date_status, region, search_query,
                         employment_type, posting_type, company_type, funding_stage, experience_unknown,
-                        job_description_fetch_status,
+                        job_description_fetch_status, language,
                         location_restrictions, ats_platform, enrichment_source,
                         score, matched_keywords, gaps,
                         jd_text, llm_posting_status_check, extraction_method,
@@ -346,12 +348,14 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         ?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?,
                         ?, ?, ?, ?, ?, ?,
+                        ?,
                         ?, ?, ?,
                         ?, ?, ?,
                         ?, ?, ?,
                         ?, ?, ?
                     ) ON CONFLICT(url) DO UPDATE SET
                         run_id          = COALESCE(excluded.run_id, jobs.run_id),
+                        language        = COALESCE(NULLIF(excluded.language, ''), jobs.language),
                         employment_type = COALESCE(NULLIF(excluded.employment_type, ''), jobs.employment_type),
                         posting_type    = COALESCE(NULLIF(excluded.posting_type, ''), jobs.posting_type),
                         company_type    = COALESCE(NULLIF(excluded.company_type, 'unknown'), jobs.company_type),
@@ -385,6 +389,7 @@ def insert_jobs(root: Path, jobs: list[dict[str, Any]], run_id: str = "") -> int
                         funding_stage,
                         experience_unknown,
                         fetch_status,
+                        str(job.get("language") or ""),
                         json.dumps(loc_r) if loc_r is not None else None,
                         str(job.get("ats_platform") or ""),
                         str(job.get("enrichment_source") or ""),
