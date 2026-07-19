@@ -1623,9 +1623,10 @@ class DashAPI:
         import re
 
         from job_hunter.config.loader import get_config
+        from job_hunter.config.resumes import base_resume_spec
 
         config = get_config("job_hunter")
-        tex_rel = config.get("profile", {}).get("resume_tex", "profile/resume_double_column.tex")
+        tex_rel = base_resume_spec(config.get("profile", {})).get("resume_tex") or "profile/resume_double_column.tex"
         tex_path = self._root / tex_rel
         if tex_path.exists():
             m = re.search(r"\\name\{([^}]+)\}", tex_path.read_text(encoding="utf-8"))

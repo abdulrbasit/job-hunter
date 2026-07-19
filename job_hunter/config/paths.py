@@ -32,10 +32,18 @@ ROOT: Path = _resolve_root()
 
 
 def profile_path(key: str, default: str) -> Path:
-    """Resolve a configured profile path relative to ROOT."""
+    """Resolve a configured profile path relative to ROOT.
+
+    Resume-related keys resolve through the base entry of profile.resumes when the
+    map form is configured, so every existing caller keeps getting the base-language
+    resume without knowing about multi-language config."""
     from job_hunter.config.loader import get_job_hunter_config
+    from job_hunter.config.resumes import SPEC_KEYS, base_resume_spec
 
     profile = get_job_hunter_config().get("profile", {})
-    value = profile.get(key, default)
+    if key in SPEC_KEYS and isinstance(profile.get("resumes"), dict):
+        value = base_resume_spec(profile).get(key) or default
+    else:
+        value = profile.get(key, default)
     path = Path(value)
     return path if path.is_absolute() else ROOT / path

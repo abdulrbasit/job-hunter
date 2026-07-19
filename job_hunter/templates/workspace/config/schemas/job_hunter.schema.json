@@ -3,27 +3,104 @@
   "title": "job_hunter config",
   "type": "object",
   "additionalProperties": false,
-  "required": ["mode", "profile", "job_titles", "regions", "filters", "scoring", "llm"],
+  "required": [
+    "mode",
+    "profile",
+    "job_titles",
+    "regions",
+    "filters",
+    "scoring",
+    "llm"
+  ],
   "properties": {
     "mode": {
       "type": "string",
-      "enum": ["agent", "llm-api"]
+      "enum": [
+        "agent",
+        "llm-api"
+      ]
     },
     "profile": {
       "type": "object",
-      "required": ["resume_tex", "story_bank", "career_context"],
+      "required": [
+        "story_bank",
+        "career_context"
+      ],
       "properties": {
-        "resume_tex": {"type": "string"},
-        "story_bank": {"type": "string"},
-        "career_context": {"type": "string"},
-        "latex_class": {"type": "string"},
-        "profile_image": {"type": "string"}
+        "resume_tex": {
+          "type": "string"
+        },
+        "story_bank": {
+          "type": "string"
+        },
+        "career_context": {
+          "type": "string"
+        },
+        "latex_class": {
+          "type": "string"
+        },
+        "profile_image": {
+          "type": "string"
+        },
+        "resumes": {
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z]{2}$": {
+              "type": "object",
+              "required": [
+                "resume_tex"
+              ],
+              "properties": {
+                "resume_tex": {
+                  "type": "string"
+                },
+                "latex_class": {
+                  "type": "string"
+                },
+                "profile_image": {
+                  "type": "string"
+                },
+                "base": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "resume_tex"
+          ],
+          "not": {
+            "required": [
+              "resumes"
+            ]
+          }
+        },
+        {
+          "required": [
+            "resumes"
+          ],
+          "not": {
+            "required": [
+              "resume_tex"
+            ]
+          }
+        }
+      ]
     },
     "job_titles": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "minItems": 1
     },
     "regions": {
@@ -31,44 +108,133 @@
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "required": ["enabled", "country"],
+        "required": [
+          "enabled",
+          "country"
+        ],
         "properties": {
-          "enabled": {"type": "boolean"},
-          "primary": {"type": "boolean"},
-          "country": {"type": "string", "minLength": 0, "maxLength": 2},
-          "scope": {"enum": ["city", "country", "remote_country", "remote_global"]},
-          "city_id": {"type": "string", "minLength": 1},
-          "search_lang": {"type": "string"},
-          "location": {"type": "string"},
-          "description": {"type": "string"}
+          "enabled": {
+            "type": "boolean"
+          },
+          "primary": {
+            "type": "boolean"
+          },
+          "country": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 2
+          },
+          "scope": {
+            "enum": [
+              "city",
+              "country",
+              "remote_country",
+              "remote_global"
+            ]
+          },
+          "city_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "search_lang": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
         },
         "additionalProperties": false,
-        "anyOf": [{"required": ["scope"]}, {"required": ["location"]}],
-        "allOf": [{"if": {"properties": {"scope": {"const": "city"}}, "required": ["scope"]}, "then": {"required": ["city_id"]}}]
+        "anyOf": [
+          {
+            "required": [
+              "scope"
+            ]
+          },
+          {
+            "required": [
+              "location"
+            ]
+          }
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "scope": {
+                  "const": "city"
+                }
+              },
+              "required": [
+                "scope"
+              ]
+            },
+            "then": {
+              "required": [
+                "city_id"
+              ]
+            }
+          }
+        ]
       }
     },
     "filters": {
       "type": "object",
-      "required": ["hunt_languages", "experience_levels"],
+      "required": [
+        "hunt_languages",
+        "experience_levels"
+      ],
       "properties": {
-        "excluded_companies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "excluded_titles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "excluded_industries": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "excluded_companies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "excluded_titles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "excluded_industries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
         "hunt_languages": {
           "type": "array",
-          "items": {"type": "string", "pattern": "^[a-z]{2}$"},
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}$"
+          },
           "uniqueItems": true,
           "minItems": 1
         },
         "experience_levels": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1},
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "uniqueItems": true,
           "minItems": 1
         },
         "posting_types": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1},
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "uniqueItems": true
         }
       },
@@ -76,10 +242,20 @@
     },
     "scoring": {
       "type": "object",
-      "required": ["min_fit_score", "batch_size"],
+      "required": [
+        "min_fit_score",
+        "batch_size"
+      ],
       "properties": {
-        "min_fit_score": {"type": "integer", "minimum": 0, "maximum": 100},
-        "max_years_experience_required": {"type": "integer", "minimum": 0},
+        "min_fit_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max_years_experience_required": {
+          "type": "integer",
+          "minimum": 0
+        },
         "batch_size": {
           "type": "integer",
           "minimum": 1,
@@ -89,12 +265,24 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["company"],
+            "required": [
+              "company"
+            ],
             "properties": {
-              "company": {"type": "string"},
-              "min_score_override": {"type": "integer", "minimum": 0, "maximum": 100},
-              "bypass_max_years_experience": {"type": "boolean"},
-              "reason": {"type": "string"}
+              "company": {
+                "type": "string"
+              },
+              "min_score_override": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "bypass_max_years_experience": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
             },
             "additionalProperties": false
           }
@@ -104,28 +292,51 @@
     },
     "llm": {
       "type": "object",
-      "required": ["default_provider"],
+      "required": [
+        "default_provider"
+      ],
       "properties": {
-        "default_provider": {"type": "string", "enum": ["anthropic", "openai", "google", "ollama"]},
+        "default_provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai",
+            "google",
+            "ollama"
+          ]
+        },
         "providers": {
           "type": "object",
-          "additionalProperties": {"type": "string"}
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "models": {
           "type": "object",
-          "additionalProperties": {"type": "string"}
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "max_tokens": {
           "type": "object",
-          "additionalProperties": {"type": "integer", "minimum": 1}
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
         },
-        "max_workers": {"type": "integer", "minimum": 1},
+        "max_workers": {
+          "type": "integer",
+          "minimum": 1
+        },
         "rate_limits": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
             "properties": {
-              "requests_per_minute": {"type": "integer", "minimum": 0}
+              "requests_per_minute": {
+                "type": "integer",
+                "minimum": 0
+              }
             },
             "additionalProperties": false
           }
@@ -133,7 +344,9 @@
         "ollama": {
           "type": "object",
           "properties": {
-            "base_url": {"type": "string"}
+            "base_url": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }
@@ -143,28 +356,70 @@
     "linkedin": {
       "type": "object",
       "properties": {
-        "enabled": {"type": "boolean"}
+        "enabled": {
+          "type": "boolean"
+        }
       },
       "additionalProperties": false
     },
     "companies": {
       "type": "object",
       "properties": {
-        "include_startups": {"type": "boolean"},
+        "include_startups": {
+          "type": "boolean"
+        },
         "targets": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "url", "country"],
+            "required": [
+              "name",
+              "url",
+              "country"
+            ],
             "properties": {
-              "name": {"type": "string", "minLength": 1},
-              "url": {"type": "string", "minLength": 1},
-              "country": {"type": "string", "minLength": 2, "maxLength": 2},
-              "city": {"type": "string"},
-              "industry": {"type": "string"},
-              "company_type": {"enum": ["startup", "scaleup", "sme", "enterprise", "unknown"]},
-              "funding_stage": {"enum": ["pre_seed", "seed", "series_a", "series_b", "series_c_plus", "growth", "bootstrapped"]},
-              "enabled": {"type": "boolean"}
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              "city": {
+                "type": "string"
+              },
+              "industry": {
+                "type": "string"
+              },
+              "company_type": {
+                "enum": [
+                  "startup",
+                  "scaleup",
+                  "sme",
+                  "enterprise",
+                  "unknown"
+                ]
+              },
+              "funding_stage": {
+                "enum": [
+                  "pre_seed",
+                  "seed",
+                  "series_a",
+                  "series_b",
+                  "series_c_plus",
+                  "growth",
+                  "bootstrapped"
+                ]
+              },
+              "enabled": {
+                "type": "boolean"
+              }
             },
             "additionalProperties": false
           }

@@ -339,7 +339,13 @@ def _claude_otlp_protocol(root: Path) -> str:
 
 
 def _configured_profile_rel(data: dict[str, Any], key: str, default: str) -> str:
-    value = str((data.get("profile") or {}).get(key) or default)
+    from job_hunter.config.resumes import SPEC_KEYS, base_resume_spec
+
+    profile = data.get("profile") or {}
+    if key in SPEC_KEYS and isinstance(profile.get("resumes"), dict):
+        value = base_resume_spec(profile).get(key) or default
+    else:
+        value = str(profile.get(key) or default)
     path = Path(value)
     return path.as_posix() if path.is_absolute() else value.replace("\\", "/")
 

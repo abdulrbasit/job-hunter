@@ -53,13 +53,16 @@ def _career_context_rel(root: Path) -> Path:
 
 
 def _resume_tex_rel(root: Path) -> Path:
-    """The configured profile.resume_tex path — doctor/readiness honor it, so writers must too."""
+    """The configured base resume path — doctor/readiness honor it, so writers must too."""
+    from job_hunter.config.resumes import base_resume_spec
+
     path = root / JOB_HUNTER_CONFIG_REL
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
     except (OSError, yaml.YAMLError):
         data = {}
-    value = str((data.get("profile") or {}).get("resume_tex") or "") if isinstance(data, dict) else ""
+    profile = (data.get("profile") or {}) if isinstance(data, dict) else {}
+    value = base_resume_spec(profile).get("resume_tex", "")
     return Path(value) if value else Path("profile/resume_double_column.tex")
 
 
@@ -92,6 +95,9 @@ def validate_job_hunter_yaml(data: Any, root: Path) -> list[str]:
         unknown = sorted(set(raw_filters) - set(FILTER_TYPES) - {"languages"})
         if unknown:
             errors.append(f"Unknown filter type(s): {', '.join(unknown)}")
+    from job_hunter.config.resumes import validate_resumes
+
+    errors.extend(validate_resumes(data.get("profile") or {}))
     canonical = canonicalize_filter_config(data)
     errors.extend(validate_filter_choices(data))
     # Validate against the schema bundled with the running package, never the
@@ -258,19 +264,25 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
     """
     profile = data.get("profile") or {}
+    from job_hunter.config.resumes import normalized_resumes
     from job_hunter.filters import canonicalize_filter_config
 
+    base_lang, resume_specs = normalized_resumes(profile)
+    base_spec = resume_specs.get(base_lang) or {}
     filters = canonicalize_filter_config(data).get("filters") or {}
     scoring = data.get("scoring") or {}
     llm = data.get("llm") or {}
     return {
         "mode": data.get("mode", "agent"),
         "profile": {
-            "resume_tex": profile.get("resume_tex", ""),
+            "resume_tex": base_spec.get("resume_tex", ""),
             "story_bank": profile.get("story_bank", ""),
             "career_context": profile.get("career_context", ""),
-            "latex_class": profile.get("latex_class", ""),
-            "profile_image": profile.get("profile_image", ""),
+            "latex_class": base_spec.get("latex_class", ""),
+            "profile_image": base_spec.get("profile_image", ""),
+            # read-only coverage info for the dashboard (derived, never round-tripped)
+            "resume_languages": sorted(resume_specs),
+            "resume_base_lang": base_lang,
         },
         "job_titles": list(data.get("job_titles") or []),
         "regions": deepcopy(data.get("regions") or {}),
@@ -286,11 +298,38 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _apply_form_resume_map(
+    profile: dict[str, Any], form_profile: dict[str, Any], resumes: dict[str, Any]
+) -> dict[str, Any]:
+    """Map form: the flat form fields edit the BASE entry; the flat keys must never
+    reappear at the top level beside the map (validation rejects that shape)."""
+    from job_hunter.config.resumes import normalized_resumes
+
+    base_lang, _ = normalized_resumes(profile)
+    entry = dict(resumes.get(base_lang) or {})
+    if form_profile.get("resume_tex"):
+        entry["resume_tex"] = form_profile["resume_tex"]
+    for key in _FORM_OPTIONAL_PROFILE_KEYS:
+        if form_profile.get(key):
+            entry[key] = form_profile[key]
+        else:
+            entry.pop(key, None)
+    profile["resumes"] = {**resumes, base_lang: entry}
+    for key in ("resume_tex", *_FORM_OPTIONAL_PROFILE_KEYS):
+        profile.pop(key, None)
+    return profile
+
+
 def _apply_form_profile(profile: dict[str, Any], form_profile: dict[str, Any]) -> dict[str, Any]:
     profile = dict(profile)
-    for key in ("resume_tex", "story_bank", "career_context"):
+    for key in ("story_bank", "career_context"):
         if form_profile.get(key):
             profile[key] = form_profile[key]
+    resumes = profile.get("resumes")
+    if isinstance(resumes, dict) and resumes:
+        return _apply_form_resume_map(profile, form_profile, resumes)
+    if form_profile.get("resume_tex"):
+        profile["resume_tex"] = form_profile["resume_tex"]
     for key in _FORM_OPTIONAL_PROFILE_KEYS:
         if form_profile.get(key):
             profile[key] = form_profile[key]

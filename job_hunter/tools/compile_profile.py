@@ -155,7 +155,12 @@ def _compile_all_unsafe(root: Path) -> None:
     out_dir = _compiled_dir(root)
 
     def _resolve(key: str, default: str) -> Path | None:
-        val = profile.get(key) or default
+        from job_hunter.config.resumes import SPEC_KEYS, base_resume_spec
+
+        if key in SPEC_KEYS and isinstance(profile.get("resumes"), dict):
+            val = base_resume_spec(profile).get(key) or default
+        else:
+            val = profile.get(key) or default
         p = Path(val)
         full = p if p.is_absolute() else root / p
         return full if full.exists() else None
