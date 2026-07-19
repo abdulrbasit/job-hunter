@@ -18,6 +18,16 @@ def read_yaml(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def find_job_artifact(job_dir: Path, stem: str, ext: str) -> Path | None:
+    """Locate a per-job artifact: language-suffixed name (stem.xx.ext) first, then the
+    legacy unsuffixed name — the one fallback every artifact reader shares."""
+    suffixed = sorted(job_dir.glob(f"{stem}.??.{ext}"))
+    if suffixed:
+        return suffixed[0]
+    legacy = job_dir / f"{stem}.{ext}"
+    return legacy if legacy.exists() else None
+
+
 def strip_html(html: str) -> str:
     """Remove HTML tags and decode common entities."""
     if not html:
