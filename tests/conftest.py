@@ -128,6 +128,17 @@ def _clear_llm_cache():
     _llm_client.clear_cache()
 
 
+@pytest.fixture(autouse=True)
+def _no_automatic_startup_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Automatic startup-catalog inclusion pulls from real bundled package data
+    (job_hunter/companies/data/*.jsonl). Tests not specifically exercising that
+    feature should see a plain, predictable company list — override this fixture
+    (same name, module-local) in tests that do want it, e.g. test_startup_discovery.py."""
+    from job_hunter.companies import store as companies_store
+
+    monkeypatch.setattr(companies_store, "_automatic_startup_rows", lambda *_a, **_k: [])
+
+
 @pytest.fixture
 def mock_llm_client():
     """Factory fixture — call mock_llm_client(text) to get a MagicMock whose complete() returns text."""

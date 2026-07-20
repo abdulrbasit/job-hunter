@@ -190,7 +190,6 @@ def test_specific_region_global_feed_uses_selected_region_params(monkeypatch) ->
 def test_startup_run_once_source_is_fetched_once_for_multiple_regions(monkeypatch) -> None:
     config = {
         "job_titles": ["Product Manager"],
-        "companies": {"include_startups": True},
         "filters": {"experience_levels": ["mid"], "hunt_languages": ["en"]},
         "regions": {
             "germany": {"enabled": True, "country": "DE", "scope": "country"},

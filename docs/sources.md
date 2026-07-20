@@ -11,8 +11,8 @@ Each adapter has a `tier`: `"free"` (no key needed) or `"api"` (needs a key).
 |---|---|---|
 | `arbeitnow`, `arbeitsagentur` | free | Arbeitsagentur is Germany-only |
 | `jobteaser` | free | Bounded public EU student and graduate listings |
-| `startup_jobs`, `yc_jobs` | free | Bounded public startup listings; enabled by `companies.include_startups` |
-| `start_munich` | free | Public Munich startup listings; Germany only and startup-toggle gated |
+| `startup_jobs`, `yc_jobs` | free | Bounded public startup listings; always enabled |
+| `start_munich` | free | Public Munich startup listings; Germany only |
 | `bayt`, `careerjet`, `gulftalent`, `hh`, `himalayas`, `jobbank`, `jobicy`, `jobspy`, `jobstreet`, `mycareersfuture`, `remoteok`, `remotive`, `the_muse`, `weworkremotely`, `workingnomads` | free | No API key required |
 | `adzuna` | api | Needs `ADZUNA_APP_ID` + `ADZUNA_API_KEY` (free key) |
 | `reed` | api | UK only, needs `REED_API_KEY` (free key) |

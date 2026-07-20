@@ -771,7 +771,6 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', markConfigDirty);
 });
-document.getElementById('include-startups').addEventListener('change', markConfigDirty);
 document.getElementById('settings-raw-yaml').addEventListener('input', markRawDirty);
 document.getElementById('settings-career-context').addEventListener('input', markCareerContextDirty);
 document.getElementById('student-mode').addEventListener('change', (event) => {
@@ -2518,7 +2517,6 @@ async function renderGuidedForm(form) {
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
   document.getElementById('student-mode').checked = (form.filters.experience_levels || []).includes('student');
-  document.getElementById('include-startups').checked = Boolean(form.include_startups);
   document.getElementById('cfg-min-fit-score').value = form.scoring.min_fit_score ?? 70;
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
@@ -2790,7 +2788,6 @@ function collectGuidedForm() {
       strategic_overrides,
     },
     llm_default_provider: document.getElementById('cfg-llm-provider').value,
-    include_startups: document.getElementById('include-startups').checked,
   };
 }
 

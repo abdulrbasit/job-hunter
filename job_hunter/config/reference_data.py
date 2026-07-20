@@ -98,11 +98,6 @@ def student_mode(config: dict) -> bool:
     return "student" in resolve_experience_group_ids(filter_values(config, "experience_levels"))
 
 
-def startups_enabled(config: dict) -> bool:
-    """Single scalar choice controlling startup boards and automatic catalog rows."""
-    return bool((config.get("companies") or {}).get("include_startups", False))
-
-
 def experience_level(level_id: str) -> ExperienceLevel | None:
     return next((level for level in load_experience_levels() if level.id == level_id), None)
 

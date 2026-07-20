@@ -23,7 +23,6 @@ from typing import Any
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.config.reference_data import (
     resolve_experience_group_ids,
-    startups_enabled,
     student_mode,
 )
 from job_hunter.constants import DEFAULT_BACKFILL_MAX_RESULTS, DEFAULT_STANDARD_MAX_RESULTS
@@ -169,7 +168,6 @@ def scrape_with_stats(
     policy = JobPolicy(config)
     groups = resolve_experience_group_ids(filter_values(config, "experience_levels"))
     is_student = student_mode(config)
-    include_startups = startups_enabled(config)
     query_terms = student_query_terms(job_titles, groups)
     allowed_locations = enabled_locations(config)
     results: list[JobPosting] = []
@@ -263,7 +261,6 @@ def scrape_with_stats(
             stats.rejected_by_source[source] = dict(source_rejected)
 
     adapters = board_adapters() if include_boards else []
-    adapters = [adapter for adapter in adapters if include_startups or not getattr(adapter, "startup_source", False)]
     once_adapters = [adapter for adapter in adapters if getattr(adapter, "once_per_run", False)]
     adapters = [adapter for adapter in adapters if not getattr(adapter, "once_per_run", False)]
     global_adapters = [adapter for adapter in adapters if getattr(adapter, "global_feed", False)]

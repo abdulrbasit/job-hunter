@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.companies import store
-from job_hunter.config.reference_data import startups_enabled
 from job_hunter.filters.catalog import load_filter_catalog
 from job_hunter.locations import city_by_id, enabled_locations
 from job_hunter.models import LocationScope
@@ -56,7 +55,6 @@ def hunt_candidates(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
         root,
         countries=enabled_countries(config),
         excluded_industries=excluded,
-        include_startups=startups_enabled(config),
         startup_cap=100,
     )
     return [

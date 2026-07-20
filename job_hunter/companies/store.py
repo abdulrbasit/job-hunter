@@ -393,7 +393,6 @@ def candidate_companies(
     *,
     countries: list[str] | None,
     excluded_industries: Iterable[str] = (),
-    include_startups: bool = False,
     startup_cap: int = 100,
 ) -> list[dict[str, Any]]:
     """Enabled companies eligible for a hunt: gated by country and industry exclusion.
@@ -421,8 +420,7 @@ def candidate_companies(
     sql = f"SELECT * FROM companies WHERE {' AND '.join(where)}"  # noqa: S608
     with _conn(root) as conn:
         rows = [dict(row) for row in conn.execute(sql, params).fetchall()]
-        if include_startups:
-            rows.extend(_automatic_startup_rows(conn, countries, excluded, startup_cap))
+        rows.extend(_automatic_startup_rows(conn, countries, excluded, startup_cap))
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
         if row["source"] == "catalog":

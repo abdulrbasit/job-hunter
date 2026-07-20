@@ -144,7 +144,6 @@ Company Hunt → Manage Companies → Shared Catalog view, not through this key.
 
 ```yaml
 companies:
-  include_startups: true # optional; defaults false
   targets:
     - name: Acme
       url: https://acme.example/careers
@@ -155,9 +154,8 @@ companies:
 ```
 
 `name`, `url` (https), and `country` (ISO alpha-2) are required per entry.
-`include_startups` activates bounded startup-board adapters and automatically includes
-up to 100 verified package startup/scaleup companies per enabled country. Turning it off
-does not change individually enabled targets or catalog rows.
+Bounded startup-board adapters and up to 100 verified package startup/scaleup
+companies per enabled country are always included — there's no toggle for this.
 `industry` values come from the same package-owned taxonomy as
 `filters.excluded_industries`. Targets are mirrored into a runtime SQLite
 store (`outputs/state/companies.db`) alongside the opted-in catalog rows —

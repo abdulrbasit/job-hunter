@@ -50,9 +50,6 @@ scoring:
   #   bypass_max_years_experience: true
   #   reason: "Strategic target"
 
-companies:
-  include_startups: false #Always include startups and no need for configuration. 
-
 llm:
   default_provider: anthropic
   providers:

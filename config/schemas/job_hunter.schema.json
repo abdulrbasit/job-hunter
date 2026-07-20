@@ -357,9 +357,6 @@
     "companies": {
       "type": "object",
       "properties": {
-        "include_startups": {
-          "type": "boolean"
-        },
         "targets": {
           "type": "array",
           "items": {

@@ -18,7 +18,7 @@ Filter definitions, matching logic, industries, and languages are package
 resources too. `config/job_hunter.yml` stores only selected scalar values; no
 per-filter files or per-filter schemas are created in a workspace.
 Company types, funding stages, startup classifications, and startup seed rows are package
-resources too. The sole related user choice is `companies.include_startups`.
+resources too; startup/scaleup companies are always included, with no user toggle.
 
 `config/career_pages.yml` is retired: the bundled company catalog is now a package
 resource (`job_hunter/companies/data/*.jsonl`) imported into `outputs/state/companies.db`,

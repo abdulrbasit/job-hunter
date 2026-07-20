@@ -7,7 +7,6 @@ import pytest
 
 from job_hunter.companies.classification import classify_company
 from job_hunter.companies.store import candidate_companies, ensure_seeded, query_page
-from job_hunter.config.service import apply_onboarding_prefs
 from job_hunter.models import CompanyType, FundingStage, JobPosting, SearchParams
 from job_hunter.sources.boards.start_munich import StartMunichSource
 from job_hunter.sources.boards.startup_jobs import StartupJobsSource
@@ -15,6 +14,13 @@ from job_hunter.sources.boards.yc_jobs import YCJobsSource
 from job_hunter.sources.orchestrator import deduplicate_company_titles
 from job_hunter.tracking.repository import get_jobs_page, insert_jobs
 from scripts import import_startup_companies
+
+
+@pytest.fixture(autouse=True)
+def _no_automatic_startup_rows():
+    """Override conftest's same-named fixture: this module tests automatic
+    startup-catalog inclusion itself, so it must stay un-neutered."""
+    return
 
 
 class _Response:
@@ -60,12 +66,6 @@ def test_models_carry_startup_and_unknown_experience_metadata() -> None:
     assert job.experience_unknown is True
 
 
-def test_onboarding_toggle_is_one_config_choice() -> None:
-    enabled = apply_onboarding_prefs({}, {"include_startups": True})
-    assert enabled["companies"]["include_startups"] is True
-    assert "sources" not in enabled
-
-
 def test_company_store_migrates_and_filters_metadata(tmp_path: Path) -> None:
     ensure_seeded(tmp_path)
     db = tmp_path / "outputs" / "state" / "companies.db"
@@ -78,7 +78,7 @@ def test_company_store_migrates_and_filters_metadata(tmp_path: Path) -> None:
     assert {"company_type", "funding_stage"} <= columns
     page = query_page(tmp_path, source="catalog", company_type="startup", funding_stage="seed")
     assert page["total"] == 1
-    automatic = candidate_companies(tmp_path, countries=["DE"], include_startups=True, startup_cap=100)
+    automatic = candidate_companies(tmp_path, countries=["DE"], startup_cap=100)
     assert any(row["company_type"] == "startup" for row in automatic)
 
 
@@ -179,7 +179,6 @@ def test_dashboard_exposes_startup_and_unknown_experience_controls() -> None:
     web = Path("job_hunter/ux/web")
     html = (web / "dashboard.html").read_text(encoding="utf-8")
     javascript = (web / "dashboard.js").read_text(encoding="utf-8")
-    assert 'id="include-startups"' in html
     assert 'id="candidate-company-type"' in html
     assert 'id="catalog-funding-stage-filter"' in html
     assert "experience unknown" in javascript

@@ -294,7 +294,6 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "strategic_overrides": deepcopy(scoring.get("strategic_overrides") or []),
         },
         "llm_default_provider": llm.get("default_provider", "anthropic"),
-        "include_startups": bool((data.get("companies") or {}).get("include_startups", False)),
     }
 
 
@@ -382,8 +381,7 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     merged["scoring"] = _apply_form_scoring(merged.get("scoring") or {}, form.get("scoring") or {})
 
     companies = dict(merged.get("companies") or {})
-    companies["include_startups"] = bool(form.get("include_startups", False))
-    if companies.get("targets") or companies["include_startups"]:
+    if companies.get("targets"):
         merged["companies"] = companies
     else:
         merged.pop("companies", None)
@@ -455,11 +453,6 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
     if hunt_languages:
         filters["hunt_languages"] = hunt_languages
     merged["filters"] = filters
-
-    if "include_startups" in prefs:
-        companies = dict(merged.get("companies") or {})
-        companies["include_startups"] = bool(prefs["include_startups"])
-        merged["companies"] = companies
 
     return merged
 
