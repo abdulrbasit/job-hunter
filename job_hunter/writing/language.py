@@ -11,6 +11,17 @@ from __future__ import annotations
 from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
 
 
+def job_language(persisted: str, title: str, description: str) -> str:
+    """The posting's language: the persisted value when known, else a fresh detection
+    (the same deterministic offline detector used at screening time) — the one fallback
+    both execution modes share so llm-api and agent mode never drift on this."""
+    if persisted:
+        return persisted
+    from job_hunter.core.language import detect_language
+
+    return detect_language(title, description).code or ""
+
+
 def resolve_output_language(job_lang: str | None, hunt_languages: list[str], base_lang: str) -> str:
     """Target output language: the detected posting language when hunted, else the base."""
     if job_lang and job_lang in hunt_languages:

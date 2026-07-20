@@ -42,26 +42,19 @@ def resume_spec_for(profile: dict[str, Any], lang: str) -> tuple[str, dict[str, 
     return base, specs.get(base) or dict.fromkeys(SPEC_KEYS, "")
 
 
-def resume_paths_for(lang: str = "") -> tuple[str, dict[str, Path]]:
-    """Runtime path resolution for the resume serving `lang` (its own base or the fallback).
-
-    Returns (chosen_lang, absolute paths). Defaults mirror the historical per-caller
-    defaults: resume.tex / altacv.cls / empty profile image."""
+def resume_paths_for(lang: str = "") -> tuple[str, Path]:
+    """(chosen_lang, absolute resume_tex path) for the resume serving `lang` — its own
+    base or the fallback base resume. latex_class/profile_image resolution is a
+    separate concern (see pipeline/stages/processing.py::_lang_profile_path), which
+    layers over profile_path so existing tests/callers that patch it keep working."""
     from job_hunter.config.loader import get_job_hunter_config
     from job_hunter.config.paths import ROOT
 
     profile = get_job_hunter_config().get("profile", {})
     chosen, spec = resume_spec_for(profile, lang)
-
-    def _path(value: str, default: str) -> Path:
-        path = Path(value or default)
-        return path if path.is_absolute() else ROOT / path
-
-    return chosen, {
-        "resume_tex": _path(spec.get("resume_tex", ""), "resume.tex"),
-        "latex_class": _path(spec.get("latex_class", ""), "altacv.cls"),
-        "profile_image": _path(spec.get("profile_image", ""), ""),
-    }
+    value = spec.get("resume_tex") or "resume.tex"
+    path = Path(value)
+    return chosen, (path if path.is_absolute() else ROOT / path)
 
 
 def validate_resumes(profile: dict[str, Any]) -> list[str]:

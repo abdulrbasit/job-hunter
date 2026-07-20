@@ -25,7 +25,7 @@ def _get_base_tex(lang: str = "") -> str:
     """Source resume text for the given output language (its own base or the fallback)."""
     from job_hunter.config.resumes import resume_paths_for
 
-    return resume_paths_for(lang)[1]["resume_tex"].read_text(encoding="utf-8")
+    return resume_paths_for(lang)[1].read_text(encoding="utf-8")
 
 
 def _build_tailoring_rules(tailoring_config: dict) -> str:

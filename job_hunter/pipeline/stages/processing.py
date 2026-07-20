@@ -48,23 +48,29 @@ def update_readme(matches: list[dict[str, Any]]) -> None:
 
 
 def _lang_profile_path(lang: str) -> Callable[[str, str], Path]:
-    """profile_path lookalike bound to the resume entry serving `lang` — per-language
-    latex_class/profile_image overrides flow into asset copying and tex rewriting.
-    Falls back to the plain profile_path (base entry / legacy semantics) whenever the
-    map form isn't configured or the entry leaves the key empty."""
+    """profile_path lookalike bound to the resume entry serving `lang`. Diverges from
+    plain profile_path only when that language has its own resumes entry with its own
+    latex_class/profile_image override — every other case (shorthand config, base
+    language, an entry that leaves a key unset) resolves through profile_path
+    unchanged, which already cascades to the base entry under map-form config."""
     from job_hunter.config.loader import get_job_hunter_config
-    from job_hunter.config.resumes import resume_spec_for
+    from job_hunter.config.resumes import normalized_resumes
 
     profile = get_job_hunter_config().get("profile", {})
-    _chosen, spec = resume_spec_for(profile, lang)
-    map_form = isinstance(profile.get("resumes"), dict)
+    resumes = profile.get("resumes")
+    if not isinstance(resumes, dict):
+        return profile_path
+    base_lang, specs = normalized_resumes(profile)
+    spec = specs.get(lang) if lang and lang != base_lang else None
+    if not spec:
+        return profile_path
 
     def resolver(key: str, default: str) -> Path:
         value = spec.get(key, "")
-        if map_form and value:
-            path = Path(value)
-            return path if path.is_absolute() else REPO_ROOT / path
-        return profile_path(key, default)
+        if not value:
+            return profile_path(key, default)
+        path = Path(value)
+        return path if path.is_absolute() else REPO_ROOT / path
 
     return resolver
 

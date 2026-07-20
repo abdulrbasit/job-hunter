@@ -55,9 +55,8 @@ def job_language_context(root: Path, job: str) -> dict[str, Any]:
 
     from job_hunter.config.loader import get_config
     from job_hunter.config.resumes import normalized_resumes, resume_spec_for
-    from job_hunter.core.language import detect_language
     from job_hunter.filters import filter_values
-    from job_hunter.writing.language import resolve_output_language, translation_rules
+    from job_hunter.writing.language import job_language, resolve_output_language, translation_rules
 
     job_dir = root / "outputs" / "jobs" / job
     meta: dict[str, Any] = {}
@@ -67,11 +66,9 @@ def job_language_context(root: Path, job: str) -> dict[str, Any]:
             meta = _json.loads(meta_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             meta = {}
-    job_lang = str(meta.get("language") or "")
-    if not job_lang:
-        jd_path = job_dir / "jd.md"
-        jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
-        job_lang = detect_language(str(meta.get("title") or ""), jd_text).code or ""
+    jd_path = job_dir / "jd.md"
+    jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
+    job_lang = job_language(str(meta.get("language") or ""), str(meta.get("title") or ""), jd_text)
 
     config = get_config("job_hunter")
     profile = config.get("profile") or {}

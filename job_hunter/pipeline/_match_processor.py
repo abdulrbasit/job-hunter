@@ -18,12 +18,10 @@ def _route_output_language(job: dict[str, Any]) -> str:
     legacy rows) → output language, gated by hunt_languages, defaulting to the base."""
     from job_hunter.config.loader import get_config
     from job_hunter.config.resumes import normalized_resumes
-    from job_hunter.core.language import detect_language
     from job_hunter.filters import filter_values
+    from job_hunter.writing.language import job_language
 
-    job_lang = str(job.get("language") or "")
-    if not job_lang:
-        job_lang = detect_language(str(job.get("title") or ""), str(job.get("snippet") or "")).code or ""
+    job_lang = job_language(str(job.get("language") or ""), str(job.get("title") or ""), str(job.get("snippet") or ""))
     config = get_config("job_hunter")
     base_lang, _ = normalized_resumes(config.get("profile") or {})
     return resolve_output_language(job_lang, filter_values(config, "hunt_languages"), base_lang)
