@@ -64,12 +64,5 @@ llm:
     cover_letter: "claude-sonnet-4-6"
     research: "claude-haiku-4-5-20251001"
     jd_extraction: "claude-haiku-4-5-20251001"
-  max_tokens:
-    validation: 200
-    scoring: 1000
-    tailoring: 4000
-    cover_letter: 800
-    research: 800
-    jd_extraction: 1500
   max_workers: 5
   rate_limits: {}

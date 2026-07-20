@@ -148,7 +148,7 @@ def drop_dead_urls_before_enrichment(
         return jobs
 
     timeout = int(url_config.get("timeout_seconds", 5))
-    max_workers = int(url_config.get("max_workers") or api_config.get("llm", {}).get("max_workers", 5))
+    max_workers = int(url_config.get("max_workers", 5))
 
     def _check_job(job: dict) -> tuple[bool, dict]:
         url = job.get("url", "")

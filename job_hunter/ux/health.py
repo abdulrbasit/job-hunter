@@ -155,12 +155,17 @@ def doctor(root: Path) -> dict[str, Any]:
     )
     onboarding = onboarding_status(root, checks)
     resume_language_warnings = _resume_language_coverage_warnings(job_hunter_config)
+    dead_llm_config_warnings = _agent_mode_dead_llm_config_warnings(job_hunter_config)
     return {
         "ok": all(item["ok"] for item in checks),
         "checks": checks,
         "onboardingNeeded": onboarding["onboardingNeeded"],
         "missing": onboarding["missing"],
-        "warnings": onboarding["warnings"] + location_warnings + telemetry_warnings + resume_language_warnings,
+        "warnings": onboarding["warnings"]
+        + location_warnings
+        + telemetry_warnings
+        + resume_language_warnings
+        + dead_llm_config_warnings,
         "onboarding": onboarding,
     }
 
@@ -216,6 +221,21 @@ def _resume_language_coverage_warnings(config: dict[str, Any]) -> list[str]:
         f"{lang} jobs will be translated from your {base_lang} base resume at tailor time "
         f"(no dedicated base for {lang} yet — /setup resume --lang {lang} to add one)"
         for lang in sorted(uncovered)
+    ]
+
+
+def _agent_mode_dead_llm_config_warnings(config: dict[str, Any]) -> list[str]:
+    """Non-blocking: llm.models/max_tokens/rate_limits are only read in llm-api mode —
+    agent mode's one LLM call (research) uses code-owned defaults. Flag it, don't fail."""
+    if str(config.get("mode") or "agent") != "agent":
+        return []
+    llm = config.get("llm") or {}
+    populated = [key for key in ("models", "max_tokens", "rate_limits") if llm.get(key)]
+    if not populated:
+        return []
+    return [
+        f"llm.{', llm.'.join(populated)} {'is' if len(populated) == 1 else 'are'} set but unused in agent mode "
+        "(only read in llm-api mode) — safe to remove"
     ]
 
 

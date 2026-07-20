@@ -326,6 +326,34 @@ def test_doctor_passes_when_skill_files_present(tmp_path: Path) -> None:
     assert checks[".agents/skills/job-hunter/SKILL.md"]["ok"] is True
 
 
+def test_doctor_warns_when_agent_mode_has_unused_llm_api_config(tmp_path: Path) -> None:
+    """llm.models/max_tokens/rate_limits are only read in llm-api mode — flag them as
+    dead weight in agent mode, but never fail the check (they're not wrong, just inert)."""
+    _write_minimal_repo(tmp_path)
+    config_path = tmp_path / "config" / "job_hunter.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["llm"]["models"] = {"scoring": "claude-haiku-4-5-20251001"}
+    data["llm"]["max_tokens"] = {"scoring": 1000}
+    config_path.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    payload = doctor(tmp_path)
+
+    assert any("llm.models, llm.max_tokens" in warning for warning in payload["warnings"])
+
+
+def test_doctor_does_not_warn_about_llm_api_config_in_llm_api_mode(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    config_path = tmp_path / "config" / "job_hunter.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["mode"] = "llm-api"
+    data["llm"]["models"] = {"scoring": "claude-haiku-4-5-20251001"}
+    config_path.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    payload = doctor(tmp_path)
+
+    assert not any("llm.models" in warning for warning in payload["warnings"])
+
+
 def test_doctor_schema_validation_ignores_workspace_schema_copy(tmp_path: Path) -> None:
     """Validation runs against the packaged schema; a stale/bogus workspace copy under
     config/schemas/ must not change the result (a lagging copy used to reject every save)."""
