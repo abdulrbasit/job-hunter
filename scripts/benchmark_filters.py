@@ -32,7 +32,6 @@ def main() -> None:
     config = {
         "filters": {
             "excluded_companies": ["Acme GmbH", "Example Holdings", "Legacy Systems"],
-            "excluded_titles": [f"blocked title {index}" for index in range(50)],
             "excluded_industries": ["finance", "manufacturing", "retail_ecommerce"],
             "hunt_languages": ["en", "de"],
         }
@@ -42,9 +41,6 @@ def main() -> None:
         "cold_import_ms": _cold_import_ms(),
         "construct_1000_ms": _elapsed_ms(lambda: FilterSet.from_config(config), 1_000),
         "exact_100000_ms": _elapsed_ms(lambda: filters.matches("hunt_languages", "en"), 100_000),
-        "contains_100000_ms": _elapsed_ms(
-            lambda: filters.matches("excluded_titles", "Senior blocked title 49 engineer"), 100_000
-        ),
         "company_100000_ms": _elapsed_ms(lambda: filters.matches("excluded_companies", "ACME GmbH (Germany)"), 100_000),
         "industry_100000_ms": _elapsed_ms(
             lambda: filters.matches("excluded_industries", "Financial Services"), 100_000
