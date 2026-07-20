@@ -25,7 +25,14 @@ datas = [
     (str(root / "job_hunter" / "ux" / "web" / "dashboard.js"), "job_hunter/ux/web"),
     (str(root / "job_hunter" / "catalog" / "countries.json"), "job_hunter/catalog"),
     (str(root / "job_hunter" / "catalog" / "filters.json"), "job_hunter/catalog"),
-    (str(root / "job_hunter" / "catalog" / "companies.json"), "job_hunter/catalog"),
+    (str(root / "job_hunter" / "catalog" / "experience_levels.json"), "job_hunter/catalog"),
+    (str(root / "job_hunter" / "catalog" / "job_titles.json"), "job_hunter/catalog"),
+    # Company catalog moved from catalog/companies.json to a runtime store seeded from
+    # per-country jsonl files; location data lives in its own resource tree. Both are
+    # required package-data (pyproject.toml's [tool.setuptools.package-data]) that the
+    # original catalog/companies.json-only datas list predates and never picked up.
+    *tree(root / "job_hunter" / "companies" / "data", "job_hunter/companies/data"),
+    *tree(root / "job_hunter" / "locations" / "data", "job_hunter/locations/data"),
     *tree(root / "job_hunter" / "templates", "job_hunter/templates"),
 ]
 hiddenimports = [

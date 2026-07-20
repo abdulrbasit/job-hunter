@@ -34,3 +34,32 @@ action (`playwright install chromium`).
 Per this repo's rules: **do not** publish, bump the version, or trigger a
 release from this spike without separate, explicit user authorization —
 unsigned artifacts may exist for internal CI only.
+
+## Bundling fix carried over from the Windows spike
+
+The `datas` list here mirrored Windows/Linux exactly, so it inherited the
+same bug: `catalog/companies.json` no longer exists (company data moved to
+`job_hunter/companies/data/*.jsonl`; location data is a separate
+`job_hunter/locations/data/` tree). Fixed identically — bundles all four
+`job_hunter/catalog/*.json` files plus `job_hunter/companies/data/` and
+`job_hunter/locations/data/`. Unverified on real macOS hardware (same
+limitation as the rest of this doc), but the fix is mechanical and
+structurally identical to the Windows build, which was rebuilt and
+re-verified after this change (see docs/windows-packaging.md).
+
+## Installer layer: pkgbuild
+
+`packaging/macos/build_pkg.sh <version>` wraps the built `dist/Job
+Hunter.app` into an unsigned `.pkg` via `pkgbuild`. Also unbuilt/untested
+here — needs the same real Mac hardware called out above.
+`.github/workflows/release.yml`'s `build-installers` job runs it on a
+`macos-latest` runner, which will be the first real validation.
+
+```bash
+uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/macos/job-hunter.spec
+bash packaging/macos/build_pkg.sh 0.25
+```
+
+Unsigned, so first launch needs right-click (Control-click) the app →
+**Open** → **Open**, instead of a normal double-click, until signing and
+notarization (above) are done.

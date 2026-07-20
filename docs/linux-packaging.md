@@ -62,3 +62,28 @@ PyInstaller, not exercised here).
 Per this repo's rules: **do not** publish, bump the version, or trigger a
 release from this spike without separate, explicit user authorization —
 unsigned artifacts may exist for internal CI only.
+
+## Bundling fix
+
+Same `catalog/companies.json`-doesn't-exist bug as Windows/macOS (see
+docs/windows-packaging.md) — fixed identically here: all four
+`job_hunter/catalog/*.json` files plus `job_hunter/companies/data/` and
+`job_hunter/locations/data/` are now bundled.
+
+## Install layer: bootstrap script, not the AppImage/PyInstaller spike
+
+Linux keeps `uv tool install` as the primary install path — the PyInstaller
+spike above is not wired into a shipped installer. `packaging/linux/install.sh`
+just automates the manual steps: installs `uv` if missing, runs `uv tool
+install job-hunter-kit`, registers a `~/.local/share/applications/job-hunter.desktop`
+launcher (reusing `packaging/linux/job-hunter.desktop`'s content), and opens
+the dashboard.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdulrbasit/job-hunter/main/packaging/linux/install.sh | sh
+```
+
+`.github/workflows/release.yml` attaches this script to each GitHub Release
+so the URL above always resolves to the version matching `main` at release
+time. AppImage wrapping of the PyInstaller spike (below) remains a possible
+future layer, not built now.
