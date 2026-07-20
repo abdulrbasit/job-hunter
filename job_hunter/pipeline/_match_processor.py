@@ -10,7 +10,7 @@ from typing import Any
 
 from job_hunter.llm.prompts.company_research import PROMPT as _RESEARCH_PROMPT
 from job_hunter.llm.prompts.company_research import SYSTEM as _RESEARCH_SYSTEM
-from job_hunter.writing.language import artifact_suffix, resolve_output_language
+from job_hunter.writing.language import artifact_suffix, job_language, resolve_output_language
 
 
 def _route_output_language(job: dict[str, Any]) -> str:
@@ -19,7 +19,6 @@ def _route_output_language(job: dict[str, Any]) -> str:
     from job_hunter.config.loader import get_config
     from job_hunter.config.resumes import normalized_resumes
     from job_hunter.filters import filter_values
-    from job_hunter.writing.language import job_language
 
     job_lang = job_language(str(job.get("language") or ""), str(job.get("title") or ""), str(job.get("snippet") or ""))
     config = get_config("job_hunter")
