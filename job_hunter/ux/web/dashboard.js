@@ -36,6 +36,7 @@ let regionRowSeq = 0;
 let locationCountries = [];
 let filterOptions = null;
 let resumeCoverage = { languages: [], baseLang: 'en' }; // profile.resume_languages / resume_base_lang
+let cfgProfileImagePath = '';
 let companiesLoaded = false;
 let companiesData = [];
 let companiesRevision = null;
@@ -696,6 +697,8 @@ document.getElementById('feed-cards').addEventListener('change', (e) => {
   ['open-config-folder-btn', openConfigFolder],
   ['undo-company-targets-btn', undoCompanyTargets],
   ['add-region-btn', () => addRegionRow()],
+  ['choose-profile-image-btn', chooseProfileImage],
+  ['clear-profile-image-btn', clearProfileImage],
   ['settings-save-guided', saveGuidedConfig],
   ['undo-guided-config-btn', undoJobHunterConfig],
   ['save-raw-config-btn', saveRawConfig],
@@ -764,7 +767,7 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
 });
 [
   'cfg-resume-tex', 'cfg-story-bank', 'cfg-career-context-path', 'cfg-latex-class',
-  'cfg-profile-image', 'cfg-job-titles', 'cfg-min-fit-score', 'cfg-max-years',
+  'cfg-job-titles', 'cfg-min-fit-score', 'cfg-max-years',
   'cfg-batch-size',
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', markConfigDirty);
@@ -2509,7 +2512,8 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-story-bank').value = form.profile.story_bank || '';
   document.getElementById('cfg-career-context-path').value = form.profile.career_context || '';
   document.getElementById('cfg-latex-class').value = form.profile.latex_class || '';
-  document.getElementById('cfg-profile-image').value = form.profile.profile_image || '';
+  cfgProfileImagePath = form.profile.profile_image || '';
+  document.getElementById('cfg-profile-image-name').textContent = cfgProfileImagePath || 'None selected';
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
   resumeCoverage = { languages: form.profile.resume_languages || [], baseLang: form.profile.resume_base_lang || 'en' };
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
@@ -2529,6 +2533,20 @@ async function renderGuidedForm(form) {
   renderActiveLocations();
 
   loadingGuidedForm = false;
+}
+
+async function chooseProfileImage() {
+  const result = await window.pywebview.api.pick_profile_image();
+  if (!result.ok) return;
+  cfgProfileImagePath = result.data.path;
+  document.getElementById('cfg-profile-image-name').textContent = cfgProfileImagePath;
+  markConfigDirty();
+}
+
+function clearProfileImage() {
+  cfgProfileImagePath = '';
+  document.getElementById('cfg-profile-image-name').textContent = 'None selected';
+  markConfigDirty();
 }
 
 // "German jobs will be translated from your English base" — the deterministic routing
@@ -2737,7 +2755,7 @@ function collectGuidedForm() {
       story_bank: document.getElementById('cfg-story-bank').value.trim(),
       career_context: document.getElementById('cfg-career-context-path').value.trim(),
       latex_class: document.getElementById('cfg-latex-class').value.trim(),
-      profile_image: document.getElementById('cfg-profile-image').value.trim(),
+      profile_image: cfgProfileImagePath,
     },
     job_titles: splitLines('cfg-job-titles'),
     regions,

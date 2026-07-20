@@ -2134,6 +2134,62 @@ def test_open_config_folder_uses_validated_path(tmp_path: Path, monkeypatch) -> 
     assert opened == [(tmp_path / "config").resolve()]
 
 
+def test_pick_profile_image_copies_selected_file_into_profile_dir(tmp_path: Path, monkeypatch) -> None:
+    import webview
+
+    source = tmp_path / "downloads" / "headshot.JPG"
+    source.parent.mkdir()
+    source.write_bytes(b"fake-image-bytes")
+
+    class FakeWindow:
+        def create_file_dialog(self, *_args, **_kwargs):
+            return [str(source)]
+
+    monkeypatch.setattr(webview, "windows", [FakeWindow()])
+    api = DashAPI(tmp_path)
+
+    result = api.pick_profile_image()
+
+    assert result["ok"] is True
+    assert result["data"]["path"] == "profile/profile.jpg"
+    assert (tmp_path / "profile" / "profile.jpg").read_bytes() == b"fake-image-bytes"
+
+
+def test_pick_profile_image_no_selection_returns_not_ok(tmp_path: Path, monkeypatch) -> None:
+    import webview
+
+    class FakeWindow:
+        def create_file_dialog(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(webview, "windows", [FakeWindow()])
+    api = DashAPI(tmp_path)
+
+    result = api.pick_profile_image()
+
+    assert result["ok"] is False
+
+
+def test_pick_profile_image_no_window_returns_not_ok(tmp_path: Path, monkeypatch) -> None:
+    import webview
+
+    monkeypatch.setattr(webview, "windows", [])
+    api = DashAPI(tmp_path)
+
+    result = api.pick_profile_image()
+
+    assert result["ok"] is False
+
+
+def test_dashboard_exposes_profile_image_picker_not_raw_text_input() -> None:
+    html = _dashboard_source()
+
+    assert 'id="cfg-profile-image"' not in html
+    assert 'id="choose-profile-image-btn"' in html
+    assert 'id="clear-profile-image-btn"' in html
+    assert "pick_profile_image" in html
+
+
 def test_dashboard_contains_companies_nav_and_table() -> None:
     """Companies management is folded into Candidates -> Company Hunt (no standalone
     top-level nav item), reachable inside #company-hunt-panel."""

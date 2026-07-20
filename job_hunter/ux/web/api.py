@@ -1465,6 +1465,29 @@ class DashAPI:
     def open_config_folder(self) -> dict[str, Any]:
         return self._launch(self._root / "config")
 
+    def pick_profile_image(self) -> dict[str, Any]:
+        """Native file picker for a resume profile photo; copies the choice into profile/."""
+        import webview
+
+        window = webview.windows[0] if webview.windows else None
+        if window is None:
+            return {"ok": False, "error": "No active window."}
+        selection = window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            file_types=("Image files (*.png;*.jpg;*.jpeg;*.webp)", "All files (*.*)"),
+        )
+        if not selection:
+            return {"ok": False, "error": "No file selected."}
+        source = Path(selection[0])
+        suffix = source.suffix.lower()
+        if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+            return {"ok": False, "error": "Unsupported image type."}
+        dest_dir = self._root / "profile"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"profile{suffix}"
+        shutil.copy(source, dest)
+        return {"ok": True, "data": {"path": f"profile/{dest.name}"}}
+
     # ── Shared catalog browse (package-owned companies, opt-in per company or filter) ──
 
     def get_catalog_industries(self) -> dict[str, Any]:
