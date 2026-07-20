@@ -2856,3 +2856,13 @@ def test_get_artifact_resolves_language_suffixed_resume_and_cover_letter(tmp_pat
     }
     assert artifacts["cover_letter"]["available"] is True
     assert artifacts["evaluation"]["available"] is False  # unaffected fixed-name artifact
+
+
+def test_settings_and_wizard_show_per_language_resume_coverage() -> None:
+    html = _dashboard_source()
+
+    assert "languageCoverageLabel" in html
+    assert "will be translated from your" in html
+    assert 'id="wizard-resume-coverage"' in html
+    assert "resume_languages" in html
+    assert "resume_base_lang" in html

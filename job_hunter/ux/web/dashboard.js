@@ -35,6 +35,7 @@ let loadingCareerContext = false;
 let regionRowSeq = 0;
 let locationCountries = [];
 let filterOptions = null;
+let resumeCoverage = { languages: [], baseLang: 'en' }; // profile.resume_languages / resume_base_lang
 let overrideRowSeq = 0;
 let companiesLoaded = false;
 let companiesData = [];
@@ -2322,6 +2323,18 @@ async function renderCareerPanel() {
   const resumeReady = doneIds.has('career_context') && doneIds.has('story_bank');
   document.querySelector('[data-resume-gate]').style.display = resumeReady ? 'none' : '';
   document.querySelectorAll('[data-resume-paths]').forEach(el => { el.hidden = !resumeReady; });
+  renderResumeLanguageCoverage();
+}
+
+// Per-hunt-language coverage summary on the wizard's Base Resume card — reads the
+// languages currently checked in the Filters step (may differ from what's saved).
+function renderResumeLanguageCoverage() {
+  const el = document.getElementById('wizard-resume-coverage');
+  if (!el) return;
+  const checked = [...document.querySelectorAll('.filter-group[data-name="hunt_languages"] input:checked')].map(i => i.value);
+  el.innerHTML = checked.length
+    ? checked.map(code => `<div class="lang-coverage-row">${esc(languageCoverageLabel(code))}</div>`).join('')
+    : '';
 }
 
 async function copyTextToClipboard(text) {
@@ -2501,6 +2514,7 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-latex-class').value = form.profile.latex_class || '';
   document.getElementById('cfg-profile-image').value = form.profile.profile_image || '';
   document.getElementById('cfg-job-titles').value = (form.job_titles || []).join('\n');
+  resumeCoverage = { languages: form.profile.resume_languages || [], baseLang: form.profile.resume_base_lang || 'en' };
   if (!filterOptions) filterOptions = await window.pywebview.api.get_filter_options();
   renderFilterGroups(form.filters || {});
   document.getElementById('student-mode').checked = (form.filters.experience_levels || []).includes('student');
@@ -2521,6 +2535,19 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-overrides-rows').innerHTML = '';
   (form.scoring.strategic_overrides || []).forEach(o => addOverrideRow(o));
   loadingGuidedForm = false;
+}
+
+// "German jobs will be translated from your English base" — the deterministic routing
+// rule (writing/language.py::resolve_output_language) mirrored for the UI: a hunt
+// language with its own base resume is covered outright; otherwise it's translated
+// from the base language at tailor time. Base language itself is always covered.
+function languageCoverageLabel(code) {
+  const name = (filterOptions.languages || []).find(l => l.code === code)?.name || code;
+  if (code === resumeCoverage.baseLang || resumeCoverage.languages.includes(code)) {
+    return `✓ ${name} base resume`;
+  }
+  const baseName = (filterOptions.languages || []).find(l => l.code === resumeCoverage.baseLang)?.name || resumeCoverage.baseLang;
+  return `${name} jobs will be translated from your ${baseName} base`;
 }
 
 function renderFilterGroups(filters) {
@@ -2545,7 +2572,7 @@ function renderFilterGroups(filters) {
       ? `<div class="filter-checklist-wrap">
           <input type="search" class="filter-check-search" placeholder="Filter…" aria-label="Filter ${esc(name.replaceAll('_', ' '))} options">
           <div class="filter-values filter-checklist">${options.map(item => `
-            <label class="filter-check"><input type="checkbox" value="${esc(item.value)}" ${values.has(item.value) ? 'checked' : ''}><span>${esc(item.label)}</span></label>
+            <label class="filter-check"><input type="checkbox" value="${esc(item.value)}" ${values.has(item.value) ? 'checked' : ''}><span>${esc(item.label)}</span>${name === 'hunt_languages' ? `<span class="lang-coverage">${esc(languageCoverageLabel(item.value))}</span>` : ''}</label>
           `).join('')}</div>
         </div>`
       : `<textarea class="filter-values" placeholder="One value per line">${esc([...values].join('\n'))}</textarea>`;
