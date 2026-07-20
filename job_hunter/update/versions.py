@@ -75,11 +75,12 @@ def cached_status() -> dict[str, Any]:
     }
 
 
-def cache_is_stale() -> bool:
-    data = _read_cache()
-    if data is None:
-        return True
-    checked_at = data.get("checked_at")
+def cache_is_stale(checked_at: float | None = None) -> bool:
+    """Whether the cache needs a refresh. Takes cached_status()'s "checked_at" — callers
+    that already hold a status dict from this launch avoid a second cache-file read."""
+    if checked_at is None:
+        data = _read_cache()
+        checked_at = data.get("checked_at") if data else None
     if not isinstance(checked_at, int | float):
         return True
     return (time.time() - checked_at) > _CACHE_TTL_SECONDS

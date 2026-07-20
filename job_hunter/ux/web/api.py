@@ -508,7 +508,7 @@ class DashAPI:
         from job_hunter.update import versions
 
         status = versions.cached_status()
-        if versions.cache_is_stale():
+        if versions.cache_is_stale(status["checked_at"]):
             threading.Thread(target=versions.refresh_cache, daemon=True).start()
         return {"ok": True, **status}
 

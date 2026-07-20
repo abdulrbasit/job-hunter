@@ -61,6 +61,17 @@ def test_cache_is_stale_true_with_no_cache_file() -> None:
     assert versions.cache_is_stale() is True
 
 
+def test_cache_is_stale_accepts_a_checked_at_directly_without_reading_the_cache_file() -> None:
+    """DashAPI.get_update_status() passes cached_status()'s own "checked_at" here so a
+    single dashboard-startup call reads the cache file once, not twice."""
+    import time
+
+    assert versions.cache_is_stale(time.time()) is False
+    assert versions.cache_is_stale(time.time() - versions._CACHE_TTL_SECONDS - 1) is True
+    assert versions.cache_is_stale(None) is True
+    assert versions.cache_is_stale("not-a-number") is True
+
+
 def test_refresh_cache_writes_and_cached_status_reflects_it() -> None:
     response = MagicMock()
     response.raise_for_status.return_value = None
