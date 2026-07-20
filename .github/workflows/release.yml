@@ -4,22 +4,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  verify:
     if: github.repository == 'abdulrbasit/job-hunter' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-      contents: write
-      discussions: write
+    outputs:
+      version: ${{ steps.release_version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
 
       - name: Verify release commit
         id: release_version
@@ -43,6 +36,72 @@ jobs:
             exit 1
           fi
 
+  # Builds the Layer 2 native installers (docs/{windows,macos}-packaging.md). Unsigned —
+  # see those docs for the SmartScreen warning (Windows) and right-click-Open workaround
+  # (macOS) until code-signing/notarization credentials are available. Linux keeps
+  # `uv tool install` as primary; packaging/linux/install.sh just wraps it.
+  build-installers:
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: windows-installer
+          - os: macos-latest
+            artifact: macos-installer
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build PyInstaller bundle (Windows)
+        if: runner.os == 'Windows'
+        run: uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/windows/job-hunter.spec
+
+      - name: Install Inno Setup (Windows)
+        if: runner.os == 'Windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: iscc packaging\windows\job-hunter.iss /DAppVersion=${{ needs.verify.outputs.version }}
+
+      - name: Build PyInstaller bundle (macOS)
+        if: runner.os == 'macOS'
+        run: uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/macos/job-hunter.spec
+
+      - name: Build installer (macOS)
+        if: runner.os == 'macOS'
+        run: bash packaging/macos/build_pkg.sh ${{ needs.verify.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist-installer/*
+          if-no-files-found: error
+
+  release:
+    needs: [verify, build-installers]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: write
+      discussions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
       - name: Build
         run: uv build
 
@@ -51,15 +110,33 @@ jobs:
 
       - name: Tag release
         env:
-          VERSION: ${{ steps.release_version.outputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
         run: |
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
 
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-installer
+
+      - name: Create GitHub Release with installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          PREV=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || echo "")
+          VERSION="$VERSION" PREV="$PREV" python3 scripts/release_notes.py > /tmp/release_notes.md
+          gh release create "v${VERSION}" \
+            dist-installer/windows-installer/* \
+            dist-installer/macos-installer/* \
+            packaging/linux/install.sh \
+            --title "job-hunter-kit v${VERSION}" \
+            --notes-file /tmp/release_notes.md
+
       - name: Announce release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.release_version.outputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
         run: |
           export PREV=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || echo "")
           BODY=$(VERSION="$VERSION" PREV="$PREV" python3 scripts/release_notes.py)

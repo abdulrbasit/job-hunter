@@ -125,7 +125,7 @@ def test_release_workflow_publishes_current_release_commit() -> None:
     assert set(triggers) == {"workflow_dispatch"}
 
     jobs = workflow["jobs"]
-    assert set(jobs) == {"release"}
+    assert set(jobs) == {"verify", "build-installers", "release"}
     text = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
     assert "git tag" in text
     assert "git push origin" in text

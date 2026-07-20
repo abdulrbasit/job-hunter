@@ -1,6 +1,8 @@
-# Windows packaging spike
+# Windows packaging
 
-Status: experimental. PyInstaller `onedir`, console enabled. Not part of release or PyPI workflows.
+Status: wired into `.github/workflows/release.yml` as the Windows installer build
+(manual `workflow_dispatch` only — never runs on every push). PyInstaller `onedir`,
+wrapped by Inno Setup into `Job-Hunter-Setup-<version>.exe`.
 
 Build from repository root:
 
@@ -62,3 +64,41 @@ real `hunt` network run. The `internal self-test` result is a meaningfully
 stronger proxy than before for "will the packaged data actually load," since
 it's the first frozen-build check that specifically exercises the new
 catalog/reference-data resources end-to-end.
+
+## Bug found and fixed: company/location data was never bundled
+
+The `datas` list dated from before the company-catalog migration off
+`catalog/companies.json` onto a runtime store seeded from
+`job_hunter/companies/data/*.jsonl`, plus `job_hunter/locations/data/`
+(cities, manifest). The spec still referenced the now-deleted
+`catalog/companies.json`, so a build **failed outright**
+(`Unable to find ... catalog\companies.json`) rather than silently shipping
+without company data. Fixed by bundling `job_hunter/catalog/*.json` (all
+four files, not three), `job_hunter/companies/data/`, and
+`job_hunter/locations/data/` — verified by rebuilding and running
+`internal self-test --json`: `catalog_resource` now reports "4087 companies
+across 61 countries" (previously would have failed to build at all).
+`doctor` against a fresh `init`'d workspace also passes
+`package_owned_locations`/`package_owned_filters`/`companies_store` (5178
+companies in the runtime store).
+
+## Installer layer: Inno Setup
+
+`packaging/windows/job-hunter.iss` wraps `dist/job-hunter/` (from the spec
+above) into a Windows installer with a Start Menu entry (`job-hunter.exe
+dash`) and an optional desktop shortcut checkbox. Authored against Inno
+Setup 6's documented syntax but **not compiled in this dev environment** (no
+Inno Setup toolchain installed here) — `.github/workflows/release.yml`'s
+`build-installers` job installs it via `choco install innosetup` and runs
+`iscc` on a `windows-latest` runner, which is the first environment that
+will actually validate this script compiles.
+
+```powershell
+uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/windows/job-hunter.spec
+iscc packaging/windows/job-hunter.iss /DAppVersion=0.25
+```
+
+Unsigned — no code-signing certificate is available yet, so first run shows
+a Windows SmartScreen warning ("Windows protected your PC" → "More info" →
+"Run anyway"). A real certificate is a follow-up, same as macOS
+notarization.
