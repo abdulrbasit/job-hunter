@@ -2939,3 +2939,110 @@ def test_settings_and_wizard_show_per_language_resume_coverage() -> None:
     assert 'id="wizard-resume-coverage"' in html
     assert "resume_languages" in html
     assert "resume_base_lang" in html
+
+
+# ── One-click update (job_hunter/update/) ──
+
+
+@pytest.fixture(autouse=True)
+def _isolated_update_state_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """update/versions.py + update/self_update.py store their cache/state in
+    platform_config_dir(), not the workspace — isolate it from the real %APPDATA%/~/.config
+    the same way tests/test_launcher.py does."""
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
+
+
+def test_update_banner_markup_and_handlers_present() -> None:
+    html = _dashboard_source()
+
+    assert 'id="update-banner"' in html
+    assert "get_update_status" in html
+    assert "get_update_changelog" in html
+    assert "start_self_update" in html
+    assert "get_last_update_result" in html
+
+
+def test_get_update_status_with_no_cache_reports_no_update_available(tmp_path: Path) -> None:
+    payload = DashAPI(tmp_path).get_update_status()
+
+    assert payload["ok"] is True
+    assert payload["update_available"] is False
+    assert payload["latest"] is None
+
+
+def test_get_update_status_reflects_cached_newer_version(tmp_path: Path) -> None:
+    from unittest.mock import MagicMock, patch
+
+    from job_hunter.update import versions
+
+    with (
+        patch("job_hunter.config.loader.package_version", return_value="0.25"),
+        patch("requests.get") as mock_get,
+    ):
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"info": {"version": "0.99"}}
+        mock_get.return_value = response
+        versions.refresh_cache()
+
+        payload = DashAPI(tmp_path).get_update_status()
+
+    assert payload["update_available"] is True
+    assert payload["latest"] == "0.99"
+
+
+def test_get_last_update_result_is_none_then_consumes_a_stored_result(tmp_path: Path) -> None:
+    from job_hunter.update.self_update import _write_result
+
+    api = DashAPI(tmp_path)
+    assert api.get_last_update_result() == {"ok": True, "status": "none"}
+
+    _write_result({"ok": True, "stage": "done", "from": "0.25", "to": "0.26"})
+    first = api.get_last_update_result()
+    assert first == {"ok": True, "status": "done", "stage": "done", "from": "0.25", "to": "0.26"}
+
+    # Consumed — a second call must not re-show the same toast.
+    assert api.get_last_update_result() == {"ok": True, "status": "none"}
+
+
+def test_start_self_update_refuses_while_a_hunt_is_running(tmp_path: Path) -> None:
+    api = DashAPI(tmp_path)
+    api._hunt_running = True
+
+    result = api.start_self_update()
+
+    assert result == {"ok": False, "status": "running", "error": "A hunt is running — try updating after it finishes."}
+
+
+def test_start_self_update_reports_fallback_command_when_upgrader_undetectable(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    with patch("job_hunter.update.upgrader.detect_upgrader", return_value=None):
+        result = DashAPI(tmp_path).start_self_update()
+
+    assert result["ok"] is False
+    assert "fallback_command" in result
+
+
+def test_start_self_update_snapshots_then_spawns_detached_helper(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    from job_hunter.update.upgrader import Upgrader
+
+    (tmp_path / "README.md").write_text("readme", encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    with (
+        patch("job_hunter.update.upgrader.detect_upgrader", return_value=Upgrader("uv", ["uv", "tool", "upgrade"])),
+        patch("subprocess.Popen") as mock_popen,
+        patch("threading.Thread") as mock_thread,
+    ):
+        result = api.start_self_update()
+
+    assert result == {"ok": True, "status": "restarting"}
+    mock_popen.assert_called_once()
+    spawned = mock_popen.call_args.args[0]
+    assert spawned[:3] == ["job-hunter", "internal", "self-update"]
+    assert (tmp_path / "outputs" / "state" / "update_snapshot" / "README.md").read_text(encoding="utf-8") == "readme"
+    mock_thread.assert_called_once()

@@ -132,10 +132,48 @@ def update(
     _echo_telemetry_warnings(install_telemetry(root))
 
 
+@internal_app.command(name="self-update")
+def self_update_cmd(
+    workspace: str = WORKSPACE_OPTION,
+    from_version: str = typer.Option(..., "--from-version"),
+) -> None:
+    """Upgrade the installed package and relaunch the dashboard.
+
+    Spawned detached by the dashboard's one-click update button
+    (DashAPI.start_self_update) right before its window closes — not meant to be run
+    directly.
+    """
+    from job_hunter.update.self_update import run_self_update
+    from job_hunter.update.upgrader import detect_upgrader
+
+    upgrader = detect_upgrader()
+    if upgrader is None:
+        typer.echo("[self-update] could not detect how job-hunter-kit was installed", err=True)
+        raise typer.Exit(1)
+    result = run_self_update(Path(workspace), upgrader, from_version=from_version)
+    if not result["ok"]:
+        typer.echo(f"[self-update] failed at {result['stage']}: {result['message']}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"[self-update] upgraded {result['from']} -> {result['to']}")
+
+
+@internal_app.command(name="rollback-update")
+def rollback_update_cmd(workspace: str = WORKSPACE_OPTION) -> None:
+    """Restore workspace assets/skills/workflows from the last pre-update snapshot."""
+    from job_hunter.update.snapshot import rollback_last
+
+    count = rollback_last(Path(workspace))
+    if count == 0:
+        typer.echo("[rollback-update] no snapshot found — nothing to restore")
+        raise typer.Exit(1)
+    typer.echo(f"[rollback-update] restored {count} file(s) from the last snapshot")
+
+
 @app.command()
 def version() -> None:
     """Show versions and package update guidance."""
     from job_hunter.config.loader import package_version
+    from job_hunter.update.versions import cached_status
     from job_hunter.workspace.manifest import find_workspace_root, read_manifest
 
     typer.echo(f"job-hunter {package_version()}")
@@ -147,6 +185,10 @@ def version() -> None:
             typer.echo(f"workspace (no manifest)  ({workspace})")
     else:
         typer.echo("workspace not found (run 'job-hunter init' to create one)")
+
+    status = cached_status()  # cache-only — never makes a network call here
+    if status["update_available"]:
+        typer.echo(f"\n[update] v{status['latest']} available — one-click update in `job-hunter dash`, or:")
 
     typer.echo(
         "\nUpdate flow:\n"

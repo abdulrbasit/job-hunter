@@ -162,6 +162,55 @@ async function initAll() {
   await loadApplicationStreak();
   await refreshAll();
   runSync({ silent: true }); // auto-sync on open — merge is lossless by construction, safe unattended
+  checkForUpdate();          // non-blocking — cached read, background PyPI refresh if stale
+  checkLastUpdateResult();   // non-blocking — one-shot toast after a self-update restart
+}
+
+// ── Update banner — PyPI version check, one-click upgrade + restart ──
+async function checkForUpdate() {
+  try {
+    renderUpdateBanner(await window.pywebview.api.get_update_status());
+  } catch(_) { /* offline or check failed — banner just stays hidden */ }
+}
+
+function renderUpdateBanner(status) {
+  const banner = document.getElementById('update-banner');
+  if (!status || !status.ok || !status.update_available) { banner.style.display = 'none'; return; }
+  banner.innerHTML = `v${esc(status.latest)} available — <a href="#" id="update-now-link">Update now</a>`;
+  document.getElementById('update-now-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    startUpdate(status.latest);
+  });
+  banner.style.display = '';
+}
+
+async function startUpdate(version) {
+  let notes = '';
+  try {
+    const changelog = await window.pywebview.api.get_update_changelog(version);
+    if (changelog.ok && changelog.notes) notes = `\n\n${changelog.notes}`;
+  } catch(_) {}
+  if (!confirm(`Update job-hunter-kit to v${version}? The app will close and reopen automatically.${notes}`)) return;
+
+  const banner = document.getElementById('update-banner');
+  const result = await window.pywebview.api.start_self_update();
+  if (!result.ok) {
+    banner.innerHTML = result.fallback_command
+      ? `Could not update automatically. Run this in a terminal, then reopen the app: <code>${esc(result.fallback_command)}</code>`
+      : esc(result.error || 'Could not start the update.');
+    banner.style.display = '';
+    return;
+  }
+  banner.textContent = 'Updating — the app will restart shortly…';
+  banner.style.display = '';
+}
+
+async function checkLastUpdateResult() {
+  try {
+    const result = await window.pywebview.api.get_last_update_result();
+    if (result.status !== 'done') return;
+    showToast(result.ok ? `✓ Updated to v${result.to}` : (result.message || 'The last update did not complete.'));
+  } catch(_) {}
 }
 
 // Only the fields a first hunt actually needs gate the Get Started landing — story bank,
