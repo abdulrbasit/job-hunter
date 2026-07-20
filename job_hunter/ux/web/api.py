@@ -501,6 +501,91 @@ class DashAPI:
             "warnings": [],
         }
 
+    def get_update_status(self) -> dict[str, Any]:
+        """Non-blocking: returns the cached PyPI version-check result immediately, kicking
+        off a background refresh if the cache is stale (24h TTL) or missing. Never delays
+        dashboard startup — see update/versions.py."""
+        from job_hunter.update import versions
+
+        status = versions.cached_status()
+        if versions.cache_is_stale():
+            threading.Thread(target=versions.refresh_cache, daemon=True).start()
+        return {"ok": True, **status}
+
+    def get_update_changelog(self, version: str) -> dict[str, Any]:
+        from job_hunter.update.changelog import github_release_notes
+
+        return {"ok": True, "version": version, "notes": github_release_notes(version)}
+
+    def get_last_update_result(self) -> dict[str, Any]:
+        """One-shot: the previous self-update's outcome, for a post-restart toast. Consumes
+        it — a second call won't re-show the same toast."""
+        from job_hunter.update.self_update import clear_last_result, read_last_result
+
+        result = read_last_result()
+        clear_last_result()
+        if result is None:
+            return {"ok": True, "status": "none"}
+        return {"ok": True, "status": "done", **result}
+
+    def start_self_update(self) -> dict[str, Any]:
+        """Snapshots system-owned workspace files, spawns a detached helper process that
+        upgrades the installed package once this window closes, then closes the window.
+        The helper (`job-hunter internal self-update`) runs the upgrade, refreshes
+        workspace assets, and relaunches the dashboard — see update/self_update.py for why
+        this can't happen in-process (Windows locks the running executable; every OS keeps
+        old code loaded in memory)."""
+        with self._hunt_lock:
+            if self._hunt_running:
+                return {
+                    "ok": False,
+                    "status": "running",
+                    "error": "A hunt is running — try updating after it finishes.",
+                }
+
+        from job_hunter.update.snapshot import snapshot_system_files
+        from job_hunter.update.upgrader import detect_upgrader
+        from job_hunter.update.versions import installed_version
+
+        upgrader = detect_upgrader()
+        if upgrader is None:
+            return {
+                "ok": False,
+                "error": "Could not detect how job-hunter-kit was installed.",
+                "fallback_command": "pip install --upgrade job-hunter-kit",
+            }
+
+        snapshot_system_files(self._root)
+
+        from job_hunter.update.self_update import detached_popen_kwargs
+
+        subprocess.Popen(  # noqa: S603, S607
+            [
+                "job-hunter",
+                "internal",
+                "self-update",
+                "--workspace",
+                str(self._root),
+                "--from-version",
+                installed_version(),
+            ],
+            **detached_popen_kwargs(self._root),
+        )
+        threading.Thread(target=self._close_window_soon, daemon=True).start()
+        return {"ok": True, "status": "restarting"}
+
+    @staticmethod
+    def _close_window_soon() -> None:
+        """Give the pending start_self_update() JS-bridge call a moment to return before
+        the window disappears out from under it."""
+        import time
+
+        import webview
+
+        time.sleep(0.5)
+        if webview.windows:
+            webview.windows[0].destroy()
+
     def get_api_key_status(self) -> dict[str, Any]:
         from job_hunter.config.secrets import get_secret
         from job_hunter.core.utils import read_yaml

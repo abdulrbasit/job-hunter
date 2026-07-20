@@ -237,6 +237,9 @@ main {
 .pager { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:10px 14px; color:var(--text-muted); font-size:12px; }
 .onboarding-banner { margin:12px 20px 0; padding:10px 14px; border:1px solid var(--amber); border-radius:8px; background:rgba(245,158,11,.08); font-size:13px; }
 .onboarding-progress { font-weight:600; margin-bottom:6px; }
+.update-banner { margin:12px 20px 0; padding:10px 14px; border:1px solid var(--blue); border-radius:8px; background:rgba(31,111,235,.08); font-size:13px; }
+.update-banner a { color: var(--blue-fg); font-weight:600; }
+.update-banner code { background: var(--surface2); padding:1px 5px; border-radius:4px; }
 .onboarding-checklist { list-style:none; display:flex; flex-direction:column; gap:4px; }
 .onboarding-item { display:flex; align-items:center; gap:8px; font-size:13px; }
 .onboarding-item .oi-mark { width:16px; text-align:center; color: var(--text-muted); }

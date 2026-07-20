@@ -50,6 +50,9 @@ _UPDATE_ASSETS = (
     "SETUP_LLM_API.md",
     "config/schemas/job_hunter.schema.json",
 )
+# Public alias — job_hunter/update/snapshot.py needs the same list to know what an
+# update is about to overwrite, without reaching into a private module attribute.
+UPDATE_ASSETS = _UPDATE_ASSETS
 _README_BLOCKS = (
     ("<!-- JOBS_STATS_START -->", "<!-- JOBS_STATS_END -->"),
     ("<!-- JOBS_TABLE_START -->", "<!-- JOBS_TABLE_END -->"),
