@@ -173,18 +173,12 @@ and gating rules.
 | `min_fit_score` | yes | 0-100 cutoff to tailor a job |
 | `batch_size` | yes | Agent mode: candidates frozen per `/job-hunter batch`. LLM API mode: top-scored matches tailored per run |
 | `max_years_experience_required` | no | Skip listings requiring more years than this |
-| `strategic_overrides` | no | Per-company score/experience overrides (see below) |
 
 `max_years_experience_required` defaults to the max of your selected
 `filters.experience_levels`' ranges when unset — it's now an explicit *override* of
 that derived cap (previously it overrode the retired `career_stage`'s cap), not a
 primary setting. Prefer adjusting `experience_levels` first; set this only to
 override the derived default for a specific need.
-
-`strategic_overrides` is an array of objects, each requiring `company` and
-allowing `min_score_override`, `bypass_max_years_experience`, and `reason`
-— useful for a target company you want tailored even below your usual
-threshold.
 
 ### `llm`
 

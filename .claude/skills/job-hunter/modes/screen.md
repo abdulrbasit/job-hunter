@@ -12,16 +12,16 @@ before reading inputs. Telemetry failure is non-blocking and must not be printed
 - The profile (career context + exclusions) already loaded once by the caller via
   `job-hunter internal agent-context profile` — standalone, run that command yourself first.
 
-Python already removes objective failures: exact excluded title terms, exact excluded
-companies, duplicates, invalid URLs, clear stale dates/content, strong excluded-language
-matches, and unambiguous structured-location mismatches.
+Python already removes objective failures: exact excluded companies, duplicates, invalid
+URLs, clear stale dates/content, strong excluded-language matches, experience-level
+mismatches, and unambiguous structured-location mismatches.
 
 Review every row in `batch_screen.yml:retained`. Use title, company, location, snippet,
 and `judgment_signals`.
 
 - `PASS`: plausible target role.
 - `SKIP`: excluded employer industry, functionally engineering rather than product,
-  too senior, explicit experience exceeds configured limit without strategic override,
+  too senior, explicit experience exceeds configured limit,
   another career-context dealbreaker clearly applies, or the posting shows clear signs
   of being closed/filled (e.g., "position filled", "no longer accepting applications",
   "requisition closed" in snippet — especially when `posting_date_status=missing`).

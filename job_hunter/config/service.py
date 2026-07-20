@@ -291,7 +291,6 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "min_fit_score": scoring.get("min_fit_score", 70),
             "max_years_experience_required": scoring.get("max_years_experience_required"),
             "batch_size": scoring.get("batch_size", 15),
-            "strategic_overrides": deepcopy(scoring.get("strategic_overrides") or []),
         },
         "llm_default_provider": llm.get("default_provider", "anthropic"),
     }
@@ -348,11 +347,6 @@ def _apply_form_scoring(scoring: dict[str, Any], form_scoring: dict[str, Any]) -
         scoring.pop("max_years_experience_required", None)
     else:
         scoring["max_years_experience_required"] = max_years
-    overrides = [o for o in (form_scoring.get("strategic_overrides") or []) if o.get("company")]
-    if overrides:
-        scoring["strategic_overrides"] = overrides
-    else:
-        scoring.pop("strategic_overrides", None)
     return scoring
 
 

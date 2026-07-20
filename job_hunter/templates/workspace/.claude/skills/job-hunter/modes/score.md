@@ -9,15 +9,15 @@ job-hunter internal telemetry-mark --phase scoring --skill scoring --job <slug> 
 job-hunter internal agent-context score --mode full --job <slug>
 ```
 
-Use `resume_tex`, `career_context`, `story_index`, live thresholds, `profile.excluded_industries`,
-and strategic overrides from that payload. Note: `resume_tex` in the payload is already the
+Use `resume_tex`, `career_context`, `story_index`, live thresholds, and `profile.excluded_industries`
+from that payload. Note: `resume_tex` in the payload is already the
 compact plain-text version of the resume when `outputs/state/compiled/resume.compact.txt` is
 present — no need to load the full `.tex` for scoring. Start from `matched_stories`
 (keyword-ranked shortlist against the JD) before scanning the full `story_index`. Read
 selected stories with `agent-context story --id`.
 
-Apply `decision_rules` from the payload exactly — they govern the APPLY/SKIP call, the
-`bypass_max_years_experience` override, and the industry exclusion.
+Apply `decision_rules` from the payload exactly — they govern the APPLY/SKIP call and the
+industry exclusion.
 
 `matched_story_ids` in score.yml: list the IDs of all Final stories used as evidence.
 Empty list is valid (means no story evidence was consulted).

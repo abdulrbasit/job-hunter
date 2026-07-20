@@ -42,15 +42,6 @@ scoring:
   min_fit_score: 70
   max_years_experience_required: 10
   batch_size: 15
-  strategic_overrides:
-    - company: "NordPay Systems"
-      min_score_override: 55
-      bypass_max_years_experience: true
-      reason: "Former colleague now CTO — genuine technical fit"
-    - company: "Tributary"
-      min_score_override: 60
-      bypass_max_years_experience: false
-      reason: "Open-source Kafka tooling — strong mission alignment"
 
 llm:
   default_provider: anthropic

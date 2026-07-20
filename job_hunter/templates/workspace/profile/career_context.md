@@ -91,6 +91,6 @@ fit-score thresholds in `config/job_hunter.yml`.
 
 - Scores that felt too high:
 - Scores that felt too low:
-- Companies worth strategic override:
+- Companies worth extra consideration despite a low score:
 - Examples of good tailoring:
 - Examples of bad tailoring:

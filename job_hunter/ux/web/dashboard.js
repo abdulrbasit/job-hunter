@@ -36,7 +36,6 @@ let regionRowSeq = 0;
 let locationCountries = [];
 let filterOptions = null;
 let resumeCoverage = { languages: [], baseLang: 'en' }; // profile.resume_languages / resume_base_lang
-let overrideRowSeq = 0;
 let companiesLoaded = false;
 let companiesData = [];
 let companiesRevision = null;
@@ -697,7 +696,6 @@ document.getElementById('feed-cards').addEventListener('change', (e) => {
   ['open-config-folder-btn', openConfigFolder],
   ['undo-company-targets-btn', undoCompanyTargets],
   ['add-region-btn', () => addRegionRow()],
-  ['add-override-btn', () => addOverrideRow()],
   ['settings-save-guided', saveGuidedConfig],
   ['undo-guided-config-btn', undoJobHunterConfig],
   ['save-raw-config-btn', saveRawConfig],
@@ -2530,8 +2528,6 @@ async function renderGuidedForm(form) {
   for (const [key, region] of Object.entries(form.regions || {})) await addRegionRow(key, region);
   renderActiveLocations();
 
-  document.getElementById('cfg-overrides-rows').innerHTML = '';
-  (form.scoring.strategic_overrides || []).forEach(o => addOverrideRow(o));
   loadingGuidedForm = false;
 }
 
@@ -2712,25 +2708,6 @@ function validateRegionRows() {
   return '';
 }
 
-function addOverrideRow(override = {}) {
-  const rowId = `override-row-${overrideRowSeq++}`;
-  const row = document.createElement('div');
-  row.className = 'settings-row';
-  row.id = rowId;
-  row.innerHTML = `
-    <div class="settings-field"><label>Company</label><input type="text" class="override-company" value="${esc(override.company || '')}"></div>
-    <div class="settings-field"><label>Min score override</label><input type="number" min="0" max="100" class="override-min-score" value="${override.min_score_override ?? ''}"></div>
-    <div class="settings-row-checkbox"><input type="checkbox" class="override-bypass" ${override.bypass_max_years_experience ? 'checked' : ''}> Bypass max years</div>
-    <div class="settings-field"><label>Reason</label><input type="text" class="override-reason" value="${esc(override.reason || '')}"></div>
-    <button class="btn btn-danger" type="button" data-remove-row="${rowId}">Remove</button>
-  `;
-  row.addEventListener('input', markConfigDirty);
-  row.addEventListener('change', markConfigDirty);
-  row.querySelector(`[data-remove-row="${rowId}"]`).addEventListener('click', () => { row.remove(); markConfigDirty(); });
-  document.getElementById('cfg-overrides-rows').appendChild(row);
-  markConfigDirty();
-}
-
 function collectGuidedForm() {
   const regions = {};
   document.querySelectorAll('#cfg-regions-rows .settings-row').forEach(row => {
@@ -2753,19 +2730,6 @@ function collectGuidedForm() {
     regions[key] = entry;
   });
 
-  const strategic_overrides = [];
-  document.querySelectorAll('#cfg-overrides-rows .settings-row').forEach(row => {
-    const company = row.querySelector('.override-company').value.trim();
-    if (!company) return;
-    const entry = { company };
-    const minScore = row.querySelector('.override-min-score').value;
-    if (minScore !== '') entry.min_score_override = Number(minScore);
-    if (row.querySelector('.override-bypass').checked) entry.bypass_max_years_experience = true;
-    const reason = row.querySelector('.override-reason').value.trim();
-    if (reason) entry.reason = reason;
-    strategic_overrides.push(entry);
-  });
-
   const maxYears = document.getElementById('cfg-max-years').value;
   const splitLines = id => document.getElementById(id).value.split('\n');
 
@@ -2785,7 +2749,6 @@ function collectGuidedForm() {
       min_fit_score: Number(document.getElementById('cfg-min-fit-score').value || 0),
       max_years_experience_required: maxYears === '' ? null : Number(maxYears),
       batch_size: Number(document.getElementById('cfg-batch-size').value || 1),
-      strategic_overrides,
     },
     llm_default_provider: document.getElementById('cfg-llm-provider').value,
   };

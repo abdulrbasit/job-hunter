@@ -11,9 +11,6 @@ CONFIG = {
     "scoring": {
         "min_fit_score": 80,
         "max_years_experience_required": 4,
-        "strategic_overrides": [
-            {"company": "Infineon", "reason": "strategic", "min_score_override": 75},
-        ],
     },
 }
 
@@ -23,19 +20,6 @@ JOB = {
     "url": "https://testco.com/job",
     "snippet": "PM role with agile, roadmapping, stakeholder management.",
 }
-
-
-# ── check_strategic_override ────────────────────────────────────────────────
-
-
-def test_strategic_override_matches() -> None:
-    result = scorer.check_strategic_override({"company": "Infineon Technologies"}, CONFIG)
-    assert result == 75
-
-
-def test_strategic_override_no_match() -> None:
-    result = scorer.check_strategic_override({"company": "Unknown Corp"}, CONFIG)
-    assert result is None
 
 
 # ── score() ─────────────────────────────────────────────────────────────────
@@ -229,10 +213,6 @@ def _score_result(score_val, years=3, company="TestCo"):
         ({"score_val": 60}, None, CONFIG, False, 0),
         # score=90 but 10 years required → rejected by years cap
         ({"score_val": 90, "years": 10}, None, CONFIG, False, 0),
-        # score=78, Infineon → passes due to strategic override lowering threshold to 75
-        ({"score_val": 78, "company": "Infineon"}, {"company": "Infineon"}, CONFIG, False, 1),
-        # score=70, Infineon → still fails; 70 is below even the 75 override
-        ({"score_val": 70, "company": "Infineon"}, {"company": "Infineon"}, CONFIG, False, 0),
         # score=90, years_exp_required=None → null years not rejected
         ({"score_val": 90}, None, CONFIG, True, 1),
     ],
@@ -247,85 +227,16 @@ def test_score_and_filter_jobs(score_kwargs, job_override, config, null_years, e
     assert len(matches) == expected_count
 
 
-# ── bypass_max_years_experience ──────────────────────────────────────────────
+# ── max_years derived from experience_levels ─────────────────────────────────
 
-_BYPASS_CONFIG = {
-    "scoring": {
-        "min_fit_score": 80,
-        "max_years_experience_required": 4,
-        "strategic_overrides": [
-            {
-                "company": "Infineon",
-                "reason": "strategic",
-                "min_score_override": 75,
-                "bypass_max_years_experience": True,
-            },
-            {
-                "company": "SAP",
-                "reason": "strategic",
-                "min_score_override": 75,
-                "bypass_max_years_experience": False,
-            },
-        ],
-    },
-}
-
-
-def test_strategic_override_companies_respects_bypass_flag() -> None:
-    result = scorer.strategic_override_companies(_BYPASS_CONFIG)
-    assert "Infineon" in result
-    assert "SAP" not in result
-
-
-def test_strategic_override_companies_excluded_when_key_absent() -> None:
-    config = {"scoring": {"strategic_overrides": [{"company": "Bosch", "reason": "x", "min_score_override": 70}]}}
-    assert scorer.strategic_override_companies(config) == []
-
-
-@pytest.mark.parametrize(
-    "company, expected_count",
-    [
-        # bypass_max_years_experience=True → high years ignored
-        ("Infineon Technologies", 1),
-        # bypass_max_years_experience=False → years cap still applied
-        ("SAP SE", 0),
-    ],
-)
-def test_filter_bypass_years_by_company(company, expected_count) -> None:
-    job = {**JOB, "company": company}
-    with patch.object(scorer, "score", return_value=_score_result(82, years=8, company=company)):
-        matches = scorer.score_and_filter_jobs([job], config=_BYPASS_CONFIG)
-    assert len(matches) == expected_count
-
-
-_LEVELS_DERIVED_BYPASS_CONFIG = {
+_LEVELS_DERIVED_CONFIG = {
     "filters": {"experience_levels": ["entry", "junior"]},  # derives max_years=2, no explicit override
-    "scoring": {
-        "min_fit_score": 80,
-        "strategic_overrides": [
-            {
-                "company": "Infineon",
-                "reason": "strategic",
-                "min_score_override": 75,
-                "bypass_max_years_experience": True,
-            },
-        ],
-    },
+    "scoring": {"min_fit_score": 80},
 }
 
 
-def test_bypass_still_works_when_max_years_is_derived_from_experience_levels() -> None:
-    """The bypass mechanism itself is unchanged, but its max_years input now comes
-    from filters.experience_levels instead of the retired career_stage — confirm the
-    two integrate correctly (no explicit scoring.max_years_experience_required here)."""
-    job = {**JOB, "company": "Infineon Technologies"}
-    with patch.object(scorer, "score", return_value=_score_result(82, years=8, company="Infineon Technologies")):
-        matches = scorer.score_and_filter_jobs([job], config=_LEVELS_DERIVED_BYPASS_CONFIG)
-    assert len(matches) == 1
-
-
-def test_years_cap_derived_from_experience_levels_applies_without_bypass() -> None:
+def test_years_cap_derived_from_experience_levels_applies() -> None:
     job = {**JOB, "company": "Some Other Co"}
     with patch.object(scorer, "score", return_value=_score_result(82, years=8, company="Some Other Co")):
-        matches = scorer.score_and_filter_jobs([job], config=_LEVELS_DERIVED_BYPASS_CONFIG)
+        matches = scorer.score_and_filter_jobs([job], config=_LEVELS_DERIVED_CONFIG)
     assert len(matches) == 0

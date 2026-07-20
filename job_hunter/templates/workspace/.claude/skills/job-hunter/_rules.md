@@ -29,8 +29,7 @@ These rules apply to every mode: tailor, score, cover letter, batch, and one.
 - Count characters before writing each bullet or summary line. Reject if over limit.
 
 ## Score Decisions
-- `APPLY` only when score ≥ `min_fit_score` threshold, OR a matching strategic override applies.
-- `strategic_overrides[].bypass_max_years_experience: true` skips the years filter for that company.
+- `APPLY` only when score ≥ `min_fit_score` threshold.
 - Do not credit skills or experience not in the resume or Final stories.
 
 ## Industry Exclusions

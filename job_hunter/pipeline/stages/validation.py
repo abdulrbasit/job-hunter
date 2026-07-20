@@ -82,7 +82,6 @@ def validate(
     api_config: dict | None = None,
     *,
     url_checker: Callable[[str, int], bool] = url_is_alive,
-    max_years_bypass_companies: list[str] | None = None,
     excluded_industries: list[str] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """
@@ -107,7 +106,6 @@ def validate(
     url_timeout = url_config.get("timeout_seconds", 5)
 
     max_workers = int(api_config.get("llm", {}).get("max_workers", 5))
-    bypass_companies = [company.lower() for company in (max_years_bypass_companies or [])]
 
     counter = 0
     counter_lock = threading.Lock()
@@ -140,16 +138,12 @@ def validate(
                 results.append((idx_orig, "valid", job))
             return
 
-        company = job.get("company", "").lower()
-        bypass_max_years = any(name and name in company for name in bypass_companies)
         deterministic_reason = deterministic_rejection_reason(snippet, max_years)
-        if deterministic_reason and not bypass_max_years:
+        if deterministic_reason:
             logger.info(f"{prefix}: deterministic reject: {deterministic_reason}")
             with results_lock:
                 results.append((idx_orig, "rejected", {**job, "_rejection_reason": deterministic_reason}))
             return
-        if deterministic_reason and bypass_max_years:
-            logger.info(f"{prefix}: strategic override bypasses experience limit: {deterministic_reason}")
 
         try:
             prompt = _PROMPT.format(
@@ -180,15 +174,12 @@ def validate(
                     results.append((idx_orig, "rejected", {**job, "_rejection_reason": reason}))
                 return
 
-            if result.get("over_experience", False) and not bypass_max_years:
+            if result.get("over_experience", False):
                 reason = result.get("reason", "over_experience")
                 logger.info(f"{prefix}: over experience limit: {reason}")
                 with results_lock:
                     results.append((idx_orig, "rejected", {**job, "_rejection_reason": reason}))
                 return
-            if result.get("over_experience", False) and bypass_max_years:
-                reason = result.get("reason", "over_experience")
-                logger.info(f"{prefix}: strategic override bypasses LLM experience limit: {reason}")
 
             if result.get("excluded_industry", False):
                 reason = result.get("reason", "excluded_industry")

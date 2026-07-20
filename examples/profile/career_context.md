@@ -79,6 +79,6 @@
 
 - Scores that felt too high: Roles titled "Backend Engineer" at growth-stage companies with no infrastructure scope got over-scored due to title matching; add check for "infrastructure" or "platform" scope signals in the JD
 - Scores that felt too low: Staff Engineer roles at companies without an explicit IC track were sometimes under-scored; if the JD describes the scope of a Staff role, score it as one regardless of title
-- Companies worth strategic override: NordPay Systems (former colleague now CTO; genuine technical fit), Tributary (open-source Kafka tooling company; mission alignment)
+- Companies worth extra consideration despite a low score: NordPay Systems (former colleague now CTO; genuine technical fit), Tributary (open-source Kafka tooling company; mission alignment)
 - Examples of good tailoring: Application to StreamCore — led with the settlement latency story, matched their "sub-100ms SLA" language in the JD; cover letter referenced their public blog post on Kafka consumer lag
 - Examples of bad tailoring: Application to a web agency — used infrastructure proof points that had no relevance; score should have been filtered well below threshold

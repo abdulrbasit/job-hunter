@@ -179,7 +179,7 @@ Tell the user:
 
 Write the section header with a placeholder comment:
 ```
-<!-- Fill this in after your first few pipeline runs. Note scores that felt wrong, tailoring examples you liked or hated, and any companies worth a strategic override. -->
+<!-- Fill this in after your first few pipeline runs. Note scores that felt wrong, tailoring examples you liked or hated, and any companies worth extra consideration despite a low score. -->
 ```
 
 ---

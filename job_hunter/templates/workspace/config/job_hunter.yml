@@ -48,12 +48,6 @@ scoring:
   # LLM API mode tailors this many top-scored matches per run. Request
   # concurrency is controlled separately by llm.max_workers.
   batch_size: 15
-  strategic_overrides: []
-  # Example:
-  # - company: "Dream Company"
-  #   min_score_override: 60
-  #   bypass_max_years_experience: true
-  #   reason: "Strategic target"
 
 llm:
   default_provider: anthropic

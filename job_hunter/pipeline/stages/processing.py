@@ -20,7 +20,7 @@ from job_hunter.pipeline.pdf_compiler import compile_tex
 from job_hunter.pipeline.quality_gate import apply_pre_scoring_quality_gate
 from job_hunter.pipeline.stages.readme import slugify
 from job_hunter.pipeline.stages.readme import update_readme as write_readme_table
-from job_hunter.pipeline.stages.scoring import score_and_filter_jobs, strategic_override_companies
+from job_hunter.pipeline.stages.scoring import score_and_filter_jobs
 from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 from job_hunter.pipeline.stages.validation import validate
 from job_hunter.pipeline.tailorer import tailor
@@ -163,7 +163,6 @@ def process_jobs(
             max_years=max_years,
             api_config=api_config,
             url_checker=url_checker or UrlLivenessCache().is_alive,
-            max_years_bypass_companies=strategic_override_companies(scoring_config),
             excluded_industries=JobPolicy(scoring_config).excluded_industries,
         )
         for job in rejected:

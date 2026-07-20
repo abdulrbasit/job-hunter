@@ -252,32 +252,6 @@
           "type": "integer",
           "minimum": 1,
           "description": "Shared run batch size. Agent mode freezes this many candidates per batch; LLM API mode tailors this many top-scored matches per run. Request concurrency is controlled separately by llm.max_workers."
-        },
-        "strategic_overrides": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "company"
-            ],
-            "properties": {
-              "company": {
-                "type": "string"
-              },
-              "min_score_override": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "bypass_max_years_experience": {
-                "type": "boolean"
-              },
-              "reason": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
         }
       },
       "additionalProperties": false

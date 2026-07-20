@@ -201,37 +201,6 @@ def test_validate_requests_json_response_format(mock_llm_client) -> None:
     assert mock.complete.call_args.kwargs["response_format"] == "json"
 
 
-def test_validate_strategic_company_bypasses_deterministic_years_rejection(mock_llm_client) -> None:
-    jobs = [
-        {
-            "title": "Product Manager",
-            "company": "Infineon Technologies",
-            "url": "https://example.com/jobs/infineon",
-            "snippet": "Requirements: at least 8 years of product management experience required.",
-        }
-    ]
-    api_config = {
-        "llm": {
-            "models": {"validation": "test-model"},
-            "max_tokens": {"validation": 200},
-            "max_workers": 1,
-        },
-        "http": {"url_verification": {"enabled": False}},
-    }
-    raw = '{"is_active": true, "over_experience": false, "reason": null}'
-
-    with patch("job_hunter.pipeline.stages.validation.get_llm_client", return_value=mock_llm_client(raw)):
-        valid, rejected = validator.validate(
-            jobs,
-            max_years=4,
-            api_config=api_config,
-            max_years_bypass_companies=["Infineon"],
-        )
-
-    assert valid == jobs
-    assert rejected == []
-
-
 def test_validate_repairs_malformed_json_once() -> None:
     jobs = [
         {

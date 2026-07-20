@@ -130,42 +130,6 @@ def score(job: dict, config: dict) -> dict:
     return result
 
 
-def strategic_override(job: dict, config: dict) -> dict | None:
-    """Return the matching strategic override, if one applies."""
-    overrides = config.get("scoring", {}).get("strategic_overrides", [])
-    job_company = job.get("company", "").lower()
-
-    for override in overrides:
-        company = override.get("company", "").lower()
-        if company and company in job_company:
-            logger.info(
-                f"[scorer] Strategic override for {job['company']}: {override.get('reason', 'strategic override')}"
-            )
-            return override
-
-    return None
-
-
-def check_strategic_override(job: dict, config: dict) -> int | None:
-    """
-    Check if a job matches a strategic override.
-    Returns min_score_override or None if no override applies.
-    """
-    override = strategic_override(job, config)
-    if override is None:
-        return None
-    return override.get("min_score_override")
-
-
-def strategic_override_companies(config: dict) -> list[str]:
-    """Return strategic companies whose overrides bypass the max-years filter."""
-    return [
-        str(override.get("company", "")).strip()
-        for override in config.get("scoring", {}).get("strategic_overrides", [])
-        if str(override.get("company", "")).strip() and override.get("bypass_max_years_experience", False)
-    ]
-
-
 def check_job_open(snippet: str, config: dict | None = None) -> str:
     """Advisory check: is this posting still open? Returns 'open'|'closed'|'unknown'."""
     if config is None:
@@ -244,14 +208,10 @@ def score_and_filter_jobs(
         score_val = result["score"]
         yrs = result.get("years_exp_required")
         logger.info(f"{prefix}: score={score_val}, years_required={yrs}")
-        override = strategic_override(job, config)
-        override_min = override.get("min_score_override") if override else None
-        effective_min = override_min if override_min is not None else min_score
-        if score_val < effective_min:
-            logger.debug(f"{prefix}: skipped, score {score_val} below threshold {effective_min}")
+        if score_val < min_score:
+            logger.debug(f"{prefix}: skipped, score {score_val} below threshold {min_score}")
             return None
-        bypass_max_years = bool(override and override.get("bypass_max_years_experience", False))
-        if yrs is not None and yrs > max_years and not bypass_max_years:
+        if yrs is not None and yrs > max_years:
             logger.debug(f"{prefix}: skipped, years required ({yrs}) exceeds maximum ({max_years})")
             return None
         logger.info(f"{prefix}: matched")

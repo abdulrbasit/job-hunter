@@ -802,7 +802,6 @@ _FULL_CONFIG = {
         "min_fit_score": 70,
         "max_years_experience_required": 10,
         "batch_size": 15,
-        "strategic_overrides": [{"company": "Stripe", "min_score_override": 50}],
     },
     "llm": {
         "default_provider": "anthropic",
@@ -826,7 +825,6 @@ def test_config_to_form_projects_guided_fields() -> None:
     assert form["regions"] == _FULL_CONFIG["regions"]
     assert form["filters"]["excluded_companies"] == ["Acme"]
     assert form["scoring"]["min_fit_score"] == 70
-    assert form["scoring"]["strategic_overrides"] == [{"company": "Stripe", "min_score_override": 50}]
     assert form["llm_default_provider"] == "anthropic"
     assert "providers" not in form  # advanced-only llm fields are not in the guided form
 
@@ -839,7 +837,6 @@ def test_config_to_form_fills_blanks_for_missing_optional_fields() -> None:
     assert form["profile"]["latex_class"] == ""
     assert form["scoring"]["min_fit_score"] == 70
     assert form["scoring"]["max_years_experience_required"] is None
-    assert form["scoring"]["strategic_overrides"] == []
 
 
 def test_apply_form_to_config_preserves_advanced_llm_fields_untouched() -> None:
@@ -881,15 +878,6 @@ def test_apply_form_to_config_clears_optional_profile_field_when_blank() -> None
     merged = service.apply_form_to_config(_FULL_CONFIG, form)
 
     assert "latex_class" not in merged["profile"]
-
-
-def test_apply_form_to_config_drops_strategic_overrides_missing_company() -> None:
-    form = service.config_to_form(_FULL_CONFIG)
-    form["scoring"]["strategic_overrides"] = [{"min_score_override": 50}]
-
-    merged = service.apply_form_to_config(_FULL_CONFIG, form)
-
-    assert "strategic_overrides" not in merged["scoring"]
 
 
 def test_apply_form_to_config_produces_yaml_dumpable_result() -> None:

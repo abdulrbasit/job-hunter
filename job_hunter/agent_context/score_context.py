@@ -47,7 +47,6 @@ def _profile_context(root: Path) -> dict[str, Any]:
             # Resolved, not raw: an unset value defaults to the selected experience_levels'
             # derived cap (see resolve_max_years_experience) rather than showing the agent a null.
             "max_years_experience_required": resolve_max_years_experience(config),
-            "strategic_overrides": scoring.get("strategic_overrides", []),
         },
         "excluded_industries": filter_values(config, "excluded_industries"),
         "target_titles": config.get("job_titles", []),

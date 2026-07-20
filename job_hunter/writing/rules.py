@@ -55,8 +55,7 @@ OUTREACH_RULES: tuple[str, ...] = (
 )
 
 SCORE_DECISION_RULES: tuple[str, ...] = (
-    "APPLY only when score meets the live min_fit_score threshold, or a matching strategic override applies.",
-    "strategic_overrides[].bypass_max_years_experience == true skips the years-of-experience filter for that company.",
+    "APPLY only when score meets the live min_fit_score threshold.",
     "A job in an excluded industry is always SKIP, regardless of score.",
     "Credit only skills or experience present in the base resume or selected Final stories.",
 )
