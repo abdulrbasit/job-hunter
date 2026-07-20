@@ -202,18 +202,6 @@ def test_disabled_gate_returns_all_jobs_unchanged_pre_scoring():
 # ---------------------------------------------------------------------------
 
 
-def test_excluded_title_is_hard_rejected_by_objective_screen():
-    """Hard exclusion lives in screen_jobs_by_rules (JobPolicy layer), not here."""
-    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
-
-    config = {"exclusions": {"title_terms": ["staff"]}, "regions": {}}
-    kept, rejected = screen_jobs_by_rules([_job(title="Staff Product Manager")], config)
-
-    assert kept == []
-    assert len(rejected) == 1
-    assert rejected[0]["_rejection_reason"] == "excluded_title"
-
-
 def test_company_hunt_jobs_with_no_region_tag_are_still_location_screened():
     """Company-hunt (browser_hunt.py) scrapes career pages without per-region context, so
     job["region"] is never set and regions.get(region, {}) resolves to {} — has_wrong_location/
@@ -243,20 +231,5 @@ def test_company_hunt_jobs_matching_a_configured_country_are_kept():
 
     kept, rejected = screen_jobs_by_rules([job], config)
 
-    assert len(kept) == 1
-    assert rejected == []
-
-
-def test_excluded_title_gets_negative_quality_reason_but_gate_alone_does_not_reject():
-    """One excluded term scores -5 against the -10 default threshold: the gate
-    records the signal but hard rejection is the objective screen's job."""
-    config = {**_config(), "exclusions": {"title_terms": ["staff"]}}
-    job = _job(title="Staff Product Manager")
-
-    scored = score_quality_signals(job, config)
-    assert "title:excluded:staff" in scored["_quality_reasons"]
-    assert scored["_quality_score"] == -5.0
-
-    kept, rejected = apply_pre_scoring_quality_gate([job], config)
     assert len(kept) == 1
     assert rejected == []

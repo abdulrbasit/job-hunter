@@ -21,7 +21,6 @@ def test_migration_moves_legacy_exclusions_without_losing_values(tmp_path: Path)
                 "mode": "agent",
                 "exclusions": {
                     "companies": ["Acme"],
-                    "title_terms": ["intern"],
                     "languages": ["german"],
                     "industries": ["gambling"],
                 },
@@ -37,10 +36,33 @@ def test_migration_moves_legacy_exclusions_without_losing_values(tmp_path: Path)
     assert result.migrated
     assert "exclusions" not in migrated
     assert migrated["filters"]["excluded_companies"] == ["Acme"]
-    assert migrated["filters"]["excluded_titles"] == ["intern"]
     assert migrated["filters"]["excluded_industries"] == ["gambling"]
     assert "de" not in migrated["filters"]["hunt_languages"]
     assert (tmp_path / "outputs" / "state" / "config_backups" / "pre_filters_job_hunter.yml.bak").exists()
+
+
+def test_migration_drops_legacy_title_terms_since_the_feature_no_longer_exists(tmp_path: Path) -> None:
+    """title_terms/excluded_titles was removed entirely — nothing maps a legacy
+    workspace's exclusions.title_terms anywhere, so migration silently drops it
+    along with the rest of the exclusions block, rather than losing only some
+    of it while keeping the block around."""
+    path = tmp_path / "config" / "job_hunter.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        yaml.safe_dump(
+            {"mode": "agent", "exclusions": {"companies": ["Acme"], "title_terms": ["intern"]}},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = migrate_legacy_exclusions(tmp_path)
+    migrated = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert result.migrated
+    assert "exclusions" not in migrated
+    assert migrated["filters"]["excluded_companies"] == ["Acme"]
+    assert "excluded_titles" not in migrated["filters"]
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:
@@ -59,7 +81,7 @@ def test_workspace_filter_files_fold_into_single_config_then_are_removed(tmp_pat
     filters_dir.mkdir(parents=True)
     schemas_dir.mkdir()
     (config_dir / "job_hunter.yml").write_text(
-        yaml.safe_dump({"mode": "agent", "filters": {"excluded_titles": ["intern"]}, "custom": "keep"}),
+        yaml.safe_dump({"mode": "agent", "filters": {"hunt_languages": ["en"]}, "custom": "keep"}),
         encoding="utf-8",
     )
     (filters_dir / "excluded_companies.yml").write_text(
@@ -73,7 +95,7 @@ def test_workspace_filter_files_fold_into_single_config_then_are_removed(tmp_pat
 
     assert result.migrated
     assert migrated["filters"] == {
-        "excluded_titles": ["intern"],
+        "hunt_languages": ["en"],
         "excluded_companies": ["Acme"],
         "excluded_industries": ["aerospace_defense"],
     }

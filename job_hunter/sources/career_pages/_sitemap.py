@@ -83,7 +83,6 @@ def discover_via_sitemap(
     career_url: str,
     company_name: str,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     """Return job-detail URLs discovered through sitemap or common career paths."""
     parsed = urlparse(career_url if "://" in career_url else f"https://{career_url}")
@@ -109,7 +108,7 @@ def discover_via_sitemap(
         if canonical in seen:
             continue
         seen.add(canonical)
-        if not title_matches(url, title_filters, excluded_title_terms):
+        if not title_matches(url, title_filters):
             continue
         jobs.append(
             {

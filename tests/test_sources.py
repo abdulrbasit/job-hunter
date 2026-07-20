@@ -855,7 +855,6 @@ def test_greenhouse_discovery_enriches_generic_search_snippet(
         "primary",
         {"location": "Berlin"},
         ["Product Manager"],
-        [],
         ["greenhouse"],
         Router(),
         max_results_per_query=10,
@@ -900,7 +899,6 @@ def test_non_greenhouse_discovery_uses_direct_ats_enrichment(
         "primary",
         {"location": "Berlin"},
         ["Product Manager"],
-        [],
         ["smartrecruiters"],
         Router(),
         max_results_per_query=10,
@@ -949,7 +947,6 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
     jobs = search.discover_ats_jobs_by_search(
         ["Product Manager", "Product Owner"],
         {"primary": {"location": "Berlin"}},
-        [],
         ats_discovery_config={"max_queries_per_region": 0},
     )
 

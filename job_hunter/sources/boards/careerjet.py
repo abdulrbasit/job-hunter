@@ -170,7 +170,7 @@ class CareerjetSource(JobSourceAdapter):
                     if not isinstance(item, dict):
                         continue
                     job_title = str(item.get("title") or "")
-                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                    if not title_is_allowed(job_title, params.job_titles):
                         continue
                     jobs.append(
                         JobPosting(

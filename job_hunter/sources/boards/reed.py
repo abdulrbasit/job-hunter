@@ -116,7 +116,7 @@ class ReedSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in data:
                     job_title = item.get("jobTitle", "")
-                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                    if not title_is_allowed(job_title, params.job_titles):
                         continue
 
                     location_str = item.get("locationName", "")

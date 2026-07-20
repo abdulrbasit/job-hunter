@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from job_hunter.core.utils import has_excluded_title_term
 from job_hunter.locations import enabled_locations, job_matches_enabled_locations
 from job_hunter.sources.policy import JobPolicy, format_experience_reason_detail
 
@@ -49,8 +48,6 @@ def _screen_job(
     rejection_detail = ""
 
     reason = policy.rejection_reason(job, title_filters)
-    if not reason and has_excluded_title_term(title, policy.excluded_title_terms):
-        reason = "excluded_title"
     region = str(job.get("region") or "")
     region_config = regions.get(region, {}) if isinstance(regions, dict) else {}
 

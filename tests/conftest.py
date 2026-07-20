@@ -61,9 +61,6 @@ config_dir.mkdir(parents=True)
             description: Hunt languages
             entries:
               - value: english
-          excluded_titles:
-            description: Excluded titles
-            entries: []
           excluded_companies:
             description: Excluded companies
             entries: []
@@ -143,7 +140,7 @@ def mock_llm_client():
     return _factory
 
 
-def mk_params(job_titles, regions, *, search_lang="", excluded_title_terms=None, max_results=50):
+def mk_params(job_titles, regions, *, search_lang="", max_results=50):
     """Convert legacy (job_titles, regions) args to SearchParams for the first region."""
     from job_hunter.models import SearchParams
 
@@ -155,5 +152,4 @@ def mk_params(job_titles, regions, *, search_lang="", excluded_title_terms=None,
         search_lang=str(config.get("search_lang", search_lang)),
         job_titles=list(job_titles),
         max_results=max_results,
-        excluded_title_terms=list(excluded_title_terms) if excluded_title_terms else [],
     )

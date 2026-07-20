@@ -8,7 +8,6 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 from job_hunter.config.loader import get_config
-from job_hunter.config.reference_data import resolve_title_exclusions
 from job_hunter.core.utils import title_matches
 from job_hunter.sources.jd_fetcher import fetch_jd, jd_from_text
 from job_hunter.tracking.processed_urls import load_processed
@@ -28,12 +27,10 @@ def _parse_urls(raw: str) -> list[str]:
     ]
 
 
-def _load_search_rules() -> tuple[list[str], list[str]]:
-    """Return configured accepted job titles and excluded title terms."""
+def _load_search_rules() -> list[str]:
+    """Return configured accepted job titles."""
     data = get_config("job_hunter")
-    title_filters = data.get("job_titles", [])
-    excluded_title_terms = resolve_title_exclusions(data)
-    return title_filters, excluded_title_terms
+    return data.get("job_titles", [])
 
 
 def _jobs_from_links(
@@ -51,7 +48,7 @@ def _jobs_from_links(
     Skips URLs already in outputs/state/discovered_urls.yml unless --force is set.
     """
     jobs: list[dict[str, Any]] = []
-    title_filters, excluded_title_terms = _load_search_rules()
+    title_filters = _load_search_rules()
     for url in _parse_urls(raw):
         if not force and url in existing_urls:
             logger.info("  [skip] Already processed (use --force to re-tailor): %s", url)
@@ -60,7 +57,7 @@ def _jobs_from_links(
         if job:
             job["title"] = title or job.get("title", "")
             job["company"] = company or job.get("company", "")
-            if not title_matches(job.get("title", ""), title_filters, excluded_title_terms):
+            if not title_matches(job.get("title", ""), title_filters):
                 logger.info(
                     "  [skip] Irrelevant title after JD extraction: %s @ %s",
                     job.get("title", "?"),

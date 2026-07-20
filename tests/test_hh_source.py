@@ -15,7 +15,6 @@ def _params(country: str = "RU", location: str = "Moscow") -> SearchParams:
         location=location,
         search_lang="ru",
         job_titles=["Product Manager"],
-        excluded_title_terms=[],
     )
 
 

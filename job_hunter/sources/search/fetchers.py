@@ -39,7 +39,6 @@ def extract_jobs_from_html(
     title_filters: list[str],
     location: str,
     source: str,
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     if _looks_like_xml(html):
         logger.debug("[search] %s looks like XML, not HTML — skipping link extraction", base_url)
@@ -57,11 +56,9 @@ def extract_jobs_from_html(
 
         title_text = text or next((t for t in title_filters if t.lower() in haystack.lower()), "")
 
-        if not _looks_like_job_url(url) and not title_matches(
-            title_text or haystack, title_filters, excluded_title_terms
-        ):
+        if not _looks_like_job_url(url) and not title_matches(title_text or haystack, title_filters):
             continue
-        if not title_matches(title_text or haystack, title_filters, excluded_title_terms):
+        if not title_matches(title_text or haystack, title_filters):
             continue
         if not _location_match(haystack, location):
             continue
@@ -87,7 +84,6 @@ def extract_jobs_from_html(
 def fetch_static_career_jobs(
     company: dict,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     url = _with_scheme(company["career_url"])
     resp = requests.get(
@@ -106,14 +102,12 @@ def fetch_static_career_jobs(
         title_filters,
         company.get("location", ""),
         "HTTP career page",
-        excluded_title_terms,
     )
 
 
 def fetch_playwright_career_jobs(
     company: dict,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     try:
         from playwright.sync_api import sync_playwright
@@ -136,7 +130,6 @@ def fetch_playwright_career_jobs(
                 title_filters,
                 company.get("location", ""),
                 "Playwright career page",
-                excluded_title_terms,
             )
         finally:
             browser.close()

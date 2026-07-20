@@ -446,24 +446,6 @@ class TestGulfTalentSource:
         assert isinstance(jobs[0], JobPosting)
         assert jobs[0].source == "GulfTalent"
 
-    def test_fetch_respects_excluded_title_terms_regardless_of_word_order(self) -> None:
-        """Regression: GulfTalent used to call _parse_cards(..., [], ...), silently
-        dropping params.excluded_title_terms so "Product Manager Intern" leaked through."""
-        with (
-            patch(
-                "job_hunter.sources.boards.gulftalent.get_api_config",
-                return_value=_EMPTY_CFG,
-            ),
-            patch(
-                "job_hunter.sources.boards.gulftalent.requests.get",
-                return_value=_make_response(text=_GT_HTML_INTERN),
-            ),
-        ):
-            jobs = GulfTalentSource().fetch(mk_params(["Product Manager"], _AE, excluded_title_terms=["intern"]))
-        titles = [job.title for job in jobs]
-        assert "Product Manager" in titles
-        assert "Product Manager Intern" not in titles
-
     def test_fetch_follows_next_page_link(self) -> None:
         page1 = """<html><head>
         <link rel="next" href="https://www.gulftalent.com/jobs?keyword=product+manager&page=2">
@@ -637,19 +619,6 @@ class TestBaytSource:
         assert jobs[0].title == "Product Manager"
         assert jobs[0].company == "GulfCorp"
         assert jobs[0].location == "Dubai, UAE"
-
-    def test_fetch_respects_excluded_title_terms(self) -> None:
-        with (
-            patch("job_hunter.sources.boards.bayt.get_api_config", return_value=_EMPTY_CFG),
-            patch(
-                "job_hunter.sources.boards.bayt.requests.get",
-                return_value=_make_response(text=_BAYT_HTML_INTERN),
-            ),
-        ):
-            jobs = BaytSource().fetch(mk_params(["Product Manager"], _AE, excluded_title_terms=["intern"]))
-        titles = [j.title for j in jobs]
-        assert "Product Manager" in titles
-        assert "Product Manager Intern" not in titles
 
     def test_fetch_follows_next_page_link(self) -> None:
         with (

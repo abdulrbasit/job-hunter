@@ -32,11 +32,10 @@ def _try_sitemap_discovery(
     career_url: str,
     name: str,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     from job_hunter.sources.career_pages._sitemap import discover_via_sitemap
 
-    return discover_via_sitemap(career_url, name, title_filters, excluded_title_terms)
+    return discover_via_sitemap(career_url, name, title_filters)
 
 
 def _try_static_html(
@@ -45,7 +44,6 @@ def _try_static_html(
     name: str,
     title_filters: list[str],
     location: str,
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     raw_jobs = extract_jobs_from_html(
         html,
@@ -54,7 +52,6 @@ def _try_static_html(
         title_filters,
         location,
         "career_page:static_html",
-        excluded_title_terms,
     )
     for job in raw_jobs:
         job["extraction_method"] = "static_html"
@@ -66,8 +63,7 @@ def _try_playwright(
     name: str,
     title_filters: list[str],
     location: str,
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     from job_hunter.sources.career_pages._rendering import extract_from_rendered_html
 
-    return extract_from_rendered_html(career_url, name, title_filters, location, excluded_title_terms)
+    return extract_from_rendered_html(career_url, name, title_filters, location)

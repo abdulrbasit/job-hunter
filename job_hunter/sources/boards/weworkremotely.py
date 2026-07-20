@@ -71,7 +71,7 @@ class WeWorkRemotelySource(JobSourceAdapter):
                 company = ""
                 job_title = raw_title
 
-            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+            if not title_is_allowed(job_title, params.job_titles):
                 continue
 
             url = (item.findtext("link") or "").strip()

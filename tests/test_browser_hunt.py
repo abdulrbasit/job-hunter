@@ -14,7 +14,6 @@ from job_hunter.tracking.repository import get_discovered_jobs
 
 _FILTER_KEY_MAP = {
     "companies": "excluded_companies",
-    "title_terms": "excluded_titles",
     "industries": "excluded_industries",
 }
 
@@ -37,7 +36,7 @@ def _write_config(
     config = root / "config"
     config.mkdir()
     filters = {}
-    for legacy_key, value in (exclusions or {"title_terms": ["intern"]}).items():
+    for legacy_key, value in (exclusions or {}).items():
         filters[_FILTER_KEY_MAP.get(legacy_key, legacy_key)] = value
     data: dict[str, object] = {
         "job_titles": ["Product Manager"],
@@ -75,7 +74,7 @@ def test_browser_hunt_writes_results_into_jobs_db(tmp_path: Path, monkeypatch) -
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {
                 "title": titles[0],
                 "company": company["name"],
@@ -103,9 +102,7 @@ def test_browser_hunt_dedupes_against_existing_jobs_db_rows(tmp_path: Path, monk
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
-            {"title": titles[0], "company": company["name"], "url": "https://example.com/jobs/1"}
-        ],
+        lambda company, titles: [{"title": titles[0], "company": company["name"], "url": "https://example.com/jobs/1"}],
     )
 
     assert browser_hunt.run() == 0
@@ -124,7 +121,7 @@ def test_browser_hunt_one_company_failure_does_not_abort_remaining_companies(tmp
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if company["name"] == "Broken Corp":
             raise RuntimeError("boom")
         return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
@@ -142,7 +139,7 @@ def test_browser_hunt_malformed_company_entry_does_not_abort_run(tmp_path: Path,
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if not isinstance(company, dict):
             raise AttributeError("'str' object has no attribute 'get'")
         return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
@@ -163,7 +160,7 @@ def test_browser_hunt_emits_progress_events_for_each_company(tmp_path: Path, mon
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if company["name"] == "Broken Corp":
             raise TimeoutError("connection timed out after 30s")
         return [{"title": titles[0], "company": company["name"], "url": "https://kept.example.com/jobs/1"}]
@@ -211,7 +208,7 @@ def test_browser_hunt_skips_disabled_companies(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {"title": titles[0], "company": company["name"], "url": f"https://example.com/jobs/{company['name']}"}
         ],
     )
@@ -233,7 +230,7 @@ def test_browser_hunt_defaults_missing_enabled_key_to_true(tmp_path: Path, monke
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {"title": titles[0], "company": company["name"], "url": "https://legacy.example.com/jobs/1"}
         ],
     )
@@ -256,7 +253,7 @@ def test_browser_hunt_excludes_companies_before_insert(tmp_path: Path, monkeypat
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {
                 "title": titles[0],
                 "company": company["name"],
@@ -282,7 +279,7 @@ def test_browser_hunt_rejects_extracted_job_outside_enabled_city(tmp_path: Path,
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda _company, titles, _exclusions: [
+        lambda _company, titles: [
             {
                 "title": titles[0],
                 "company": "Berlin Corp",
@@ -309,7 +306,7 @@ def test_browser_hunt_persists_a_run_and_task_row_on_success(tmp_path: Path, mon
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {
                 "title": titles[0],
                 "company": company["name"],
@@ -354,7 +351,7 @@ def test_browser_hunt_deadline_measures_own_processing_time_not_queue_wait(tmp_p
     monkeypatch.setattr(browser_hunt, "CHEAP_WORKERS", 1)  # forces strictly sequential processing
     monkeypatch.setattr(browser_hunt, "COMPANY_DEADLINE_SECONDS", 0.2)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if company["name"] == "Slow First":
             time.sleep(0.35)
         return []
@@ -378,7 +375,7 @@ def test_browser_hunt_persists_a_failed_task_with_reason(tmp_path: Path, monkeyp
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
 
-    def boom(company, titles, exclusions):
+    def boom(company, titles):
         raise TimeoutError("connection timed out after 30s")
 
     monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", boom)
@@ -401,7 +398,7 @@ def test_new_changed_mode_skips_a_recently_succeeded_company(tmp_path: Path, mon
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run() == 0
@@ -424,7 +421,7 @@ def test_new_changed_mode_reprocesses_after_cooldown_expires(tmp_path: Path, mon
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run() == 0
@@ -448,7 +445,7 @@ def test_failed_only_mode_reprocesses_failures_and_skips_successes(tmp_path: Pat
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if company["name"] == "Broken":
             raise RuntimeError("boom")
         return []
@@ -460,7 +457,7 @@ def test_failed_only_mode_reprocesses_failures_and_skips_successes(tmp_path: Pat
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run(mode=company_hunts.MODE_FAILED_ONLY) == 0
@@ -477,7 +474,7 @@ def test_force_all_mode_reprocesses_everyone_regardless_of_recent_success(tmp_pa
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run() == 0
@@ -510,7 +507,7 @@ def test_resume_mode_continues_an_interrupted_run_without_recreating_it(tmp_path
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
@@ -536,7 +533,7 @@ def test_resume_mode_retries_task_interrupted_while_running(tmp_path: Path, monk
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions: (calls.append(company["name"]), [])[1],
+        lambda company, titles: (calls.append(company["name"]), [])[1],
     )
 
     assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
@@ -550,7 +547,7 @@ def test_resume_mode_falls_back_to_new_changed_when_nothing_is_interrupted(tmp_p
     _write_config(tmp_path, companies)
     monkeypatch.setattr(browser_hunt, "ROOT", tmp_path)
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: True)
-    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", lambda company, titles, exclusions: [])
+    monkeypatch.setattr(browser_hunt, "extract_career_page_jobs", lambda company, titles: [])
 
     assert browser_hunt.run(mode=company_hunts.MODE_RESUME) == 0
 
@@ -567,7 +564,7 @@ def test_browser_hunt_overlaps_cheap_company_checks(tmp_path: Path, monkeypatch)
     peak = 0
     lock = threading.Lock()
 
-    def extract(company, titles, exclusions, *, use_playwright=True):
+    def extract(company, titles, *, use_playwright=True):
         nonlocal active, peak
         assert use_playwright is False
         with lock:
@@ -594,11 +591,11 @@ def test_browser_hunt_only_probes_chromium_when_fallback_queue_exists(tmp_path: 
     monkeypatch.setattr(
         browser_hunt,
         "extract_career_page_jobs",
-        lambda company, titles, exclusions, *, use_playwright=True: [],
+        lambda company, titles, *, use_playwright=True: [],
     )
     monkeypatch.setattr(browser_hunt, "ensure_chromium_installed", lambda: probes.append(True) or True)
 
-    def fake_batch(companies, titles, exclusions, *, on_result=None):
+    def fake_batch(companies, titles, *, on_result=None):
         # Real extract_playwright_jobs_batch's signature includes on_result (and now a
         # per-company duration) — a mock missing it previously masked a TypeError into a
         # silently-"failed" task.

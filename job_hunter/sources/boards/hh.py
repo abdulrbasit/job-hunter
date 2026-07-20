@@ -98,7 +98,7 @@ class HHSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in items:
                     job_title = str(item.get("name") or "")
-                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                    if not title_is_allowed(job_title, params.job_titles):
                         continue
                     snippet_data = item.get("snippet") or {}
                     snippet = str(snippet_data.get("requirement") or snippet_data.get("responsibility") or "")

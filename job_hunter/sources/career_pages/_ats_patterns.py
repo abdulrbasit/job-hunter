@@ -136,7 +136,6 @@ def _fetch_ats_endpoint_jobs(
     ats_name: str,
     api_url_template: str,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None,
 ) -> list[dict]:
     if not api_url_template:
         return []

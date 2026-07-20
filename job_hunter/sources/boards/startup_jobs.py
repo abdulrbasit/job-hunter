@@ -33,7 +33,7 @@ class StartupJobsSource(JobSourceAdapter):
             title = raw_title
             if " at " in raw_title and not company:
                 title, company = raw_title.rsplit(" at ", 1)
-            if not title_is_allowed(title, params.job_titles, params.excluded_title_terms):
+            if not title_is_allowed(title, params.job_titles):
                 continue
             jobs.append(
                 JobPosting(

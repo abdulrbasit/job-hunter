@@ -63,7 +63,7 @@ class RemoteOKSource(JobSourceAdapter):
             if not isinstance(item, dict):
                 continue
             job_title = str(item.get("position") or "")
-            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+            if not title_is_allowed(job_title, params.job_titles):
                 continue
             job_location = str(item.get("location") or "Remote")
             # No adapter-side location rejection — location_restrictions below carries the

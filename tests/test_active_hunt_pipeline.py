@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import requests
 
-from job_hunter.core.utils import title_matches
 from job_hunter.models import JobPosting, ScrapeStats, SearchParams
 from job_hunter.pipeline import enrichment, hunt
 from job_hunter.sources import orchestrator
@@ -46,18 +45,11 @@ def test_new_candidate_dicts_converts_models_and_deduplicates_urls() -> None:
     assert seen == {"https://example.com/jobs/seen", "https://example.com/jobs/new"}
 
 
-def test_configured_title_exclusions_use_word_boundaries() -> None:
-    assert title_matches("Staff Product Manager", ["Product Manager"], ["staff"]) is False
-    assert title_matches("Staffing Product Manager", ["Product Manager"], ["staff"]) is True
-    assert title_matches("VP, Product", ["Product"], ["vp"]) is False
-
-
 def test_active_orchestrator_applies_policy_and_candidate_cache(monkeypatch) -> None:
     config = {
         "job_titles": ["Product Manager"],
         "exclusions": {
             "companies": ["Blocked Co"],
-            "title_terms": ["staff"],
             "industries": [],
             "languages": [],
         },
@@ -78,7 +70,6 @@ def test_active_orchestrator_applies_policy_and_candidate_cache(monkeypatch) -> 
         def fetch(self, _params):
             return [
                 _posting(),
-                _posting(title="Staff Product Manager", url="https://example.com/jobs/staff"),
                 _posting(company="Blocked Co", url="https://example.com/jobs/blocked"),
                 _posting(url="https://example.com/jobs/cached"),
             ]
@@ -92,9 +83,8 @@ def test_active_orchestrator_applies_policy_and_candidate_cache(monkeypatch) -> 
     jobs, stats = orchestrator.scrape_with_stats(depth="fast")
 
     assert [job.url for job in jobs] == ["https://example.com/jobs/pm"]
-    assert stats.total_fetched == 4
+    assert stats.total_fetched == 3
     assert stats.total_after_policy == 1
-    assert stats.rejected["excluded_title"] == 1
     assert stats.rejected["excluded_company"] == 1
     assert stats.rejected["cached_candidate"] == 1
 
@@ -294,7 +284,7 @@ def test_ats_slug_step_unions_catalog_slugs_with_harvested_store(monkeypatch) ->
     monkeypatch.setattr(orchestrator, "load_slug_store", lambda _ws: {"greenhouse": ["harvested"]})
     monkeypatch.setattr(orchestrator, "catalog_slugs", lambda _root, _config: {"greenhouse": {"cataloged"}})
 
-    def fake_query(slug_store, _titles, _regions, _excluded):
+    def fake_query(slug_store, _titles, _regions):
         captured["store"] = slug_store
         return []
 
@@ -318,10 +308,10 @@ def test_deep_depth_passes_larger_max_results_than_standard() -> None:
     assert orchestrator._max_results_for_depth("deep") == DEFAULT_BACKFILL_MAX_RESULTS
 
     standard_params = orchestrator._params_for_region(
-        "berlin", region_config, ["Product Manager"], [], max_results=orchestrator._max_results_for_depth("standard")
+        "berlin", region_config, ["Product Manager"], max_results=orchestrator._max_results_for_depth("standard")
     )
     deep_params = orchestrator._params_for_region(
-        "berlin", region_config, ["Product Manager"], [], max_results=orchestrator._max_results_for_depth("deep")
+        "berlin", region_config, ["Product Manager"], max_results=orchestrator._max_results_for_depth("deep")
     )
     assert standard_params.max_results == DEFAULT_STANDARD_MAX_RESULTS
     assert deep_params.max_results == DEFAULT_BACKFILL_MAX_RESULTS

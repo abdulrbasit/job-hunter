@@ -72,7 +72,7 @@ class TheMuseSource(JobSourceAdapter):
                     ", ".join(str(loc.get("name") or "") for loc in job_location_list if isinstance(loc, dict))
                     or "Remote"
                 )
-                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(job_title, params.job_titles):
                     continue
                 # Country/location filtering is deferred to JobPolicy/quality_gate downstream
                 # (location_restrictions below carries the signal) instead of dropping here.

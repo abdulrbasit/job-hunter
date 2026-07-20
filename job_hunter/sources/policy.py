@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from job_hunter.config.reference_data import (
     resolve_experience_group_ids,
     resolve_experience_range,
-    resolve_title_exclusions,
     student_mode,
 )
 from job_hunter.core.builtin_filters import (
@@ -244,10 +243,6 @@ class JobPolicy:
             object.__setattr__(self, "filters", FilterSet.from_config(self.config))
 
     @property
-    def excluded_title_terms(self) -> list[str]:
-        return resolve_title_exclusions(self.config)
-
-    @property
     def excluded_companies(self) -> list[str]:
         return self.filters.values("excluded_companies") if self.filters else []
 
@@ -330,7 +325,6 @@ class JobPolicy:
         if title_filters and not title_is_allowed(
             title,
             title_filters,
-            self.excluded_title_terms,
             relaxed_student=relaxed,
         ):
             logger.info("[skip] Title not in filters: %s", title[:60])

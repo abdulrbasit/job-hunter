@@ -64,7 +64,6 @@ def _next_page_url(html: str, current_url: str) -> str:
 def _parse_cards(
     html: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
@@ -75,7 +74,7 @@ def _parse_cards(
         job_title = (title_tag.get("title") or title_tag.get_text(strip=True)) if title_tag else ""
         if not job_title:
             continue
-        if not title_is_allowed(job_title, title_filters, excluded_title_terms):
+        if not title_is_allowed(job_title, title_filters):
             continue
 
         href = title_tag.get("href", "") if title_tag else ""
@@ -153,7 +152,7 @@ class BaytSource(JobSourceAdapter):
                 logger.debug("[bayt] request failed for %r in %s: %s", title, params.region_key, exc)
                 break
 
-            page_jobs = _parse_cards(html, params.job_titles, params.excluded_title_terms, params.region_key, title)
+            page_jobs = _parse_cards(html, params.job_titles, params.region_key, title)
             logger.info("[bayt] page=%d found=%d", page, len(page_jobs))
             if not page_jobs:
                 break

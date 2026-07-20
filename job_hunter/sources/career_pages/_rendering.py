@@ -50,7 +50,6 @@ def extract_from_rendered_html(
     company_name: str,
     title_filters: list[str],
     location: str = "",
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     """Render a JavaScript-heavy career page with Playwright."""
     try:
@@ -83,7 +82,6 @@ def extract_from_rendered_html(
         title_filters,
         location,
         "career_page:playwright",
-        excluded_title_terms,
     )
     for job in raw_jobs:
         job["extraction_method"] = "playwright"
@@ -93,7 +91,6 @@ def extract_from_rendered_html(
 def extract_playwright_jobs_batch(  # noqa: C901
     companies: list[dict],
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
     *,
     on_result: Callable[[dict, list[dict], float], None] | None = None,
 ) -> list[tuple[dict, list[dict]]]:
@@ -139,7 +136,6 @@ def extract_playwright_jobs_batch(  # noqa: C901
                             title_filters,
                             str(company.get("location") or ""),
                             "career_page:playwright",
-                            excluded_title_terms,
                         )
                         for job in jobs:
                             job["extraction_method"] = "playwright"
@@ -176,7 +172,6 @@ def extract_from_static_html(
     company_name: str,
     title_filters: list[str],
     location: str = "",
-    excluded_title_terms: list[str] | None = None,
 ) -> list[dict]:
     """Fetch and parse static HTML to find job-detail links."""
     import requests
@@ -202,7 +197,6 @@ def extract_from_static_html(
         title_filters,
         location,
         "career_page:static_html",
-        excluded_title_terms,
     )
     for job in raw_jobs:
         job["extraction_method"] = "static_html"

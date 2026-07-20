@@ -51,7 +51,6 @@ class JobTeaserSource(JobSourceAdapter):
             if not title_is_allowed(
                 title,
                 params.job_titles,
-                params.excluded_title_terms,
                 relaxed_student=params.student_mode,
             ):
                 continue

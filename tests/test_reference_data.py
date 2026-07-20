@@ -9,7 +9,6 @@ from job_hunter.config.reference_data import (
     load_countries,
     resolve_experience_range,
     resolve_max_years_experience,
-    resolve_title_exclusions,
 )
 
 # ---------------------------------------------------------------------------
@@ -45,21 +44,6 @@ def test_filters_expose_sixteen_experience_levels() -> None:
     assert len(experience_level_names()) == 16
     assert "senior" in experience_level_names()
     assert "student_intern" in experience_level_names()
-
-
-# ---------------------------------------------------------------------------
-# resolve_title_exclusions — user's own excluded_titles only
-# ---------------------------------------------------------------------------
-
-
-def test_resolve_title_exclusions_returns_user_terms_only() -> None:
-    config = {"filters": {"excluded_titles": ["marketing", "sales"]}}
-
-    assert resolve_title_exclusions(config) == ["marketing", "sales"]
-
-
-def test_resolve_title_exclusions_empty_when_unset() -> None:
-    assert resolve_title_exclusions({}) == []
 
 
 # ---------------------------------------------------------------------------

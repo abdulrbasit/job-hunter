@@ -138,10 +138,3 @@ def resolve_max_years_experience(config: dict) -> int:
         return int(explicit)
     _, max_years = resolve_experience_range(config)
     return int(max_years) if max_years is not None else _NO_CAP_SENTINEL
-
-
-def resolve_title_exclusions(config: dict) -> list[str]:
-    """User's own excluded_titles filter."""
-    from job_hunter.filters import filter_values
-
-    return list(filter_values(config, "excluded_titles"))

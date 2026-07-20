@@ -25,7 +25,7 @@ def parse_startup_jobs(html: str, base_url: str, source: str, params: SearchPara
         if not link or not heading:
             continue
         title = heading.get_text(" ", strip=True)
-        if not title_is_allowed(title, params.job_titles, params.excluded_title_terms):
+        if not title_is_allowed(title, params.job_titles):
             continue
         href = str(link["href"])
         company_node = container.select_one(".company") if container else None

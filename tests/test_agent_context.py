@@ -332,10 +332,6 @@ def test_screen_candidate_batch_filters_exclusions_and_duplicates(
                     "description": "Excluded companies",
                     "entries": [{"value": "Delivery Hero"}],
                 },
-                "excluded_titles": {
-                    "description": "Excluded titles",
-                    "entries": [{"value": "trainee"}],
-                },
                 "excluded_industries": {
                     "description": "Excluded industries",
                     "entries": [{"value": "lottery"}],

@@ -58,7 +58,7 @@ class RemotiveSource(JobSourceAdapter):
             for item in raw_jobs:
                 job_title = str(item.get("title") or "")
                 job_location = str(item.get("candidate_required_location") or "Remote")
-                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(job_title, params.job_titles):
                     continue
                 description = strip_html(item.get("description") or "")
                 jobs.append(

@@ -85,10 +85,15 @@ filters:
   hunt_languages: [en, de]
   experience_levels: [associate, mid, senior]
   posting_types: [internship, working_student]
-  excluded_titles: [intern, trainee]
   excluded_companies: ["Recruiter Corp"]
   excluded_industries: [aerospace_defense]
 ```
+
+`experience_levels` is the only seniority/student-track filter — postings whose
+detected required-experience group isn't selected are excluded automatically. There
+is no separate `excluded_titles` field for seniority terms like "intern" or "chief";
+`experience_levels` already covers that ground with fail-open detection, so a hand-typed
+term list can't do anything it doesn't already do.
 
 `hunt_languages` is an allowlist of ISO language codes (at least one required); there is
 no `excluded_languages` list. Screening detects each posting's actual language —

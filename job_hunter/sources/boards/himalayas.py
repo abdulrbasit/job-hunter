@@ -108,7 +108,7 @@ class HimalayasSource(JobSourceAdapter):
             for item in raw_jobs:
                 job_title = str(item.get("title") or "")
                 job_location = _location_text(item)
-                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(job_title, params.job_titles):
                     continue
                 # Country/location filtering is deferred to JobPolicy/quality_gate downstream
                 # (location_restrictions below carries the signal) — the API's own `country`

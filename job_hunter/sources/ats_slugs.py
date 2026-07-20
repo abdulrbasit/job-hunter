@@ -92,7 +92,6 @@ def query_ats_by_slugs(
     slug_store: dict[str, list[str]],
     title_filters: list[str],
     regions: dict,
-    excluded_title_terms: list[str],
 ) -> list[dict]:
     """Query each cached slug against its platform's public job-list API.
 
@@ -128,7 +127,7 @@ def query_ats_by_slugs(
             url = j.get("url", "")
             if not title or not url or url in seen:
                 continue
-            if not title_matches(title, title_filters, excluded_title_terms):
+            if not title_matches(title, title_filters):
                 continue
             loc = j.get("location", "")
             if loc and locations and not any(location_matches(loc, lf) for lf in locations):

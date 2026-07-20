@@ -23,7 +23,6 @@ from typing import Any
 from job_hunter.config.loader import ROOT as _WORKSPACE_ROOT
 from job_hunter.config.reference_data import (
     resolve_experience_group_ids,
-    resolve_title_exclusions,
     startups_enabled,
     student_mode,
 )
@@ -111,7 +110,6 @@ def _params_for_region(
     region_key: str,
     region_config: dict[str, Any],
     job_titles: list[str],
-    excluded_title_terms: list[str],
     *,
     max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
     default_search_lang: str = "en",
@@ -132,7 +130,6 @@ def _params_for_region(
         search_lang=region_config.get("search_lang") or default_search_lang,
         job_titles=job_titles,
         max_results=max_results,
-        excluded_title_terms=excluded_title_terms,
         query_terms=query_terms or [],
         student_mode=is_student,
     )
@@ -152,7 +149,6 @@ def scrape_with_stats(
     ATS-discovery-only — without duplicating this function's policy filtering."""
     config = load_search_config()
     job_titles: list[str] = config.get("job_titles", []) or []
-    excluded_title_terms: list[str] = resolve_title_exclusions(config)
     regions = resolve_regions(config, region)
     max_results = _max_results_for_depth(depth)
 
@@ -281,7 +277,6 @@ def scrape_with_stats(
             search_lang=default_search_lang,
             job_titles=job_titles,
             max_results=max_results,
-            excluded_title_terms=excluded_title_terms,
             query_terms=query_terms,
             student_mode=is_student,
         )
@@ -306,7 +301,6 @@ def scrape_with_stats(
             search_lang=default_search_lang,
             job_titles=job_titles,
             max_results=max_results,
-            excluded_title_terms=excluded_title_terms,
             query_terms=query_terms,
             student_mode=is_student,
         )
@@ -326,7 +320,6 @@ def scrape_with_stats(
                 region_key,
                 region_config,
                 job_titles,
-                excluded_title_terms,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
                 query_terms=query_terms,
@@ -349,7 +342,6 @@ def scrape_with_stats(
                 region_key,
                 region_config,
                 job_titles,
-                excluded_title_terms,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
                 query_terms=query_terms,
@@ -380,7 +372,7 @@ def scrape_with_stats(
             slug_store = load_slug_store(_WORKSPACE_ROOT)
             for platform, slugs in catalog_slugs(_WORKSPACE_ROOT, config).items():
                 slug_store[platform] = sorted(set(slug_store.get(platform, [])) | slugs)
-            slug_jobs = query_ats_by_slugs(slug_store, job_titles, regions, excluded_title_terms)
+            slug_jobs = query_ats_by_slugs(slug_store, job_titles, regions)
             _add_unique([JobPosting.model_validate(j) for j in slug_jobs], "ats_slug")
         except Exception as exc:
             logger.warning("[orchestrator] ATS slug cache query failed: %s", exc)
@@ -390,7 +382,7 @@ def scrape_with_stats(
         try:
             from job_hunter.sources.search.ats_discovery import discover_ats_jobs_by_search
 
-            ats_raw = discover_ats_jobs_by_search(job_titles, regions, excluded_title_terms, disabled=run_disabled)
+            ats_raw = discover_ats_jobs_by_search(job_titles, regions, disabled=run_disabled)
             _add_unique([JobPosting.model_validate(j) for j in ats_raw], "ats_discovery")
         except Exception as exc:
             logger.warning("[orchestrator] ATS discovery failed: %s", exc)

@@ -107,22 +107,20 @@ def _supports_keyword(function: Callable[..., Any], name: str) -> bool:
         return False
 
 
-def _cheap_extract(company: dict[str, Any], titles: list[str], exclusions: list[str]) -> tuple[list[dict], bool]:
+def _cheap_extract(company: dict[str, Any], titles: list[str]) -> tuple[list[dict], bool]:
     """Return cheap-stage jobs and whether browser fallback is still needed."""
     if _supports_keyword(extract_career_page_jobs, "use_playwright"):
-        return extract_career_page_jobs(company, titles, exclusions, use_playwright=False), True
-    return extract_career_page_jobs(company, titles, exclusions), False
+        return extract_career_page_jobs(company, titles, use_playwright=False), True
+    return extract_career_page_jobs(company, titles), False
 
 
-def _timed_cheap_extract(
-    company: dict[str, Any], titles: list[str], exclusions: list[str]
-) -> tuple[list[dict], bool, float]:
+def _timed_cheap_extract(company: dict[str, Any], titles: list[str]) -> tuple[list[dict], bool, float]:
     """Times only this company's own extraction, from when a pool worker actually picks it
     up — not from task creation. With CHEAP_WORKERS=8 and thousands of enabled companies,
     queue-wait alone can exceed COMPANY_DEADLINE_SECONDS long before a
     company's own turn comes up if duration is measured from task creation instead."""
     started_at = time.monotonic()
-    jobs, needs_playwright = _cheap_extract(company, titles, exclusions)
+    jobs, needs_playwright = _cheap_extract(company, titles)
     return jobs, needs_playwright, time.monotonic() - started_at
 
 
@@ -145,9 +143,6 @@ def run(  # noqa: C901
         return 1
 
     titles = config.get("job_titles", [])
-    from job_hunter.config.reference_data import resolve_title_exclusions
-
-    exclusions = resolve_title_exclusions(config)
     enabled_companies = hunt_candidates(root, config)
     metadata_by_url = {str(company["career_url"]): company for company in enabled_companies}
 
@@ -262,10 +257,7 @@ def run(  # noqa: C901
 
     fallback: list[tuple[dict[str, Any], dict[str, Any]]] = []
     with ThreadPoolExecutor(max_workers=min(CHEAP_WORKERS, len(ready_tasks)) or 1) as pool:
-        futures = {
-            pool.submit(_timed_cheap_extract, company, titles, exclusions): (task, company)
-            for task, company in ready_tasks
-        }
+        futures = {pool.submit(_timed_cheap_extract, company, titles): (task, company) for task, company in ready_tasks}
         for future in as_completed(futures):
             task, company = futures[future]
             try:
@@ -310,7 +302,6 @@ def run(  # noqa: C901
                             extract_playwright_jobs_batch,
                             [company for _task, company in chunk],
                             titles,
-                            exclusions,
                             on_result=on_browser_result,
                         ),
                         chunk,

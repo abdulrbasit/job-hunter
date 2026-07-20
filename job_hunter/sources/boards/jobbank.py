@@ -96,7 +96,7 @@ class JobBankSource(JobSourceAdapter):
                 job_title = title_tag.get_text(strip=True) if title_tag else ""
                 if not job_title:
                     continue
-                if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(job_title, params.job_titles):
                     continue
 
                 company_tag = article.find(class_=re.compile(r"business|company|employer", re.I))

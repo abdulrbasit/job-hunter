@@ -195,14 +195,6 @@
           },
           "uniqueItems": true
         },
-        "excluded_titles": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        },
         "excluded_industries": {
           "type": "array",
           "items": {

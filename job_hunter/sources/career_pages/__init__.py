@@ -59,7 +59,6 @@ logger = logging.getLogger(__name__)
 def extract_career_page_jobs(
     company: dict,
     title_filters: list[str],
-    excluded_title_terms: list[str] | None = None,
     *,
     use_playwright: bool = True,
 ) -> list[dict]:
@@ -88,7 +87,7 @@ def extract_career_page_jobs(
         ats_name, slug = ats_result
         _, _, api_template = _pkg.detect_ats(career_url)
         if api_template:
-            jobs = _pkg._fetch_ats_endpoint_jobs(slug, ats_name, api_template, title_filters, excluded_title_terms)
+            jobs = _pkg._fetch_ats_endpoint_jobs(slug, ats_name, api_template, title_filters)
             if jobs:
                 logger.debug(
                     "[career_pages] rung=ats_api company=%s ats=%s jobs=%d",
@@ -110,16 +109,14 @@ def extract_career_page_jobs(
             return jsonld_jobs
 
     # Rung 3: Sitemap / common career-path discovery
-    sitemap_jobs = _pkg._try_sitemap_discovery(career_url, name, title_filters, excluded_title_terms)
+    sitemap_jobs = _pkg._try_sitemap_discovery(career_url, name, title_filters)
     if sitemap_jobs:
         logger.debug("[career_pages] rung=sitemap company=%s jobs=%d", name, len(sitemap_jobs))
         return sitemap_jobs
 
     # Rung 4: Static HTML extraction
     if html_content:
-        raw_jobs = _pkg._try_static_html(
-            html_content, html_base_url, name, title_filters, location, excluded_title_terms
-        )
+        raw_jobs = _pkg._try_static_html(html_content, html_base_url, name, title_filters, location)
         if raw_jobs:
             logger.debug("[career_pages] rung=static_html company=%s jobs=%d", name, len(raw_jobs))
             return raw_jobs
@@ -128,7 +125,7 @@ def extract_career_page_jobs(
         return []
 
     # Rung 5: Playwright rendering (sole browser fallback)
-    pw_jobs = _pkg._try_playwright(career_url, name, title_filters, location, excluded_title_terms)
+    pw_jobs = _pkg._try_playwright(career_url, name, title_filters, location)
     if pw_jobs:
         logger.debug("[career_pages] rung=playwright company=%s jobs=%d", name, len(pw_jobs))
     return pw_jobs

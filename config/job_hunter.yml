@@ -34,8 +34,6 @@ regions:
 filters:
   hunt_languages: [en]
   experience_levels: [associate, mid, senior]
-  excluded_titles:
-    [intern, internship, trainee, "working student", werkstudent, junior, principal, expert, "chief product"] #Why is this needed if experience levels are alreay defined? Code can auto filter based on experience levels. 
   excluded_companies: []
   excluded_industries: []
 

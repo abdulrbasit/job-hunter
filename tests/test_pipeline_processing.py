@@ -460,40 +460,6 @@ def test_finalize_processed_batch_one_bad_upsert_does_not_abort_the_rest() -> No
     update_readme.assert_called_once_with([broken, ok])
 
 
-def test_excluded_title_jobs_never_reach_llm_scoring() -> None:
-    """Objective screening runs before the quality gate and before scoring, so
-    an excluded-title job must never appear in score_and_filter_jobs input."""
-    good = {**_match(0)["job"], "location": "Berlin, Germany"}
-    excluded = {**_match(1)["job"], "title": "Staff Product Manager", "location": "Berlin, Germany"}
-    scored_inputs: list[list[dict]] = []
-
-    def fake_score(jobs, config):
-        scored_inputs.append(jobs)
-        return [{"score": 90, "matched_keywords": [], "gaps": [], "job": job} for job in jobs]
-
-    with (
-        patch("job_hunter.pipeline.stages.processing.score_and_filter_jobs", side_effect=fake_score),
-        patch("job_hunter.pipeline.stages.processing._process_match", return_value=True),
-    ):
-        processing.process_jobs(
-            [good, excluded],
-            skip_validate=True,
-            skip_score=False,
-            max_years=4,
-            api_config={},
-            scoring_config={
-                "scoring": {},
-                "exclusions": {"title_terms": ["staff"]},
-                "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
-            },
-        )
-
-    assert len(scored_inputs) == 1
-    scored_titles = [job["title"] for job in scored_inputs[0]]
-    assert "Staff Product Manager" not in scored_titles
-    assert good["title"] in scored_titles
-
-
 def test_hard_screen_stamps_detected_language_on_kept_jobs() -> None:
     from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
 
@@ -532,3 +498,41 @@ def test_insert_jobs_persists_detected_language(tmp_path) -> None:
             "SELECT language, output_language FROM jobs WHERE url = ?", ("https://x.example/j1",)
         ).fetchone()
     assert row == ("de", "")
+
+
+def test_hard_screen_rejects_seniority_and_student_postings_via_experience_levels_alone() -> None:
+    """Regression: filters.experience_levels already rejects postings whose detected
+    seniority/student-track group isn't selected — no excluded_titles entries needed
+    for terms like "chief"/"werkstudent" that duplicate what experience_levels covers.
+    Titles deliberately contain "Product Manager" so they pass the job_titles allowlist
+    match and isolate the experience-level gate as the only thing that can reject them
+    (excluded_titles is empty in this config, so has_excluded_title_term never fires)."""
+    from job_hunter.pipeline.stages.screening import screen_jobs_by_rules
+
+    jobs = [
+        {
+            "title": "VP Product Manager",
+            "company": "Acme",
+            "snippet": "Own the product vision as our new VP Product Manager, "
+            "reporting directly to the CEO with full P&L ownership.",
+            "location": "Berlin, Germany",
+            "region": "de",
+        },
+        {
+            "title": "Werkstudent Product Manager",
+            "company": "Acme",
+            "snippet": "Werkstudent gesucht zur Unterstuetzung unseres Produktteams in Teilzeit.",
+            "location": "Berlin, Germany",
+            "region": "de",
+        },
+    ]
+    config = {
+        "job_titles": ["Product Manager"],
+        "filters": {"hunt_languages": ["en", "de"], "experience_levels": ["associate", "mid", "senior"]},
+        "regions": {"de": {"enabled": True, "country": "DE", "scope": "country"}},
+    }
+
+    kept, rejected = screen_jobs_by_rules(jobs, config)
+
+    assert kept == []
+    assert {r["_rejection_reason"] for r in rejected} == {"experience_out_of_range"}

@@ -265,7 +265,7 @@ def test_doctor_rejects_workspace_owned_filter_definitions(tmp_path: Path) -> No
     _write_minimal_repo(tmp_path)
     filters_dir = tmp_path / "config" / "filters"
     filters_dir.mkdir()
-    (filters_dir / "excluded_titles.yml").write_text("- intern\n", encoding="utf-8")
+    (filters_dir / "excluded_companies.yml").write_text("- Acme\n", encoding="utf-8")
 
     payload = doctor(tmp_path)
     check = next(check for check in payload["checks"] if check["name"] == "package_owned_filters")

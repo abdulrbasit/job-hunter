@@ -76,7 +76,7 @@ class ArbeitnowSource(JobSourceAdapter):
 
             for job in data:
                 title = job.get("title", "")
-                if not title_is_allowed(title, params.job_titles, params.excluded_title_terms):
+                if not title_is_allowed(title, params.job_titles):
                     continue
                 location = job.get("location", "")
                 description = strip_html(job.get("description", ""))

@@ -231,7 +231,6 @@ class SearchParams(BaseModel):
     search_lang: str
     job_titles: list[str]
     max_results: int = 50
-    excluded_title_terms: list[str] = Field(default_factory=list)
     query_terms: list[str] = Field(default_factory=list)
     student_mode: bool = False
 

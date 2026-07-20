@@ -72,20 +72,13 @@ def test_multilingual_posting_type_and_no_experience_detection() -> None:
     assert detect_posting_signals("Internal Communications Manager", "").posting_type is None
 
 
-def test_student_title_matching_is_broader_but_exclusions_win() -> None:
+def test_student_title_matching_is_broader_with_relaxed_matching() -> None:
     assert title_is_allowed(
         "Product Management Intern",
         ["Product Manager"],
-        [],
         relaxed_student=True,
     )
-    assert not title_is_allowed(
-        "Product Management Intern",
-        ["Product Manager"],
-        ["intern"],
-        relaxed_student=True,
-    )
-    assert not title_is_allowed("School Principal", ["Software Engineer"], [], relaxed_student=True)
+    assert not title_is_allowed("School Principal", ["Software Engineer"], relaxed_student=True)
 
 
 def _config(*, levels: list[str], score: int = 70, posting_types: list[str] | None = None) -> dict:

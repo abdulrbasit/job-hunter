@@ -278,7 +278,6 @@ def test_discover_region_dedupes_by_canonical_url(monkeypatch) -> None:
         "berlin",
         {"location": "Berlin"},
         ["Product Manager"],
-        [],
         ["lever"],
         DupeProvider(),
     )
@@ -309,7 +308,6 @@ def test_discover_region_sets_region_and_validates_as_job_posting(monkeypatch) -
         "BH",
         {"location": "Manama", "country": "BH"},
         ["Product Manager"],
-        [],
         ["lever"],
         OneResultProvider(),
     )
@@ -349,7 +347,6 @@ def _discover_with_enriched_location(monkeypatch, enriched_location: str, region
         region_name,
         region_config,
         ["Product Manager"],
-        [],
         ["lever"],
         OneResultProvider(),
         max_queries_per_region=1,
@@ -408,7 +405,6 @@ def _discover_with_ats_evidence(monkeypatch, evidence: list[str] | None, region_
         region_name,
         region_config,
         ["Product Manager"],
-        [],
         ["lever"],
         OneResultProvider(),
         max_queries_per_region=1,
@@ -496,7 +492,6 @@ def test_discover_region_rejects_closed_postings(monkeypatch) -> None:
         "berlin",
         {"location": "Berlin"},
         ["Product Manager"],
-        [],
         ["lever"],
         OneResultProvider(),
     )

@@ -34,18 +34,6 @@ regions:
 
 exclusions:
   companies: []
-  title_terms:
-    - intern
-    - internship
-    - trainee
-    - working student
-    - werkstudent
-    - junior
-    - associate
-    - lead developer
-    - engineering manager
-    - vp engineering
-    - cto
   languages:
     - german
   industries: []

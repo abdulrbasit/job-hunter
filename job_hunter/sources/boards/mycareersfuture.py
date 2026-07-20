@@ -85,7 +85,7 @@ class MyCareersFutureSource(JobSourceAdapter):
                 before = len(jobs)
                 for item in results:
                     job_title = str(item.get("title") or "")
-                    if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+                    if not title_is_allowed(job_title, params.job_titles):
                         continue
 
                     uid = str(item.get("uuid") or "")

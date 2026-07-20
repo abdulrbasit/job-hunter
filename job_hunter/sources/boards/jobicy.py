@@ -94,7 +94,7 @@ class JobicySource(JobSourceAdapter):
             if not isinstance(item, dict):
                 continue
             job_title = str(item.get("jobTitle") or "")
-            if not title_is_allowed(job_title, params.job_titles, params.excluded_title_terms):
+            if not title_is_allowed(job_title, params.job_titles):
                 continue
             description = strip_html(str(item.get("jobDescription") or ""))
             jobs.append(

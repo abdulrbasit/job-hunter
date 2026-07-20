@@ -21,11 +21,6 @@ FILTER_TYPES: dict[str, FilterType] = {
         mode=FilterMatchMode.CONTAINS,
         normalize_company=True,
     ),
-    "excluded_titles": FilterType(
-        name="excluded_titles",
-        description="Title terms excluded from results",
-        mode=FilterMatchMode.CONTAINS,
-    ),
     "excluded_industries": FilterType(
         name="excluded_industries",
         description="Industries excluded from results",
@@ -78,7 +73,6 @@ def canonicalize_filter_config(config: dict[str, Any]) -> dict[str, Any]:
         exclusions = result["exclusions"]
         raw_filters = {
             "excluded_companies": exclusions.get("companies", []) or [],
-            "excluded_titles": exclusions.get("title_terms", []) or [],
             "excluded_industries": exclusions.get("industries", []) or [],
         }
     if not isinstance(raw_filters, dict):

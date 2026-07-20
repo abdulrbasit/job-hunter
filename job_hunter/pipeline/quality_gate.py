@@ -1,19 +1,13 @@
 """Deterministic quality gate. No LLM calls — purely keyword scoring.
 
 This gate ranks/caps candidates before expensive stages. It is NOT a hard
-rejection layer: hard exclusions (excluded titles, companies, locations, …)
-are enforced by JobPolicy and the objective screen (stages/screening.py),
-which always run before LLM scoring.
+rejection layer: hard exclusions (companies, locations, …) are enforced by
+JobPolicy and the objective screen (stages/screening.py), which always run
+before LLM scoring.
 
 Two gates in the pipeline:
   apply_pre_enrichment_quality_gate — caps volume before expensive HTTP JD fetches
   apply_pre_scoring_quality_gate    — ranks + caps before LLM scoring calls
-
-Scoring folds in configured excluded-title filters (the same deterministic title
-exclusion JobPolicy and the source adapters apply) as a *ranking signal only*
-so quality/rejection reasons show up in _quality_reasons — one excluded term
-scores -5 against a -10 threshold and does not by itself reject the job here;
-screen_jobs_by_rules is what hard-rejects it.
 
 Both are no-ops when disabled or when positive_terms/negative_terms are empty.
 """
@@ -22,8 +16,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
-from job_hunter.core.utils import has_excluded_title_term
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +84,6 @@ def score_quality_signals(job: dict[str, Any], config: dict[str, Any]) -> dict[s
         if t in snippet:
             score += weights["snippet_negative"]
             reasons.append(f"snippet:-{term}")
-
-    # Deterministic title exclusion — same source of
-    # truth as JobPolicy, applied word-order-independently via has_excluded_title_term.
-    job_title = str(job.get("title") or "")
-    from job_hunter.config.reference_data import resolve_title_exclusions
-
-    for term in resolve_title_exclusions(config):
-        if has_excluded_title_term(job_title, [term]):
-            score += weights["title_negative"]
-            reasons.append(f"title:excluded:{term}")
 
     return {**job, "_quality_score": score, "_quality_reasons": reasons}
 

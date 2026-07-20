@@ -72,20 +72,6 @@ def title_matches_any_role(title: str, job_titles: list[str]) -> bool:
     return _first_title_match(title.lower(), job_titles) is not None
 
 
-def has_excluded_title_term(title: str, excluded_terms: list[str] | None) -> bool:
-    """True when any excluded term appears in title, anywhere, regardless of word order."""
-    if not title or not excluded_terms:
-        return False
-    lower = title.lower()
-    for term in excluded_terms:
-        term = term.strip().lower()
-        if not term:
-            continue
-        if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", lower):
-            return True
-    return False
-
-
 _GENERIC_ROLE_TOKENS = {
     "associate",
     "entry",
@@ -119,21 +105,18 @@ def _relaxed_student_title_match(title: str, job_titles: list[str]) -> bool:
 def title_is_allowed(
     title: str,
     job_titles: list[str],
-    excluded_terms: list[str] | None = None,
     *,
     relaxed_student: bool = False,
 ) -> bool:
-    """True when title matches a target role and carries no excluded term (word-order independent)."""
-    if not title_matches_any_role(title, job_titles) and not (
+    """True when title matches a target role (word-order independent)."""
+    return title_matches_any_role(title, job_titles) or bool(
         relaxed_student and _relaxed_student_title_match(title, job_titles)
-    ):
-        return False
-    return not has_excluded_title_term(title, excluded_terms)
+    )
 
 
-def title_matches(title: str, job_titles: list[str], excluded_terms: list[str] | None = None) -> bool:
+def title_matches(title: str, job_titles: list[str]) -> bool:
     """Deprecated alias for title_is_allowed — kept for callers not yet migrated."""
-    return title_is_allowed(title, job_titles, excluded_terms)
+    return title_is_allowed(title, job_titles)
 
 
 def location_matches(location: str, filter_location: str) -> bool:

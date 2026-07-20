@@ -15,7 +15,6 @@ from job_hunter.core.builtin_filters import LANG_CODE_TO_NAME
 
 _FILTER_MAP = {
     "companies": "excluded_companies",
-    "title_terms": "excluded_titles",
     "industries": "excluded_industries",
 }
 

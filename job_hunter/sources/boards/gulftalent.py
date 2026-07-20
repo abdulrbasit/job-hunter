@@ -81,7 +81,6 @@ def _make_posting(
 def _parse_cards(
     html: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
@@ -100,7 +99,7 @@ def _parse_cards(
         job_title = title_tag.get_text(strip=True) if title_tag else ""
         if not job_title:
             continue
-        if not title_is_allowed(job_title, title_filters, excluded_title_terms):
+        if not title_is_allowed(job_title, title_filters):
             continue
 
         company_tag = card.find(class_=re.compile(r"company|employer|organisation", re.I))
@@ -139,7 +138,6 @@ def _parse_anchor_fallback(
     html: str,
     base_url: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
@@ -152,7 +150,6 @@ def _parse_anchor_fallback(
         title_filters,
         "",
         "GulfTalent",
-        excluded_title_terms,
     )
     return [
         _make_posting(
@@ -174,7 +171,6 @@ def _parse_jsonld(
     html: str,
     base_url: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
@@ -182,7 +178,7 @@ def _parse_jsonld(
     raw = extract_jsonld_jobs(html, base_url, "", title_filters=None)
     jobs = []
     for job in raw:
-        if not title_is_allowed(job.get("title") or "", title_filters, excluded_title_terms):
+        if not title_is_allowed(job.get("title") or "", title_filters):
             continue
         jobs.append(
             _make_posting(
@@ -214,7 +210,6 @@ def _iter_embedded_dicts(value: object):
 def _parse_embedded_script(
     html: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
@@ -241,7 +236,7 @@ def _parse_embedded_script(
             job_url = next((str(record[k]) for k in _EMBEDDED_URL_KEYS if record.get(k)), "")
             if not job_title or not job_url or job_url in seen:
                 continue
-            if not title_is_allowed(job_title, title_filters, excluded_title_terms):
+            if not title_is_allowed(job_title, title_filters):
                 continue
             seen.add(job_url)
             if not job_url.startswith("http"):
@@ -265,16 +260,15 @@ def _extract_jobs(
     html: str,
     base_url: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     region_name: str,
     title_query: str,
 ) -> list[dict]:
     """Cascade through extraction strategies; stop at the first one that finds jobs."""
     for extractor in (
-        lambda: _parse_cards(html, title_filters, excluded_title_terms, region_name, title_query),
-        lambda: _parse_anchor_fallback(html, base_url, title_filters, excluded_title_terms, region_name, title_query),
-        lambda: _parse_jsonld(html, base_url, title_filters, excluded_title_terms, region_name, title_query),
-        lambda: _parse_embedded_script(html, title_filters, excluded_title_terms, region_name, title_query),
+        lambda: _parse_cards(html, title_filters, region_name, title_query),
+        lambda: _parse_anchor_fallback(html, base_url, title_filters, region_name, title_query),
+        lambda: _parse_jsonld(html, base_url, title_filters, region_name, title_query),
+        lambda: _parse_embedded_script(html, title_filters, region_name, title_query),
     ):
         jobs = extractor()
         if jobs:
@@ -345,9 +339,7 @@ class GulfTalentSource(JobSourceAdapter):
                 logger.warning("[gulftalent] no HTML for %r in %s (page=%d)", title, params.region_key, page)
                 break
 
-            page_jobs = _extract_jobs(
-                html, url, params.job_titles, params.excluded_title_terms, params.region_key, title
-            )
+            page_jobs = _extract_jobs(html, url, params.job_titles, params.region_key, title)
             logger.info("[gulftalent] page=%d found=%d", page, len(page_jobs))
             if not page_jobs:
                 break

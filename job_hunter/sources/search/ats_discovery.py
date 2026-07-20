@@ -393,7 +393,6 @@ def _process_ats_result(
     query: str,
     location: str,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     seen: set[str],
     jobs: list[dict],
     region_name: str,
@@ -417,7 +416,7 @@ def _process_ats_result(
         logger.info("  [skip] Position closed: %s", result.url)
         return None
     job_title = enriched.get("title", "") if enriched else result.title
-    if not title_matches(job_title, title_filters, excluded_title_terms):
+    if not title_matches(job_title, title_filters):
         return
     enriched_location = str((enriched or {}).get("location") or "")
     candidate = {
@@ -470,7 +469,6 @@ def _discover_region(
     region_name: str,
     region_config: dict,
     title_filters: list[str],
-    excluded_title_terms: list[str],
     sources: list[str],
     router: object,
     *,
@@ -505,7 +503,6 @@ def _discover_region(
                         query,
                         location,
                         title_filters,
-                        excluded_title_terms,
                         seen,
                         jobs,
                         region_name,
@@ -518,7 +515,6 @@ def _discover_region(
 def discover_ats_jobs_by_search(
     title_filters: list[str],
     regions: dict[str, dict],
-    excluded_title_terms: list[str] | None = None,
     *,
     ats_discovery_config: dict | None = None,
     disabled: set[str] | None = None,
@@ -580,7 +576,6 @@ def discover_ats_jobs_by_search(
                             query,
                             location,
                             title_filters,
-                            excluded_title_terms,
                             seen,
                             jobs,
                             region_name,

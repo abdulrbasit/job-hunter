@@ -22,17 +22,14 @@ from job_hunter.workspace.finalize import (  # noqa: F401 — re-exported for ex
 
 def expand_listing_candidate(url: str, company: str, location: str, title: str) -> dict | None:
     from job_hunter.config import get_config
-    from job_hunter.config.reference_data import resolve_title_exclusions
     from job_hunter.sources.search import fetch_playwright_career_jobs
 
     search_config = get_config("job_hunter")
     title_filters = search_config.get("job_titles", [])
-    excluded_terms = resolve_title_exclusions(search_config)
     try:
         jobs = fetch_playwright_career_jobs(
             {"name": company or "Unknown Company", "career_url": url, "location": location},
             title_filters,
-            excluded_terms,
         )
     except Exception:
         return None

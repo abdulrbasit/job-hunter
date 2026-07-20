@@ -155,10 +155,9 @@ class TestFetchPlatformJobs:
 class TestQueryAtsBySlugs:
     _regions = {"primary": {"location": "Berlin"}}
     _titles = ["Product Manager"]
-    _excluded = []
 
     def test_returns_empty_on_empty_store(self) -> None:
-        assert query_ats_by_slugs({}, self._titles, self._regions, self._excluded) == []
+        assert query_ats_by_slugs({}, self._titles, self._regions) == []
 
     def test_filters_by_title(self) -> None:
         mock_jobs = [
@@ -166,7 +165,7 @@ class TestQueryAtsBySlugs:
             {"title": "Data Scientist", "url": "https://jobs.lever.co/acme/2", "location": "Berlin", "snippet": ""},
         ]
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
-            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions)
         assert len(results) == 1
         assert results[0]["title"] == "Product Manager"
 
@@ -175,7 +174,7 @@ class TestQueryAtsBySlugs:
             {"title": "Product Manager", "url": "https://jobs.lever.co/acme/1", "location": "New York", "snippet": ""},
         ]
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
-            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions)
         assert results == []
 
     def test_no_location_in_job_passes_through(self) -> None:
@@ -183,7 +182,7 @@ class TestQueryAtsBySlugs:
             {"title": "Product Manager", "url": "https://jobs.lever.co/acme/1", "location": "", "snippet": ""},
         ]
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
-            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs({"lever": ["acme"]}, self._titles, self._regions)
         assert len(results) == 1
 
     def test_deduplicates_urls(self) -> None:
@@ -191,7 +190,7 @@ class TestQueryAtsBySlugs:
             {"title": "Product Manager", "url": "https://jobs.lever.co/acme/1", "location": "", "snippet": ""},
         ]
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
-            results = query_ats_by_slugs({"lever": ["acme", "acme"]}, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs({"lever": ["acme", "acme"]}, self._titles, self._regions)
         assert len(results) == 1
 
     def test_source_field_set_to_platform(self) -> None:
@@ -204,7 +203,7 @@ class TestQueryAtsBySlugs:
             },
         ]
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", return_value=mock_jobs):
-            results = query_ats_by_slugs({"greenhouse": ["acme"]}, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs({"greenhouse": ["acme"]}, self._titles, self._regions)
         assert results[0]["source"] == "ats_slug/greenhouse"
 
     def test_fetches_every_slug_once_and_aggregates(self) -> None:
@@ -223,7 +222,7 @@ class TestQueryAtsBySlugs:
 
         store = {"greenhouse": ["a", "b"], "lever": ["c"]}
         with patch("job_hunter.sources.ats_apis.fetch_platform_jobs", side_effect=fake_fetch):
-            results = query_ats_by_slugs(store, self._titles, self._regions, self._excluded)
+            results = query_ats_by_slugs(store, self._titles, self._regions)
 
         assert sorted(calls) == [("greenhouse", "a"), ("greenhouse", "b"), ("lever", "c")]
         assert len(results) == 3

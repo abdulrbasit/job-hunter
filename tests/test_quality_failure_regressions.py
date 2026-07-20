@@ -33,12 +33,6 @@ def _job(**overrides) -> dict:
 # ── 1. Excluded title ────────────────────────────────────────────────────────
 
 
-def test_excluded_title_is_rejected() -> None:
-    policy = JobPolicy({"exclusions": {"title_terms": ["intern"]}})
-    reason = policy.rejection_reason(_job(title="Product Manager Intern"), ["Product Manager"])
-    assert reason == "excluded_title"
-
-
 # ── 2. Excluded company ──────────────────────────────────────────────────────
 
 

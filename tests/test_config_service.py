@@ -577,7 +577,7 @@ _ONBOARDING_BASE_CONFIG = {
     "mode": "agent",
     "job_titles": ["Old Title"],
     "regions": {"primary": {"enabled": True, "country": "DE", "location": "Berlin"}},
-    "filters": {"excluded_titles": ["intern"]},
+    "filters": {"excluded_companies": ["Acme"]},
     "scoring": {"min_fit_score": 70, "batch_size": 15},
 }
 
@@ -608,7 +608,7 @@ def test_apply_onboarding_prefs_leaves_scoring_and_other_filters_untouched() -> 
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
     assert merged["scoring"] == _ONBOARDING_BASE_CONFIG["scoring"]
-    assert merged["filters"]["excluded_titles"] == ["intern"]
+    assert merged["filters"]["excluded_companies"] == ["Acme"]
 
 
 def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
@@ -617,7 +617,7 @@ def test_apply_onboarding_prefs_sets_excluded_industries() -> None:
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
     assert merged["filters"]["excluded_industries"] == ["finance", "retail_ecommerce"]
-    assert merged["filters"]["excluded_titles"] == ["intern"]
+    assert merged["filters"]["excluded_companies"] == ["Acme"]
 
 
 def test_apply_onboarding_prefs_sets_hunt_languages() -> None:
@@ -626,7 +626,7 @@ def test_apply_onboarding_prefs_sets_hunt_languages() -> None:
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
 
     assert merged["filters"]["hunt_languages"] == ["en", "de"]
-    assert merged["filters"]["excluded_titles"] == ["intern"]
+    assert merged["filters"]["excluded_companies"] == ["Acme"]
 
 
 def test_apply_onboarding_prefs_leaves_hunt_languages_untouched_when_absent() -> None:
@@ -795,7 +795,6 @@ _FULL_CONFIG = {
     "regions": {"berlin": {"enabled": True, "country": "DE", "location": "Berlin", "primary": True}},
     "filters": {
         "excluded_companies": ["Acme"],
-        "excluded_titles": ["intern"],
         "hunt_languages": ["en"],
         "experience_levels": ["associate", "mid", "senior"],
     },

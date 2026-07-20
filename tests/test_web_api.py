@@ -956,7 +956,7 @@ def test_run_company_hunt_starts_worker_and_persists_summary(tmp_path: Path, mon
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
     monkeypatch.setattr(
         "job_hunter.pipeline.browser_hunt.extract_career_page_jobs",
-        lambda company, titles, exclusions: [
+        lambda company, titles: [
             {
                 "title": titles[0],
                 "company": company["name"],
@@ -1015,7 +1015,7 @@ def test_get_company_hunt_summary_message_reports_partial_failures(tmp_path: Pat
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
 
-    def fake_extract(company, titles, exclusions):
+    def fake_extract(company, titles):
         if company["name"] == "C":
             raise ConnectionError("couldn't connect")
         return [
@@ -1050,7 +1050,7 @@ def test_get_company_hunt_updates_returns_tasks_incrementally_since_cursor(tmp_p
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
     monkeypatch.setattr(
         "job_hunter.pipeline.browser_hunt.extract_career_page_jobs",
-        lambda company, titles, exclusions: [],
+        lambda company, titles: [],
     )
     api = DashAPI(tmp_path)
 
@@ -1077,7 +1077,7 @@ def test_run_company_hunt_reflects_running_state_while_in_progress(tmp_path: Pat
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ROOT", tmp_path)
     monkeypatch.setattr("job_hunter.pipeline.browser_hunt.ensure_chromium_installed", lambda: True)
 
-    def blocking_extract(company, titles, exclusions):
+    def blocking_extract(company, titles):
         release.wait(timeout=5)
         return []
 
@@ -1527,7 +1527,7 @@ def test_guided_form_round_trips_legacy_remote_country_and_city_regions(tmp_path
         "bahrain": {"enabled": True, "country": "BH", "location": "Bahrain"},
     }
     config["filters"] = {}
-    config["exclusions"] = {"companies": ["Acme"], "title_terms": ["intern"], "languages": ["german"]}
+    config["exclusions"] = {"companies": ["Acme"], "languages": ["german"]}
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "job_hunter.yml").write_text(yaml.safe_dump(config), encoding="utf-8")
     api = DashAPI(tmp_path)
@@ -1543,7 +1543,6 @@ def test_guided_form_round_trips_legacy_remote_country_and_city_regions(tmp_path
     assert saved["regions"]["bahrain"]["scope"] == "country"
     assert "exclusions" not in saved
     assert saved["filters"]["excluded_companies"] == ["Acme"]
-    assert saved["filters"]["excluded_titles"] == ["intern"]
 
 
 def test_dashboard_uses_generic_one_file_filter_editor() -> None:
@@ -2243,7 +2242,6 @@ def test_get_filter_options_uses_package_taxonomies() -> None:
     assert result["ok"] is True
     assert {item["name"] for item in result["types"]} == {
         "excluded_companies",
-        "excluded_titles",
         "excluded_industries",
         "hunt_languages",
         "experience_levels",

@@ -29,14 +29,12 @@ def test_industries_catalog_covers_crypto_gambling_and_defense_weapons() -> None
 def test_package_registry_defines_known_filter_types_and_modes() -> None:
     assert set(FILTER_TYPES) == {
         "excluded_companies",
-        "excluded_titles",
         "excluded_industries",
         "hunt_languages",
         "experience_levels",
         "posting_types",
     }
     assert FILTER_TYPES["excluded_companies"].mode == FilterMatchMode.CONTAINS
-    assert FILTER_TYPES["excluded_titles"].mode == FilterMatchMode.CONTAINS
     assert FILTER_TYPES["excluded_industries"].mode == FilterMatchMode.CONTAINS
     assert FILTER_TYPES["hunt_languages"].mode == FilterMatchMode.EXACT
     assert FILTER_TYPES["experience_levels"].mode == FilterMatchMode.EXACT
@@ -48,7 +46,6 @@ def test_scalar_choices_bind_to_package_matching_logic() -> None:
         {
             "filters": {
                 "excluded_companies": ["Delivery Hero", "Auto1"],
-                "excluded_titles": ["intern"],
                 "excluded_industries": ["aerospace_defense"],
                 "hunt_languages": ["en", "de"],
             }
@@ -58,7 +55,6 @@ def test_scalar_choices_bind_to_package_matching_logic() -> None:
     assert filters.matches("excluded_companies", "Delivery Hero SE")
     assert filters.matches("excluded_companies", "AUTO1 Group")
     assert not filters.matches("excluded_companies", "Hero Digital")
-    assert filters.matches("excluded_titles", "Product Management Intern")
     assert filters.matches("excluded_industries", "Defense aviation systems")
     assert filters.values("hunt_languages") == ["en", "de"]
 
@@ -84,14 +80,16 @@ def test_legacy_nested_groups_canonicalize_in_memory_without_mutating_input() ->
 
 
 def test_matchers_do_not_compile_during_matching(monkeypatch) -> None:
-    filters = FilterSet.from_config({"filters": {"excluded_companies": ["Acme"], "excluded_titles": ["intern"]}})
+    filters = FilterSet.from_config(
+        {"filters": {"excluded_companies": ["Acme"], "excluded_industries": ["aerospace_defense"]}}
+    )
 
     def fail_compile(*args, **kwargs):
         raise AssertionError("matching must not compile regexes")
 
     monkeypatch.setattr(re, "compile", fail_compile)
     assert filters.matches("excluded_companies", "Acme GmbH")
-    assert filters.matches("excluded_titles", "Product Intern")
+    assert filters.matches("excluded_industries", "Defense aviation systems")
 
 
 def test_unknown_filter_types_are_not_discovered_from_user_config() -> None:
@@ -101,11 +99,11 @@ def test_unknown_filter_types_are_not_discovered_from_user_config() -> None:
 
 
 def test_identical_choices_reuse_compiled_matchers() -> None:
-    config = {"filters": {"excluded_titles": ["intern"], "hunt_languages": ["en"]}}
+    config = {"filters": {"excluded_industries": ["aerospace_defense"], "hunt_languages": ["en"]}}
 
     first = FilterSet.from_config(config)
     second = FilterSet.from_config(config)
 
-    assert first.bound["excluded_titles"] is second.bound["excluded_titles"]
+    assert first.bound["excluded_industries"] is second.bound["excluded_industries"]
     assert first.bound["hunt_languages"] is second.bound["hunt_languages"]
     assert first.bound["hunt_languages"]._contains is None

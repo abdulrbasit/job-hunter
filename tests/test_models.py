@@ -124,7 +124,6 @@ def test_search_params_defaults() -> None:
     params = SearchParams(region_key="primary", country="DE", location="Berlin", search_lang="en", job_titles=["PM"])
 
     assert params.max_results == 50
-    assert params.excluded_title_terms == []
 
 
 def test_scrape_stats_defaults() -> None:

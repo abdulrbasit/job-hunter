@@ -92,7 +92,6 @@ regions:
 filters:
   hunt_languages: [en]
   experience_levels: [associate, mid, senior]
-  excluded_titles: [intern, internship, junior]
   excluded_companies: []
   excluded_industries: []
 
