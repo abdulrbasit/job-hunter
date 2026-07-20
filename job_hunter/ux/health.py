@@ -117,6 +117,7 @@ def doctor(root: Path) -> dict[str, Any]:
     story_rel = _configured_profile_rel(job_hunter_config, "story_bank", "profile/story_bank.md")
     for rel in ("config/job_hunter.yml", resume_rel, story_rel):
         checks.append(_check(rel, (root / rel).exists(), rel, f"Create {rel}."))
+    checks.extend(_resume_language_checks(root, job_hunter_config))
     for skill_md in (".claude/skills/job-hunter/SKILL.md", ".agents/skills/job-hunter/SKILL.md"):
         checks.append(
             _check(skill_md, (root / skill_md).exists(), skill_md, "Run `job-hunter update` to reinstall skills.")
@@ -153,12 +154,13 @@ def doctor(root: Path) -> dict[str, Any]:
         )
     )
     onboarding = onboarding_status(root, checks)
+    resume_language_warnings = _resume_language_coverage_warnings(job_hunter_config)
     return {
         "ok": all(item["ok"] for item in checks),
         "checks": checks,
         "onboardingNeeded": onboarding["onboardingNeeded"],
         "missing": onboarding["missing"],
-        "warnings": onboarding["warnings"] + location_warnings + telemetry_warnings,
+        "warnings": onboarding["warnings"] + location_warnings + telemetry_warnings + resume_language_warnings,
         "onboarding": onboarding,
     }
 
@@ -180,6 +182,41 @@ def _schema_checks(root: Path) -> list[dict[str, Any]]:
         except Exception as exc:
             checks.append(_check(f"yaml:{path.name}", False, str(exc), f"Fix {path.name}."))
     return checks
+
+
+def _resume_language_checks(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    """One file-existence check per profile.resumes entry (the shorthand's single file is
+    already covered by the caller's resume_rel check). "Exactly one base" is enforced by
+    _config_schema_check via validate_job_hunter_yaml, not duplicated here."""
+    resumes = (config.get("profile") or {}).get("resumes")
+    if not isinstance(resumes, dict):
+        return []
+    checks = []
+    for lang, spec in resumes.items():
+        if not isinstance(spec, dict):
+            continue
+        rel = str(spec.get("resume_tex") or "")
+        if not rel:
+            continue
+        checks.append(_check(f"resumes.{lang}", (root / rel).exists(), rel, f"Create {rel} or run /setup resume."))
+    return checks
+
+
+def _resume_language_coverage_warnings(config: dict[str, Any]) -> list[str]:
+    """Non-blocking: hunt languages with no dedicated base resume are translated from
+    the base at tailor time — surface it as a heads-up, never a doctor failure."""
+    from job_hunter.config.resumes import normalized_resumes
+    from job_hunter.filters import filter_values
+
+    base_lang, specs = normalized_resumes(config.get("profile") or {})
+    uncovered = [lang for lang in filter_values(config, "hunt_languages") if lang != base_lang and lang not in specs]
+    if not uncovered:
+        return []
+    return [
+        f"{lang} jobs will be translated from your {base_lang} base resume at tailor time "
+        f"(no dedicated base for {lang} yet — /setup resume --lang {lang} to add one)"
+        for lang in sorted(uncovered)
+    ]
 
 
 def _config_schema_check(root: Path) -> dict[str, Any]:

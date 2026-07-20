@@ -304,3 +304,15 @@ def test_rules_md_is_the_file_agents_md_flags_as_manually_mirrored() -> None:
     template_rules = ROOT / "job_hunter" / "templates" / "workspace" / ".claude" / "skills" / "job-hunter" / "_rules.md"
 
     assert root_rules.read_text(encoding="utf-8") == template_rules.read_text(encoding="utf-8")
+
+
+def test_setup_resume_skill_supports_adding_a_second_language_base() -> None:
+    text = (ROOT / ".claude" / "skills" / "setup" / "modes" / "resume.md").read_text(encoding="utf-8")
+
+    assert "Adding a second-language base resume" in text
+    assert "--lang" in text
+    assert "profile.resumes" in text
+    assert "base: true" in text
+    # translation pass, not a rewrite — same evidence/fabrication boundary as the build flow
+    assert "a rewrite" in text
+    assert "not add, remove, reorder, or embellish content" in text

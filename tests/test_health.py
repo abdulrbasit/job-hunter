@@ -476,3 +476,77 @@ def test_codex_otel_check_passes_when_pointed_at_job_hunter_collector(tmp_path: 
     checks = {check["name"]: check for check in payload["checks"]}
 
     assert checks["telemetry_codex_otel"]["ok"] is True
+
+
+def test_resume_language_checks_verifies_each_resumes_entry_file(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _resume_language_checks
+
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "resume.tex").write_text("x", encoding="utf-8")
+    config = {
+        "profile": {
+            "resumes": {
+                "en": {"resume_tex": "profile/resume.tex", "base": True},
+                "de": {"resume_tex": "profile/resume_de.tex"},  # missing on disk
+            }
+        }
+    }
+
+    checks = _resume_language_checks(tmp_path, config)
+    by_name = {c["name"]: c for c in checks}
+
+    assert by_name["resumes.en"]["ok"] is True
+    assert by_name["resumes.de"]["ok"] is False
+    assert "resume_de.tex" in by_name["resumes.de"]["detail"]
+
+
+def test_resume_language_checks_empty_for_shorthand_profile(tmp_path: Path) -> None:
+    from job_hunter.ux.health import _resume_language_checks
+
+    assert _resume_language_checks(tmp_path, {"profile": {"resume_tex": "profile/resume.tex"}}) == []
+
+
+def test_resume_language_coverage_warnings_flags_uncovered_hunt_languages() -> None:
+    from job_hunter.ux.health import _resume_language_coverage_warnings
+
+    config = {
+        "profile": {"resumes": {"en": {"resume_tex": "profile/resume.tex", "base": True}}},
+        "filters": {"hunt_languages": ["en", "de", "fr"]},
+    }
+
+    warnings = _resume_language_coverage_warnings(config)
+
+    assert len(warnings) == 2
+    assert any("de jobs will be translated from your en base" in w for w in warnings)
+    assert any("fr jobs will be translated from your en base" in w for w in warnings)
+    assert not any(w.startswith("en ") for w in warnings)  # base language itself is never flagged
+
+
+def test_resume_language_coverage_warnings_empty_when_fully_covered() -> None:
+    from job_hunter.ux.health import _resume_language_coverage_warnings
+
+    config = {
+        "profile": {
+            "resumes": {
+                "en": {"resume_tex": "profile/resume.tex", "base": True},
+                "de": {"resume_tex": "profile/resume_de.tex"},
+            }
+        },
+        "filters": {"hunt_languages": ["en", "de"]},
+    }
+
+    assert _resume_language_coverage_warnings(config) == []
+
+
+def test_doctor_surfaces_resume_language_warnings_without_failing(tmp_path: Path) -> None:
+    from job_hunter.ux.health import doctor
+
+    _write_minimal_repo(tmp_path)
+    config_path = tmp_path / "config" / "job_hunter.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["filters"] = {"hunt_languages": ["en", "de"]}
+    config_path.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    payload = doctor(tmp_path)
+
+    assert any("de jobs will be translated" in w for w in payload["warnings"])

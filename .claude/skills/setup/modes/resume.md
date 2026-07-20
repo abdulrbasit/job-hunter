@@ -13,6 +13,10 @@ Interactive guided build for the base resume. Reads `career_context.md` and `sto
 - Summary char limit: the summary must not exceed the max stated in `career_context.md` Summary guidance. Count before writing.
 - At the end, show a plain-language summary of changes and confirm before writing.
 
+## Step 0 — Choose mode
+
+If `$ARGUMENTS` contains `--lang <code>` (or the user asks to "add a German resume", "second-language resume", etc.), jump to **Adding a second-language base resume** at the bottom of this file — that's a translation of the existing base, not a from-scratch build. Otherwise continue with Step 1 below (first-time build).
+
 ---
 
 ## Step 1 — Detect template and check prerequisites
@@ -210,3 +214,72 @@ Tell the user:
 > 3. Run `job-hunter hunt --region primary` to start finding jobs.
 >
 > The tailoring pipeline will create a copy of this resume for each job — your base file is never modified by the pipeline.
+
+---
+
+## Adding a second-language base resume
+
+For a user who already has a working base resume and wants a native base resume in
+another hunt language, instead of relying on translate-and-tailor at every job (see
+`job_hunter/writing/language.py`). This is a translation of verified content, not new
+authoring — the same evidence and fabrication rules apply, just applied to translating
+rather than drafting.
+
+**Prerequisites:** An existing, filled-in base resume (`profile.resume_tex`, or the
+`base: true` entry of `profile.resumes`). If it's still template placeholder text, tell
+the user to finish `/setup resume` (the base build) first — there's nothing to translate yet.
+
+### Step A — Pick the target language
+
+Read `filters.hunt_languages` from `config/job_hunter.yml`. Read `profile.resume_tex` or
+`profile.resumes` to see which languages already have their own base. Offer the hunted
+languages that don't yet have one:
+
+> These hunt languages don't have their own base resume yet — jobs in them are
+> currently translated on the fly at tailor time: `<list>`. Which one do you want a
+> dedicated base resume for?
+
+If `$ARGUMENTS` already named a language code, skip the question and confirm it's one of
+`filters.hunt_languages`; if not, say so and ask for a valid one.
+
+### Step B — Translate
+
+Read the existing base `.tex` in full. Produce a translated copy that:
+- Keeps every LaTeX command, document structure, section order, dates, employer names,
+  and numeric metrics **exactly as in the source** — translate only human-readable text
+  (summary, bullets, skill labels, section headings if the template hard-codes them).
+- Does not add, remove, reorder, or embellish content — this is a translation pass, not
+  a rewrite. If a bullet is weak in the source, it stays weak in the translation.
+- Uses native, professional phrasing for the target language — no literal word-for-word
+  calques.
+- Leaves proper nouns, product names, and certifications in their original form unless
+  the user says otherwise.
+- Applies the same evidence boundaries as Step-1-11 above: nothing enters the
+  translation that wasn't already in the verified source.
+
+Show a short diff-style summary (not the full file) of what changed structurally, if
+anything (e.g. "same 4 roles, same 3 education entries, summary and bullets translated
+to German"). Confirm before writing.
+
+### Step C — Write and wire into config
+
+Write the translated file to `profile/resume_<lang>.tex` (or ask if the user wants a
+different name). Then update `config/job_hunter.yml`:
+- If `profile.resume_tex` is still the shorthand string, convert it to the map form:
+  the existing base becomes `profile.resumes.<base_lang>` with `base: true`, keeping its
+  `latex_class`/`profile_image` if set.
+- Add `profile.resumes.<lang>` pointing at the new file. Only set `latex_class`/
+  `profile_image` on the new entry if the user wants a different visual style —
+  otherwise it inherits nothing automatically, so leave them unset to fall back to the
+  base's assets at tailor time only if you also add them to the entry; ask the user
+  which they want if unsure.
+- Preserve every other config key untouched.
+
+### After writing
+
+> Added a `<Language>` base resume at `profile/resume_<lang>.tex`, wired into
+> `profile.resumes`. `<Language>` jobs will now tailor directly from it instead of
+> being translated from your `<base language>` base at tailor time.
+>
+> Run `/setup doctor` to confirm the config is valid, then check `job-hunter dash` →
+> Settings → Filters for the updated coverage indicator next to `<Language>`.
