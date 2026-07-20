@@ -24,18 +24,41 @@ later by changing `mode:` in `config/job_hunter.yml`.
 
 ## 3. Requirements
 
+**Windows and macOS:** none — the installer below bundles everything Job Hunter needs.
+
+**Linux, or if you prefer a terminal on any OS:**
+
 | Tool | Needed for | Get it |
 |---|---|---|
-| Python 3.12 or 3.13 | Both modes (there's no packaged installer yet — install still runs through a terminal once) | [python.org/downloads](https://www.python.org/downloads/) |
+| Python 3.12 or 3.13 | Both modes | [python.org/downloads](https://www.python.org/downloads/) |
 | [uv](https://docs.astral.sh/uv/) | Both modes (recommended installer) | Installed in step 4 below |
-| An LLM API key (Anthropic, OpenAI, or Google) | LLM API mode only | See [SETUP_LLM_API.md](SETUP_LLM_API.md) |
-| VS Code + Claude Code or Codex extension | Agent mode's daily review/tailoring only — not needed for setup, and not needed at all in LLM API mode | [code.visualstudio.com](https://code.visualstudio.com/) |
 
 Python 3.14 and Python 3.11 or older are not supported.
 
+An LLM API key (Anthropic, OpenAI, or Google) is needed for LLM API mode
+only — see [SETUP_LLM_API.md](SETUP_LLM_API.md). VS Code with the Claude
+Code or Codex extension is needed for Agent mode's daily review/tailoring
+only — not needed for setup, and not needed at all in LLM API mode.
+
 ## 4. Install Job Hunter
 
-Open a terminal and run:
+**Windows:** download `Job-Hunter-Setup-<version>.exe` from the
+[latest release](https://github.com/abdulrbasit/job-hunter/releases/latest),
+run it, and the dashboard opens automatically. It's unsigned, so Windows
+SmartScreen may warn on first run — choose "More info" → "Run anyway".
+
+**macOS:** download `Job-Hunter-<version>.pkg` from the
+[latest release](https://github.com/abdulrbasit/job-hunter/releases/latest)
+and run it. It's unsigned, so the first launch needs right-click (or
+Control-click) the app → **Open** → **Open**, instead of a normal double-click.
+
+**Linux, or a terminal on any OS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abdulrbasit/job-hunter/main/packaging/linux/install.sh | sh
+```
+
+or manually:
 
 ```bash
 python -m pip install uv
@@ -56,6 +79,10 @@ found", your terminal needs restarting after `update-shell`, or your
 Python Scripts folder isn't on `PATH`. See the troubleshooting sections in
 [SETUP_AGENT.md](SETUP_AGENT.md) or [SETUP_LLM_API.md](SETUP_LLM_API.md).
 
+**Updates:** once installed, open the dashboard (`job-hunter dash`) — when
+a new version is available, an "Update now" banner appears and handles the
+upgrade and restart for you. No terminal needed.
+
 ## 5. Create a workspace
 
 ```bash
@@ -73,6 +100,10 @@ steps printed.
 ```bash
 job-hunter dash
 ```
+
+The first time you run this, Job Hunter also adds a Start Menu shortcut
+(Windows) or applications-menu entry (Linux) so future launches don't need
+a terminal — click the icon instead. Pass `--no-shortcut` to skip this.
 
 A new workspace opens straight into a guided setup wizard: mode, job
 titles, region, languages/experience/exclusions — then a **Career
