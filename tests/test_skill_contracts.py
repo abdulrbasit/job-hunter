@@ -100,7 +100,7 @@ def test_tailor_skill_reads_career_context() -> None:
     assert "profile/career_context.md" in text
     assert "resume style" in text
     assert "cover-letter style" in text
-    assert "resume_tailored.tex" in text
+    assert "resume_tailored" in text  # language-suffixed artifact naming (resume_tailored.<lang>.tex)
     assert "outputs/jobs/<slug>/resume_tailored.md" not in text
     assert "job-hunter internal compile-pdf --job <slug>" in text
 

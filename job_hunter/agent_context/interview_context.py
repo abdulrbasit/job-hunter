@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.agent_context._types import MAX_JD_CHARS
-from job_hunter.agent_context._utils import _root
+from job_hunter.agent_context._utils import _root, job_language_context
 from job_hunter.agent_context.score_context import _read_job_folder
 from job_hunter.agent_context.stories import match_stories
 from job_hunter.writing.rules import universal_evidence_rules
@@ -19,9 +19,17 @@ def interview_context(job: str, root: Path | None = None, max_jd_chars: int = MA
     `matched_stories` is a JD-keyword-ranked fallback shortlist.
     """
     base = _root(root)
+    language = job_language_context(base, job)
+    # Prep is user-facing: briefing stays in the base language; the practice content
+    # (sample answers, key phrases) is produced in the language the interview will use.
+    language["content_policy"] = (
+        f"Write the briefing in {language['base_language']}; write sample answers and "
+        f"key phrases in {language['output_language']}."
+    )
     return {
         "job": _read_job_folder(base, job, max_jd_chars),
         "matched_stories": match_stories(job=job, root=base),
+        "language": language,
         "writing_rules": {"evidence": list(universal_evidence_rules())},
         "required_outputs": [
             {"path": f"outputs/jobs/{job}/interview_prep.md", "format": "markdown"},

@@ -12,7 +12,8 @@ Telemetry failure is non-blocking and must not be printed.
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context outreach-context --job <slug>` → `writing_rules.outreach`, `job`, `matched_stories`.
+- Start with `job-hunter internal agent-context outreach-context --job <slug>` → `writing_rules.outreach`, `job`, `matched_stories`, `language`.
+- Outreach is outward-facing: follow `language.content_policy` — write every draft in `language.output_language`.
 - Use `job.score.matched_story_ids` first, falling back to `matched_stories`; read selected stories only with `agent-context story --id`.
 - Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`, for writing-style and targeting preferences.
 - Search for at most three public profiles and print only the output path.

@@ -15,7 +15,9 @@ Slug: `$ARGUMENTS`
 ## Inputs
 
 - `job-hunter internal agent-context tailor-context --job <slug>` → tailoring_rules, positioning_rules,
-  project_rules, keywords, gaps, cover_constraints, writing_rules
+  project_rules, keywords, gaps, cover_constraints, writing_rules, language (job/output/base language,
+  language_rules), base_resume (source resume path for the routed language), required_outputs
+  (language-suffixed artifact paths — always write to exactly these paths)
 - `job-hunter internal agent-context score --mode full --job <slug>` → story_index, job meta, score.yml
 - `outputs/jobs/<slug>/score.yml` — matched_story_ids
 - Configured base resume from `config/job_hunter.yml:profile.resume_tex`
@@ -32,16 +34,23 @@ Slug: `$ARGUMENTS`
    preferences, and the universal rules win on any conflict.
 2. Read `outputs/state/compiled/career_context.min.md` (if present) else `profile/career_context.md`
    for resume style, cover-letter style, and evidence boundaries.
-3. Resolve the configured resume path from `config/job_hunter.yml:profile.resume_tex`
-   (e.g. `profile/resume.tex` or `profile/resume_double_column.tex`).
-   Copy it to the job folder without reading it into context:
+3. Copy the payload's `base_resume` (the source resume for the routed output language —
+   the target language's own base when one exists, else the base-language resume) to the
+   payload's resume `required_outputs` path (language-suffixed, e.g.
+   `outputs/jobs/<slug>/resume_tailored.de.tex`):
    ```bash
-   cp <resolved-resume-path> outputs/jobs/<slug>/resume_tailored.tex
+   cp <base_resume> <required_outputs resume path>
    ```
    Then read `outputs/state/compiled/resume.compact.txt` (if present) to understand existing content
-   and plan which sections to change. Do NOT load the full `.tex` into context.
+   and plan which sections to change. Do NOT load the full `.tex` into context — except when
+   `language.language_rules` is non-empty (translate-and-tailor): then the output language differs
+   from the source resume's language, `resume.compact.txt` reflects the base language only, and
+   every edited line must be written in the output language per `language.language_rules`.
 4. Read only selected Final stories (from `matched_story_ids` in score.yml).
-5. Tailor `outputs/jobs/<slug>/resume_tailored.tex` via surgical edits — do NOT regenerate the full file:
+5. Tailor the copied resume `.tex` via surgical edits — do NOT regenerate the full file.
+   When `language.language_rules` is non-empty, apply those rules to every edit: the human-readable
+   text you write must be in `language.output_language`; LaTeX commands, structure, employers, and
+   dates stay exactly as in the source.
    - For each section that needs changing: Read only the specific target lines (use offset/limit),
      then Edit in place with the tailored text.
    - Summary (`\cvtagline` or equivalent): mirror top `keywords` from tailor-context.
@@ -59,7 +68,8 @@ Slug: `$ARGUMENTS`
      to the original base resume text. Do not substitute an alternative — revert.
 6. Run `job-hunter internal telemetry-mark --phase tailoring --state end`, then
    `job-hunter internal telemetry-mark --phase cover_letter --skill cover_letter --job <slug> --state start`.
-   Write `outputs/jobs/<slug>/cover_letter.md`:
+   Write the cover letter to the payload's cover `required_outputs` path (language-suffixed,
+   e.g. `outputs/jobs/<slug>/cover_letter.de.md`) in `language.output_language`:
    - Apply `writing_rules.cover_letter` and `writing_rules.evidence` — universal, win over any conflicting style preference.
    - Tone: `cover_constraints.tone`.
    - Length: target `cover_constraints.target_words` words,
@@ -90,6 +100,8 @@ conflicting style preference. Tailor-specific procedure on top of those:
 - Never regenerate the full file. Surgical edits only.
 - If post-edit verification detects fabrication: revert the line to the original base resume text, not substitute.
 - Never write `resume_tailored.md`.
+- Write artifacts only to the payload's `required_outputs` paths — the language suffix is part of the contract.
+- The cover letter is always written in `language.output_language` (same language as the resume output).
 - Profile image is copied only when configured and present.
 - Do not update README or processed state. Caller owns workflow state.
 

@@ -9,6 +9,8 @@ folder for `<slug>` — run `/job-hunter one <url>` or `/job-hunter batch` first
 
 1. Run `job-hunter internal telemetry-mark --phase research --skill research --job <slug> --state start`, then
    `job-hunter internal agent-context score --mode full --job <slug>`.
+   Write the research briefing in your base resume language (it is for your own reading); note the
+   posting's language from `outputs/jobs/<slug>/meta.json:language` when it differs.
 2. Run at most three targeted web searches: product/business, role challenge, recent signal.
 3. Write `outputs/jobs/<slug>/company_research.md` with:
    What they build, Relevant to this role, Recent signal, Cover-letter hook, Sources.

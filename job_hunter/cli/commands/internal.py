@@ -85,21 +85,25 @@ def import_job(
 def compile_pdf(
     job: str = typer.Option(..., "--job", help="Job folder name under outputs/jobs/"),
 ) -> None:
-    """Compile resume_tailored.tex to PDF for a job folder."""
+    """Compile the tailored resume tex to PDF for a job folder."""
     import shutil
 
     from job_hunter.config.loader import ROOT, get_config
+    from job_hunter.config.resumes import resume_spec_for
+    from job_hunter.core.utils import find_job_artifact
     from job_hunter.pipeline.pdf_compiler import compile_tex
     from job_hunter.tracker import repo_path
 
-    tex_path = repo_path("outputs", "jobs", job, "resume_tailored.tex")
-    if not tex_path.exists():
-        fail(f"[compile-pdf] resume_tailored.tex not found in {job}")
+    job_dir = repo_path("outputs", "jobs", job)
+    tex_path = find_job_artifact(job_dir, "resume_tailored", "tex")
+    if tex_path is None:
+        fail(f"[compile-pdf] resume_tailored tex not found in {job}")
 
-    job_dir = tex_path.parent
-    profile = get_config("job_hunter").get("profile", {})
+    # language-coded tex (resume_tailored.de.tex) → copy that language entry's assets
+    lang = tex_path.suffixes[0].lstrip(".") if len(tex_path.suffixes) > 1 else ""
+    _chosen, spec = resume_spec_for(get_config("job_hunter").get("profile", {}), lang)
     for key in ("latex_class", "profile_image"):
-        rel = profile.get(key, "")
+        rel = spec.get(key, "")
         if not rel:
             continue
         src_file = ROOT / rel
@@ -151,7 +155,7 @@ def update_readme(
     """Add or update a job entry in README.md tracking table."""
     from datetime import date
 
-    from job_hunter.core.utils import read_yaml
+    from job_hunter.core.utils import find_job_artifact, read_yaml
     from job_hunter.pipeline.stages.readme import update_readme_from_applications
     from job_hunter.tracker import repo_path
     from job_hunter.tracking.applications import _require_apply_score, load_applications, upsert_application_from_job
@@ -160,8 +164,8 @@ def update_readme(
     meta_path = folder / "meta.json"
     if not meta_path.exists():
         fail(f"[update-readme] meta.json not found in {job}")
-    if not (folder / "resume_tailored.tex").exists():
-        fail(f"[update-readme] resume_tailored.tex not found in {job}")
+    if find_job_artifact(folder, "resume_tailored", "tex") is None:
+        fail(f"[update-readme] resume_tailored tex not found in {job}")
     try:
         _require_apply_score(read_yaml(folder / "score.yml"), job)
     except ValueError as exc:

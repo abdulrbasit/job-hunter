@@ -42,3 +42,47 @@ def _prefer_compiled(path: Path, root: Path) -> Path:
     """Return the compiled counterpart of a profile file if it exists."""
     compiled = root / "outputs" / "state" / "compiled" / (path.stem + ".min" + path.suffix)
     return compiled if compiled.exists() else path
+
+
+def job_language_context(root: Path, job: str) -> dict[str, Any]:
+    """Shared language block for every per-job context payload.
+
+    Deterministic routing: persisted posting language (meta.json, re-detected from
+    jd.md as a fallback for legacy folders) → output language gated by hunt_languages
+    → which base resume serves it. `language_rules` is non-empty exactly when no base
+    resume exists in the output language (translate-and-tailor)."""
+    import json as _json
+
+    from job_hunter.config.loader import get_config
+    from job_hunter.config.resumes import normalized_resumes, resume_spec_for
+    from job_hunter.core.language import detect_language
+    from job_hunter.filters import filter_values
+    from job_hunter.writing.language import resolve_output_language, translation_rules
+
+    job_dir = root / "outputs" / "jobs" / job
+    meta: dict[str, Any] = {}
+    meta_path = job_dir / "meta.json"
+    if meta_path.exists():
+        try:
+            meta = _json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            meta = {}
+    job_lang = str(meta.get("language") or "")
+    if not job_lang:
+        jd_path = job_dir / "jd.md"
+        jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
+        job_lang = detect_language(str(meta.get("title") or ""), jd_text).code or ""
+
+    config = get_config("job_hunter")
+    profile = config.get("profile") or {}
+    base_lang, _specs = normalized_resumes(profile)
+    output = resolve_output_language(job_lang, filter_values(config, "hunt_languages"), base_lang)
+    chosen, spec = resume_spec_for(profile, output)
+    return {
+        "job_language": job_lang,
+        "output_language": output,
+        "base_language": base_lang,
+        "source_resume_language": chosen,
+        "source_resume_tex": spec.get("resume_tex", ""),
+        "language_rules": list(translation_rules(output)) if chosen != output else [],
+    }

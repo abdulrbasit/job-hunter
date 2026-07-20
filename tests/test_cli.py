@@ -563,7 +563,7 @@ def test_update_readme_rejects_missing_tailored_tex(tmp_path: Path, monkeypatch:
     result = CliRunner().invoke(cli_module.app, ["internal", "update-readme", "--job", job])
 
     assert result.exit_code == 1
-    assert "resume_tailored.tex not found" in result.output
+    assert "resume_tailored tex not found" in result.output
 
 
 def test_update_readme_rejects_skip_decisioned_job(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -12,7 +12,8 @@ Telemetry failure is non-blocking and must not be printed.
 
 ## Token Rules
 
-- Start with `job-hunter internal agent-context interview-context --job <slug>`.
+- Start with `job-hunter internal agent-context interview-context --job <slug>` → includes `language`.
+- Follow `language.content_policy`: the briefing stays in `language.base_language`; sample answers and key phrases are written in `language.output_language` (the language the interview will likely use).
 - Story bank: use `job.score.matched_story_ids` first → `matched_stories` (JD-keyword-ranked shortlist) if thin → stories-final for broad comparison. Never use Draft/raw sections.
 - Read `outputs/state/compiled/career_context.min.md` if present, else `profile/career_context.md`, for learned interview preferences, dealbreakers, and calibration notes.
 

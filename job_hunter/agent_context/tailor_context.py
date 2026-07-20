@@ -9,8 +9,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from job_hunter.agent_context._utils import _root
+from job_hunter.agent_context._utils import _root, job_language_context
 from job_hunter.core.utils import read_yaml
+from job_hunter.writing.language import artifact_suffix
 from job_hunter.writing.rules import (
     universal_ats_rules,
     universal_cover_letter_rules,
@@ -65,11 +66,15 @@ def tailor_context(job: str, root: Path | None = None) -> dict[str, Any]:
     config = get_config("job_hunter")
     score = _score(base, job)
 
-    base_tex = _load_profile_text("resume_tex", "resume.tex")
+    language = job_language_context(base, job)
+    suffix = artifact_suffix(language["output_language"])
+    base_tex = _source_resume_text(language)
     stories_config = (config.get("tailoring") or {}).get("stories") or {}
     story_bank = _load_profile_text("story_bank", stories_config.get("story_bank", "story_bank.md"))
 
     return {
+        "language": language,
+        "base_resume": language["source_resume_tex"] or "profile/resume.tex",
         "keywords": list(score.get("matched", score.get("matched_keywords", []))),
         "gaps": list(score.get("gaps", [])),
         "tailoring_rules": _build_tailoring_rules(config),
@@ -84,10 +89,20 @@ def tailor_context(job: str, root: Path | None = None) -> dict[str, Any]:
         },
         "required_outputs": [
             {
-                "path": f"outputs/jobs/{job}/resume_tailored.tex",
+                "path": f"outputs/jobs/{job}/resume_tailored{suffix}.tex",
                 "format": "latex",
                 "edit_mode": "surgical_edits_only",
             },
-            {"path": f"outputs/jobs/{job}/cover_letter.md", "format": "plain_text"},
+            {"path": f"outputs/jobs/{job}/cover_letter{suffix}.md", "format": "plain_text"},
         ],
     }
+
+
+def _source_resume_text(language: dict[str, Any]) -> str:
+    """The source resume for the routed language — same resolution as llm-api tailoring."""
+    from job_hunter.pipeline.tailorer import _get_base_tex
+
+    try:
+        return _get_base_tex(language["output_language"])
+    except FileNotFoundError:
+        return ""

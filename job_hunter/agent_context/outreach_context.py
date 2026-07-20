@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from job_hunter.agent_context._types import MAX_JD_CHARS
-from job_hunter.agent_context._utils import _root
+from job_hunter.agent_context._utils import _root, job_language_context
 from job_hunter.agent_context.score_context import _read_job_folder
 from job_hunter.agent_context.stories import match_stories
 from job_hunter.writing.rules import universal_outreach_rules
@@ -22,6 +22,9 @@ def outreach_context(
     base = _root(root)
     payload["job"] = _read_job_folder(base, job, max_jd_chars)
     payload["matched_stories"] = match_stories(job=job, root=base)
+    payload["language"] = job_language_context(base, job)
+    # Outreach is outward-facing: drafts are written in the routed output language.
+    payload["language"]["content_policy"] = f"Write all outreach drafts in {payload['language']['output_language']}."
     payload["required_outputs"] = [
         {"path": f"outputs/jobs/{job}/outreach_drafts.md", "format": "markdown"},
     ]
