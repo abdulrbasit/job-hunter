@@ -85,7 +85,6 @@ regions:
     enabled: true
     primary: true
     country: "DE"        # two-letter country code
-    search_lang: "en"
     location: "Berlin"
     description: "Primary region"
 

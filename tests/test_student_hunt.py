@@ -20,6 +20,7 @@ from job_hunter.core.posting_types import (
 from job_hunter.core.utils import title_is_allowed
 from job_hunter.llm.prompts.scoring import scoring_guidance
 from job_hunter.models import JobPosting, PostingType, SearchParams
+from job_hunter.sources.boards import jobteaser as jobteaser_module
 from job_hunter.sources.boards.arbeitsagentur import ArbeitsagenturSource
 from job_hunter.sources.boards.jobteaser import JobTeaserSource
 from job_hunter.sources.boards.student_stubs import HandshakeSource, StellenwerkSource
@@ -188,6 +189,35 @@ def test_jobteaser_parser_and_inactive_stubs_use_standard_contract() -> None:
     assert jobs[0].posting_type is PostingType.INTERNSHIP
     assert HandshakeSource().fetch(params) == []
     assert StellenwerkSource().fetch(params) == []
+
+
+def test_jobteaser_fans_out_across_every_hunt_language() -> None:
+    """A region with hunt_languages: [en, de] must be searched in both locales,
+    not just params.search_lang (the single-language default)."""
+    en_html = '<article><a href="/en/job-offers/1-data-intern"><h3>Data Intern</h3></a><p>Acme</p><span>Berlin</span></article>'
+    de_html = '<article><a href="/de/job-offers/2-werkstudent"><h3>Werkstudent Data</h3></a><p>Acme</p><span>Berlin</span></article>'
+
+    def fake_get(url, **kwargs):
+        response = Mock(text=de_html if url.startswith(f"{jobteaser_module._BASE_URL}/de/") else en_html)
+        response.raise_for_status.return_value = None
+        return response
+
+    params = SearchParams(
+        region_key="primary",
+        country="DE",
+        location="Berlin",
+        search_lang="en",
+        hunt_languages=["en", "de"],
+        job_titles=["Data Analyst"],
+        student_mode=True,
+    )
+    with patch("job_hunter.sources.boards.jobteaser.requests.get", side_effect=fake_get) as request:
+        jobs = JobTeaserSource().fetch(params)
+
+    requested_urls = {call.args[0] for call in request.call_args_list}
+    assert f"{jobteaser_module._BASE_URL}/en/job-offers" in requested_urls
+    assert f"{jobteaser_module._BASE_URL}/de/job-offers" in requested_urls
+    assert {job.title for job in jobs} == {"Data Intern", "Werkstudent Data"}
 
 
 def test_student_scoring_guidance_is_shared_by_agent_and_llm(tmp_path: Path) -> None:

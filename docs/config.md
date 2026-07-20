@@ -46,7 +46,6 @@ A map of region name → region config. At least one region is required.
 | `scope` | yes | `city`, `country`, `remote_country`, or `remote_global` |
 | `city_id` | for `city` | Package-owned canonical city ID |
 | `primary` | no | Marks the default region for `--region primary` |
-| `search_lang` | no | Language code for search-provider queries |
 | `description` | no | Free text, shown in `doctor`/dashboard output |
 
 Example city reference:
@@ -59,7 +58,6 @@ regions:
     country: DE
     scope: city
     city_id: "geonames:2950159"
-    search_lang: en
 ```
 
 The package owns all names and aliases for that ID. Legacy `location: Berlin`
@@ -70,9 +68,15 @@ Remote/global sources are skipped unless an enabled scope can accept them.
 Unknown runtime location evidence fails closed.
 
 Dashboard region cards expose only Type, Country, and City by default. City is
-one searchable package-backed field; config key, search language, and
-description remain available under Advanced. Legacy country names and remote
-phrases are inferred before rendering, so they do not appear as empty cities.
+one searchable package-backed field; config key and description remain
+available under Advanced. Legacy country names and remote phrases are
+inferred before rendering, so they do not appear as empty cities.
+
+There is no per-region search-language field — `filters.hunt_languages` is the
+only language setting, and it drives every language-aware source. The two
+sources that vary by language (SearXNG-backed ATS discovery and JobTeaser)
+issue one search pass per configured hunt language, so a region with
+`hunt_languages: [en, de]` is actually searched in both.
 
 ### `filters`
 

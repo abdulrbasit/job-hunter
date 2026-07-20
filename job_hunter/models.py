@@ -229,6 +229,7 @@ class SearchParams(BaseModel):
     country: str
     location: str
     search_lang: str
+    hunt_languages: list[str] = Field(default_factory=list)
     job_titles: list[str]
     max_results: int = 50
     query_terms: list[str] = Field(default_factory=list)

@@ -956,6 +956,36 @@ def test_ats_discovery_search_config_override_removes_api_query_cap(
     ]
 
 
+def test_discover_ats_jobs_by_search_issues_one_pass_per_hunt_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A region with hunt_languages: [en, de] must be searched in both — not just
+    the first configured language (the pre-consolidation default_search_lang bug)."""
+    seen_langs: list[str] = []
+
+    class Router:
+        def search(self, query: str, region_config: dict, count: int = 10) -> list[search.SearchResult]:
+            seen_langs.append(region_config.get("search_lang"))
+            return []
+
+    monkeypatch.setattr(
+        _ats_mod,
+        "_search_config",
+        lambda: {"ats_discovery": {"enabled": True, "sources": ["greenhouse"], "results_per_query": 10}},
+    )
+    monkeypatch.setattr(_ats_mod, "SearchRouter", lambda *_args, **_kwargs: Router())
+    monkeypatch.setattr(_ats_mod, "all_providers_exhausted", lambda *_a, **_k: False)
+
+    search.discover_ats_jobs_by_search(
+        ["Product Manager"],
+        {"primary": {"location": "Berlin"}},
+        hunt_languages=["en", "de"],
+    )
+
+    assert "en" in seen_langs
+    assert "de" in seen_langs
+
+
 # ---------------------------------------------------------------------------
 # Task 3: API-exhausted and no-key fallback health
 # ---------------------------------------------------------------------------

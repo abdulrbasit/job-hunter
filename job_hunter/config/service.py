@@ -416,8 +416,6 @@ def apply_onboarding_prefs(data: dict[str, Any], prefs: dict[str, Any]) -> dict[
         country = str(prefs.get("country") or "").strip().upper()
         primary.update(location_to_config(resolve_config_location(country, str(location or ""))))
         primary.pop("location", None)
-    if prefs.get("search_lang"):
-        primary["search_lang"] = str(prefs["search_lang"])
     regions["primary"] = primary
     merged["regions"] = regions
 

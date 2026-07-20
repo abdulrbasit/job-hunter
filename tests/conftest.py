@@ -54,7 +54,6 @@ config_dir.mkdir(parents=True)
             enabled: true
             primary: true
             country: DE
-            search_lang: en
             location: Berlin
         filters:
           languages:

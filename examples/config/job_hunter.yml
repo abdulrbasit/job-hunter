@@ -22,13 +22,11 @@ regions:
     enabled: true
     primary: true
     country: "DE"
-    search_lang: "en"
     location: "Hamburg"
     description: "Hamburg and greater area"
   remote:
     enabled: true
     country: "DE"
-    search_lang: "en"
     location: "Remote"
     description: "Remote-first roles open to Germany"
 

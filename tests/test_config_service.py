@@ -588,7 +588,6 @@ def test_apply_onboarding_prefs_updates_titles_experience_levels_and_primary_reg
         "job_titles": ["Director of Product"],
         "country": "us",
         "location": "New York",
-        "search_lang": "en",
     }
 
     merged = service.apply_onboarding_prefs(_ONBOARDING_BASE_CONFIG, prefs)
@@ -599,7 +598,6 @@ def test_apply_onboarding_prefs_updates_titles_experience_levels_and_primary_reg
     assert merged["regions"]["primary"]["scope"] == "city"
     assert merged["regions"]["primary"]["city_id"] == "geonames:5128581"
     assert "location" not in merged["regions"]["primary"]
-    assert merged["regions"]["primary"]["search_lang"] == "en"
 
 
 def test_apply_onboarding_prefs_leaves_scoring_and_other_filters_untouched() -> None:

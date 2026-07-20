@@ -136,9 +136,6 @@
             "type": "string",
             "minLength": 1
           },
-          "search_lang": {
-            "type": "string"
-          },
           "location": {
             "type": "string"
           },

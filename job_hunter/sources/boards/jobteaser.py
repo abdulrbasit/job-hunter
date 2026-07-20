@@ -17,6 +17,7 @@ _BASE_URL = "https://www.jobteaser.com"
 _SUPPORTED = frozenset(
     {"AT", "BE", "CH", "DE", "DK", "ES", "FI", "FR", "GB", "IE", "IT", "LU", "NL", "NO", "PL", "PT", "SE"}
 )
+_SUPPORTED_LOCALES = frozenset({"de", "en", "es", "fr", "it", "nl"})
 
 
 class JobTeaserSource(JobSourceAdapter):
@@ -33,7 +34,16 @@ class JobTeaserSource(JobSourceAdapter):
     def _fetch(self, params: SearchParams) -> list[JobPosting]:
         if not self.supports_country(params.country) or not job_board_enabled(self.source_name):
             return []
-        locale = params.search_lang if params.search_lang in {"de", "en", "es", "fr", "it", "nl"} else "en"
+        locales = [lang for lang in dict.fromkeys(params.hunt_languages) if lang in _SUPPORTED_LOCALES]
+        if not locales:
+            locales = [params.search_lang if params.search_lang in _SUPPORTED_LOCALES else "en"]
+        jobs: list[JobPosting] = []
+        seen_urls: set[str] = set()
+        for locale in locales:
+            jobs.extend(self._fetch_locale(params, locale, seen_urls))
+        return jobs
+
+    def _fetch_locale(self, params: SearchParams, locale: str, seen_urls: set[str]) -> list[JobPosting]:
         response = requests.get(
             f"{_BASE_URL}/{locale}/job-offers",
             params={"locale": params.country.lower()},
@@ -58,11 +68,15 @@ class JobTeaserSource(JobSourceAdapter):
             company = text_parts[0] if text_parts else ""
             location = next((value for value in text_parts if params.location.casefold() in value.casefold()), "")
             signals = detect_posting_signals(title, " ".join(text_parts))
+            url = urljoin(_BASE_URL, str(link["href"]))
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
             jobs.append(
                 JobPosting(
                     title=title,
                     company=company,
-                    url=urljoin(_BASE_URL, str(link["href"])),
+                    url=url,
                     location=location,
                     snippet=" ".join(text_parts)[:3000],
                     source="JobTeaser",

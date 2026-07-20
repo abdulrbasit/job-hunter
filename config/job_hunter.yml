@@ -20,8 +20,6 @@ regions:
     primary: true
     country: "DE"
     scope: country
-    search_lang: "en" # Is this needed if hunt langugage is already there? Also if I set hunt language to en and german, what happens if I am applying to jobs in Berlin? Does it automatically apply if jd is german? What happens when I have english countries like UK in my search region too?
-    description: "Primary search region" # Not really needed.
 
   # Additional regions can be added here. Country-specific sources are
   # automatically skipped when their country is not enabled.

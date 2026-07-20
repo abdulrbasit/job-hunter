@@ -516,10 +516,15 @@ def discover_ats_jobs_by_search(
     title_filters: list[str],
     regions: dict[str, dict],
     *,
+    hunt_languages: list[str] | None = None,
     ats_discovery_config: dict | None = None,
     disabled: set[str] | None = None,
 ) -> list[dict]:
-    """Find individual ATS job URLs from broad title+region search queries."""
+    """Find individual ATS job URLs from broad title+region search queries.
+
+    Issues one search pass per configured hunt language (query text is
+    language-agnostic; only the search provider's `language` param changes) —
+    the existing per-region/total query caps bound the resulting fan-out."""
     if not title_filters or not regions:
         return []
 
@@ -536,30 +541,24 @@ def discover_ats_jobs_by_search(
     max_queries_per_region = int(config.get("max_queries_per_region", 0) or 0)
     max_total_queries = int(config.get("max_total_queries", 0) or 0)
     sources = config.get("sources") or list(_ATS_DISCOVERY_SITES)
+    languages = hunt_languages or ["en"]
     router = SearchRouter(disabled=disabled)
     jobs: list[dict] = []
     seen: set[str] = set()
     total_queries = 0
 
-    for region_name, region_config in regions.items():
+    for region_name, base_region_config in regions.items():
         region_queries = 0
         from job_hunter.locations import location_from_region
 
-        canonical = location_from_region(region_config)
+        canonical = location_from_region(base_region_config)
         location = canonical.city.name if canonical.city is not None else canonical.country or "Remote"
-        for title in title_filters:
-            for source in sources:
-                if source not in _ATS_DISCOVERY_SITES:
-                    continue
-                if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
-                    logger.info("[search-discovery] query cap reached for region=%s", region_name)
-                    break
-                if max_total_queries > 0 and total_queries >= max_total_queries:
-                    logger.info("[search-discovery] total query cap reached")
-                    logger.info("[search-discovery] complete: %s jobs found", len(jobs))
-                    return jobs
-                site_query, _, _ = _ATS_DISCOVERY_SITES[source]
-                for query in _ats_search_queries(site_query, title, location, region_config):
+        for language in languages:
+            region_config = {**base_region_config, "search_lang": language}
+            for title in title_filters:
+                for source in sources:
+                    if source not in _ATS_DISCOVERY_SITES:
+                        continue
                     if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
                         logger.info("[search-discovery] query cap reached for region=%s", region_name)
                         break
@@ -567,21 +566,30 @@ def discover_ats_jobs_by_search(
                         logger.info("[search-discovery] total query cap reached")
                         logger.info("[search-discovery] complete: %s jobs found", len(jobs))
                         return jobs
-                    region_queries += 1
-                    total_queries += 1
-                    for result in router.search(query, region_config, count=max_results_per_query):
-                        _process_ats_result(
-                            result,
-                            source,
-                            query,
-                            location,
-                            title_filters,
-                            seen,
-                            jobs,
-                            region_name,
-                            region_config,
-                            log_skips=True,
-                        )
+                    site_query, _, _ = _ATS_DISCOVERY_SITES[source]
+                    for query in _ats_search_queries(site_query, title, location, region_config):
+                        if max_queries_per_region > 0 and region_queries >= max_queries_per_region:
+                            logger.info("[search-discovery] query cap reached for region=%s", region_name)
+                            break
+                        if max_total_queries > 0 and total_queries >= max_total_queries:
+                            logger.info("[search-discovery] total query cap reached")
+                            logger.info("[search-discovery] complete: %s jobs found", len(jobs))
+                            return jobs
+                        region_queries += 1
+                        total_queries += 1
+                        for result in router.search(query, region_config, count=max_results_per_query):
+                            _process_ats_result(
+                                result,
+                                source,
+                                query,
+                                location,
+                                title_filters,
+                                seen,
+                                jobs,
+                                region_name,
+                                region_config,
+                                log_skips=True,
+                            )
 
     logger.info("[search-discovery] complete: %s jobs found", len(jobs))
     return jobs

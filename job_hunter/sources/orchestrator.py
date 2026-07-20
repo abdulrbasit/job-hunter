@@ -112,6 +112,7 @@ def _params_for_region(
     *,
     max_results: int = DEFAULT_STANDARD_MAX_RESULTS,
     default_search_lang: str = "en",
+    hunt_languages: list[str] | None = None,
     query_terms: list[str] | None = None,
     is_student: bool = False,
 ) -> SearchParams:
@@ -126,7 +127,8 @@ def _params_for_region(
         canonical_location=canonical,
         country=canonical.country,
         location=query_location,
-        search_lang=region_config.get("search_lang") or default_search_lang,
+        search_lang=default_search_lang,
+        hunt_languages=hunt_languages or [default_search_lang],
         job_titles=job_titles,
         max_results=max_results,
         query_terms=query_terms or [],
@@ -272,6 +274,7 @@ def scrape_with_stats(
             country="",
             location="",
             search_lang=default_search_lang,
+            hunt_languages=hunt_languages or [default_search_lang],
             job_titles=job_titles,
             max_results=max_results,
             query_terms=query_terms,
@@ -296,6 +299,7 @@ def scrape_with_stats(
             country="",
             location="",
             search_lang=default_search_lang,
+            hunt_languages=hunt_languages or [default_search_lang],
             job_titles=job_titles,
             max_results=max_results,
             query_terms=query_terms,
@@ -319,6 +323,7 @@ def scrape_with_stats(
                 job_titles,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
+                hunt_languages=hunt_languages,
                 query_terms=query_terms,
                 is_student=is_student,
             )
@@ -341,6 +346,7 @@ def scrape_with_stats(
                 job_titles,
                 max_results=max_results,
                 default_search_lang=default_search_lang,
+                hunt_languages=hunt_languages,
                 query_terms=query_terms,
                 is_student=is_student,
             )
@@ -379,7 +385,9 @@ def scrape_with_stats(
         try:
             from job_hunter.sources.search.ats_discovery import discover_ats_jobs_by_search
 
-            ats_raw = discover_ats_jobs_by_search(job_titles, regions, disabled=run_disabled)
+            ats_raw = discover_ats_jobs_by_search(
+                job_titles, regions, hunt_languages=hunt_languages, disabled=run_disabled
+            )
             _add_unique([JobPosting.model_validate(j) for j in ats_raw], "ats_discovery")
         except Exception as exc:
             logger.warning("[orchestrator] ATS discovery failed: %s", exc)

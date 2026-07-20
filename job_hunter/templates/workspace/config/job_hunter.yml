@@ -19,7 +19,6 @@ regions:
     primary: true
     country: "DE"
     scope: "country"
-    search_lang: "en"
     description: "Primary search region"
 
   # Additional regions can be added here. Country-specific sources are

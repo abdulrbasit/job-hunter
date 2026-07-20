@@ -2671,7 +2671,6 @@ async function addRegionRow(key = '', region = {}) {
       <summary>Advanced</summary>
       <div class="region-advanced-grid">
         <div class="settings-field"><label>Config key</label><input type="text" class="region-key" value="${esc(key)}"></div>
-        <div class="settings-field"><label>Search language</label><input type="text" class="region-search-lang" value="${esc(region.search_lang || 'en')}"></div>
         <div class="settings-field"><label>Description</label><input type="text" class="region-description" value="${esc(region.description || '')}"></div>
       </div>
     </details>
@@ -2723,9 +2722,7 @@ function collectGuidedForm() {
       scope,
     };
     if (scope === 'city') entry.city_id = cityInput.dataset.cityId || '';
-    const searchLang = row.querySelector('.region-search-lang').value.trim();
     const description = row.querySelector('.region-description').value.trim();
-    if (searchLang) entry.search_lang = searchLang;
     if (description) entry.description = description;
     regions[key] = entry;
   });
