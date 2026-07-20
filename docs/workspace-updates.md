@@ -1,7 +1,45 @@
 # Workspace Updates
 
 What `job-hunter update` actually does, for anyone debugging an update or
-changing what it touches.
+changing what it touches. See also the in-app one-click update flow below,
+which runs this command as one step of a larger upgrade.
+
+## In-app one-click update (`job_hunter/update/`)
+
+The dashboard checks PyPI for a newer `job-hunter-kit` on launch (cached,
+24h TTL, never blocks startup — `update/versions.py`) and shows an "Update
+now" banner when one exists. Clicking it (`DashAPI.start_self_update`,
+`ux/web/api.py`):
+
+1. Refuses if a hunt is running (shares the existing hunt lock).
+2. Detects the installer (`update/upgrader.py`: `uv tool`, `pipx`, or
+   `pip` — checked in that order via `uv tool list`/`pipx list`; a frozen
+   PyInstaller build (`sys.frozen`) has none of these, so it reports a
+   copyable fallback command instead of attempting an in-app upgrade).
+3. Snapshots the exact files `update_workspace_assets`/`update_skills`/
+   `update_workflows` are about to overwrite (`update/snapshot.py`) into
+   `outputs/state/update_snapshot/` — only the single most recent snapshot
+   is kept, so this undoes the *last* update, not arbitrary history.
+   Restore it with `job-hunter internal rollback-update`.
+4. Spawns `job-hunter internal self-update` **detached** and closes the
+   dashboard window. The upgrade can't happen in-process — Windows locks
+   the running executable, and every OS keeps old code loaded in memory
+   regardless.
+5. That detached process (`update/self_update.py`) runs the upgrade
+   command (retrying a few times — the exiting dashboard process may hold
+   the executable briefly), then runs `job-hunter update --yes` — this is
+   the same command documented below, just invoked automatically — then
+   relaunches `job-hunter dash`.
+6. The result is written to `platform_config_dir()/last_update.json` and
+   surfaced once as a toast on the next dashboard launch
+   (`get_last_update_result`, consumed on read).
+
+All of this state — the version-check cache, the last-update result — lives
+in `launcher.platform_config_dir()` (`%APPDATA%`/`~/Library/Application
+Support`/`$XDG_CONFIG_HOME`), not the workspace. Snapshots live under
+`outputs/state/`, which is already user-owned/regenerable per
+[DATA_CONTRACT.md](../DATA_CONTRACT.md). No new user-editable config file or
+schema change — `config/job_hunter.yml` stays the only one.
 
 ## The steps (`cli/commands/update.py::update`)
 

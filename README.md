@@ -13,15 +13,24 @@ Works interactively inside Claude Code or Codex (VS Code extensions), or runs fu
 
 ## Install
 
-Requires [Python 3.12 or 3.13](https://www.python.org/downloads/). See the
-complete beginner-friendly [SETUP.md](job_hunter/templates/workspace/SETUP.md)
-for installation, PATH troubleshooting, API-key links, and agent permissions.
+**Windows/macOS, no terminal:** download the installer from the
+[latest release](https://github.com/abdulrbasit/job-hunter/releases/latest),
+run it, and the dashboard opens. Unsigned — Windows SmartScreen and macOS
+Gatekeeper require an extra click through on first run (see
+[SETUP.md](job_hunter/templates/workspace/SETUP.md)).
+
+**Any OS, via terminal** — requires [Python 3.12 or 3.13](https://www.python.org/downloads/):
 
 ```bash
 uv tool install job-hunter-kit
 ```
 
-Standard install supports both agent and `llm-api` modes.
+Standard install supports both agent and `llm-api` modes. See the complete
+beginner-friendly [SETUP.md](job_hunter/templates/workspace/SETUP.md) for
+PATH troubleshooting, API-key links, and agent permissions.
+
+Once installed, updates are one click in the dashboard (`job-hunter dash` →
+"Update now") — no terminal needed for either install path.
 
 ## Quick Start
 

@@ -187,6 +187,9 @@ ignore = ["E501", "S101"]
 # Other subprocess calls in this file use inline noqa; this one is file-level because ruff
 # anchors the diagnostic to the multi-line argv list, not the subprocess.Popen(...) line.
 "job_hunter/ux/web/api.py" = ["S607"]
+# S603/S607: shortcut.py intentionally shells out to `powershell` by literal argv to
+# create a Start Menu shortcut.
+"job_hunter/shortcut.py" = ["S603", "S607"]
 # C901 ignores below: verified against `ruff check --select C901` with the ignore removed (Phase 3,
 # 2026-07-01) — every remaining entry still fires without it. Re-verify before trusting this list stale;
 # it drifts as functions are refactored. Phase 0 backlog tracks decomposing these, not silencing them.

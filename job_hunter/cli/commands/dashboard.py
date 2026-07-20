@@ -11,11 +11,18 @@ from job_hunter.cli.options import JSON_OPTION, WORKSPACE_OPTION
 
 
 @app.command()
-def dash() -> None:
+def dash(
+    no_shortcut: bool = typer.Option(False, "--no-shortcut", help="Skip creating a desktop shortcut"),
+) -> None:
     """Open the native web dashboard."""
     from job_hunter.config.loader import ROOT
+    from job_hunter.shortcut import ensure_desktop_shortcut, record_opt_out
     from job_hunter.ux.web import launch
 
+    if no_shortcut:
+        record_opt_out()
+    else:
+        ensure_desktop_shortcut()
     launch(ROOT)
 
 
