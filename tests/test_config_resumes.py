@@ -120,6 +120,23 @@ def test_profile_path_resolves_base_entry_under_map_form(monkeypatch) -> None:
     assert profile_path("story_bank", "profile/story_bank.md").name == "story_bank.md"
 
 
+def test_profile_path_never_resolves_an_unset_empty_default_to_root(monkeypatch) -> None:
+    """Regression: profile_path("profile_image", "") with no configured image used to
+    resolve to ROOT itself (Path("") joined onto ROOT collapses to ROOT), so callers
+    doing `if path.exists(): shutil.copy2(path, ...)` tried to copy the workspace root
+    directory and crashed with PermissionError/IsADirectoryError."""
+    import job_hunter.config.loader as loader
+    from job_hunter.config.paths import ROOT, profile_path
+
+    monkeypatch.setattr(loader, "get_job_hunter_config", lambda: {"profile": {"resume_tex": "resume.tex"}})
+
+    path = profile_path("profile_image", "")
+
+    assert path.name == ""
+    assert path != ROOT
+    assert not path.is_file()
+
+
 def test_resume_tex_rel_resolves_base_entry(tmp_path: Path) -> None:
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "job_hunter.yml").write_text(yaml.safe_dump(_valid_config(_MAP_PROFILE)), encoding="utf-8")

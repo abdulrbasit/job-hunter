@@ -36,7 +36,13 @@ def profile_path(key: str, default: str) -> Path:
 
     Resume-related keys resolve through the base entry of profile.resumes when the
     map form is configured, so every existing caller keeps getting the base-language
-    resume without knowing about multi-language config."""
+    resume without knowing about multi-language config.
+
+    An unset optional key with an empty default (e.g. profile_image) returns Path("")
+    unjoined — never `ROOT / Path("")`, which collapses to ROOT itself (Path("") is
+    ".") and would make an unconfigured optional asset look like an existing file/dir
+    to callers checking `.exists()`. Path("").name is reliably empty either way, so
+    callers can check `.name` to tell "unset" from "configured"."""
     from job_hunter.config.loader import get_job_hunter_config
     from job_hunter.config.resumes import SPEC_KEYS, base_resume_spec
 
@@ -45,5 +51,7 @@ def profile_path(key: str, default: str) -> Path:
         value = base_resume_spec(profile).get(key) or default
     else:
         value = profile.get(key, default)
+    if not value:
+        return Path(value)
     path = Path(value)
     return path if path.is_absolute() else ROOT / path

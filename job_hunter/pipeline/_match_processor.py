@@ -31,7 +31,9 @@ def copy_latex_assets(job_dir: Path, profile_path: Callable[[str, str], Path]) -
         profile_path("latex_class", "altacv.cls"),
         profile_path("profile_image", ""),
     ):
-        if src.exists():
+        # is_file(), not exists(): an unconfigured optional asset must never be mistaken
+        # for the workspace root (or any other directory) and passed to shutil.copy2.
+        if src.is_file():
             shutil.copy2(src, job_dir / src.name)
 
 

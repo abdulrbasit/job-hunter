@@ -109,6 +109,42 @@ def test_copy_latex_assets_places_dependencies_in_job_dir(tmp_path) -> None:
     assert (job_dir / "altacv.cls").read_text(encoding="utf-8") == "class"
 
 
+def test_copy_latex_assets_skips_unconfigured_profile_image_without_crashing(tmp_path, monkeypatch) -> None:
+    """Regression: an unconfigured profile_image used to resolve to ROOT itself, and
+    shutil.copy2 on a directory crashed with PermissionError/IsADirectoryError."""
+    import job_hunter.config.loader as loader
+    from job_hunter.pipeline import _match_processor
+
+    job_dir = tmp_path / "jobs" / "example"
+    job_dir.mkdir(parents=True)
+    cls = tmp_path / "altacv.cls"
+    cls.write_text("class", encoding="utf-8")
+    monkeypatch.setattr(loader, "get_job_hunter_config", lambda: {"profile": {"latex_class": str(cls)}})
+    monkeypatch.setattr("job_hunter.config.paths.ROOT", tmp_path)
+
+    _match_processor.copy_latex_assets(job_dir, processing.profile_path)
+
+    assert (job_dir / "altacv.cls").read_text(encoding="utf-8") == "class"
+    assert list(job_dir.iterdir()) == [job_dir / "altacv.cls"]  # no directory copied
+
+
+def test_make_generated_tex_self_contained_leaves_photo_ref_untouched_without_configured_image(
+    tmp_path, monkeypatch
+) -> None:
+    """Regression: an unconfigured profile_image's Path.name used to be the workspace
+    root's directory name (always truthy), so the photoR rewrite fired unconditionally
+    with a bogus stem even though no image was ever configured."""
+    import job_hunter.config.loader as loader
+
+    monkeypatch.setattr(loader, "get_job_hunter_config", lambda: {"profile": {}})
+    monkeypatch.setattr("job_hunter.config.paths.ROOT", tmp_path)
+    tex = r"\documentclass{altacv}\photoR{2.8cm}{../../SomePhoto}\begin{document}\end{document}"
+
+    portable = processing._make_generated_tex_self_contained(tex)
+
+    assert r"\photoR{2.8cm}{../../SomePhoto}" in portable  # untouched — nothing configured
+
+
 def test_update_readme_includes_location_and_migrates_existing_rows(tmp_path) -> None:
     readme = tmp_path / "README.md"
     readme.write_text(
