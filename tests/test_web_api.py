@@ -2181,6 +2181,25 @@ def test_pick_profile_image_no_window_returns_not_ok(tmp_path: Path, monkeypatch
     assert result["ok"] is False
 
 
+def test_get_model_catalog_returns_curated_ids_per_hosted_provider(tmp_path: Path) -> None:
+    from job_hunter.llm.model_catalog import MODEL_CATALOG
+
+    result = DashAPI(tmp_path).get_model_catalog()
+
+    assert result["ok"] is True
+    assert result["data"]["catalog"] == MODEL_CATALOG
+    assert "ollama" not in result["data"]["catalog"]
+
+
+def test_dashboard_exposes_per_role_model_dropdown() -> None:
+    html = _dashboard_source()
+
+    assert 'id="cfg-model-rows"' in html
+    assert "renderModelRows" in html
+    assert "collectModelValues" in html
+    assert "get_model_catalog" in html
+
+
 def test_dashboard_exposes_profile_image_picker_not_raw_text_input() -> None:
     html = _dashboard_source()
 

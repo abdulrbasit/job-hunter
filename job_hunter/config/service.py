@@ -256,12 +256,23 @@ def save_job_hunter_config(root: Path, raw_yaml_text: str, expected_revision: st
 _FORM_OPTIONAL_PROFILE_KEYS = ("latex_class", "profile_image")
 
 
+MODEL_ROLES: tuple[str, ...] = (
+    "validation",
+    "scoring",
+    "tailoring",
+    "cover_letter",
+    "research",
+    "jd_extraction",
+)
+
+
 def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
     """Project the guided-editable subset of job_hunter.yml into a plain JSON-safe dict.
 
     Covers every top-level key the schema allows (mode/profile/job_titles/regions/
-    filters/scoring) except llm, where only default_provider is guided-editable —
-    providers/models/max_tokens/max_workers/rate_limits/ollama are advanced-only.
+    filters/scoring) except llm, where default_provider and per-role models are
+    guided-editable — providers/max_tokens/max_workers/rate_limits/ollama are
+    advanced-only.
     """
     profile = data.get("profile") or {}
     from job_hunter.config.resumes import normalized_resumes
@@ -293,6 +304,7 @@ def config_to_form(data: dict[str, Any]) -> dict[str, Any]:
             "batch_size": scoring.get("batch_size", 15),
         },
         "llm_default_provider": llm.get("default_provider", "anthropic"),
+        "llm_models": {role: (llm.get("models") or {}).get(role, "") for role in MODEL_ROLES},
     }
 
 
@@ -383,6 +395,19 @@ def apply_form_to_config(data: dict[str, Any], form: dict[str, Any]) -> dict[str
     llm = dict(merged.get("llm") or {})
     if form.get("llm_default_provider"):
         llm["default_provider"] = form["llm_default_provider"]
+    models = dict(llm.get("models") or {})
+    for role, value in (form.get("llm_models") or {}).items():
+        if role not in MODEL_ROLES:
+            continue
+        value = str(value or "").strip()
+        if value:
+            models[role] = value
+        else:
+            models.pop(role, None)
+    if models:
+        llm["models"] = models
+    else:
+        llm.pop("models", None)
     merged["llm"] = llm
 
     return merged

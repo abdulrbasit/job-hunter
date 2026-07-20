@@ -35,6 +35,15 @@ let loadingCareerContext = false;
 let regionRowSeq = 0;
 let locationCountries = [];
 let filterOptions = null;
+let modelCatalog = null;
+const MODEL_ROLES = [
+  ['validation', 'Validation'],
+  ['scoring', 'Scoring'],
+  ['tailoring', 'Tailoring'],
+  ['cover_letter', 'Cover Letter'],
+  ['research', 'Research'],
+  ['jd_extraction', 'JD Extraction'],
+];
 let resumeCoverage = { languages: [], baseLang: 'en' }; // profile.resume_languages / resume_base_lang
 let cfgProfileImagePath = '';
 let companiesLoaded = false;
@@ -762,8 +771,10 @@ document.getElementById('catalog-city-filter').addEventListener('change', () => 
   document.getElementById(id).addEventListener('change', () => { catalogPage = 1; loadCatalogPage(); });
 });
 
-['cfg-mode', 'cfg-llm-provider'].forEach(id => {
-  document.getElementById(id).addEventListener('change', markConfigDirty);
+document.getElementById('cfg-mode').addEventListener('change', markConfigDirty);
+document.getElementById('cfg-llm-provider').addEventListener('change', () => {
+  renderModelRows(collectModelValues());
+  markConfigDirty();
 });
 [
   'cfg-resume-tex', 'cfg-story-bank', 'cfg-career-context-path', 'cfg-latex-class',
@@ -2523,6 +2534,11 @@ async function renderGuidedForm(form) {
   document.getElementById('cfg-max-years').value = form.scoring.max_years_experience_required ?? '';
   document.getElementById('cfg-batch-size').value = form.scoring.batch_size ?? 15;
   document.getElementById('cfg-llm-provider').value = form.llm_default_provider || 'anthropic';
+  if (!modelCatalog) {
+    const payload = await window.pywebview.api.get_model_catalog();
+    modelCatalog = payload.data.catalog;
+  }
+  renderModelRows(form.llm_models || {});
 
   document.getElementById('cfg-regions-rows').innerHTML = '';
   if (!locationCountries.length) {
@@ -2560,6 +2576,34 @@ function languageCoverageLabel(code) {
   }
   const baseName = (filterOptions.languages || []).find(l => l.code === resumeCoverage.baseLang)?.name || resumeCoverage.baseLang;
   return `${name} jobs will be translated from your ${baseName} base`;
+}
+
+function renderModelRows(currentValues) {
+  const container = document.getElementById('cfg-model-rows');
+  const provider = document.getElementById('cfg-llm-provider').value;
+  const catalogModels = (modelCatalog && modelCatalog[provider]) || null;
+  container.innerHTML = MODEL_ROLES.map(([role, label]) => {
+    const value = (currentValues && currentValues[role]) || '';
+    const field = catalogModels
+      ? `<select class="cfg-model-select" data-role="${role}">
+          <option value="">(default)</option>
+          ${catalogModels.map(id => `<option value="${esc(id)}" ${value === id ? 'selected' : ''}>${esc(id)}</option>`).join('')}
+        </select>`
+      : `<input type="text" class="cfg-model-select" data-role="${role}" value="${esc(value)}" placeholder="(default)">`;
+    return `<div class="settings-field"><label>${esc(label)}</label>${field}</div>`;
+  }).join('');
+  container.querySelectorAll('.cfg-model-select').forEach(el => {
+    el.addEventListener('change', markConfigDirty);
+    if (el.tagName === 'INPUT') el.addEventListener('input', markConfigDirty);
+  });
+}
+
+function collectModelValues() {
+  const values = {};
+  document.querySelectorAll('#cfg-model-rows .cfg-model-select').forEach(el => {
+    values[el.dataset.role] = el.value.trim();
+  });
+  return values;
 }
 
 function renderFilterGroups(filters) {
@@ -2766,6 +2810,7 @@ function collectGuidedForm() {
       batch_size: Number(document.getElementById('cfg-batch-size').value || 1),
     },
     llm_default_provider: document.getElementById('cfg-llm-provider').value,
+    llm_models: collectModelValues(),
   };
 }
 

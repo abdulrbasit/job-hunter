@@ -204,6 +204,15 @@ step (`job-hunter internal write-research`) — if no provider key is
 configured, that one step is skipped and the rest of the batch continues.
 `default_provider` is still required by the schema even in agent mode.
 
+Settings' guided form exposes a per-role model dropdown for six roles
+(`validation`, `scoring`, `tailoring`, `cover_letter`, `research`,
+`jd_extraction` — `linkedin` stays Advanced-only) populated from a small
+code-owned catalog (`job_hunter/llm/model_catalog.py`, two tiers per hosted
+provider) that follows `default_provider`; leaving a role blank uses the
+package default. Ollama has no fixed catalog (self-hosted, unbounded model
+names), so its model fields render as free text. `providers`, `max_tokens`,
+`max_workers`, `rate_limits`, and `ollama.base_url` remain Advanced-YAML-only.
+
 ## Removed keys
 
 Loading a workspace that still has one of these raises immediately with

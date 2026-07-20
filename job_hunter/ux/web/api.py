@@ -1257,6 +1257,11 @@ class DashAPI:
 
         return {"ok": True, **filter_options()}
 
+    def get_model_catalog(self) -> dict[str, Any]:
+        from job_hunter.llm.model_catalog import MODEL_CATALOG
+
+        return {"ok": True, "data": {"catalog": MODEL_CATALOG}}
+
     def get_location_cities(
         self, country: str, query: str = "", selected_id: str = "", limit: int = 250
     ) -> dict[str, Any]:
