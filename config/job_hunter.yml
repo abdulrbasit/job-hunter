@@ -8,7 +8,6 @@ profile:
   resume_tex: "profile/resume_double_column.tex"
   story_bank: "profile/story_bank.md"
   career_context: "profile/career_context.md"
-  latex_class: "profile/altacv.cls"
   profile_image: "profile/profile.png"
 
 job_titles:
@@ -20,33 +19,33 @@ regions:
     enabled: true
     primary: true
     country: "DE"
-    search_lang: "en"
-    location: "Your City"
-    description: "Primary search region"
+    scope: country
+    search_lang: "en" # Is this needed if hunt langugage is already there? Also if I set hunt language to en and german, what happens if I am applying to jobs in Berlin? Does it automatically apply if jd is german? What happens when I have english countries like UK in my search region too?
+    description: "Primary search region" # Not really needed.
 
   # Additional regions can be added here. Country-specific sources are
   # automatically skipped when their country is not enabled.
   # singapore:
   #   enabled: false
   #   country: "SG"
-  #   location: "Singapore"
+  #   scope: city
+  #   city_id: "<canonical city id — set via Settings > Regions, or job-hunter internal region-lookup --city 'Singapore'>"
 
 filters:
   hunt_languages: [en]
   experience_levels: [associate, mid, senior]
   excluded_titles:
-    [intern, internship, trainee, "working student", werkstudent, junior, principal, expert, "chief product"]
+    [intern, internship, trainee, "working student", werkstudent, junior, principal, expert, "chief product"] #Why is this needed if experience levels are alreay defined? Code can auto filter based on experience levels. 
   excluded_companies: []
   excluded_industries: []
 
 scoring:
   min_fit_score: 70
-  max_years_experience_required: 5
   # Shared run batch size. Agent mode freezes this many candidates per batch;
   # LLM API mode tailors this many top-scored matches per run. Request
   # concurrency is controlled separately by llm.max_workers.
   batch_size: 15
-  strategic_overrides: []
+  strategic_overrides: [] # Just remove this 
   # Example:
   # - company: "Dream Company"
   #   min_score_override: 60
@@ -54,12 +53,12 @@ scoring:
   #   reason: "Strategic target"
 
 companies:
-  include_startups: false
+  include_startups: false #Always include startups and no need for configuration. 
 
 llm:
   default_provider: anthropic
   providers:
-    validation: anthropic
+    validation: anthropic 
     scoring: anthropic
     tailoring: anthropic
     cover_letter: anthropic
@@ -79,5 +78,9 @@ llm:
     cover_letter: 800
     research: 800
     jd_extraction: 1500
+  # LLM API call concurrency only (llm-api mode). Job-board scraping concurrency is
+  # separately code-owned and not configurable here.
   max_workers: 5
+  # LLM API call throttling only (llm-api mode). Job-search sources have no
+  # rate-limit config — none of them read this key.
   rate_limits: {}
