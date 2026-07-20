@@ -618,6 +618,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     jd_text         = COALESCE(NULLIF(?, ''), jd_text),
                     resume_pdf_path = COALESCE(NULLIF(?, ''), resume_pdf_path),
                     resume_tex_path = COALESCE(NULLIF(?, ''), resume_tex_path),
+                    output_language = COALESCE(NULLIF(?, ''), output_language),
                     notes           = ?,
                     processed_at    = COALESCE(processed_at, ?),
                     updated_at      = ?
@@ -639,6 +640,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                     str(entry.get("jd_text") or ""),
                     str(entry.get("resume_pdf_path") or ""),
                     str(entry.get("resume_tex_path") or ""),
+                    str(entry.get("output_language") or ""),
                     notes,
                     now,
                     now,
@@ -655,9 +657,9 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                 url, canonical_url, slug, status,
                 title, company, location, region, posting_type, company_type, funding_stage, experience_unknown,
                 score, decision, job_description_fetch_status, jd_text,
-                resume_pdf_path, resume_tex_path,
+                resume_pdf_path, resume_tex_path, output_language,
                 notes, discovered_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 url,
                 canonical,
@@ -677,6 +679,7 @@ def upsert_job(root: Path, entry: dict[str, Any]) -> dict[str, Any]:
                 str(entry.get("jd_text") or ""),
                 str(entry.get("resume_pdf_path") or ""),
                 str(entry.get("resume_tex_path") or ""),
+                str(entry.get("output_language") or ""),
                 json.dumps(list(entry.get("notes") or [])),
                 entry.get("discovered_at") or now,
                 entry.get("created_at") or now,
@@ -1163,13 +1166,19 @@ def sync_from_job_folders(root: Path) -> int:
         jd_path = job_dir / "jd.md"
         if jd_path.exists():
             entry["jd_text"] = jd_path.read_text(encoding="utf-8")
-        # Read file paths
-        for pdf in (job_dir / "resume_tailored.pdf",):
-            if pdf.exists():
-                entry["resume_pdf_path"] = f"outputs/jobs/{slug}/{pdf.name}"
-        for tex in (job_dir / "resume_tailored.tex",):
-            if tex.exists():
-                entry["resume_tex_path"] = f"outputs/jobs/{slug}/{tex.name}"
+        # Read file paths — suffixed name first (resume_tailored.de.tex), legacy fallback
+        from job_hunter.core.utils import find_job_artifact
+
+        pdf = find_job_artifact(job_dir, "resume_tailored", "pdf")
+        if pdf is not None:
+            entry["resume_pdf_path"] = f"outputs/jobs/{slug}/{pdf.name}"
+        tex = find_job_artifact(job_dir, "resume_tailored", "tex")
+        if tex is not None:
+            entry["resume_tex_path"] = f"outputs/jobs/{slug}/{tex.name}"
+            suffixes = tex.suffixes
+            entry["output_language"] = str(meta.get("output_language") or "") or (
+                suffixes[0].lstrip(".") if len(suffixes) > 1 else ""
+            )
         upsert_job(root, entry)
         synced += 1
     return synced

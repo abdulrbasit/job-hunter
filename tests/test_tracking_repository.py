@@ -329,3 +329,41 @@ def test_get_jobs_page_filters_by_country_and_since(tmp_path: Path) -> None:
     assert total_since == 2
     _rows, total_future = repository.get_jobs_page(tmp_path, statuses=("candidate",), since="2999-01-01")
     assert total_future == 0
+
+
+def test_sync_from_job_folders_picks_up_language_suffixed_artifacts(tmp_path: Path) -> None:
+    import json
+
+    job_dir = tmp_path / "outputs" / "jobs" / "2026-06-12_de_co_pm"
+    job_dir.mkdir(parents=True)
+    (job_dir / "meta.json").write_text(
+        json.dumps({"url": "https://example.com/de-job", "title": "PM", "company": "DeCo"}), encoding="utf-8"
+    )
+    (job_dir / "resume_tailored.de.tex").write_text("tex", encoding="utf-8")
+    (job_dir / "resume_tailored.de.pdf").write_bytes(b"pdf")
+
+    synced = repository.sync_from_job_folders(tmp_path)
+
+    assert synced == 1
+    record = repository.get_job_by_url(tmp_path, "https://example.com/de-job")
+    assert record["resume_tex_path"] == "outputs/jobs/2026-06-12_de_co_pm/resume_tailored.de.tex"
+    assert record["resume_pdf_path"] == "outputs/jobs/2026-06-12_de_co_pm/resume_tailored.de.pdf"
+    assert record["output_language"] == "de"
+
+
+def test_insert_jobs_language_migration_on_preexisting_db(tmp_path: Path) -> None:
+    """A jobs.db created before the language/output_language columns existed must still
+    open and accept inserts — the additive-column migration runs on every connection."""
+    repository.insert_jobs(tmp_path, [{"url": "https://example.com/pre-migration", "title": "PM", "company": "X"}])
+    db_path = repository.db_path(tmp_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("ALTER TABLE jobs DROP COLUMN language")
+        conn.execute("ALTER TABLE jobs DROP COLUMN output_language")
+        conn.commit()
+
+    repository.insert_jobs(
+        tmp_path, [{"url": "https://example.com/post-migration", "title": "PM2", "company": "Y", "language": "de"}]
+    )
+
+    record = repository.get_job_by_url(tmp_path, "https://example.com/post-migration")
+    assert record["language"] == "de"

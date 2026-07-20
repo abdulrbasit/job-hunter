@@ -2832,3 +2832,27 @@ def test_company_hunt_has_needs_review_tab_progress_strip_and_grow_button() -> N
     assert "resolve_review_company" in html
     assert "grow_catalog" in html
     assert "get_seed_progress" in html
+
+
+def test_get_artifact_resolves_language_suffixed_resume_and_cover_letter(tmp_path: Path) -> None:
+    job_dir = _write_job(tmp_path)
+    (job_dir / "resume_tailored.de.pdf").write_bytes(b"%PDF-de")
+    (job_dir / "cover_letter.de.md").write_text("Sehr geehrte...", encoding="utf-8")
+    api = DashAPI(tmp_path)
+
+    resume = api.get_artifact("2026-06-12_acme_pm", "resume")
+    cover = api.get_artifact("2026-06-12_acme_pm", "cover_letter")
+    artifacts = {a["key"]: a for a in api.get_job_detail("2026-06-12_acme_pm")["artifacts"]}
+
+    assert resume["filename"] == "resume_tailored.de.pdf"
+    assert base64.b64decode(resume["content"]) == b"%PDF-de"
+    assert cover["filename"] == "cover_letter.de.md"
+    assert artifacts["resume"] == {
+        "key": "resume",
+        "label": "Resume PDF",
+        "filename": "resume_tailored.de.pdf",
+        "kind": "pdf",
+        "available": True,
+    }
+    assert artifacts["cover_letter"]["available"] is True
+    assert artifacts["evaluation"]["available"] is False  # unaffected fixed-name artifact

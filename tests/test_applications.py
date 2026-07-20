@@ -159,6 +159,19 @@ def test_verify_repository_validates_applications_and_processed_state(tmp_path: 
     assert payload["errors"] == []
 
 
+def test_verify_repository_accepts_language_suffixed_tailored_resume(tmp_path: Path) -> None:
+    job_dir = _write_job(tmp_path, slug="2026-06-12_de_pm")
+    job_dir.joinpath("resume_tailored.tex").unlink()
+    job_dir.joinpath("resume_tailored.de.tex").write_text("\\documentclass{altacv}\n", encoding="utf-8")
+    job_dir.joinpath("resume_tailored.de.pdf").write_bytes(b"%PDF")
+    upsert_application_from_job("2026-06-12_de_pm", root=tmp_path)
+
+    payload = verify_repository(tmp_path)
+
+    assert not any("resume_tailored" in e for e in payload["errors"])
+    assert not any("resume_tailored" in w for w in payload["warnings"])
+
+
 def _set_job_url(root: Path, slug: str, url: str) -> None:
     meta_path = root / "outputs" / "jobs" / slug / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -235,3 +248,47 @@ def test_delete_application_single_delegates_to_batch(tmp_path: Path) -> None:
 
     assert get_job_by_slug(tmp_path, "2026-06-12_acme_pm") is None
     assert not (tmp_path / "outputs" / "jobs" / "2026-06-12_acme_pm").exists()
+
+
+def test_application_from_job_output_language_from_meta(tmp_path: Path) -> None:
+    job_dir = _write_job(tmp_path, slug="2026-06-12_de_pm")
+    (job_dir / "resume_tailored.tex").unlink()
+    (job_dir / "resume_tailored.de.tex").write_text("\\documentclass{altacv}\n", encoding="utf-8")
+    meta = json.loads((job_dir / "meta.json").read_text(encoding="utf-8"))
+    meta["output_language"] = "de"
+    (job_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    entry = application_from_job("2026-06-12_de_pm", root=tmp_path)
+
+    assert entry["output_language"] == "de"
+    assert entry["resume_tex_path"] == "outputs/jobs/2026-06-12_de_pm/resume_tailored.de.tex"
+
+
+def test_application_from_job_output_language_falls_back_to_artifact_suffix(tmp_path: Path) -> None:
+    job_dir = _write_job(tmp_path, slug="2026-06-12_de_pm2")
+    (job_dir / "resume_tailored.tex").unlink()
+    (job_dir / "resume_tailored.de.tex").write_text("\\documentclass{altacv}\n", encoding="utf-8")
+
+    entry = application_from_job("2026-06-12_de_pm2", root=tmp_path)
+
+    assert entry["output_language"] == "de"
+
+
+def test_application_from_job_legacy_unsuffixed_folder_has_empty_output_language(tmp_path: Path) -> None:
+    _write_job(tmp_path)
+
+    entry = application_from_job("2026-06-12_acme_pm", root=tmp_path)
+
+    assert entry["output_language"] == ""
+    assert entry["resume_tex_path"] == "outputs/jobs/2026-06-12_acme_pm/resume_tailored.tex"
+
+
+def test_upsert_application_persists_output_language(tmp_path: Path) -> None:
+    job_dir = _write_job(tmp_path, slug="2026-06-12_de_pm3")
+    (job_dir / "resume_tailored.tex").unlink()
+    (job_dir / "resume_tailored.de.tex").write_text("\\documentclass{altacv}\n", encoding="utf-8")
+
+    upsert_application_from_job("2026-06-12_de_pm3", root=tmp_path)
+    record = get_job_by_slug(tmp_path, "2026-06-12_de_pm3")
+
+    assert record["output_language"] == "de"

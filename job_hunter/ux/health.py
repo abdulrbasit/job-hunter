@@ -12,7 +12,7 @@ from typing import Any
 import yaml
 
 from job_hunter.agent_context import validate_score_file
-from job_hunter.core.utils import read_yaml
+from job_hunter.core.utils import find_job_artifact, read_yaml
 from job_hunter.sources.career_pages._rendering import is_chromium_installed
 from job_hunter.sources.search import canonicalize_url
 from job_hunter.tracking.applications import CANONICAL_STATUSES, load_applications
@@ -591,9 +591,9 @@ def verify_repository(root: Path) -> dict[str, Any]:
             warnings.append(f"outputs/jobs/{slug}/score.yml missing")
         if not (job_dir / "evaluation.md").exists():
             warnings.append(f"outputs/jobs/{slug}/evaluation.md missing")
-        if status == "tailored" and not (job_dir / "resume_tailored.tex").exists():
+        if status == "tailored" and find_job_artifact(job_dir, "resume_tailored", "tex") is None:
             errors.append(f"outputs/jobs/{slug}/resume_tailored.tex missing")
-        elif status == "tailored" and not (job_dir / "resume_tailored.pdf").exists():
+        elif status == "tailored" and find_job_artifact(job_dir, "resume_tailored", "pdf") is None:
             warnings.append(f"outputs/jobs/{slug}/resume_tailored.pdf missing")
 
     errors.extend(_readme_link_errors(root))

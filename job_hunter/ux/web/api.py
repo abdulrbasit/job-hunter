@@ -22,6 +22,9 @@ ARTIFACTS = (
     ("interview", "Interview Prep", "interview_prep.md", "text"),
 )
 _ARTIFACT_MAP = {key: (filename, kind) for key, _label, filename, kind in ARTIFACTS}
+# resume/cover_letter carry a language suffix (resume_tailored.de.pdf); every other
+# artifact keeps a fixed name. (stem, ext) drives the suffixed lookup for those two.
+_LANGUAGE_SUFFIXED_STEMS = {"resume": ("resume_tailored", "pdf"), "cover_letter": ("cover_letter", "md")}
 
 
 def _open_path(path: Path) -> None:
@@ -670,18 +673,33 @@ class DashAPI:
             return None
         return job_dir
 
+    def _resolved_artifact_path(self, job_dir: Path, key: str, filename: str) -> Path:
+        """resume/cover_letter resolve through the language-suffixed name when present
+        (else the plain filename, so a not-yet-tailored job still reports "not
+        available" rather than "invalid request"); every other artifact is fixed."""
+        suffixed = _LANGUAGE_SUFFIXED_STEMS.get(key)
+        if suffixed is None:
+            return job_dir / filename
+        from job_hunter.core.utils import find_job_artifact
+
+        stem, ext = suffixed
+        return find_job_artifact(job_dir, stem, ext) or job_dir / filename
+
     def _artifacts(self, slug: str) -> list[dict[str, Any]]:
         job_dir = self._job_dir(slug)
-        return [
-            {
-                "key": key,
-                "label": label,
-                "filename": filename,
-                "kind": kind,
-                "available": bool(job_dir and (job_dir / filename).is_file()),
-            }
-            for key, label, filename, kind in ARTIFACTS
-        ]
+        result = []
+        for key, label, filename, kind in ARTIFACTS:
+            resolved = self._resolved_artifact_path(job_dir, key, filename) if job_dir else None
+            result.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "filename": resolved.name if resolved is not None else filename,
+                    "kind": kind,
+                    "available": bool(resolved and resolved.is_file()),
+                }
+            )
+        return result
 
     def get_job_detail(self, slug: str) -> dict[str, Any]:
         from job_hunter.tracking.repository import get_job_by_slug
@@ -746,7 +764,7 @@ class DashAPI:
         artifact = _ARTIFACT_MAP.get(key)
         if job_dir is None or artifact is None:
             return None
-        path = (job_dir / artifact[0]).resolve()
+        path = self._resolved_artifact_path(job_dir, key, artifact[0]).resolve()
         return path if path.parent == job_dir else None
 
     def get_artifact(self, slug: str, key: str) -> dict[str, Any]:
@@ -755,7 +773,8 @@ class DashAPI:
             return {"ok": False, "error": "Invalid artifact request."}
         if not path.is_file():
             return {"ok": False, "error": "Artifact not available."}
-        filename, kind = _ARTIFACT_MAP[key]
+        _default_filename, kind = _ARTIFACT_MAP[key]
+        filename = path.name
         try:
             content = (
                 base64.b64encode(path.read_bytes()).decode("ascii")

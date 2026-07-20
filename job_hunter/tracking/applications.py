@@ -84,11 +84,11 @@ def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _first_existing(job_dir: Path, names: tuple[str, ...]) -> str:
-    for name in names:
-        if (job_dir / name).exists():
-            return f"outputs/jobs/{job_dir.name}/{name}"
-    return ""
+def _artifact_rel(job_dir: Path, stem: str, ext: str) -> str:
+    from job_hunter.core.utils import find_job_artifact
+
+    found = find_job_artifact(job_dir, stem, ext)
+    return f"outputs/jobs/{job_dir.name}/{found.name}" if found is not None else ""
 
 
 def application_from_job(
@@ -106,6 +106,13 @@ def application_from_job(
     jd_path = job_dir / "jd.md"
     jd_text = jd_path.read_text(encoding="utf-8") if jd_path.exists() else ""
     now = utc_now()
+    tex_rel = _artifact_rel(job_dir, "resume_tailored", "tex")
+    # output_language: prefer meta.json's recorded value, else the artifact's own suffix
+    # (resume_tailored.de.tex) — covers agent mode, where meta.json never gets it directly.
+    output_language = str(meta.get("output_language") or "")
+    if not output_language and tex_rel:
+        parts = Path(tex_rel).suffixes
+        output_language = parts[0].lstrip(".") if len(parts) > 1 else ""
     return {
         "slug": slug,
         "date": meta.get("date") or date.today().isoformat(),
@@ -119,8 +126,9 @@ def application_from_job(
         "decision": score.get("decision") or score.get("status") or "",
         "job_description_fetch_status": meta.get("job_description_fetch_status") or "",
         "jd_text": jd_text,
-        "resume_pdf_path": _first_existing(job_dir, ("resume_tailored.pdf",)),
-        "resume_tex_path": _first_existing(job_dir, ("resume_tailored.tex",)),
+        "resume_pdf_path": _artifact_rel(job_dir, "resume_tailored", "pdf"),
+        "resume_tex_path": tex_rel,
+        "output_language": output_language,
         "notes": [note] if note else [],
         "created_at": now,
         "updated_at": now,
